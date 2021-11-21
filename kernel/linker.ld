@@ -1,4 +1,5 @@
 ENTRY(kmain)
+
 offset = 0xffffffff80000000;
 
 SECTIONS
