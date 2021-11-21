@@ -29,6 +29,5 @@ $(ISO_IMAGE): limine kernel/hanos.elf
 
 clean:
 	rm -f $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log
-	rm -r -f kernel/boot
 	$(MAKE) -C kernel clean
 

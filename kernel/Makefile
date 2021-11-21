@@ -1,28 +1,30 @@
 KERNEL := hanos.elf
-BOOT_DIR := boot
+BOOT_DIR := 3rd-party/boot
 
 CC = x86_64-elf-gcc
 LD = $(CC)
 AS = $(CC)
 NASM = nasm
 
-CFLAGS = -Wall -Wextra -O2 -pipe
+CFLAGS = -O2
+ASFLAGS = -I . -flto
 
 INTERNALLDFLAGS := \
-	-fno-pic -fpie \
-	-Wl,-static,-pie,--no-dynamic-linker,-ztext \
-	-static-pie    \
+	-flto \
+	-Wno-lto-type-mismatch \
+	-no-pie    \
 	-nostdlib      \
 	-Tlinker.ld    \
-	-z max-page-size=0x1000 \
+	-z max-page-size=0x2000 \
 	-I .
 
 INTERNALCFLAGS  :=       \
-	-I.                  \
-	-std=gnu11           \
+	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
+	-std=gnu2x           \
 	-ffreestanding       \
-	-fno-stack-protector \
-	-fno-pic -fpie       \
+	-flto                \
+	-fno-pic             \
+    -fno-omit-frame-pointer \
 	-mno-80387           \
 	-mno-mmx             \
 	-mno-3dnow           \
@@ -31,21 +33,27 @@ INTERNALCFLAGS  :=       \
 	-mno-red-zone
 
 CFILES := $(shell find ./ -type f -name '*.c')
-OBJ    := $(CFILES:.c=.o)
+COBJ   := $(CFILES:.c=.o)
+
+ASMFILES := $(shell find ./ -type f -name '*.s')
+ASMOBJ := $(ASMFILES:.s=.o)
 
 .PHONY: all clean
 
 all: $(KERNEL)
 
-$(KERNEL): $(OBJ)
-	$(CC) $(INTERNALLDFLAGS) $(OBJ) -o $@
+$(KERNEL): $(COBJ) $(ASMOBJ)
+	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) -o $@
 
 stivale2.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))
 	@if [ ! -e "$(BOOT_DIR)/stivale2.h" ]; then wget -P $(BOOT_DIR) https://github.com/stivale/stivale/raw/master/stivale2.h; fi
 
-%.o: %.c stivale2.h
+$(COBJ): %.o: %.c stivale2.h
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -c $< -o $@
 
+$(ASMOBJ): %.o: %.s
+	@$(AS) -o $@ -c $^ $(ASFLAGS)
+
 clean:
-	rm -rf $(KERNEL) $(OBJ)
+	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ)
