@@ -139,6 +139,8 @@ void klog_printf(klog_info_t* k, const char* s, ...)
 
 void klog_refresh(klog_info_t* k)
 {
+    term_clear(k->term);
+
     int i = k->start;
     while(true) {
         term_putch(k->term, k->buff[i]);
@@ -151,6 +153,7 @@ void klog_refresh(klog_info_t* k)
             if(i < k->start && i >= k->end) break;
         }
     }
+
     term_refresh(k->term);
 }
 
