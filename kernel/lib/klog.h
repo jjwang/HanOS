@@ -25,6 +25,5 @@ typedef struct {
 } klog_info_t;
 
 void klog_init(klog_info_t* k, term_info_t* t);
-void klog_printf(klog_info_t* k, const char*, ...);
-void klog_refresh(klog_info_t* k);
-
+void klog_vprintf(const char*, va_list args);
+void klog_printf(const char*, ...);

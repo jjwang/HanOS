@@ -6,7 +6,7 @@ LD = $(CC)
 AS = $(CC)
 NASM = nasm
 
-CFLAGS = -O2
+CFLAGS =
 ASFLAGS = -I . -flto
 
 INTERNALLDFLAGS := \
@@ -18,7 +18,7 @@ INTERNALLDFLAGS := \
 	-z max-page-size=0x2000 \
 	-I .
 
-INTERNALCFLAGS  :=       \
+INTERNALCFLAGS :=       \
 	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
 	-std=gnu2x           \
 	-ffreestanding       \
@@ -38,12 +38,28 @@ COBJ   := $(CFILES:.c=.o)
 ASMFILES := $(shell find ./ -type f -name '*.s')
 ASMOBJ := $(ASMFILES:.s=.o)
 
+SYMBOLS = _symbols.o
+
 .PHONY: all clean
 
 all: $(KERNEL)
 
 $(KERNEL): $(COBJ) $(ASMOBJ)
 	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) -o $@
+
+	@echo ">>>>> Generating symbols..."
+	@./gensym $@
+	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -x c -c _symbols.gen -o $(SYMBOLS)
+
+	@echo ">>>>> Linking symbols..."
+	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
+
+	@echo ">>>>> Re-generating symbols..."
+	@./gensym $@
+	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -x c -c _symbols.gen -o $(SYMBOLS)
+
+	@echo ">>>>> Re-linking symbols..."
+	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
 
 stivale2.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))
@@ -56,4 +72,4 @@ $(ASMOBJ): %.o: %.s
 	@$(AS) -o $@ -c $^ $(ASFLAGS)
 
 clean:
-	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ)
+	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ) _symbols.*
