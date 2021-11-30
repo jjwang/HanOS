@@ -13,15 +13,29 @@
 #include <lib/klog.h>
 #include <device/term.h>
 
-void klog_init(klog_info_t* k, term_info_t* t)
-{
-    for(int i = 0; i < KLOG_BUFFER_SIZE; i++) {
-        k->buff[i] = 0;
-    }
-    k->start = 0;
-    k->end = 0;
+static klog_info_t* klog = NULL;
 
-    k->term = t;
+static void klog_refresh()
+{
+    klog_info_t* k = klog;
+    if(k == NULL) return;
+
+    term_clear(k->term);
+
+    int i = k->start;
+    while(true) {
+        term_putch(k->term, k->buff[i]);
+        i++;
+        if(i >= KLOG_BUFFER_SIZE)
+            i = 0;
+        if(k->start < k->end) {
+            if(i >= k->end) break;
+        } else {
+            if(i < k->start && i >= k->end) break;
+        }
+    }
+
+    term_refresh(k->term);
 }
 
 static void klog_putch(klog_info_t* k, uint8_t i)
@@ -91,10 +105,31 @@ static void klog_putint(klog_info_t* k, int n, int width)
     }
 }
 
-void klog_printf(klog_info_t* k, const char* s, ...)
+void klog_init(klog_info_t* k, term_info_t* t)
+{   
+    for(int i = 0; i < KLOG_BUFFER_SIZE; i++) {
+        k->buff[i] = 0;
+    }
+    k->start = 0;
+    k->end = 0;
+    
+    k->term = t;
+    
+    klog = k;
+}
+
+void klog_printf(const char* s, ...)
 {
     va_list args;
     va_start(args, s);
+    klog_vprintf(s, args);
+    va_end(args);
+}
+
+void klog_vprintf(const char* s, va_list args)
+{
+    klog_info_t* k = klog;
+    if(k == NULL) return;
 
     for (int i = 0; s[i] != '\0'; i++) {
         switch (s[i]) {
@@ -134,26 +169,6 @@ void klog_printf(klog_info_t* k, const char* s, ...)
         }
     }
 
-    va_end(args);
-}
-
-void klog_refresh(klog_info_t* k)
-{
-    term_clear(k->term);
-
-    int i = k->start;
-    while(true) {
-        term_putch(k->term, k->buff[i]);
-        i++;
-        if(i >= KLOG_BUFFER_SIZE)
-            i = 0;
-        if(k->start < k->end) {
-            if(i >= k->end) break;
-        } else {
-            if(i < k->start && i >= k->end) break;
-        }
-    }
-
-    term_refresh(k->term);
+    klog_refresh();
 }
 

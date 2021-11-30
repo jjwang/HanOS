@@ -3,9 +3,11 @@
 /// @file    fb.c
 /// @brief   Implementation of framebuffer related functions
 /// @details
+///
 ///   Graphics can be displayed in a linear framebuffer - a simple array mapped
 ///   in memory that represents the screen. The address of framebuffer  was got
 ///   from Limine bootloader.
+///
 /// @author  JW
 /// @date    Nov 20, 2021
 ///
