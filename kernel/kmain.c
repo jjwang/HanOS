@@ -9,6 +9,7 @@
 ///  1. System initialization to enable terminal outputs
 ///     - lib: klog system which just realizes printf function.
 ///     - device: initialize framebuffer based terminal.
+///  2. Initialize GDT and IDT to handle exceptions
 /// @author  JW
 /// @date    Oct 23, 2021
 ///

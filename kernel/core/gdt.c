@@ -22,7 +22,7 @@
 #include <core/gdt.h>
 #include <core/panic.h>
 
-static gdt_entry_t gdt_make_gate(uint64_t base, uint64_t limit, uint8_t type)
+static gdt_entry_t gdt_make_entry(uint64_t base, uint64_t limit, uint8_t type)
 {
     gdt_entry_t gate = 0;
     uint8_t* target = (uint8_t*)&gate;
@@ -53,9 +53,9 @@ static gdt_entry_t gdt_make_gate(uint64_t base, uint64_t limit, uint8_t type)
 
 void gdt_init(gdt_table_t* gdt)
 {
-    gdt->null  = gdt_make_gate(0, 0, 0);
-    gdt->kcode = gdt_make_gate(0, 0xFFFFFFFF, 0x9A);
-    gdt->kdata = gdt_make_gate(0, 0xFFFFFFFF, 0x92);
+    gdt->null  = gdt_make_entry(0, 0, 0);
+    gdt->kcode = gdt_make_entry(0, 0xFFFFFFFF, 0x9A);
+    gdt->kdata = gdt_make_entry(0, 0xFFFFFFFF, 0x92);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
     asm volatile("lgdt %0;"

@@ -53,22 +53,8 @@ static char* exceptions[] = {
     [44] = "Reserved"
 };
 
-static exc_handler_t handlers[256] = { 0 };
-
-void exc_register_handler(uint64_t id, exc_handler_t handler)
-{
-    handlers[id] = handler;
-}
-
 void exc_handler_proc(uint64_t errcode, uint64_t isrno)
 {
-    exc_handler_t handler = handlers[isrno];
-
-    if (handler != 0) {
-        handler();
-        return;
-    }
-
     kpanic("Unhandled Exception: %s (%d). Error Code: %d.\n",
                  exceptions[isrno], isrno, errcode);
     while (true)
