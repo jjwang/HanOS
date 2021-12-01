@@ -63,6 +63,6 @@ void idt_init(idt_entry_t* idt)
     asm volatile ("lidt %0" : : "m"(idt_register));
     isr_enable_interrupts();
 
-    klog_printf("idt initialization finished.\n");
+    klog_printf("IDT initialization finished.\n");
 }
 

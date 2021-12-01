@@ -1,6 +1,6 @@
 # HanOS
 
-Design as below:
+Design as below
 
 - Bootloader: Limine is used to get the kernel  running as quickly possible. Boot protocol stivale2 is chosed by HanOS.
 - CPU mode: x86-64 Long Mode is supported in HanOS. HanOS does not has plan to support other x86 modes. 
@@ -9,6 +9,7 @@ Design as below:
 Progress update
 - [x] Framebuffer based terminal and kernel log system
 - [x] Initialize GDT and IDT to handle exceptions
+- [ ] Physical memory allocator and virtual memory manager
 
 Screenshots
 - Nov 20, 2021: Hello World
