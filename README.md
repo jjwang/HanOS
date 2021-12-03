@@ -14,6 +14,6 @@ Progress update
 Screenshots
 - Nov 20, 2021: Hello World
 
-![Hello World](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0001-helloworld.png)
+![Oh~~~ Panic](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0002-panic.png)
 
 
