@@ -53,10 +53,10 @@ static char* exceptions[] = {
     [44] = "Reserved"
 };
 
-void exc_handler_proc(uint64_t errcode, uint64_t isrno)
+void exc_handler_proc(uint64_t errcode, uint64_t excno)
 {
     kpanic("Unhandled Exception: %s (%d). Error Code: %d.\n",
-                 exceptions[isrno], isrno, errcode);
+                 exceptions[excno], excno, errcode);
     while (true)
         ;
 }

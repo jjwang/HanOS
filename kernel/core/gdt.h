@@ -18,9 +18,23 @@
 typedef uint64_t gdt_entry_t;
 
 typedef struct [[gnu::packed]] {
+    uint16_t seg_limit_1;
+    uint16_t base_addr_1;
+    uint8_t  base_addr_2;
+    uint8_t  flags_low;
+    uint8_t  flags_high;
+    uint8_t  base_addr_3;
+    uint32_t base_addr_4;
+    uint32_t reserved;
+} sys_seg_desc_t;
+
+typedef struct [[gnu::packed]] {
     gdt_entry_t null;
     gdt_entry_t kcode;
     gdt_entry_t kdata;
+    gdt_entry_t ucode;
+    gdt_entry_t udata;
+    sys_seg_desc_t tss;
 } gdt_table_t;
 
 typedef struct [[gnu::packed]] {

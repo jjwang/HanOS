@@ -33,7 +33,7 @@ static void dump_backtrace()
     uint64_t* rbp_val = 0;
     asm volatile("movq %%rbp, %0" : "=rm"(rbp_val));
 
-    klog_printf("\nStack backtrace:\n");
+    klog_printf("\nStacktrace:\n");
     for (int i = 0;; i++) {
         uint64_t func_addr = *(rbp_val + 1);
         if (func_addr == 0x0) {
@@ -50,7 +50,8 @@ static void dump_backtrace()
                     _kernel_symtab[idx].name,
                     func_addr - _kernel_symtab[idx].addr);
         rbp_val = (uint64_t*)*rbp_val;
-    }   
+    }
+    klog_printf("End of trace. System halted.\n");
 }
 
 _Noreturn void kpanic(const char* s, ...)

@@ -4,7 +4,7 @@ offset = 0xffffffff80000000;
 
 SECTIONS
 {
-    . = offset + 0x200000;
+    . = offset + 0x100000;
 
     kernel_start = .;
 

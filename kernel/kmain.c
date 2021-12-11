@@ -25,7 +25,7 @@
 #include <core/idt.h>
 
 // Tell the stivale bootloader where we want our stack to be.
-static uint8_t stack[4096];
+static uint8_t stack[64000];
 
 // Only define framebuffer header tag since we do not want to use stivale2 terminal.
 static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
@@ -35,7 +35,7 @@ static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
     },
     .framebuffer_width  = FB_WIDTH,
     .framebuffer_height = FB_HEIGHT,
-    .framebuffer_bpp    = FB_PITCH / FB_WIDTH
+    .framebuffer_bpp    = FB_PITCH * 8 / FB_WIDTH
 };
 
 // According to stivale2 specification, we need to define a "header structure".
@@ -65,13 +65,16 @@ void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
 
 static term_info_t hanos_term = {0};
 static klog_info_t hanos_klog = {0};
-static mem_info_t hanos_mem = {0};
+static mem_info_t  hanos_mem = {0};
 static gdt_table_t GDT = {0};
 static idt_entry_t IDT[IDT_ENTRIES];
+static addrspace_t hanos_kaddrspace;
 
 // This is HanOS kernel's entry point.
 void kmain(struct stivale2_struct* bootinfo)
 {
+    bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
+
     uint8_t helloworld[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0x0};
     // initialize framebuffer and terminal
     term_init(&hanos_term, stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
@@ -81,11 +84,14 @@ void kmain(struct stivale2_struct* bootinfo)
 
     klog_printf("HanOS version 0.1 starting...\n");
     klog_printf("Boot info address: 0x%16x\n", (uint64_t)bootinfo);
-    klog_printf("Terminal width: %d, height: %d, pitch: %d\n", 
-                hanos_term.fb.width, hanos_term.fb.height, hanos_term.fb.pitch);
+    klog_printf("Terminal width: %d, height: %d, pitch: %d, addr: %x\n", 
+                hanos_term.fb.width, hanos_term.fb.height, hanos_term.fb.pitch,
+                hanos_term.fb.addr);
 
-    mem_init(&hanos_mem, stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_MEMMAP_ID));
-    klog_printf("Memory total: %d, phys limit: %d\n", hanos_mem.total_size, hanos_mem.phys_limit);
+    pmm_init(&hanos_mem, stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_MEMMAP_ID));
+    klog_printf("Memory total: %d, phys limit: %d, free: %d\n",
+                hanos_mem.total_size, hanos_mem.phys_limit, hanos_mem.free_size);
+    vmm_init(&hanos_kaddrspace);
 
     gdt_init(&GDT);
     idt_init(IDT);
@@ -94,6 +100,7 @@ void kmain(struct stivale2_struct* bootinfo)
     klog_printf("Val: %d", val1 / val2);
 
     klog_printf("\077[14;1m%s\077[0m\n", "Welcome to HanOS world!\n");
+
     for (;;) {
         asm ("hlt");
     }

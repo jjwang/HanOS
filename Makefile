@@ -5,7 +5,7 @@ ISO_IMAGE = cdrom.iso
 all: $(ISO_IMAGE)
 
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -M q35 -m 2G -smp 2 -debugcon stdio -k en-us -cdrom $(ISO_IMAGE)
+	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -monitor stdio -d int -D qemu.log -k en-us -cdrom $(ISO_IMAGE)
 
 limine:
 	git clone https://github.com/limine-bootloader/limine.git --branch=v2.0-branch-binary --depth=1
