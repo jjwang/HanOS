@@ -56,6 +56,8 @@ void gdt_init(gdt_table_t* gdt)
     gdt->null  = gdt_make_entry(0, 0, 0);
     gdt->kcode = gdt_make_entry(0, 0xFFFFFFFF, 0x9A);
     gdt->kdata = gdt_make_entry(0, 0xFFFFFFFF, 0x92);
+    gdt->ucode = gdt_make_entry(0, 0xFFFFFFFF, 0xFA);
+    gdt->udata = gdt_make_entry(0, 0xFFFFFFFF, 0xF2);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
     asm volatile("lgdt %0;"

@@ -72,4 +72,4 @@ $(ASMOBJ): %.o: %.s
 	@$(AS) -o $@ -c $^ $(ASFLAGS)
 
 clean:
-	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ) _symbols.*
+	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ) _symbols.* $(TRAMPOLINEBLOB)

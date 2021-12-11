@@ -14,6 +14,7 @@
 ///-----------------------------------------------------------------------------
 
 #include <stddef.h>
+#include <core/mm.h>
 #include <device/fb.h>
 
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
@@ -68,7 +69,7 @@ uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y)
 
 void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s)
 {
-    fb->addr = (uint8_t*)s->framebuffer_addr;
+    fb->addr = (uint8_t*)PHYS_TO_VIRT(s->framebuffer_addr);
     fb->width = s->framebuffer_width;
     fb->height = s->framebuffer_height;
     fb->pitch = s->framebuffer_pitch;

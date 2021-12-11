@@ -9,7 +9,7 @@ Design as below
 Progress update
 - [x] Framebuffer based terminal and kernel log system
 - [x] Initialize GDT and IDT to handle exceptions
-- [ ] Physical memory allocator and virtual memory manager
+- [x] Physical memory allocator and virtual memory manager
 
 Screenshots
 - Nov 20, 2021: Hello World
