@@ -14,6 +14,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <core/smp.h>
 
 typedef uint64_t gdt_entry_t;
 
@@ -42,5 +43,5 @@ typedef struct [[gnu::packed]] {
     uint64_t offset;
 } gdt_register_t;
 
-void gdt_init(gdt_table_t* gdt);
-
+void gdt_init();
+void gdt_install_tss(tss_t* tss);

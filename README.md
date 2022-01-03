@@ -10,10 +10,14 @@ Progress update
 - [x] Framebuffer based terminal and kernel log system
 - [x] Initialize GDT and IDT to handle exceptions
 - [x] Physical memory allocator and virtual memory manager
+- [x] Parse ACPI tables and initialize MADT
+- [x] Start up all CPUs
+- [x] Set up APIC interrupt controller
+- [x] Read RTC time from CMOS and configure HPET timer
 
 Screenshots
-- Nov 20, 2021: Hello World
+- Jan 3, 2022: Kernel Log
 
-![Oh~~~ Panic](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0002-panic.png)
+![Oh~~~ Klog](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0003-klog.png)
 
 

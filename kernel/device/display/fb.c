@@ -15,11 +15,14 @@
 
 #include <stddef.h>
 #include <core/mm.h>
-#include <device/fb.h>
+#include <device/display/fb.h>
+#include <lib/kmalloc.h>
 
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)
 {
+    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+
     uint32_t offset = ((uint32_t)ch) * 16;
     for(int i = 0; i < 16; i++){
         for(int k = 0; k < 8; k++){
@@ -35,6 +38,8 @@ void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y,
 void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y,  
               uint32_t fgcolor, uint32_t bgcolor, uint8_t* ch) 
 {
+    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+
     int qh = ch[0] - 0xa1;
     int wh = ch[1] - 0xa1;
     uint32_t offset = (94 * qh + wh) * 16 * 16 / 8;
@@ -53,6 +58,8 @@ void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y,
 
 void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color)
 {
+    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+    
     if(fb->pitch * y + x * 4 < fb->backbuffer_len) {
         ((uint32_t*)(fb->backbuffer + (fb->pitch * y)))[x] = color;
     }
@@ -60,6 +67,8 @@ void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color)
 
 uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y)
 {
+    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return 0;
+
     if(fb->pitch * y + x * 4 < fb->backbuffer_len) {
         return ((uint32_t*)(fb->backbuffer + (fb->pitch * y)))[x];
     } else {
@@ -69,15 +78,17 @@ uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y)
 
 void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s)
 {
+    if(s == NULL && (uint64_t)fb->addr == (uint64_t)fb->backbuffer) {
+        fb->backbuffer = kmalloc(fb->backbuffer_len);
+        return;
+    }
     fb->addr = (uint8_t*)PHYS_TO_VIRT(s->framebuffer_addr);
     fb->width = s->framebuffer_width;
     fb->height = s->framebuffer_height;
     fb->pitch = s->framebuffer_pitch;
 
     fb->backbuffer_len = fb->height * fb->pitch;
-    if(fb->backbuffer_len > sizeof(fb->backbuffer)) {
-        fb->backbuffer_len = sizeof(fb->backbuffer);
-    }
+    fb->backbuffer = fb->addr;
 
     for(uint32_t x = 0; x < fb->width; x++) {
         for(uint32_t y = 0; y < fb->height; y++) {
@@ -89,7 +100,9 @@ void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s)
 
 void fb_refresh(fb_info_t* fb)
 {
-    for(uint32_t i = 0; i < fb->height * fb->pitch; i++) {
-        ((uint8_t*)(fb->addr))[i] = ((uint8_t*)fb->backbuffer)[i];
+    if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
+        for(uint32_t i = 0; i < fb->height * fb->pitch; i++) {
+            ((uint8_t*)(fb->addr))[i] = ((uint8_t*)fb->backbuffer)[i];
+        }
     }
 }

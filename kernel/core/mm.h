@@ -36,11 +36,10 @@ typedef struct {
     uint8_t* bitmap;
 } mem_info_t;
 
-void pmm_init(mem_info_t* mem, struct stivale2_struct_tag_memmap* map);
-uint64_t pmm_get(mem_info_t* mem, uint64_t numpages);
-bool pmm_alloc(mem_info_t* mem, uint64_t addr, uint64_t numpages);
-void pmm_free(mem_info_t* mem, uint64_t addr, uint64_t numpages);
-
+void pmm_init(struct stivale2_struct_tag_memmap* map);
+uint64_t pmm_get(uint64_t numpages);
+bool pmm_alloc(uint64_t addr, uint64_t numpages);
+void pmm_free(uint64_t addr, uint64_t numpages);
 
 #define MEM_VIRT_OFFSET         0xffff800000000000
 
@@ -62,7 +61,7 @@ typedef struct {
     uint64_t* PML4;
 } addrspace_t;
 
-void vmm_init(addrspace_t* addrspace);
-void vmm_map(addrspace_t* addrspace, uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
-void vmm_unmap(addrspace_t* addrspace, uint64_t vaddr, uint64_t np);
+void vmm_init();
+void vmm_map(uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
+void vmm_unmap(uint64_t vaddr, uint64_t np);
 

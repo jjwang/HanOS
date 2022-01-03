@@ -33,5 +33,5 @@ typedef struct [[gnu::packed]] {
     uint64_t offset;
 } idt_register_t;
 
-void idt_init(idt_entry_t* idt);
+void idt_init();
 

@@ -17,6 +17,15 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <lib/klog.h>
 
-void kpanic(const char* msg, ...);
+void dump_backtrace();
+
+#define kpanic(s, ...)       { \
+    asm volatile("cli"); \
+    klog_rprintf(KLOG_LEVEL_ERROR, s, ##__VA_ARGS__); \
+    dump_backtrace(); \
+    while (true) \
+        asm volatile("hlt"); \
+} 
 

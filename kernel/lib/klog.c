@@ -11,64 +11,64 @@
 ///-----------------------------------------------------------------------------
 #include <stdbool.h>
 #include <lib/klog.h>
-#include <device/term.h>
+#include <lib/time.h>
+#include <device/display/term.h>
+#include <core/hpet.h>
+#include <core/cmos.h>
 
-static klog_info_t* klog = NULL;
+static klog_info_t klog_info = {0};
 
 static void klog_refresh()
 {
-    klog_info_t* k = klog;
-    if(k == NULL) return;
+    term_clear();
 
-    term_clear(k->term);
-
-    int i = k->start;
+    int i = klog_info.start;
     while(true) {
-        term_putch(k->term, k->buff[i]);
+        term_putch(klog_info.buff[i]);
         i++;
         if(i >= KLOG_BUFFER_SIZE)
             i = 0;
-        if(k->start < k->end) {
-            if(i >= k->end) break;
+        if(klog_info.start < klog_info.end) {
+            if(i >= klog_info.end) break;
         } else {
-            if(i < k->start && i >= k->end) break;
+            if(i < klog_info.start && i >= klog_info.end) break;
         }
     }
 
-    term_refresh(k->term);
+    term_refresh();
 }
 
-static void klog_putch(klog_info_t* k, uint8_t i)
+static void klog_putch(uint8_t i)
 {
-    k->buff[k->end] = i;
-    k->end++;
-    if(k->end >= KLOG_BUFFER_SIZE)
-        k->end = 0;;
-    if (k->end == k->start)
-        k->start++;
-    if(k->start >= KLOG_BUFFER_SIZE)
-        k->start = 0;
+    klog_info.buff[klog_info.end] = i;
+    klog_info.end++;
+    if(klog_info.end >= KLOG_BUFFER_SIZE)
+        klog_info.end = 0;;
+    if (klog_info.end == klog_info.start)
+        klog_info.start++;
+    if(klog_info.start >= KLOG_BUFFER_SIZE)
+        klog_info.start = 0;
 }
 
-static void klog_puts(klog_info_t* k, const char* s)
+static void klog_puts(const char* s)
 {
     for (int i = 0; s[i] != '\0'; i++)
-        klog_putch(k, s[i]);
+        klog_putch(s[i]);
 }
 
-static void klog_puthex(klog_info_t* k, uint64_t n, int width)
+static void klog_puthex(uint64_t n, int width)
 {
     int cnt = 0;
-    klog_puts(k, "0x");
+    klog_puts("0x");
     for (int i = 60; i >= 0; i -= 4) {
         cnt++;
         if(width > 0 && cnt + width <= 16) continue;
         uint64_t digit = (n >> i) & 0xF;
-        klog_putch(k, (digit <= 9) ? (digit + '0') : (digit - 10 + 'A'));
+        klog_putch((digit <= 9) ? (digit + '0') : (digit - 10 + 'A'));
     }
 }
 
-static void klog_putint(klog_info_t* k, int n, int width)
+static void klog_putint(int n, int width)
 {
     int n_val = n, n_width = 1, zero_width = 0;
     unsigned long int i = 9;
@@ -81,17 +81,17 @@ static void klog_putint(klog_info_t* k, int n, int width)
     if(n < 0) n_width -= 1;
 
     if (n < 0) {
-        klog_putch(k, '-');
+        klog_putch('-');
         n = -n;
     }
 
     while(zero_width + n_width < width) {
-        klog_putch(k, '0');
+        klog_putch('0');
         zero_width++;
     }
 
     if (n == 0)
-        klog_putch(k, '0');
+        klog_putch('0');
 
     size_t div = 1, temp = n;
     while (temp > 0) {
@@ -101,36 +101,25 @@ static void klog_putint(klog_info_t* k, int n, int width)
     while (div >= 10) {
         uint8_t digit = ((n % div) - (n % (div / 10))) / (div / 10);
         div /= 10;
-        klog_putch(k, digit + '0');
+        klog_putch(digit + '0');
     }
 }
 
-void klog_init(klog_info_t* k, term_info_t* t)
-{   
-    for(int i = 0; i < KLOG_BUFFER_SIZE; i++) {
-        k->buff[i] = 0;
-    }
-    k->start = 0;
-    k->end = 0;
-    
-    k->term = t;
-    
-    klog = k;
-}
-
-void klog_printf(const char* s, ...)
+void klog_init()
 {
-    va_list args;
-    va_start(args, s);
-    klog_vprintf(s, args);
-    va_end(args);
+    lock_lock(&klog_info.lock); 
+
+    for(int i = 0; i < KLOG_BUFFER_SIZE; i++) {
+        klog_info.buff[i] = 0;
+    }
+    klog_info.start = 0;
+    klog_info.end = 0;
+    
+    lock_release(&klog_info.lock);
 }
 
 void klog_vprintf(const char* s, va_list args)
 {
-    klog_info_t* k = klog;
-    if(k == NULL) return;
-
     for (int i = 0; s[i] != '\0'; i++) {
         switch (s[i]) {
         case '%': {
@@ -142,33 +131,78 @@ void klog_vprintf(const char* s, va_list args)
             }
             switch (s[i + 1]) {
             case '%':
-                klog_putch(k, '%');
+                klog_putch('%');
                 break;
-
             case 'd':
-                klog_putint(k, va_arg(args, int), arg_width);
+                klog_putint(va_arg(args, int), arg_width);
                 break;
-
             case 'x':
-                klog_puthex(k, va_arg(args, uint64_t), arg_width);
+                klog_puthex(va_arg(args, uint64_t), arg_width);
                 break;
-
             case 's':
-                klog_puts(k, va_arg(args, const char*));
+                klog_puts(va_arg(args, const char*));
                 break;
-
             case 'b':
-                klog_puts(k, va_arg(args, int) ? "true" : "false");
+                klog_puts(va_arg(args, int) ? "true" : "false");
                 break;
             }
             i++;
         } break;
-
         default:
-            klog_putch(k, s[i]);
+            klog_putch(s[i]);
         }
     }
+}
+
+void klog_iprintf(const char* s, ...)
+{
+    va_list args;
+    va_start(args, s); 
+    klog_vprintf(s, args);
+    va_end(args);
+}
+
+void klog_rprintf(klog_level_t level, const char* s, ...)
+{
+    lock_lock(&klog_info.lock)
+
+    if(level < KLOG_LEVEL_UNK) {
+        time_t now_time = hpet_get_nanos() / 1000000000 + cmos_boot_time();
+        int now_ms = (hpet_get_nanos() / 1000000) % 1000;
+        tm_t now_tm = {0};
+        localtime(&now_time, &now_tm);
+        klog_iprintf("%04d-%02d-%02d %02d:%02d:%02d %03d ",
+                     1900 + now_tm.year, 1 + now_tm.mon, now_tm.mday,
+                     now_tm.hour, now_tm.min, now_tm.sec, now_ms);
+    }
+
+    switch(level) {
+    case KLOG_LEVEL_VERBOSE:
+        klog_iprintf("\077[15;1m[VERB] \077[0m ");
+        break;
+    case KLOG_LEVEL_DEBUG:
+        klog_iprintf("\077[15;1m[DEBUG]\077[0m ");
+        break;
+    case KLOG_LEVEL_INFO:
+        klog_iprintf("\077[12;1m[INFO] \077[0m ");
+        break;
+    case KLOG_LEVEL_WARN:
+        klog_iprintf("\077[13;1m[WARN] \077[0m ");
+        break;
+    case KLOG_LEVEL_ERROR:
+        klog_iprintf("\077[11;1m[ERROR]\077[0m ");
+        break;
+    case KLOG_LEVEL_UNK:
+        break;
+    }
+
+    va_list args;
+    va_start(args, s); 
+    klog_vprintf(s, args);
+    va_end(args);
 
     klog_refresh();
+
+    lock_release(&klog_info.lock)
 }
 
