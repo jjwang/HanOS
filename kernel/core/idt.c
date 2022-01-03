@@ -21,6 +21,9 @@
 #include <lib/klog.h>
 #include <core/isr_base.h>
 #include <core/idt.h>
+#include <core/cpu.h>
+
+static idt_entry_t idt[IDT_ENTRIES];
 
 static idt_entry_t idt_make_entry(uint64_t offset)
 {
@@ -34,7 +37,7 @@ static idt_entry_t idt_make_entry(uint64_t offset)
     };
 }
 
-void idt_init(idt_entry_t* idt)
+void idt_init()
 {
     idt[0] = idt_make_entry((uint64_t)&exc0);
     idt[1] = idt_make_entry((uint64_t)&exc1);

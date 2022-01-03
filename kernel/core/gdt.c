@@ -11,16 +11,17 @@
 ///   used. As the first step, only two ring-0 segment descriptor are defined.
 ///   The memory regions are all from 0 to 4GB.
 ///
-///   Currently TSS is not initialized.
-/// 
 /// @author  JW
 /// @date    Nov 27, 2021
 ///
 ///-----------------------------------------------------------------------------
 #include <stdint.h>
 #include <lib/klog.h>
+#include <lib/kmalloc.h>
 #include <core/gdt.h>
 #include <core/panic.h>
+
+gdt_table_t* gdt = NULL;
 
 static gdt_entry_t gdt_make_entry(uint64_t base, uint64_t limit, uint8_t type)
 {
@@ -51,8 +52,12 @@ static gdt_entry_t gdt_make_entry(uint64_t base, uint64_t limit, uint8_t type)
     return gate;
 }
 
-void gdt_init(gdt_table_t* gdt)
+void gdt_init()
 {
+    if(gdt == NULL) {
+        gdt = (gdt_table_t*)kmalloc(sizeof(gdt_table_t));
+    }
+
     gdt->null  = gdt_make_entry(0, 0, 0);
     gdt->kcode = gdt_make_entry(0, 0xFFFFFFFF, 0x9A);
     gdt->kdata = gdt_make_entry(0, 0xFFFFFFFF, 0x92);
@@ -76,5 +81,34 @@ void gdt_init(gdt_table_t* gdt)
                  :);
 
     klog_printf("GDT initialization finished.\n");
+}
+
+void gdt_install_tss(tss_t* tss)
+{
+    gdt_register_t gdtr;
+    asm volatile("sgdt %0"
+                 :
+                 : "m"(gdtr)
+                 : "memory");
+
+    gdt_table_t* gdt = (gdt_table_t*)(gdtr.offset);
+    uint64_t baseaddr = (uint64_t)tss;
+    uint64_t seglimit = sizeof(tss_t);
+
+    gdt->tss.base_addr_1 = baseaddr & 0xFFFF;
+    gdt->tss.base_addr_2 = (baseaddr >> 16) & 0xFF;
+    gdt->tss.base_addr_3 = (baseaddr >> 24) & 0xFF;
+    gdt->tss.base_addr_4 = baseaddr >> 32;
+    gdt->tss.seg_limit_1 = seglimit & 0xFFFF;
+    gdt->tss.flags_low = 0x89;
+    gdt->tss.flags_high = 0;
+
+    // Loading of TSS: The descriptor of the TSS in the GDT (e.g. 0x28 if
+    // the sixths entry in your GDT describes your TSS)
+    asm volatile("mov $0x28, %%ax;"
+                 "ltr %%ax"
+                 :
+                 :
+                 : "ax");
 }
 

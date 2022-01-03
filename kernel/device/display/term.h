@@ -13,7 +13,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <device/fb.h>
+#include <device/display/fb.h>
 
 #define FONT_WIDTH          8
 #define FONT_HEIGHT         16
@@ -29,6 +29,7 @@ typedef struct {
     uint32_t cursor_y;
 
     enum {
+        STATE_UNKNOWN = 0,
         STATE_IDLE,
         STATE_CMD,
         STATE_PARAM
@@ -38,7 +39,8 @@ typedef struct {
     uint8_t lastch;
 } term_info_t;
 
-void term_init(term_info_t* t, struct stivale2_struct_tag_framebuffer* s);
-void term_putch(term_info_t* t, uint8_t ch);
-void term_clear(term_info_t* t);
-void term_refresh(term_info_t* t);
+void term_init(struct stivale2_struct_tag_framebuffer* s);
+void term_putch(uint8_t ch);
+void term_clear();
+void term_refresh();
+void term_start();

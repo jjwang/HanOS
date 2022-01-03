@@ -1,5 +1,6 @@
 KERNEL := hanos.elf
 BOOT_DIR := 3rd-party/boot
+TRAMPOLINEFILE = core/trampoline.nasm
 
 CC = x86_64-elf-gcc
 LD = $(CC)
@@ -39,12 +40,13 @@ ASMFILES := $(shell find ./ -type f -name '*.s')
 ASMOBJ := $(ASMFILES:.s=.o)
 
 SYMBOLS = _symbols.o
+TRAMPOLINEBLOB = core/trampoline.bin
 
 .PHONY: all clean
 
 all: $(KERNEL)
 
-$(KERNEL): $(COBJ) $(ASMOBJ)
+$(KERNEL): $(TRAMPOLINEBLOB) $(COBJ) $(ASMOBJ)
 	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) -o $@
 
 	@echo ">>>>> Generating symbols..."
@@ -70,6 +72,11 @@ $(COBJ): %.o: %.c stivale2.h
 
 $(ASMOBJ): %.o: %.s
 	@$(AS) -o $@ -c $^ $(ASFLAGS)
+
+# build the trampoline blob
+$(TRAMPOLINEBLOB): $(TRAMPOLINEFILE)
+	@echo Compiling trampoline file... $^
+	@$(NASM) $^ -o $@
 
 clean:
 	rm -rf $(KERNEL) $(COBJ) $(ASMOBJ) _symbols.* $(TRAMPOLINEBLOB)

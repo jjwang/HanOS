@@ -16,10 +16,10 @@
 
 #include <stdint.h>
 #include <3rd-party/boot/stivale2.h>
-#include <device/font.h>
+#include <device/display/font.h>
 
-#define FB_WIDTH            1024
-#define FB_HEIGHT           768
+#define FB_WIDTH            800
+#define FB_HEIGHT           600
 #define FB_PITCH            (FB_WIDTH * 4)
 
 #define COLOR_BLACK         0x000000
@@ -28,16 +28,17 @@
 #define COLOR_YELLOW        0xFFFF00
 #define COLOR_BLUE          0x0000FF
 #define COLOR_WHITE         0xFFFFFF
+#define COLOR_LIGHT_WHITE   0xC0C0C0
 
-#define DEFAULT_FGCOLOR     COLOR_BLACK
-#define DEFAULT_BGCOLOR     COLOR_WHITE
+#define DEFAULT_FGCOLOR     COLOR_LIGHT_WHITE
+#define DEFAULT_BGCOLOR     COLOR_BLACK
 
 typedef struct {
     uint8_t* addr;
     uint32_t width;
     uint32_t height;
     uint32_t pitch;
-    uint8_t backbuffer[FB_HEIGHT * FB_PITCH];
+    uint8_t  *backbuffer;
     uint32_t backbuffer_len; // Need to modify to kmalloc later
 } fb_info_t;
 
