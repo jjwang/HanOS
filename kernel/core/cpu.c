@@ -45,7 +45,7 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     // is the leaf being requested supported?
     if ((maxleaf < feature.func && feature.func < 0x80000000)
         || (maxhighleaf < feature.func && feature.func >= 0x80000000)) {
-        klog_printf("CPUID leaf %x not supported\n", feature.func);
+        klogi("CPUID leaf %x not supported\n", feature.func);
         return false;
     }
 
@@ -108,7 +108,5 @@ void cpu_init()
     vcr4 |= 1 << 9;
     vcr4 |= 1 << 10; 
     write_cr("cr4", vcr4);
-
-    klog_printf("CPU initialization finished.\n");
 }
 

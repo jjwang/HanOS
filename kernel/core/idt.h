@@ -34,4 +34,7 @@ typedef struct [[gnu::packed]] {
 } idt_register_t;
 
 void idt_init();
+void idt_set_handler(uint8_t vector, void* handler);
+uint8_t idt_get_available_vector(void);
+
 

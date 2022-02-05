@@ -15,6 +15,7 @@
 #include <device/display/term.h>
 #include <core/hpet.h>
 #include <core/cmos.h>
+#include <core/smp.h>
 
 static klog_info_t klog_info = {0};
 
@@ -59,7 +60,6 @@ static void klog_puts(const char* s)
 static void klog_puthex(uint64_t n, int width)
 {
     int cnt = 0;
-    klog_puts("0x");
     for (int i = 60; i >= 0; i -= 4) {
         cnt++;
         if(width > 0 && cnt + width <= 16) continue;
@@ -114,7 +114,7 @@ void klog_init()
     }
     klog_info.start = 0;
     klog_info.end = 0;
-    
+        
     lock_release(&klog_info.lock);
 }
 
@@ -154,7 +154,7 @@ void klog_vprintf(const char* s, va_list args)
     }
 }
 
-void klog_iprintf(const char* s, ...)
+void klog_vprintf_wrapper(const char* s, ...)
 {
     va_list args;
     va_start(args, s); 
@@ -162,35 +162,51 @@ void klog_iprintf(const char* s, ...)
     va_end(args);
 }
 
+void klog_lock(void)
+{
+    lock_lock(&(klog_info.lock));
+}
+
+void klog_unlock(void)
+{
+    lock_release(&(klog_info.lock));
+}
+
 void klog_rprintf(klog_level_t level, const char* s, ...)
 {
-    lock_lock(&klog_info.lock)
+    cpu_t* cpu = smp_get_current_cpu();
+    if (level < KLOG_LEVEL_UNK) lock_lock(&(klog_info.lock))
 
-    if(level < KLOG_LEVEL_UNK) {
+    if (level < KLOG_LEVEL_UNK) {
         time_t now_time = hpet_get_nanos() / 1000000000 + cmos_boot_time();
         int now_ms = (hpet_get_nanos() / 1000000) % 1000;
         tm_t now_tm = {0};
         localtime(&now_time, &now_tm);
-        klog_iprintf("%04d-%02d-%02d %02d:%02d:%02d %03d ",
+        klog_vprintf_wrapper("%04d-%02d-%02d %02d:%02d:%02d %03d ",
                      1900 + now_tm.year, 1 + now_tm.mon, now_tm.mday,
                      now_tm.hour, now_tm.min, now_tm.sec, now_ms);
+        if (cpu != NULL) {
+            klog_vprintf_wrapper("%02d ", cpu->cpu_id);
+        } else {
+            klog_vprintf_wrapper("-- ");
+        }
     }
 
-    switch(level) {
+    switch (level) {
     case KLOG_LEVEL_VERBOSE:
-        klog_iprintf("\077[15;1m[VERB] \077[0m ");
+        klog_vprintf_wrapper("\077[15;1m[VERB] \077[0m ");
         break;
     case KLOG_LEVEL_DEBUG:
-        klog_iprintf("\077[15;1m[DEBUG]\077[0m ");
+        klog_vprintf_wrapper("\077[15;1m[DEBUG]\077[0m ");
         break;
     case KLOG_LEVEL_INFO:
-        klog_iprintf("\077[12;1m[INFO] \077[0m ");
+        klog_vprintf_wrapper("\077[12;1m[INFO] \077[0m ");
         break;
     case KLOG_LEVEL_WARN:
-        klog_iprintf("\077[13;1m[WARN] \077[0m ");
+        klog_vprintf_wrapper("\077[13;1m[WARN] \077[0m ");
         break;
     case KLOG_LEVEL_ERROR:
-        klog_iprintf("\077[11;1m[ERROR]\077[0m ");
+        klog_vprintf_wrapper("\077[11;1m[ERROR]\077[0m ");
         break;
     case KLOG_LEVEL_UNK:
         break;
@@ -202,7 +218,6 @@ void klog_rprintf(klog_level_t level, const char* s, ...)
     va_end(args);
 
     klog_refresh();
-
-    lock_release(&klog_info.lock)
+    if (level < KLOG_LEVEL_UNK) lock_release(&(klog_info.lock))
 }
 

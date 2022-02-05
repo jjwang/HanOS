@@ -22,8 +22,10 @@
 #include <core/isr_base.h>
 #include <core/idt.h>
 #include <core/cpu.h>
+#include <core/panic.h>
 
 static idt_entry_t idt[IDT_ENTRIES];
+static uint8_t available_vector = 80;
 
 static idt_entry_t idt_make_entry(uint64_t offset)
 {
@@ -34,7 +36,21 @@ static idt_entry_t idt_make_entry(uint64_t offset)
         .offset_3 = (offset >> 32) & 0xFFFFFFFF,
         .ist = 0,
         .type_attributes = IDT_DEFAULT_TYPE_ATTRIBUTES
-    };
+    };  
+}
+
+void idt_set_handler(uint8_t vector, void* handler)
+{
+    idt[vector] = idt_make_entry((uint64_t)handler);
+}
+
+uint8_t idt_get_available_vector(void)
+{
+    available_vector++;
+    if (available_vector == 0)
+        kpanic("IRQ vector is not available.\n");
+
+    return available_vector;
 }
 
 void idt_init()
@@ -66,6 +82,6 @@ void idt_init()
     asm volatile ("lidt %0" : : "m"(idt_register));
     isr_enable_interrupts();
 
-    klog_printf("IDT initialization finished.\n");
+    klogi("IDT initialization finished\n");
 }
 

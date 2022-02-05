@@ -33,7 +33,7 @@ void cmos_init()
     boot_time = secs_of_years(rtc.year - 1) +
                 secs_of_month(rtc.month - 1, rtc.year) + (rtc.day - 1) * 86400 +
                 rtc.hours * 3600 + rtc.minutes * 60 + rtc.seconds;
-    klogi("CMOS initialization finished.\n");
+    klogi("CMOS initialization finished\n");
 }
 
 uint64_t cmos_boot_time()

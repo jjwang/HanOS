@@ -13,4 +13,7 @@
 .global vmm_init
 .global vmm_map
 .global vmm_unmap
+.global enter_context_switch
+.global do_context_switch
+.global exit_context_switch
 

@@ -46,8 +46,11 @@ uint64_t hpet_get_nanos()
 void hpet_nanosleep(uint64_t nanos)
 {
     uint64_t tgt = hpet_get_nanos() + nanos;
-    while (hpet_get_nanos() < tgt)
-        ;
+    while (true) {
+        uint64_t cur = hpet_get_nanos();
+        if (cur >= tgt) break;
+        asm volatile ("nop");
+    }
 }
 
 void hpet_init()
@@ -69,11 +72,12 @@ void hpet_init()
     uint64_t counter_clk_period = tmp >> 32;
     uint64_t frequency = 1000000000000000 / counter_clk_period;
 
-    klog_printf("HPET: Detected frequency of %d Hz\n", frequency);
+    klogi("HPET: Detected frequency of %d Hz\n", frequency);
     hpet_period = counter_clk_period / 1000000;
 
     // Set ENABLE_CNF bit
     hpet->general_configuration =  hpet->general_configuration | 0b01;
 
-    klog_printf("HPET initialization finished.\n");
+    klogi("HPET initialization finished\n");
 }
+

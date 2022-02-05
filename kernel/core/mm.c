@@ -78,16 +78,9 @@ bool pmm_alloc(uint64_t addr, uint64_t numpages)
     return true;
 }
 
-uint64_t pmm_get(uint64_t numpages)
+uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr)
 {
-    static uint64_t lastusedpage = 0;
-
-    for (uint64_t i = lastusedpage; i < kmem_info.phys_limit; i += PAGE_SIZE) {
-        if (pmm_alloc(i, numpages))
-            return i;
-    }
-
-    for (uint64_t i = 0; i < lastusedpage; i += PAGE_SIZE) {
+    for (uint64_t i = baseaddr; i < kmem_info.phys_limit; i += PAGE_SIZE) {
         if (pmm_alloc(i, numpages))
             return i;
     }
@@ -137,7 +130,7 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
 
     // zero it out
     memset(kmem_info.bitmap, 0, bm_size);
-    klog_printf("Memory bitmap address: %x\n", kmem_info.bitmap);
+    klogi("Memory bitmap address: 0x%x\n", kmem_info.bitmap);
 
     // now populate the bitmap
     for (size_t i = 0; i < map->entries; i++) {
@@ -153,7 +146,7 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
     // mark the bitmap as used
     pmm_alloc(VIRT_TO_PHYS(kmem_info.bitmap), NUM_PAGES(bm_size));
 
-    klogi("PMM initialization finished.\n");   
+    klogi("PMM initialization finished\n");   
     klogi("Memory total: %d, phys limit: %d, free: %d\n",
           kmem_info.total_size, kmem_info.phys_limit, kmem_info.free_size);
 }
@@ -177,21 +170,21 @@ static void map_page(uint64_t vaddr, uint64_t paddr, uint64_t flags)
 
     pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1));
+        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
         memset(pdpt, 0, PAGE_SIZE);
         pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
     }   
 
     pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(1));
+        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
         memset(pd, 0, PAGE_SIZE);
         pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
     }
 
     pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0xfff));
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1));
+        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
         memset(pt, 0, PAGE_SIZE);
         pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
     }
@@ -274,13 +267,19 @@ void vmm_init()
     kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(0xffffffff80000000, 0, NUM_PAGES(0x80000000), VMM_FLAGS_DEFAULT);
-    klogd("Mapped lower 2GB to 0xFFFFFFFF80000000\n");
+    vmm_map(0xffffffff80000000, 0, NUM_PAGES(USERSPACE_OFFSET), VMM_FLAGS_USERMODE);
+    klogd("Mapped lower 512MB to 0xFFFFFFFF80000000\n");
 
     vmm_map(0xffff800000000000, 0, NUM_PAGES(kmem_info.phys_limit), VMM_FLAGS_DEFAULT);
     klogd("Mapped all memory to 0xFFFF800000000000\n");
 
+    vmm_map(USERSPACE_OFFSET,
+            USERSPACE_OFFSET, 
+            NUM_PAGES(kmem_info.phys_limit - (uint64_t)USERSPACE_OFFSET),
+            VMM_FLAGS_USERMODE);
+    klogd("Mapped 512MB and higher space to 0x%x\n", USERSPACE_OFFSET);
+
     write_cr("cr3", VIRT_TO_PHYS(kaddrspace.PML4));
-    klogi("VMM initialization finished.\n");
+    klogi("VMM initialization finished\n");
 }
 

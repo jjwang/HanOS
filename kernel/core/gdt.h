@@ -16,7 +16,14 @@
 #include <stdint.h>
 #include <core/smp.h>
 
-typedef uint64_t gdt_entry_t;
+typedef struct [[gnu::packed]] {
+    uint16_t limit;
+    uint16_t base_low;
+    uint8_t  base_mid;
+    uint8_t  access;
+    uint8_t  granularity;
+    uint8_t  base_high;
+} gdt_entry_t;
 
 typedef struct [[gnu::packed]] {
     uint16_t seg_limit_1;
@@ -43,5 +50,5 @@ typedef struct [[gnu::packed]] {
     uint64_t offset;
 } gdt_register_t;
 
-void gdt_init();
-void gdt_install_tss(tss_t* tss);
+void gdt_init(cpu_t* cpuinfo);
+void gdt_install_tss(cpu_t* cpuinfo);

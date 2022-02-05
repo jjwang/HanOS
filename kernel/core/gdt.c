@@ -8,8 +8,8 @@
 ///   memory segments.
 ///
 ///   In HanOS, GDT initialization is very simple. Only memory protection is
-///   used. As the first step, only two ring-0 segment descriptor are defined.
-///   The memory regions are all from 0 to 4GB.
+///   used. Two ring-0 and two ring-3 segment descriptor are defined. The
+///   memory regions are from 0 to 4GB.
 ///
 /// @author  JW
 /// @date    Nov 27, 2021
@@ -20,49 +20,47 @@
 #include <lib/kmalloc.h>
 #include <core/gdt.h>
 #include <core/panic.h>
+#include <core/smp.h>
 
 gdt_table_t* gdt = NULL;
 
-static gdt_entry_t gdt_make_entry(uint64_t base, uint64_t limit, uint8_t type)
+static void gdt_make_entry(
+    gdt_entry_t* gate,
+    uint64_t base,
+    uint64_t limit,
+    uint8_t type)
 {
-    gdt_entry_t gate = 0;
-    uint8_t* target = (uint8_t*)&gate;
-
     if (limit > 65536) {
         // Adjust granularity if required
         limit = limit >> 12;
-        target[6] = 0xA0;
+        gate->granularity = 0xA0;
     } else {
-        target[6] = 0x80;
+        gate->granularity = 0x80;
     }
     // Encode the limit
-    target[0] = limit & 0xFF;
-    target[1] = (limit >> 8) & 0xFF;
-    target[6] |= (limit >> 16) & 0xF;
+    gate->limit = limit & 0xFFFF;
+    gate->granularity|= (limit >> 16) & 0xF;
  
     // Encode the base 
-    target[2] = base & 0xFF;
-    target[3] = (base >> 8) & 0xFF;
-    target[4] = (base >> 16) & 0xFF;
-    target[7] = (base >> 24) & 0xFF;
+    gate->base_low  = base & 0xFFFF;
+    gate->base_mid  = (base >> 16) & 0xFF;
+    gate->base_high = (base >> 24) & 0xFF;
  
-    // And... Type
-    target[5] = type;
-
-    return gate;
+    // Encode the type
+    gate->access = type;
 }
 
-void gdt_init()
+void gdt_init(cpu_t* cpuinfo)
 {
     if(gdt == NULL) {
         gdt = (gdt_table_t*)kmalloc(sizeof(gdt_table_t));
     }
 
-    gdt->null  = gdt_make_entry(0, 0, 0);
-    gdt->kcode = gdt_make_entry(0, 0xFFFFFFFF, 0x9A);
-    gdt->kdata = gdt_make_entry(0, 0xFFFFFFFF, 0x92);
-    gdt->ucode = gdt_make_entry(0, 0xFFFFFFFF, 0xFA);
-    gdt->udata = gdt_make_entry(0, 0xFFFFFFFF, 0xF2);
+    gdt_make_entry(&(gdt->null), 0, 0, 0);
+    gdt_make_entry(&(gdt->kcode), 0, 0xFFFFFFFF, 0x9A);
+    gdt_make_entry(&(gdt->kdata), 0, 0xFFFFFFFF, 0x92);
+    gdt_make_entry(&(gdt->ucode), 0, 0xFFFFFFFF, 0xFA);
+    gdt_make_entry(&(gdt->udata), 0, 0xFFFFFFFF, 0xF2);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
     asm volatile("lgdt %0;"
@@ -80,10 +78,14 @@ void gdt_init()
                  : "g"(g)
                  :);
 
-    klog_printf("GDT initialization finished.\n");
+    if (cpuinfo != NULL) {
+        klogi("GDT initialization finished for CPU %d\n", cpuinfo->cpu_id);
+    } else {
+        klogi("GDT initialization finished\n");
+    }
 }
 
-void gdt_install_tss(tss_t* tss)
+void gdt_install_tss(cpu_t* cpuinfo)
 {
     gdt_register_t gdtr;
     asm volatile("sgdt %0"
@@ -92,7 +94,7 @@ void gdt_install_tss(tss_t* tss)
                  : "memory");
 
     gdt_table_t* gdt = (gdt_table_t*)(gdtr.offset);
-    uint64_t baseaddr = (uint64_t)tss;
+    uint64_t baseaddr = (uint64_t)(&cpuinfo->tss);
     uint64_t seglimit = sizeof(tss_t);
 
     gdt->tss.base_addr_1 = baseaddr & 0xFFFF;
@@ -110,5 +112,11 @@ void gdt_install_tss(tss_t* tss)
                  :
                  :
                  : "ax");
+
+    if (cpuinfo != NULL) {
+        klogi("Loading TSS finished for CPU %d, base address 0x%x\n", cpuinfo->cpu_id, baseaddr);
+    } else {
+        klogi("Loading TSS finished, base address 0x%x\n", baseaddr);
+    } 
 }
 

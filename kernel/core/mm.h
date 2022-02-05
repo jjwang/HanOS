@@ -23,6 +23,7 @@
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
 
+#define USERSPACE_OFFSET        0x20000000
 #define HIGHERHALF_OFFSET       0xffffffff80000000
 
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
@@ -37,11 +38,9 @@ typedef struct {
 } mem_info_t;
 
 void pmm_init(struct stivale2_struct_tag_memmap* map);
-uint64_t pmm_get(uint64_t numpages);
+uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_free(uint64_t addr, uint64_t numpages);
-
-#define MEM_VIRT_OFFSET         0xffff800000000000
 
 #define VMM_FLAG_PRESENT        (1 << 0)
 #define VMM_FLAG_READWRITE      (1 << 1)
@@ -53,6 +52,8 @@ void pmm_free(uint64_t addr, uint64_t numpages);
 #define VMM_FLAGS_DEFAULT       (VMM_FLAG_PRESENT | VMM_FLAG_READWRITE)
 #define VMM_FLAGS_MMIO          (VMM_FLAGS_DEFAULT | VMM_FLAG_CACHE_DISABLE)
 #define VMM_FLAGS_USERMODE      (VMM_FLAGS_DEFAULT | VMM_FLAG_USER)
+
+#define MEM_VIRT_OFFSET         0xffff800000000000
 
 #define VIRT_TO_PHYS(a)         (((uint64_t)(a)) - MEM_VIRT_OFFSET)
 #define PHYS_TO_VIRT(a)         (((uint64_t)(a)) + MEM_VIRT_OFFSET)
