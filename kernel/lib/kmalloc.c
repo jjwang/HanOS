@@ -22,7 +22,7 @@ typedef struct {
 
 void* kmalloc(uint64_t size)
 {
-    metadata_t* alloc = (metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1));
+    metadata_t* alloc = (metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0));
     alloc->numpages = NUM_PAGES(size);
     alloc->size = size;
     return ((uint8_t*)alloc) + PAGE_SIZE;
@@ -55,3 +55,19 @@ void* kmrealloc(void* addr, size_t newsize)
     kmfree(addr);
     return new;
 }
+
+// This function cannot be called in user mode which needs further improvements.
+void* umalloc(uint64_t size)
+{
+    metadata_t* alloc = (metadata_t*)(pmm_get(NUM_PAGES(size) + 1, USERSPACE_OFFSET));
+    alloc->numpages = NUM_PAGES(size);
+    alloc->size = size;
+    return ((uint8_t*)alloc) + PAGE_SIZE;
+}
+
+void umfree(void* addr)
+{
+    metadata_t* d = (metadata_t*)((uint8_t*)addr - PAGE_SIZE);
+    pmm_free((uint64_t)d, d->numpages + 1); 
+}
+

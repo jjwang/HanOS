@@ -25,6 +25,7 @@
 #include <core/hpet.h>
 #include <core/madt.h>
 #include <core/apic.h>
+#include <proc/sched.h>
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
@@ -32,30 +33,36 @@ static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_VIRT(SMP_AP_BOOT_C
 
 static smp_info_t info;
 
+static bool smp_initialized = false;
+
 const smp_info_t* smp_get_info()
 {
     return &info;
 }
 
-cpu_t* smp_get_current_info()
+cpu_t* smp_get_current_cpu()
 {
-    return (cpu_t*)read_msr(MSR_GS_BASE);
+    if (smp_initialized) {
+        return (cpu_t*)read_msr(MSR_GS_BASE);
+    } else {
+        return NULL;
+    }
 }
 
 static void init_tss(cpu_t* cpuinfo)
 {
     cpuinfo->tss.iopb_offset = sizeof(tss_t);
     cpuinfo->tss.rsp0 = 0; // will be filled in by the scheduler
-    gdt_install_tss(&(cpuinfo->tss));
+    gdt_install_tss(cpuinfo);
 }
 
 // AP's will run this code upon boot
 _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
 {
-    klog_printf("SMP: continue to initialize core %04x\n", cpuinfo->cpu_id);
+    klogi("SMP: continue to initialize core %d\n", cpuinfo->cpu_id);
 
     // initialize cpu features
-    gdt_init();
+    gdt_init(cpuinfo);
     cpu_init();
 
     // initialze gdt and make a tss
@@ -67,7 +74,9 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     // enable the apic
     apic_enable();
 
-    // wait for scheduler
+    // initialize and wait for scheduler
+    sched_init(cpuinfo->cpu_id);
+
     asm volatile("sti");
     while (true)
         asm volatile("hlt");
@@ -103,7 +112,7 @@ void smp_init()
     // get lapic info from the madt
     uint64_t cpunum = madt_get_num_lapic();
     madt_record_lapic_t** lapics = madt_get_lapics();
-    klog_printf("SMP: core number is %d\n", cpunum);
+    klogi("SMP: core number is %d\n", cpunum);
     
     // loop through the lapic's present and initialize them one by one
     for (uint64_t i = 0; i < cpunum; i++) {
@@ -112,7 +121,7 @@ void smp_init()
         // if cpu is not online capable, do not initialize it
         if (!(lapics[i]->flags & MADT_LAPIC_FLAG_ONLINE_CAPABLE)
             && !(lapics[i]->flags & MADT_LAPIC_FLAG_ENABLED)) {
-            klog_printf("SMP: core %d is not enabled or online capable\n", lapics[i]->proc_id);
+            klogi("SMP: core %d is not enabled or online capable\n", lapics[i]->proc_id);
             continue;
         }
 
@@ -121,7 +130,7 @@ void smp_init()
 
         // if cpu is the bootstrap processor, do not initialize it
         if (apic_read_reg(APIC_REG_ID) == lapics[i]->apic_id) {
-            klog_printf("SMP: core %d is BSP\n", lapics[i]->proc_id);
+            klogi("SMP: core %d is BSP\n", lapics[i]->proc_id);
             info.cpus[info.num_cpus].is_bsp = true;
             write_msr(MSR_GS_BASE, (uint64_t)&info.cpus[info.num_cpus]);
             init_tss(&info.cpus[info.num_cpus]);
@@ -129,7 +138,7 @@ void smp_init()
             continue;
         }
 
-        klog_printf("SMP: initializing core %d...\n", lapics[i]->proc_id);
+        klogi("SMP: initializing core %d...\n", lapics[i]->proc_id);
 
         // allocate and pass the stack
         void* stack = kmalloc(PAGE_SIZE);
@@ -159,17 +168,19 @@ void smp_init()
         }
 
         if (!success) {
-            klog_printf("SMP: core %d initialization failed\n", lapics[i]->proc_id);
+            klogi("SMP: core %d initialization failed\n", lapics[i]->proc_id);
             kmfree(stack);
         } else {
-            klog_printf("SMP: core %d initialization successed\n", lapics[i]->proc_id);
+            klogi("SMP: core %d initialization successed\n", lapics[i]->proc_id);
             info.cpus[info.num_cpus].is_bsp = false;
             info.num_cpus++;
         }
     }
 
-    klog_printf("SMP: %d processors brought up.\n", info.num_cpus);
+    klogi("SMP: %d processors brought up\n", info.num_cpus);
 
     // identity mapping is no longer needed
     vmm_unmap(0, NUM_PAGES(0x100000));
+
+    smp_initialized = true;
 }

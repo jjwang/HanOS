@@ -32,12 +32,12 @@ acpi_sdt_t* acpi_get_sdt(const char* sign)
         acpi_sdt_t* table = (acpi_sdt_t*)PHYS_TO_VIRT(
                    (is_xsdt ? ((uint64_t*)sdt->data)[i] : ((uint32_t*)sdt->data)[i]));
         if (memcmp(table->hdr.sign, sign, sizeof(table->hdr.sign))) {
-            klog_printf("ACPI: found SDT \"%s\"\n", sign);
+            klogi("ACPI: found SDT \"%s\"\n", sign);
             return table;
         }
     }
 
-    klog_printf("ACPI: SDT \"%s\" not found.\n", sign);
+    klogw("ACPI: SDT \"%s\" not found\n", sign);
     return NULL;
 }
 
@@ -51,11 +51,11 @@ void acpi_init(struct stivale2_struct_tag_rsdp* rsdp_info)
     // If this field contains 0, then ACPI Version 1.0 is used. For subsequent
     // versions (ACPI version 2.0 to 6.1), the value 2 is used
     if (rsdp->revision == 2) {
-        klog_printf("ACPI: v2.0 detected\n");
+        klogi("ACPI: v2.0 detected\n");
         sdt = (acpi_sdt_t*)PHYS_TO_VIRT(rsdp->xsdt_addr);
         is_xsdt = true;
     } else {
-        klog_printf("ACPI: v1.0 (revision %d) detected\n", rsdp->revision);
+        klogi("ACPI: v1.0 (revision %d) detected\n", rsdp->revision);
         sdt = (acpi_sdt_t*)PHYS_TO_VIRT(rsdp->rsdt_addr);
         is_xsdt = false;
     }

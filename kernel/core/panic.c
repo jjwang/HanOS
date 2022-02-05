@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <symbols.h>
 #include <core/panic.h>
+#include <core/smp.h>
 #include <lib/klog.h>
 
 static int symbols_get_index(uint64_t addr)
@@ -33,24 +34,30 @@ void dump_backtrace()
     uint64_t* rbp_val = 0;
     asm volatile("movq %%rbp, %0" : "=rm"(rbp_val));
 
+    klog_lock();
     klogu("\nStacktrace:\n");
     for (int i = 0;; i++) {
         uint64_t func_addr = *(rbp_val + 1);
         if (func_addr == 0x0) {
             break;
         }
-        klogu(" \t[%02d] ", i); 
         int idx = symbols_get_index(func_addr);
-        klogu("\t%x", func_addr);
         if (idx < 0) {
-            klogu(" (Unknown Function)\n");
+            klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
             break;
         }   
-        klogu(" (%s+%04x)\n",
+        klogu(" \t[%02d] \t%x (%s+%04x)\n",
+                    i, func_addr,
                     _kernel_symtab[idx].name,
                     func_addr - _kernel_symtab[idx].addr);
         rbp_val = (uint64_t*)*rbp_val;
     }
-    klogu("End of trace. System halted.\n");
+    cpu_t* cpu = smp_get_current_cpu();
+    if (cpu != NULL) {
+        klogu("End of trace. CPU %d System halted.\n\n", cpu->cpu_id);
+    } else {
+        klogu("End of trace. System halted.\n\n");
+    }
+    klog_unlock();
 }
 

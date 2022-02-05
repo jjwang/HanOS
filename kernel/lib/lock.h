@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 typedef volatile struct {
-    int lock;
+    int locked;
     uint64_t rflags;
 } lock_t;
 
@@ -37,7 +37,7 @@ typedef volatile struct {
             "jc 1b;"                                            \
             "2:"                                                \
             "pop %[flags]"                                      \
-            : [lock] "=m"((s)->lock), [flags] "=m"((s)->rflags) \
+            : [lock] "=m"((s)->locked), [flags] "=m"((s)->rflags) \
             :                                                   \
             : "memory", "cc");                                  \
     }
@@ -47,7 +47,7 @@ typedef volatile struct {
         asm volatile("push %[flags];"           \
                      "lock btrl $0, %[lock];"   \
                      "popfq;"                   \
-                     : [lock] "=m"((s)->lock)   \
+                     : [lock] "=m"((s)->locked)   \
                      : [flags] "m"((s)->rflags) \
                      : "memory", "cc");         \
     }

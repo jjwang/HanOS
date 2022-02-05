@@ -63,5 +63,5 @@ void madt_init()
         i += rec->len;
     }
 
-    klog_printf("MADT initialization finished.\n");
+    klogi("MADT initialization finished\n");
 }

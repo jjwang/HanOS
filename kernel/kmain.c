@@ -3,13 +3,9 @@
 /// @file    kmain.c
 /// @brief   Entry function of HanOS kernel
 /// @details
-///  Finish kernel initializatio and start shell process.
-///  0. Initial codes are modified from Limine's demo projects: \n
-///     - https://github.com/limine-bootloader/limine-barebones \n
-///  1. System initialization to enable terminal outputs
-///     - lib: klog system which just realizes printf function.
-///     - device: initialize framebuffer based terminal.
-///  2. Initialize GDT and IDT to handle exceptions
+///
+///   Lots of system initializations will be processed here.
+///
 /// @author  JW
 /// @date    Oct 23, 2021
 ///
@@ -29,6 +25,7 @@
 #include <core/apic.h>
 #include <core/hpet.h>
 #include <device/display/term.h>
+#include <proc/sched.h>
 
 // Tell the stivale bootloader where we want our stack to be.
 static uint8_t stack[64000];
@@ -88,21 +85,27 @@ void kmain(struct stivale2_struct* bootinfo)
     vmm_init();
     term_start();
 
-    gdt_init();
+    gdt_init(NULL);
     idt_init();
 
     acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
     hpet_init();
     apic_init();
-    smp_init();
     cmos_init();
 
-#if 0
+    smp_init();
+
+#if 0 
     int val1 = 10000, val2 = 0;
     kloge("Val: %d", val1 / val2);
 #endif
 
+    sched_init(0);
+
     sleep(1000);
+
+    // According to current implementation, the below codes will not be
+    // executed.
     klogi("\077[14;1m%s\077[0m\n", "Welcome to HanOS world!");
 
     for (;;) {

@@ -8,7 +8,7 @@ run: $(ISO_IMAGE)
 	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE)
 
 limine:
-	git clone https://github.com/limine-bootloader/limine.git --branch=v2.0-branch-binary --depth=1
+	git clone https://github.com/limine-bootloader/limine.git --branch=latest-binary --depth=1
 	make -C limine
 
 kernel/hanos.elf:

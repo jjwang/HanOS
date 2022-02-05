@@ -196,7 +196,7 @@ void term_init(struct stivale2_struct_tag_framebuffer* s)
     term_clear();
     term_refresh();
 
-    klog_printf("Terminal width: %d, height: %d, pitch: %d, addr: %x\n", 
+    klogi("Terminal width: %d, height: %d, pitch: %d, addr: %x\n", 
                 term_info.fb.width, term_info.fb.height, term_info.fb.pitch,
                 term_info.fb.addr);
 }

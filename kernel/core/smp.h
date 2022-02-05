@@ -56,6 +56,7 @@ typedef struct {
     cpu_t cpus[CPU_MAX];
 } smp_info_t;
 
-void smp_init();
-const smp_info_t* smp_get_info();
-cpu_t* smp_get_current_info();
+void smp_init(void);
+const smp_info_t* smp_get_info(void);
+cpu_t* smp_get_current_cpu(void);
+

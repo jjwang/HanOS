@@ -5,7 +5,13 @@
 ///          functions
 /// @details
 ///
-///   Need further work on APIC...
+///   APIC ("Advanced Programmable Interrupt Controller") is the updated Intel
+///   standard for the older PIC. It is used in multiprocessor systems and is
+///   an integral part of all recent Intel (and compatible) processors. The
+///   APIC is used for sophisticated interrupt redirection, and for sending
+///   interrupts between processors.
+///
+///   Ref: https://wiki.osdev.org/APIC
 ///
 /// @author  JW
 /// @date    DEC 12, 2021
@@ -19,7 +25,9 @@
 #include <core/idt.h>
 #include <lib/klog.h>
 
-static void* lapic_base;
+// The local APIC registers are memory mapped to an address that can be found
+// in the MP/MADT tables.
+static void* lapic_base = NULL;
 
 uint32_t apic_read_reg(uint16_t offset)
 {
@@ -31,11 +39,15 @@ void apic_write_reg(uint16_t offset, uint32_t val)
     *(volatile uint32_t*)(lapic_base + offset) = val;
 }
 
+// Write to the register with offset 0xB0 using the value 0 to signal an end
+// of interrupt.
 void apic_send_eoi()
 {
     apic_write_reg(APIC_REG_EOI, 1);
 }
 
+// Inter-Processor Interrupts (IPIs) can be used as basic signaling for
+// scheduling coordination, multi-processor bootstrapping, etc.
 void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
 {
     apic_write_reg(APIC_REG_ICR_HIGH, (uint32_t)dest << 24);
@@ -54,5 +66,6 @@ void apic_init()
 
     apic_enable();
 
-    klog_printf("APIC initialization finished.\n");
+    klogi("APIC version %08x initialization finished\n", apic_read_reg(APIC_REG_VERSION));
 }
+
