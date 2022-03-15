@@ -1,15 +1,18 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    kmalloc.h
-/// @brief   Definition of memory allocation related functions
-/// @details
-///
-///   e.g., malloc, free and realloc.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    kmalloc.h
+ @brief   Definition of memory allocation related functions
+ @details
+ @verbatim
+
+  e.g., malloc, free and realloc.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stddef.h>

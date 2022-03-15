@@ -1,17 +1,20 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    panic.h
-/// @brief   Implementation of panic related functions
-/// @details
-///
-///   A kernel panic is one of several boot issues. In basic terms, it is a
-///   situation when the kernel can't load properly and therefore the system
-///   fails to boot.
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    panic.h
+ @brief   Implementation of panic related functions
+ @details
+ @verbatim
+
+  A kernel panic is one of several boot issues. In basic terms, it is a
+  situation when the kernel can't load properly and therefore the system
+  fails to boot.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 27, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -52,7 +55,7 @@ void dump_backtrace()
                     func_addr - _kernel_symtab[idx].addr);
         rbp_val = (uint64_t*)*rbp_val;
     }
-    cpu_t* cpu = smp_get_current_cpu();
+    cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
         klogu("End of trace. CPU %d System halted.\n\n", cpu->cpu_id);
     } else {

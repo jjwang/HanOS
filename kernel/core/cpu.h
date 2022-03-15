@@ -1,16 +1,19 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    cpu.h
-/// @brief   Definition of CPU related data structures and macros
-/// @details
-///
-///   e.g., Read & write control registers, model specific registers and port
-///   input & output.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    cpu.h
+ @brief   Definition of CPU related data structures and macros
+ @details
+ @verbatim
+
+  e.g., Read & write control registers, model specific registers and port
+  input & output.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
@@ -23,9 +26,10 @@
 #define MSR_LSTAR       0xC0000082
 #define MSR_SFMASK      0xC0000084
 
-// Read & write control registers on x64 CPUs, which contains flags controlling
-// CPU features related to memory protection, multitasking, paging, etc.
-// 6 CRs available: cr0, cr1, cr2, cr3, cr4 and cr8
+/* Read & write control registers on x64 CPUs, which contains flags controlling
+ * CPU features related to memory protection, multitasking, paging, etc.
+ * 6 CRs available: cr0, cr1, cr2, cr3, cr4 and cr8
+ */
 #define read_cr(cr, n)  asm volatile("mov %%" cr ", %%rax;" \
                                      "mov %%rax, %0"        \
                                      : "=g"(*(n))           \
@@ -38,9 +42,10 @@
                                     : "g"(n)                \
                                     : "rax");
 
-// Read & write model specific registers on x64 CPUs, which contains flags controlling
-// OS-relevant things such as memory type-range, sysenter/sysexit, local APIC, etc.
-// Ref: https://wiki.osdev.org/Model_Specific_Registers
+/* Read & write model specific registers on x64 CPUs, which contains flags controlling
+ * OS-relevant things such as memory type-range, sysenter/sysexit, local APIC, etc.
+ * Ref: https://wiki.osdev.org/Model_Specific_Registers
+ */
 static inline uint64_t read_msr(uint32_t msr)
 {   
     uint32_t low, high;
@@ -71,7 +76,7 @@ static inline void write_msr(uint32_t msr, uint64_t val)
                  : "eax", "ecx", "edx");
 }
 
-// Port I/O functions
+/* Port I/O functions */
 static inline uint8_t port_inb(uint16_t port)
 {
     uint8_t ret;

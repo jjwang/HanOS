@@ -1,15 +1,21 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    kmain.c
-/// @brief   Entry function of HanOS kernel
-/// @details
-///
-///   Lots of system initializations will be processed here.
-///
-/// @author  JW
-/// @date    Oct 23, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    kmain.c
+ @brief   Entry function of HanOS kernel
+ @details
+ @verbatim
+
+  Lots of system initializations will be processed here.
+
+  History:
+    Feb 19, 2022  Added CLI task which supports some simple commands.
+
+ @endverbatim
+ @author  JW
+ @date    Oct 23, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 
 #include <stddef.h>
 
@@ -24,13 +30,15 @@
 #include <core/acpi.h>
 #include <core/apic.h>
 #include <core/hpet.h>
+#include <core/panic.h>
 #include <device/display/term.h>
+#include <device/keyboard/keyboard.h>
 #include <proc/sched.h>
 
-// Tell the stivale bootloader where we want our stack to be.
+/* Tell the stivale bootloader where we want our stack to be. */
 static uint8_t stack[64000];
 
-// Only define framebuffer header tag since we do not want to use stivale2 terminal.
+/* Only define framebuffer header tag since we do not want to use stivale2 terminal. */
 static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
     .tag = {
         .identifier = STIVALE2_HEADER_TAG_FRAMEBUFFER_ID,
@@ -41,7 +49,7 @@ static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
     .framebuffer_bpp    = FB_PITCH * 8 / FB_WIDTH
 };
 
-// According to stivale2 specification, we need to define a "header structure".
+/* According to stivale2 specification, we need to define a "header structure". */
 __attribute__((section(".stivale2hdr"), used))
 static struct stivale2_header stivale_hdr = {
     .entry_point = 0,
@@ -50,7 +58,7 @@ static struct stivale2_header stivale_hdr = {
     .tags = (uintptr_t)&framebuffer_hdr_tag
 };
 
-// Scan for tags that we want FROM the bootloader (structure tags).
+/* Scan for tags that we want FROM the bootloader (structure tags). */
 void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
     struct stivale2_tag *current_tag = (void *)PHYS_TO_VIRT(stivale2_struct->tags);
     for (;;) {
@@ -66,7 +74,18 @@ void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
     }
 }
 
-// This is HanOS kernel's entry point.
+_Noreturn void kshell(task_id_t tid)
+{
+    (void)tid;
+
+    klogi("Shell task started\n");
+    kprintf("?[14;1m%s?[0m\n", "Welcome to HanOS world!");
+    while (true) {
+        asm volatile("nop;");
+    }   
+}
+
+/* This is HanOS kernel's entry point. */
 void kmain(struct stivale2_struct* bootinfo)
 {
     bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
@@ -76,7 +95,7 @@ void kmain(struct stivale2_struct* bootinfo)
     term_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
     klog_init();
 
-    klogi("\077[11;1m%s\077[0m Hello World\n", helloworld);
+    kprintf("?[11;1m%s?[0m Hello World\n", helloworld);
 
     klogi("HanOS version 0.1 starting...\n");
     klogi("Boot info address: 0x%16x\n", (uint64_t)bootinfo);
@@ -84,7 +103,6 @@ void kmain(struct stivale2_struct* bootinfo)
     pmm_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_MEMMAP_ID));
     vmm_init();
     term_start();
-
     gdt_init(NULL);
     idt_init();
 
@@ -92,6 +110,7 @@ void kmain(struct stivale2_struct* bootinfo)
     hpet_init();
     apic_init();
     cmos_init();
+    keyboard_init();
 
     smp_init();
 
@@ -100,14 +119,20 @@ void kmain(struct stivale2_struct* bootinfo)
     kloge("Val: %d", val1 / val2);
 #endif
 
-    sched_init(0);
+    pmm_dump_usage();
 
-    sleep(1000);
+    sched_add(kshell);
 
-    // According to current implementation, the below codes will not be
-    // executed.
-    klogi("\077[14;1m%s\077[0m\n", "Welcome to HanOS world!");
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if(cpu != NULL) {
+        sched_init(cpu->cpu_id);
+    } else {
+        kpanic("Can not get CPU info in shell process\n");
+    }
 
+    /* According to current implementation, the below codes will not be
+     * executed.
+     */
     for (;;) {
         asm ("hlt");
     }

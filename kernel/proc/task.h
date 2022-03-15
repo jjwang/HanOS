@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    task.h
+ @brief   Definition of task related functions
+ @details
+ @verbatim
+
+  Create and return task data structure which contains registers and other task
+  related information.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>
@@ -52,7 +68,7 @@ typedef struct {
     uint64_t ss;
 } task_regs_t;
 
-typedef struct task {
+typedef struct task_t {
     void* kstack_top;
     void* kstack_limit;
     void* ustack_top;
@@ -64,8 +80,8 @@ typedef struct task {
     task_status_t status;
     task_mode_t mode;
 
-    struct task* next;
-    struct task* prev;
+    struct task_t* next;
+    struct task_t* prev;
 } task_t;
 
 task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);

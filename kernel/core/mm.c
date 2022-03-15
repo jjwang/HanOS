@@ -1,31 +1,34 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    mm.c
-/// @brief   Implementation of memory management functions
-/// @details
-///
-///   Memory management is a critical part of any operating system kernel.
-///   Providing a quick way for programs to allocate and free memory on a
-///   regular basis is a major responsibility of the kernel.
-///
-///   High Half Kernel: To setup a higher half kernel, you have to map your
-///   kernel to the appropriate virtual address. Without a boot loader help,
-///   you'll need a small trampoline code which runs in lower half, sets up
-///   higher half paging and jumps.
-///
-///   If page protection is not enabled, virtual address is equal with physical
-///   address. The highest bit of CR0 indicates whether paging is enabled or
-///   not: mov cr0,8000000 can enable paging.
-///
-///   PMM: The method behind PMM is very simple. The memories with type -
-///   STIVALE2_MMAP_USABLE are devided into 4K-size pages. A bitmap array is
-///   used for indicated whether it is free or not. One bit for one page in
-///   bitmap array.
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    mm.c
+ @brief   Implementation of memory management functions
+ @details
+ @verbatim
+
+  Memory management is a critical part of any operating system kernel.
+  Providing a quick way for programs to allocate and free memory on a
+  regular basis is a major responsibility of the kernel.
+
+  High Half Kernel: To setup a higher half kernel, you have to map your
+  kernel to the appropriate virtual address. Without a boot loader help,
+  you'll need a small trampoline code which runs in lower half, sets up
+  higher half paging and jumps.
+
+  If page protection is not enabled, virtual address is equal with physical
+  address. The highest bit of CR0 indicates whether paging is enabled or
+  not: mov cr0,8000000 can enable paging.
+
+  PMM: The method behind PMM is very simple. The memories with type -
+  STIVALE2_MMAP_USABLE are devided into 4K-size pages. A bitmap array is
+  used for indicated whether it is free or not. One bit for one page in
+  bitmap array.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 27, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 #include <core/cpu.h>
 #include <core/mm.h>
@@ -56,7 +59,6 @@ static bool bitmap_isfree(uint64_t addr, uint64_t numpages)
     return free;
 }
 
-// marks pages as free
 void pmm_free(uint64_t addr, uint64_t numpages)
 {
     for (uint64_t i = addr; i < addr + (numpages * PAGE_SIZE); i += PAGE_SIZE) {
@@ -67,7 +69,6 @@ void pmm_free(uint64_t addr, uint64_t numpages)
     }
 }
 
-// marks pages as used, returns true if success, false otherwise
 bool pmm_alloc(uint64_t addr, uint64_t numpages)
 {
     if (!bitmap_isfree(addr, numpages))
@@ -95,16 +96,15 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
     kmem_info.total_size = 0;
     kmem_info.free_size = 0;
 
+    klogv("Physical memory's entry number: %d\n", map->entries);
+
     for (uint64_t i = 0; i < map->entries; i++) {
         struct stivale2_mmap_entry entry = map->memmap[i];
-
-        if (entry.base + entry.length <= 0x100000)
-            continue;
-
         uint64_t new_limit = entry.base + entry.length;
+
         if (new_limit > kmem_info.phys_limit) {
             kmem_info.phys_limit = new_limit;
-        }   
+        }
 
         if (entry.type == STIVALE2_MMAP_USABLE
             || entry.type == STIVALE2_MMAP_BOOTLOADER_RECLAIMABLE
@@ -114,7 +114,7 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
         }   
     }
 
-    // look for a good place to keep our bitmap
+    /* look for a good place to keep our bitmap */
     uint64_t bm_size = kmem_info.phys_limit / (PAGE_SIZE * BMP_PAGES_PER_BYTE);
     for (size_t i = 0; i < map->entries; i++) {
         struct stivale2_mmap_entry entry = map->memmap[i];
@@ -128,11 +128,10 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
         }
     }
 
-    // zero it out
     memset(kmem_info.bitmap, 0, bm_size);
     klogi("Memory bitmap address: 0x%x\n", kmem_info.bitmap);
 
-    // now populate the bitmap
+    /* now populate the bitmap */
     for (size_t i = 0; i < map->entries; i++) {
         struct stivale2_mmap_entry entry = map->memmap[i];
 
@@ -143,16 +142,32 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
             pmm_free(entry.base, NUM_PAGES(entry.length));
     }
 
-    // mark the bitmap as used
+    /* mark the bitmap as used */
     pmm_alloc(VIRT_TO_PHYS(kmem_info.bitmap), NUM_PAGES(bm_size));
 
     klogi("PMM initialization finished\n");   
-    klogi("Memory total: %d, phys limit: %d, free: %d\n",
-          kmem_info.total_size, kmem_info.phys_limit, kmem_info.free_size);
+    klogi("Memory total: %d, phys limit: %d, free: %d, used: %d\n",
+          kmem_info.total_size, kmem_info.phys_limit, kmem_info.free_size,
+          kmem_info.total_size - kmem_info.free_size);
 }
 
-//------------------------------------------------------------------------------
-// Below is virtual memory management related part
+void pmm_dump_usage(void)
+{
+    uint64_t t = kmem_info.total_size, f = kmem_info.free_size,
+             u = t - f;
+
+    klogi("Memory usage:\n"
+          " \t \tTotal: %8d KB (%4d MB)\n"
+          " \t \tFree : %8d KB (%4d MB)\n"
+          " \t \tUsed : %8d KB (%4d MB)\n",
+          t / 1024, t / (1024 * 1024),
+          f / 1024, f / (1024 * 1024),
+          u / 1024, u / (1024 * 1024));
+}
+
+/*------------------------------------------------------------------------------
+ * Below is virtual memory management related part
+ */
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 

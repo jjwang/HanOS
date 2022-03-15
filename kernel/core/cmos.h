@@ -1,17 +1,20 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    cmos.h
-/// @brief   Definition of CMOS related data structures
-/// @details
-///
-///   "CMOS" is a tiny bit of very low power static memory that lives on the
-///   same chip as the Real-Time Clock (RTC). It was introduced to IBM PC AT in
-///   1984 which used Motorola MC146818A RTC.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    cmos.h
+ @brief   Definition of CMOS related data structures
+ @details
+ @verbatim
+
+  "CMOS" is a tiny bit of very low power static memory that lives on the
+  same chip as the Real-Time Clock (RTC). It was introduced to IBM PC AT in
+  1984 which used Motorola MC146818A RTC.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
@@ -19,7 +22,7 @@
 #define CMOS_COMMAND_PORT 0x70
 #define CMOS_DATA_PORT    0x71
 
-// Ref: http://wiki.osdev.org/CMOS
+/* Ref: http://wiki.osdev.org/CMOS */
 #define CMOS_REG_SECONDS  0x00
 #define CMOS_REG_MINUTES  0x02
 #define CMOS_REG_HOURS    0x04

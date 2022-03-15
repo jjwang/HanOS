@@ -1,15 +1,19 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    kmalloc.c
-/// @brief   Implementation of memory allocation related functions
-/// @details
-///
-///   e.g., malloc, free and realloc.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    kmalloc.c
+ @brief   Implementation of memory allocation related functions
+ @details
+ @verbatim
+
+  e.g., malloc, free and realloc.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+ @todo    Memory allocation should be improved for better efficiency.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
@@ -56,7 +60,7 @@ void* kmrealloc(void* addr, size_t newsize)
     return new;
 }
 
-// This function cannot be called in user mode which needs further improvements.
+/* This function cannot be called in user mode which needs further improvements. */
 void* umalloc(uint64_t size)
 {
     metadata_t* alloc = (metadata_t*)(pmm_get(NUM_PAGES(size) + 1, USERSPACE_OFFSET));

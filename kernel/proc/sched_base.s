@@ -22,7 +22,7 @@ enter_context_switch:
 
     mov %rsp, %rdi
 
-    // Will call exit_context_switch in the end of implementation
+    /* Will call exit_context_switch in the end of implementation */
     call do_context_switch
 
     add $120, %rsp
