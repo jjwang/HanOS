@@ -1,17 +1,20 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    fb.h
-/// @brief   Definition of framebuffer related functions
-/// @details
-///
-///   Graphics can be displayed in a linear framebuffer - a simple array mapped
-///   in memory that represents the screen. The address of framebuffer  was got
-///   from Limine bootloader.
-///
-/// @author  JW
-/// @date    Nov 20, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    fb.h
+ @brief   Definition of framebuffer related functions
+ @details
+ @verbatim
+
+  Graphics can be displayed in a linear framebuffer - a simple array mapped
+  in memory that represents the screen. The address of framebuffer  was got
+  from Limine bootloader.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 20, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

@@ -1,7 +1,24 @@
+/**-----------------------------------------------------------------------------
+
+ @file    task.c
+ @brief   Implementation of task related functions
+ @details
+ @verbatim
+
+  Create and return task data structure which contains registers and other task
+  related information.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <lib/kmalloc.h>
+#include <lib/memutils.h>
 #include <lib/klog.h>
 #include <core/cpu.h>
 
@@ -15,6 +32,7 @@ task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_
     }
 
     task_t* ntask = kmalloc(sizeof(task_t));
+    memset(ntask, 0, sizeof(task_t));
 
     ntask->kstack_limit = kmalloc(KSTACK_SIZE);
     ntask->kstack_top = ntask->kstack_limit + KSTACK_SIZE;

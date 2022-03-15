@@ -1,17 +1,20 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    mm.h
-/// @brief   Definition of memory management related data structures
-/// @details
-///
-///   Memory management is a critical part of any operating system kernel.
-///   Providing a quick way for programs to allocate and free memory on a
-///   regular basis is a major responsibility of the kernel.
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    mm.h
+ @brief   Definition of memory management related data structures
+ @details
+ @verbatim
+
+  Memory management is a critical part of any operating system kernel.
+  Providing a quick way for programs to allocate and free memory on a
+  regular basis is a major responsibility of the kernel.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 27, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdarg.h>
@@ -41,6 +44,7 @@ void pmm_init(struct stivale2_struct_tag_memmap* map);
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_free(uint64_t addr, uint64_t numpages);
+void pmm_dump_usage(void);
 
 #define VMM_FLAG_PRESENT        (1 << 0)
 #define VMM_FLAG_READWRITE      (1 << 1)

@@ -1,29 +1,32 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    madt.h
-/// @brief   Definition of ACPI MADT (Multiple APIC Description Table)
-///          related data structures
-/// @details
-///
-///   The MADT describes all of the interrupt controllers in the system. It
-///   can be used to enumerate the processors currently available.
-///
-/// @author  JW
-/// @date    DEC 25, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    madt.h
+ @brief   Definition of ACPI MADT (Multiple APIC Description Table)
+          related data structures
+ @details
+ @verbatim
+
+  The MADT describes all of the interrupt controllers in the system. It
+  can be used to enumerate the processors currently available.
+
+ @endverbatim
+ @author  JW
+ @date    DEC 25, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
 #include <core/acpi.h>
 
-// MADT Record Header
+/* MADT Record Header */
 typedef struct [[gnu::packed]] {
     uint8_t type;
     uint8_t len;
 } madt_record_hdr_t;
 
-// Local APIC
+/* Local APIC */
 typedef struct [[gnu::packed]] {
     madt_record_hdr_t hdr;
 
@@ -32,7 +35,7 @@ typedef struct [[gnu::packed]] {
     uint32_t flags;
 } madt_record_lapic_t;
 
-// I/O APIC
+/* I/O APIC */
 typedef struct [[gnu::packed]] {
     madt_record_hdr_t hdr;
 
@@ -42,7 +45,7 @@ typedef struct [[gnu::packed]] {
     uint32_t gsi_base;
 } madt_record_ioapic_t;
 
-// Interrupt Source Override
+/* Interrupt Source Override */
 typedef struct [[gnu::packed]] {
     madt_record_hdr_t hdr;
 
@@ -52,7 +55,7 @@ typedef struct [[gnu::packed]] {
     uint16_t flags;
 } madt_record_iso_t;
 
-// Non Maskable Interrupt
+/* Non Maskable Interrupt */
 typedef struct [[gnu::packed]] {
     madt_record_hdr_t hdr;
 

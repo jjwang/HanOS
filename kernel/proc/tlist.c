@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    tlist.c
+ @brief   Implementation of task list related functions
+ @details
+ @verbatim
+
+  Push and pop task data structure from task list.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <proc/tlist.h>
 
 void task_list_push(task_list_t* tl, task_t* t)
@@ -15,8 +30,8 @@ void task_list_push(task_list_t* tl, task_t* t)
             tl->tail = t;
             t->next = NULL;
         } else {
-            tl->tail->prev->next = t;
-            t->prev = tl->tail->prev;
+            tl->tail->next = t;
+            t->prev = tl->tail;
             tl->tail = t;
             t->next = NULL;
         }

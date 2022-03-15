@@ -1,20 +1,23 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    hpet.h
-/// @brief   Definition of HPET (High Precision Event Timer) related data
-///          structures
-/// @details
-///
-///   HPET, or High Precision Event Timer, is a piece of hardware designed by
-///   Intel and Microsoft to replace older PIT and RTC. It consists of (usually
-///   64-bit) main counter (which counts up), as well as from 3 to 32 32-bit or
-///   64-bit wide comparators. HPET is programmed using memory mapped IO, and
-///   the base address of HPET can be found using ACPI.
-///
-/// @author  JW
-/// @date    DEC 12, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    hpet.h
+ @brief   Definition of HPET (High Precision Event Timer) related data
+          structures
+ @details
+ @verbatim
+
+  HPET, or High Precision Event Timer, is a piece of hardware designed by
+  Intel and Microsoft to replace older PIT and RTC. It consists of (usually
+  64-bit) main counter (which counts up), as well as from 3 to 32 32-bit or
+  64-bit wide comparators. HPET is programmed using memory mapped IO, and
+  the base address of HPET can be found using ACPI.
+
+ @endverbatim
+ @author  JW
+ @date    DEC 12, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

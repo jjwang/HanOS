@@ -1,27 +1,31 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    lock.h
-/// @brief   Definition of lock related data structures and functions
-/// @details
-///
-///   e.g., lock new, lock and release.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    lock.h
+ @brief   Definition of lock related data structures and functions
+ @details
+ @verbatim
+
+  e.g., lock new, lock and release.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef volatile struct {
-    int locked;
+    int lock;
     uint64_t rflags;
 } lock_t;
 
-#define lock_new          (lock_t){0, 0}
+#define lock_new()        (lock_t){0, 0}
 
+#if 1
 #define lock_lock(s)                                            \
     {                                                           \
         asm volatile(                                           \
@@ -37,7 +41,7 @@ typedef volatile struct {
             "jc 1b;"                                            \
             "2:"                                                \
             "pop %[flags]"                                      \
-            : [lock] "=m"((s)->locked), [flags] "=m"((s)->rflags) \
+            : [lock] "=m"((s)->lock), [flags] "=m"((s)->rflags) \
             :                                                   \
             : "memory", "cc");                                  \
     }
@@ -47,8 +51,11 @@ typedef volatile struct {
         asm volatile("push %[flags];"           \
                      "lock btrl $0, %[lock];"   \
                      "popfq;"                   \
-                     : [lock] "=m"((s)->locked)   \
+                     : [lock] "=m"((s)->lock)   \
                      : [flags] "m"((s)->rflags) \
                      : "memory", "cc");         \
     }
-
+#else
+#define lock_lock(s)    {}
+#define lock_release(s) {}
+#endif

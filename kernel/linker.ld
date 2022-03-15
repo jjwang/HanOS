@@ -4,7 +4,8 @@ offset = 0xffffffff80000000;
 
 SECTIONS
 {
-    . = offset + 0x100000;
+    /* Modification will cause boot failure from physical hard disk */
+    . = offset + 0x200000;
 
     kernel_start = .;
 

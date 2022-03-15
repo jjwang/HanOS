@@ -1,36 +1,38 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    timer.c
-/// @brief   Implementation of APIC timer related functions
-/// @details
-///
-///   The timer has 2 or 3 modes. The first 2 modes (periodic and one-shot)
-///   are supported by all local APICs. The third mode (TSC-Deadline mode) is
-///   an extension that is only supported on recent CPUs.
-///
-///   Periodic Mode:
-///   - Generate IRQs at a fixed rate depending on the initial count.
-///
-///   One-Shot Mode:
-///   - Decrement the current count (and generates a timer IRQ when the count
-///     reaches zero) in the same way as in periodic mode. However it doesn't
-///     reset the current count to the initial count when the current count
-///     reaches zero.
-///
-///   TSC-Deadline mode:
-///   - Similar with one-shot mode but using CPU's time stamp counter instead
-///     to get higher precision.
-///
-///   Ref: https://wiki.osdev.org/APIC_timer
-///
-/// @author  JW
-/// @date    Jan 8, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    timer.c
+ @brief   Implementation of APIC timer related functions
+ @details
+ @verbatim
+
+  The timer has 2 or 3 modes. The first 2 modes (periodic and one-shot)
+  are supported by all local APICs. The third mode (TSC-Deadline mode) is
+  an extension that is only supported on recent CPUs.
+
+  Periodic Mode:
+  - Generate IRQs at a fixed rate depending on the initial count.
+
+  One-Shot Mode:
+  - Decrement the current count (and generates a timer IRQ when the count
+    reaches zero) in the same way as in periodic mode. However it doesn't
+    reset the current count to the initial count when the current count
+    reaches zero.
+
+  TSC-Deadline mode:
+  - Similar with one-shot mode but using CPU's time stamp counter instead
+    to get higher precision.
+
+ @endverbatim
+   Ref: https://wiki.osdev.org/APIC_timer
+ @author  JW
+ @date    Jan 8, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <core/timer.h>
 #include <core/apic.h>
 #include <core/idt.h>
-#include <core/hpet.h>
+#include <core/pit.h>
 #include <lib/klog.h>
 #include <lib/time.h>
 
@@ -106,7 +108,7 @@ void apic_timer_init(void)
     divisor = 4;
 
     apic_write_reg(APIC_REG_TIMER_ICR, UINT32_MAX);
-    hpet_nanosleep(MILLIS_TO_NANOS(500));
+    pit_wait(50);
     base_freq = ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
     klogi("APIC timer base frequency: %d Hz. Divisor: 4\n", base_freq);

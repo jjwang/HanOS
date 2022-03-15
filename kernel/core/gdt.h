@@ -1,16 +1,19 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    gdt.h
-/// @brief   Definition of GDT related data structures
-/// @details
-///
-///   The Global Descriptor Table (GDT) contains entries telling the CPU about
-///   memory segments.
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    gdt.h
+ @brief   Definition of GDT related data structures
+ @details
+ @verbatim
+
+  The Global Descriptor Table (GDT) contains entries telling the CPU about
+  memory segments.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 27, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
@@ -26,14 +29,22 @@ typedef struct [[gnu::packed]] {
 } gdt_entry_t;
 
 typedef struct [[gnu::packed]] {
-    uint16_t seg_limit_1;
-    uint16_t base_addr_1;
-    uint8_t  base_addr_2;
-    uint8_t  flags_low;
-    uint8_t  flags_high;
-    uint8_t  base_addr_3;
-    uint32_t base_addr_4;
-    uint32_t reserved;
+    uint32_t segment_limit_low  : 16; 
+    uint32_t segment_base_low   : 16; 
+    uint32_t segment_base_mid   : 8;
+    uint32_t segment_type       : 4;
+    uint32_t zero_1             : 1;
+    uint32_t segment_dpl        : 2;
+    uint32_t segment_present    : 1;
+    uint32_t segment_limit_high : 4;
+    uint32_t segment_avail      : 1;
+    uint32_t zero_2             : 2;
+    uint32_t segment_gran       : 1;
+    uint32_t segment_base_mid2  : 8;
+    uint32_t segment_base_high  : 32; 
+    uint32_t reserved_1         : 8;
+    uint32_t zero_3             : 5;
+    uint32_t reserved_2         : 19; 
 } sys_seg_desc_t;
 
 typedef struct [[gnu::packed]] {

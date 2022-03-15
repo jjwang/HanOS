@@ -1,21 +1,23 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    idt.c
-/// @brief   Implementation of IDT related functions
-/// @details
-///
-///   The Interrupt Descriptor Table (IDT) telling the CPU where the Interrupt
-///   Service Routines (ISR) are located (one per interrupt vector). The IDT
-///   entries are called gates. It can contain Interrupt Gates, Task Gates and
-///   Trap Gates. As the first step, only trap gates (exceptions) are
-///   implemented.
-///
-///   Ref: https://wiki.osdev.org/Interrupt_Descriptor_Table
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    idt.c
+ @brief   Implementation of idt related functions
+ @details
+ @verbatim
+
+  The Interrupt Descriptor Table (idt) telling the CPU where the Interrupt
+  Service Routines (ISR) are located (one per interrupt vector). The idt
+  entries are called gates. It can contain Interrupt Gates, Task Gates and
+  Trap Gates. As the first step, only trap gates (exceptions) are
+  implemented.
+
+ @endverbatim
+  Ref: https://wiki.osdev.org/Interrupt_Descriptor_Table
+ @author  JW
+ @date    Nov 27, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 
 #include <lib/klog.h>
@@ -53,8 +55,61 @@ uint8_t idt_get_available_vector(void)
     return available_vector;
 }
 
+void irq_set_mask(uint8_t line)
+{
+    uint16_t port;
+    uint8_t value;
+ 
+    if(line < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        line -= 8;
+    }
+    value = port_inb(port) | (1 << line);
+    port_outb(port, value);
+    klogv("IRQ: Send %s with 0x%02x\n", (port == PIC1_DATA ? "PIC1_DATA" : "PIC2_DATA"), value);
+}
+ 
+void irq_clear_mask(uint8_t line)
+{
+    uint16_t port;
+    uint8_t value;
+ 
+    if(line < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        line -= 8;
+    }
+    value = port_inb(port) & ~(1 << line);
+    port_outb(port, value);
+    klogv("IRQ: Send %s with 0x%02x\n", (port == PIC1_DATA ? "PIC1_DATA" : "PIC2_DATA"), value);
+}
+
 void idt_init()
 {
+    /* start 8259A PIC initialization */
+    port_outb(PIC1, 0x11);
+    port_outb(PIC2, 0x11);
+    
+    /* set IRQ base numbers for each PIC */
+    port_outb(PIC1_DATA, IRQ0);
+    port_outb(PIC2_DATA, IRQ0 + 8);
+
+    /* use IRQ number 2 to relay IRQs from the slave PIC */
+    port_outb(PIC1_DATA, 0x04);
+    port_outb(PIC2_DATA, 0x02);
+    
+    /* finish initialization */
+    port_outb(PIC1_DATA, 0x01);
+    port_outb(PIC2_DATA, 0x01);
+
+    /* mask all interrupts */
+    port_outb(PIC1_DATA, 0xff);
+    port_outb(PIC2_DATA, 0xff);
+
+    /* Exceptions */
     idt[0] = idt_make_entry((uint64_t)&exc0);
     idt[1] = idt_make_entry((uint64_t)&exc1);
     idt[2] = idt_make_entry((uint64_t)&exc2);
@@ -75,6 +130,21 @@ void idt_init()
     idt[19] = idt_make_entry((uint64_t)&exc19);
     idt[20] = idt_make_entry((uint64_t)&exc20);
     idt[30] = idt_make_entry((uint64_t)&exc30);
+
+    /* Hardware interrupts */
+    idt[32] = idt_make_entry((uint64_t)&irq0);
+    idt[33] = idt_make_entry((uint64_t)&irq1);
+    idt[34] = idt_make_entry((uint64_t)&irq2);
+    idt[35] = idt_make_entry((uint64_t)&irq3);
+    idt[36] = idt_make_entry((uint64_t)&irq4);
+    idt[37] = idt_make_entry((uint64_t)&irq5);
+    idt[38] = idt_make_entry((uint64_t)&irq6);
+    idt[39] = idt_make_entry((uint64_t)&irq7);
+    idt[40] = idt_make_entry((uint64_t)&irq8);
+    idt[41] = idt_make_entry((uint64_t)&irq9);
+    idt[42] = idt_make_entry((uint64_t)&irq10);
+    idt[43] = idt_make_entry((uint64_t)&irq11);
+    idt[44] = idt_make_entry((uint64_t)&irq12);
 
     idt_register_t idt_register = {
             .size = sizeof(idt_entry_t) * IDT_ENTRIES - 1,

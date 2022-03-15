@@ -1,15 +1,18 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    cpu.c
-/// @brief   Implementation of CPU related functions
-/// @details
-///
-///   e.g., CPU initialization...
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    cpu.c
+ @brief   Implementation of CPU related functions
+ @details
+ @verbatim
+
+   e.g., CPU initialization...
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <core/cpu.h>
 #include <lib/klog.h>
 
@@ -32,24 +35,24 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     uint32_t regs[4]; 
     uint64_t maxleaf, maxhighleaf;
     
-    // get highest supported leaf
+    /* get highest supported leaf */
     cpuid(0, 0, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
         &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
     maxleaf = regs[CPUID_REG_EAX];
     
-    // get highest supported extended leaf
+    /* get highest supported extended leaf */
     cpuid(0x80000000, 0, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
         &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
     maxhighleaf = regs[CPUID_REG_EAX];
 
-    // is the leaf being requested supported?
+    /* is the leaf being requested supported? */
     if ((maxleaf < feature.func && feature.func < 0x80000000)
         || (maxhighleaf < feature.func && feature.func >= 0x80000000)) {
         klogi("CPUID leaf %x not supported\n", feature.func);
         return false;
     }
 
-    // is the feature supported?
+    /* is the feature supported? */
     cpuid(feature.func, feature.param, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
         &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
     if (regs[feature.reg] & feature.mask)
@@ -62,16 +65,17 @@ void cpu_init()
 {
     uint64_t patval, vcr0, vcr4;
 
-    // Page Attribute Table (PAT) allows for setting the memory attribute at
-    // the page level granularity. PAT is complementary to the MTRR settings
-    // which allows for setting of memory types over physical address ranges.
-    // However, PAT is more flexible than MTRR due to its capability to set
-    // attributes at page level and also due to the fact that there are no
-    // hardware limitations on number of such attribute settings allowed.
-    // Added flexibility comes with guidelines for not having memory type
-    // aliasing for the same physical memory with multiple virtual addresses.
-    //
-    // if PAT is supported, set pa4 in the PAT to write-combining
+    /* Page Attribute Table (PAT) allows for setting the memory attribute at
+     * the page level granularity. PAT is complementary to the MTRR settings
+     * which allows for setting of memory types over physical address ranges.
+     * However, PAT is more flexible than MTRR due to its capability to set
+     * attributes at page level and also due to the fact that there are no
+     * hardware limitations on number of such attribute settings allowed.
+     * Added flexibility comes with guidelines for not having memory type
+     * aliasing for the same physical memory with multiple virtual addresses.
+     *
+     * if PAT is supported, set pa4 in the PAT to write-combining
+     */
     if (cpuid_check_feature(CPUID_FEATURE_PAT)) {
         patval = read_msr(MSR_PAT);
         patval &= ~(0b111ULL << 32);
@@ -79,31 +83,33 @@ void cpu_init()
         write_msr(MSR_PAT, patval);
     }  
 
-    // The EM and MP flags of CR0 control how the processor reacts to
-    // coprocessor instructions.
-    //
-    // The EM bit indicates whether coprocessor functions are to be emulated.
-    // If the processor finds EM set when executing an ESC instruction, it
-    // signals exception 7, giving the exception handler an opportunity to
-    // emulate the ESC instruction.
-    //
-    // The MP (monitor coprocessor) bit indicates whether a coprocessor is
-    // actually attached. The MP flag controls the function of the WAIT
-    // instruction. If, when executing a WAIT instruction, the CPU finds MP
-    // set, then it tests the TS flag; it does not otherwise test TS during
-    // a WAIT instruction. If it finds TS set under these conditions, the CPU
-    // signals exception 7.
-    //
-    // clear the CR0.EM bit and set the CR0.MP bit
+    /* The EM and MP flags of CR0 control how the processor reacts to
+     * coprocessor instructions.
+     *
+     * The EM bit indicates whether coprocessor functions are to be emulated.
+     * If the processor finds EM set when executing an ESC instruction, it
+     * signals exception 7, giving the exception handler an opportunity to
+     * emulate the ESC instruction.
+     *
+     * The MP (monitor coprocessor) bit indicates whether a coprocessor is
+     * actually attached. The MP flag controls the function of the WAIT
+     * instruction. If, when executing a WAIT instruction, the CPU finds MP
+     * set, then it tests the TS flag; it does not otherwise test TS during
+     * a WAIT instruction. If it finds TS set under these conditions, the CPU
+     * signals exception 7.
+     *
+     * clear the CR0.EM bit and set the CR0.MP bit
+     */
     read_cr("cr0", &vcr0);
     vcr0 &= ~(1 << 2); 
     vcr0 |= 1 << 1;
     write_cr("cr0", vcr0);
 
-    // OSFXSR: Enables 128-bit SSE support.
-    // OSXMMEXCPT: Enables the #XF exception.
-    //
-    // set the CR4.OSFXSR and CR4.OSXMMEXCPT bit
+    /* OSFXSR: Enables 128-bit SSE support.
+     * OSXMMEXCPT: Enables the #XF exception.
+     *
+     * set the CR4.OSFXSR and CR4.OSXMMEXCPT bit
+     */
     read_cr("cr4", &vcr4);
     vcr4 |= 1 << 9;
     vcr4 |= 1 << 10; 

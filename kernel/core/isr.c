@@ -16,6 +16,7 @@
 #include <lib/klog.h>
 #include <core/isr_base.h>
 #include <core/panic.h>
+#include <core/cpu.h>
 
 static char* exceptions[] = {
     [0] = "Division by Zero",
@@ -53,8 +54,31 @@ static char* exceptions[] = {
     [44] = "Reserved"
 };
 
+static exc_handler_t handlers[256] = { 0 };
+
+void exc_register_handler(uint64_t id, exc_handler_t handler)
+{
+    handlers[id] = handler;
+}
+
 void exc_handler_proc(uint64_t errcode, uint64_t excno)
 {
+    exc_handler_t handler = handlers[excno];
+
+    if (handler != 0) {
+        handler();
+        // If the IRQ came from the Master PIC, it is sufficient to issue EOI
+        // command only to the Master PIC; however if the IRQ came from the
+        // Slave PIC, it is necessary to issue EOI to both PIC chips.
+        if (excno >= IRQ0 + 8) {
+            port_outb(PIC1, PIC_EOI);
+            port_outb(PIC2, PIC_EOI);
+        } else {
+            port_outb(PIC1, PIC_EOI);
+        }
+        return;
+    }   
+
     kpanic("Unhandled Exception: %s (%d). Error Code: %d.\n",
                  exceptions[excno], excno, errcode);
     while (true)

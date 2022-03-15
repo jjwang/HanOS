@@ -1,15 +1,18 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    memutils.h
-/// @brief   Definition of memory operation related functions
-/// @details
-///
-///   e.g., comparison, set value and copy.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    memutils.h
+ @brief   Definition of memory operation related functions
+ @details
+ @verbatim
+
+  e.g., comparison, set value and copy.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>

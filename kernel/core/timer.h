@@ -1,21 +1,24 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    timer.h
-/// @brief   Definition of APIC timer related macros, data structures, functions
-/// @details
-///
-///   The great benefit of the Local APIC timer is that it is hardwired to each
-///   CPU core, unlike the Programmable Interval Timer which is a separate
-///   circuit. Because of this, there is no need for any resource management,
-///   which makes things easier. The downside is that it's oscillating at (one
-///   of) the CPU's frequencies, which varies from machine to machine, while
-///   the PIT uses a standard frequency (1,193,182 Hz). To make use of it, you
-///   have to know how many interrupts/sec it's capable of.
-///
-/// @author  JW
-/// @date    Jan 8, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    timer.h
+ @brief   Definition of APIC timer related macros, data structures, functions
+ @details
+ @verbatim
+
+  The great benefit of the Local APIC timer is that it is hardwired to each
+  CPU core, unlike the Programmable Interval Timer which is a separate
+  circuit. Because of this, there is no need for any resource management,
+  which makes things easier. The downside is that it's oscillating at (one
+  of) the CPU's frequencies, which varies from machine to machine, while
+  the PIT uses a standard frequency (1,193,182 Hz). To make use of it, you
+  have to know how many interrupts/sec it's capable of.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 8, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

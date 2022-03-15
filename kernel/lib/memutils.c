@@ -1,15 +1,18 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    memutils.c
-/// @brief   Implementation of memory operation related functions
-/// @details
-///
-///   e.g., comparison, set value and copy.
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    memutils.c
+ @brief   Implementation of memory operation related functions
+ @details
+ @verbatim
+
+  e.g., comparison, set value and copy.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <lib/memutils.h>
 

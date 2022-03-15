@@ -1,22 +1,25 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    fb.c
-/// @brief   Implementation of framebuffer related functions
-/// @details
-///
-///   Graphics can be displayed in a linear framebuffer - a simple array mapped
-///   in memory that represents the screen. The address of framebuffer  was got
-///   from Limine bootloader.
-///
-/// @author  JW
-/// @date    Nov 20, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
 
+ @file    fb.c
+ @brief   Implementation of framebuffer related functions
+ @details
+ @verbatim
+
+  Graphics can be displayed in a linear framebuffer - a simple array mapped
+  in memory that represents the screen. The address of framebuffer  was got
+  from Limine bootloader.
+
+ @endverbatim
+ @author  JW
+ @date    Nov 20, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <core/mm.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
+#include <lib/memutils.h>
 
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)
@@ -80,6 +83,7 @@ void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s)
 {
     if(s == NULL && (uint64_t)fb->addr == (uint64_t)fb->backbuffer) {
         fb->backbuffer = kmalloc(fb->backbuffer_len);
+        memcmp(fb->backbuffer, fb->addr, fb->backbuffer_len);
         return;
     }
     fb->addr = (uint8_t*)PHYS_TO_VIRT(s->framebuffer_addr);

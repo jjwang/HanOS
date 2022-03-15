@@ -1,11 +1,17 @@
 ISO_IMAGE = cdrom.iso
+HDD_IMAGE = hdd.img
+QEMU_HDA_FLAGS = -drive id=handisk,file=$(HDD_IMAGE),if=ide,bus=0,unit=0
 
 .PHONY: clean all run
 
 all: $(ISO_IMAGE)
 
+# Option for hyper-threading: -smp 4,sockets=1,cores=2
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE)
+	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
+
+test: $(HDD_IMAGE)
+	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -m 1G -cdrom $(ISO_IMAGE) -rtc base=localtime
 
 limine:
 	git clone https://github.com/limine-bootloader/limine.git --branch=latest-binary --depth=1

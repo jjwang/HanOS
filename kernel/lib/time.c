@@ -1,15 +1,18 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    time.c
-/// @brief   Implementation of time related functions
-/// @details
-///
-///   e.g., localtime...
-///
-/// @author  JW
-/// @date    Jan 2, 2022
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    time.c
+ @brief   Implementation of time related functions
+ @details
+ @verbatim
+
+  e.g., localtime...
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <lib/klog.h>
 #include <lib/time.h>
 
@@ -141,5 +144,4 @@ time_t mktime(tm_t* tm)
       (tm->min) * 60 +
       (tm->sec);
 }
-
 

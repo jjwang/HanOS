@@ -1,19 +1,22 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    apic.h
-/// @brief   Definition of APIC (Advanced Programmable Interrupt Controller)
-///          related data structures
-/// @details
-///
-///   APIC is used in multiprocessor systems and is an integral part of all
-///   recent Intel (and compatible) processors. The APIC is used for
-///   sophisticated interrupt redirection, and for sending interrupts between
-///   processors.
-///
-/// @author  JW
-/// @date    DEC 12, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    apic.h
+ @brief   Definition of APIC (Advanced Programmable Interrupt Controller)
+          related data structures
+ @details
+ @verbatim
+
+  APIC is used in multiprocessor systems and is an integral part of all
+  recent Intel (and compatible) processors. The APIC is used for
+  sophisticated interrupt redirection, and for sending interrupts between
+  processors.
+
+ @endverbatim
+ @author  JW
+ @date    DEC 12, 2021
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    sched.c
+ @brief   Implementation of scheduling related functions
+ @details
+ @verbatim
+
+  Include Context Switching, Scheduling Algorithms etc.
+
+ @endverbatim
+ @author  JW
+ @date    Jan 2, 2022
+
+ **-----------------------------------------------------------------------------
+ */
 #include <lib/klog.h>
 #include <lib/lock.h>
 #include <lib/time.h>
@@ -11,7 +26,7 @@
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
-static lock_t sched_lock = {0};
+static lock_t sched_lock = lock_new();
 
 static task_t* tasks_running[CPU_MAX] = {0};
 static task_t* tasks_idle[CPU_MAX] = {0};
@@ -26,7 +41,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-    // This is for writing test of user space memory.
+    /* This is for writing test of user space memory. */
     uint64_t* temp_val = (uint64_t*)0x20001000;
     *temp_val = 0;
 
@@ -34,7 +49,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
         asm volatile ("nop;");
 #if 0
         sleep(1000 * 10);
-        cpu_t* cpu = smp_get_current_cpu();
+        cpu_t* cpu = smp_get_current_cpu(true);
         klogv("CPU %d idling (time coordinate %10d)\n",
               (cpu != NULL) ? cpu->cpu_id : -1,
               (cpu != NULL) ? tasks_coordinate[cpu->cpu_id] : 0);
@@ -46,7 +61,7 @@ void do_context_switch(void* stack)
 {
     lock_lock(&sched_lock);
 
-    uint16_t cpu = smp_get_current_cpu()->cpu_id;
+    uint16_t cpu = smp_get_current_cpu(true)->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu];
 
     task_t* curr = tasks_running[cpu];
@@ -56,7 +71,10 @@ void do_context_switch(void* stack)
 
         if (curr->status == TASK_RUNNING)
             curr->status = TASK_READY;
-        task_list_push(&tasks_active, curr);;
+
+        if ((uint64_t)curr != (uint64_t)tasks_idle[cpu]) {
+            task_list_push(&tasks_active, curr);
+        }
     }
 
     task_t* next = task_list_pop(&tasks_active);;
@@ -67,12 +85,13 @@ void do_context_switch(void* stack)
     next->status = TASK_RUNNING;
     tasks_running[cpu] = next;
 
-    smp_get_current_cpu()->tss.rsp0 = (uint64_t)(next->kstack_limit + KSTACK_SIZE);
+    smp_get_current_cpu(true)->tss.rsp0 = (uint64_t)(next->kstack_limit + KSTACK_SIZE);
     tasks_coordinate[cpu]++;
-    apic_send_eoi();
-
+    
     lock_release(&sched_lock);
 
+    apic_send_eoi();
+    
     exit_context_switch(next->kstack_top);
 }
 
@@ -87,5 +106,14 @@ void sched_init(uint16_t cpu_id)
     apic_timer_start();
 
     klogi("Scheduler initialization finished for CPU %d\n", cpu_id);
+}
+
+void sched_add(void (*entry)(task_id_t))
+{
+    task_t* t = task_make(entry, 0, TASK_KERNEL_MODE);
+
+    lock_lock(&sched_lock);
+    task_list_push(&tasks_active, t);;
+    lock_release(&sched_lock);
 }
 
