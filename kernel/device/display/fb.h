@@ -26,10 +26,10 @@
 #define FB_PITCH            (FB_WIDTH * 4)
 
 #define COLOR_BLACK         0x000000
-#define COLOR_RED           0xFF0000
-#define COLOR_GREEN         0x00FF00
-#define COLOR_YELLOW        0xFFFF00
-#define COLOR_BLUE          0x0000FF
+#define COLOR_RED           0xFF7777
+#define COLOR_GREEN         0x77FF77
+#define COLOR_YELLOW        0xFFFF77
+#define COLOR_BLUE          0x7777FF
 #define COLOR_WHITE         0xFFFFFF
 #define COLOR_LIGHT_WHITE   0xC0C0C0
 
@@ -42,7 +42,7 @@ typedef struct {
     uint32_t height;
     uint32_t pitch;
     uint8_t  *backbuffer;
-    uint32_t backbuffer_len; // Need to modify to kmalloc later
+    uint32_t backbuffer_len;
 } fb_info_t;
 
 void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s);

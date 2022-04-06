@@ -24,6 +24,7 @@
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
+static uint8_t  log_cursor = 0;
 
 static void klog_refresh(int mode)
 {
@@ -42,6 +43,10 @@ static void klog_refresh(int mode)
         } else {
             if(i < k->start && i >= k->end) break;
         }
+    }
+
+    if (mode == TERM_MODE_CLI) {
+        term_putch(mode, log_cursor);
     }
 
     term_refresh(mode);
@@ -109,6 +114,7 @@ static void klog_putint(int mode, int64_t n, int width, bool zero_filling)
         temp /= 10;
         div *= 10;
     }
+
     while (div >= 10) {
         uint8_t digit = ((n % div) - (n % (div / 10))) / (div / 10);
         div /= 10;
@@ -274,3 +280,11 @@ void kprintf(const char* s, ...)
     lock_release(&(klog_cli.lock))
 }
 
+void klog_cursor(uint8_t c)
+{
+    lock_lock(&(klog_cli.lock));
+    log_cursor = c;
+    klog_refresh(TERM_MODE_CLI);
+    lock_release(&(klog_cli.lock));
+
+}

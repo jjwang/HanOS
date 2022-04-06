@@ -5,19 +5,22 @@
  @details
  @verbatim
 
-   This PIT sleep function should be rewritten based on IRQ mechanism, then it
+   This PIT wait function should be rewritten based on IRQ mechanism, then it
    can be used in different processes at the same time.
+
+   The PIT wait should only be used in system initialization stage. It will not
+   be re-written after re-considering it's usage.
 
  @endverbatim
  @author  JW
  @date    Mar 12, 2022
- @todo    Rewrite pit_wait() function
 
  **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
 #include <core/pit.h>
 #include <core/cpu.h>
+#include <lib/lock.h>
 
 void pit_wait(uint64_t ms) 
 {
@@ -35,6 +38,6 @@ void pit_wait(uint64_t ms)
                 break;
             hi = lo;
         }   
-    }   
+    }
 }
 

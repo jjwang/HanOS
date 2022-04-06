@@ -131,6 +131,7 @@ static inline void port_io_wait()
 }
 
 void cpu_init();
+bool cpu_ok();
 
 typedef struct {
     uint32_t func;

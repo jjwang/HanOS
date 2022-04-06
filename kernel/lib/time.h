@@ -30,11 +30,6 @@
 typedef uint64_t time_t;
 
 typedef struct {
-    uint64_t sec;        /* seconds */
-    uint64_t usec;       /* microseconds */
-} timeval_t;
-
-typedef struct {
     int minuteswest;     /* minutes west of Greenwich */
     int dsttime;         /* type of DST correction */
 } timezone_t;

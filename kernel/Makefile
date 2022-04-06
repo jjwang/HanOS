@@ -10,29 +10,39 @@ NASM = nasm
 CFLAGS =
 ASFLAGS = -I . -flto
 
-INTERNALLDFLAGS := \
-	-flto \
+INTERNALLDFLAGS :=  \
+	-flto           \
 	-Wno-lto-type-mismatch \
-	-no-pie    \
-	-nostdlib      \
-	-Tlinker.ld    \
+	-no-pie         \
+	-nostdlib       \
+	-Tlinker.ld     \
 	-z max-page-size=0x2000 \
 	-I .
 
 INTERNALCFLAGS :=       \
 	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
-	-std=gnu2x           \
-	-ffreestanding       \
-	-flto                \
-	-fno-pic             \
+	-std=gnu2x          \
+	-ffreestanding      \
+	-flto               \
+	-fno-pic            \
     -fno-omit-frame-pointer \
-	-mno-80387           \
-	-mno-mmx             \
-	-mno-3dnow           \
-	-mno-sse             \
-	-mno-sse2            \
-	-mno-red-zone        \
-    -O2
+	-mno-3dnow          \
+	-mno-80387          \
+	-mno-mmx            \
+	-mno-sse            \
+	-mno-sse2           \
+	-mno-red-zone       \
+    -O3
+
+INTERNALOPTFLAGS :=     \
+	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
+	-std=gnu2x          \
+	-ffreestanding      \
+	-flto               \
+	-fno-pic            \
+	-fno-omit-frame-pointer \
+	-mno-red-zone       \
+	-O3
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)
@@ -69,9 +79,11 @@ stivale2.h:
 	@if [ ! -e "$(BOOT_DIR)/stivale2.h" ]; then wget -P $(BOOT_DIR) https://github.com/stivale/stivale/raw/master/stivale2.h; fi
 
 $(COBJ): %.o: %.c stivale2.h
+	@echo Compiling $^ ...
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -c $< -o $@
 
 $(ASMOBJ): %.o: %.s
+	@echo Compiling $^ ...
 	@$(AS) -o $@ -c $^ $(ASFLAGS)
 
 # build the trampoline blob

@@ -79,8 +79,8 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     /* enable the apic */
     apic_enable();
 
-    /* Wait for 100ms here */
-    sleep(100);
+    /* Wait for 50ms here */
+    sleep(50);
 
     /* initialize and wait for scheduler */
     sched_init(cpuinfo->cpu_id);
@@ -147,7 +147,7 @@ void smp_init()
             klogi("SMP: core %d is BSP\n", lapics[i]->proc_id);
             smp_info->cpus[smp_info->num_cpus].is_bsp = true;
             write_msr(MSR_GS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
-            for (uint64_t dl = 0; dl < 10000; dl++) asm volatile ("nop;");
+            for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
             init_tss(&(smp_info->cpus[smp_info->num_cpus]));
             smp_info->num_cpus++;
             continue;
@@ -164,7 +164,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        for (uint64_t dl = 0; dl < 10000; dl++) asm volatile ("nop;");
+        for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
 
         bool success = false;
         for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
@@ -176,7 +176,7 @@ void smp_init()
                     success = true;
                     break;
                 }
-                for (uint64_t dl = 0; dl < 10000; dl++) asm volatile ("nop;");
+                for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
             }
             if (success)
                 break;

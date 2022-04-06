@@ -28,6 +28,9 @@ static term_info_t term_info = {0};
 static term_info_t term_cli = {0};
 static int term_active_mode = TERM_MODE_INFO; 
 
+#define FONT_WIDTH          8
+#define FONT_HEIGHT         16
+
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
 
 static bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
@@ -114,6 +117,11 @@ static void term_scroll(term_info_t* term_act)
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
 }
 
+int term_get_mode(void)
+{
+    return term_active_mode;
+}
+
 void term_refresh(int mode)
 {
     term_info_t* term_act;
@@ -190,6 +198,10 @@ void term_print(int mode, uint8_t c)
                 term_act->cursor_x = 0;
                 term_act->cursor_y++;
             }
+            if (term_act->cursor_y >= term_act->height) {
+                term_scroll(term_act);
+                term_act->cursor_y--;
+            }
             fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
                      term_act->fgcolor, term_act->bgcolor, c);
             term_act->cursor_x++;
@@ -197,6 +209,10 @@ void term_print(int mode, uint8_t c)
             if (term_act->cursor_x >= term_act->width - 1) {
                 term_act->cursor_x = 0;
                 term_act->cursor_y++;
+            }
+            if (term_act->cursor_y >= term_act->height) {
+                term_scroll(term_act);
+                term_act->cursor_y--;
             }
             uint8_t c3[3] = {term_act->lastch, c, 0};
             term_act->lastch = 0;

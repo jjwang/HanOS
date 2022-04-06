@@ -20,9 +20,6 @@
 #include <stdint.h>
 #include <device/display/fb.h>
 
-#define FONT_WIDTH          8
-#define FONT_HEIGHT         16
-
 #define TERM_MODE_INFO      0
 #define TERM_MODE_CLI       1
 #define TERM_MODE_GUI       2
@@ -55,3 +52,4 @@ void term_clear(int mode);
 void term_refresh(int mode);
 void term_start();
 void term_switch(int mode);
+int term_get_mode(void);
