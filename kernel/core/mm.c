@@ -156,13 +156,13 @@ void pmm_dump_usage(void)
     uint64_t t = kmem_info.total_size, f = kmem_info.free_size,
              u = t - f;
 
-    klogi("Memory usage:\n"
-          " \t \tTotal: %8d KB (%4d MB)\n"
-          " \t \tFree : %8d KB (%4d MB)\n"
-          " \t \tUsed : %8d KB (%4d MB)\n",
-          t / 1024, t / (1024 * 1024),
-          f / 1024, f / (1024 * 1024),
-          u / 1024, u / (1024 * 1024));
+    kprintf("Physical memory usage:\n"
+            "  Total: %8d KB (%4d MB)\n"
+            "  Free : %8d KB (%4d MB)\n"
+            "  Used : %8d KB (%4d MB)\n",
+            t / 1024, t / (1024 * 1024),
+            f / 1024, f / (1024 * 1024),
+            u / 1024, u / (1024 * 1024));
 }
 
 /*------------------------------------------------------------------------------

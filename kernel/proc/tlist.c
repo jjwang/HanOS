@@ -36,6 +36,7 @@ void task_list_push(task_list_t* tl, task_t* t)
             t->next = NULL;
         }
     }
+    tl->size++;
 }
 
 task_t* task_list_pop(task_list_t* tl)
@@ -43,16 +44,19 @@ task_t* task_list_pop(task_list_t* tl)
     task_t* r = NULL;
 
     if (tl->head == NULL) {
+        tl->size = 0;
         return NULL;
     } else {
         if (tl->head == tl->tail) {
             r = tl->head;
             tl->head = NULL;
             tl->tail = NULL;
+            tl->size = 0;
         } else {
             r = tl->head;
             tl->head = tl->head->next;
             tl->head->prev = NULL;
+            tl->size--;
         }
         return r;
     }

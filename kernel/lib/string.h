@@ -15,5 +15,11 @@
  */
 #pragma once
 
+#include <stddef.h>
+
 int strlen(const char* s);
+int strcmp(const char* a, const char* b); 
+int strncmp(const char* a, const char* b, size_t len);
+int strcpy(char* dest, const char* src);
+int strcat(char* dest, const char* src);
 

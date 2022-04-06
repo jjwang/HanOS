@@ -28,7 +28,7 @@
 #define SMP_TRAMPOLINE_ARG_CR3          0xfd0
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
-#define CPU_MAX                         256
+#define CPU_MAX                         2
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;

@@ -16,6 +16,8 @@
 #include <core/cpu.h>
 #include <lib/klog.h>
 
+static bool cpu_initialized = false;
+
 void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx)
 {   
     asm volatile("mov %[func], %%eax;"
@@ -114,5 +116,11 @@ void cpu_init()
     vcr4 |= 1 << 9;
     vcr4 |= 1 << 10; 
     write_cr("cr4", vcr4);
+
+    cpu_initialized = true;
 }
 
+bool cpu_ok()
+{
+    return cpu_initialized;
+}

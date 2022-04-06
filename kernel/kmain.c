@@ -22,6 +22,7 @@
 #include <3rd-party/boot/stivale2.h>
 #include <lib/time.h>
 #include <lib/klog.h>
+#include <lib/string.h>
 #include <core/mm.h>
 #include <core/gdt.h>
 #include <core/idt.h>
@@ -31,9 +32,11 @@
 #include <core/apic.h>
 #include <core/hpet.h>
 #include <core/panic.h>
+#include <core/pci.h>
 #include <device/display/term.h>
 #include <device/keyboard/keyboard.h>
 #include <proc/sched.h>
+#include <fs/vfs.h>
 
 /* Tell the stivale bootloader where we want our stack to be. */
 static uint8_t stack[64000];
@@ -74,14 +77,71 @@ void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
     }
 }
 
+static volatile int cursor_visible = 0;
+
+_Noreturn void kcursor(task_id_t tid)
+{
+    while (true) {
+        sched_sleep(500);
+        if (cursor_visible == 0) {
+            klog_cursor('_');
+            cursor_visible = 1;
+        } else if (cursor_visible == 1) {
+            klog_cursor(' ');
+            cursor_visible = 0;
+        } else {
+            klog_cursor(' ');
+        }
+    }   
+
+    (void)tid;
+}
+
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
 
     klogi("Shell task started\n");
-    kprintf("?[14;1m%s?[0m\n", "Welcome to HanOS world!");
+    kprintf("?[11;1m%s?[0m\n", "Welcome to HanOS world!");
+    kprintf("?[14;1m%s?[0m", "$ ");
+
+    char cmd_buff[1024] = {0};
+    uint16_t cmd_end = 0;
+
+    pci_init();
+
     while (true) {
-        asm volatile("nop;");
+        sched_sleep(16);
+        uint8_t cur_key = keyboard_get_key();
+        if (term_get_mode() != TERM_MODE_CLI) {
+            continue;
+        }
+        if (cur_key == 0x0A) {
+            kprintf("%c", cur_key);
+            if (cmd_end > 0) {
+                cursor_visible = 2;
+                klog_cursor(' ');
+                if (strcmp(cmd_buff, "memory") == 0) {
+                    pmm_dump_usage();
+                } else if (strcmp(cmd_buff, "vfs") == 0) {
+                     vfs_debug();
+                } else if (strcmp(cmd_buff, "pci") == 0) {
+                     pci_debug();
+                } else {
+                    kprintf("Sorry, I cannot understand.\n");
+                }
+                cursor_visible = 0;
+            }
+            cmd_buff[0] = '\0';
+            cmd_end = 0;
+            kprintf("?[14;1m%s?[0m", "$ ");
+        } else if (cur_key > 0) {
+            if (cmd_end < sizeof(cmd_buff) - 1) {
+                cmd_buff[cmd_end++] = cur_key;
+                cmd_buff[cmd_end] = '\0';
+            }   
+            kprintf("?[14;1m%c?[0m", cur_key);
+        }
     }   
 }
 
@@ -90,12 +150,10 @@ void kmain(struct stivale2_struct* bootinfo)
 {
     bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
 
-    uint8_t helloworld[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0x0};
-
     term_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
     klog_init();
 
-    kprintf("?[11;1m%s?[0m Hello World\n", helloworld);
+    kprintf("Hello World\n\n");
 
     klogi("HanOS version 0.1 starting...\n");
     klogi("Boot info address: 0x%16x\n", (uint64_t)bootinfo);
@@ -112,6 +170,7 @@ void kmain(struct stivale2_struct* bootinfo)
     cmos_init();
     keyboard_init();
 
+    vfs_init();
     smp_init();
 
 #if 0 
@@ -119,9 +178,8 @@ void kmain(struct stivale2_struct* bootinfo)
     kloge("Val: %d", val1 / val2);
 #endif
 
-    pmm_dump_usage();
-
     sched_add(kshell);
+    sched_add(kcursor);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {

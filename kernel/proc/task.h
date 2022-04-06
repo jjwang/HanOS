@@ -19,6 +19,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <lib/time.h>
+#include <lib/vector.h>
+#include <core/smp.h>
+#include <fs/vfs.h>
 
 #define KSTACK_SIZE             4096
 
@@ -77,8 +80,11 @@ typedef struct task_t {
     task_id_t tid;
     task_priority_t priority;
     uint64_t last_tick;
+    uint64_t wakeup_time;
     task_status_t status;
     task_mode_t mode;
+
+    vec_struct(vfs_node_desc_t*) openfiles;
 
     struct task_t* next;
     struct task_t* prev;

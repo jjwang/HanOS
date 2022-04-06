@@ -16,15 +16,17 @@
 #include <stddef.h>
 #include <lib/memutils.h>
 
-void memcpy(void* target, const void* src, uint64_t len)
+void* memcpy(void* dst, const void* src, uint64_t len)
 {
     asm volatile("mov %[len], %%rcx;"
                  "mov %[src], %%rsi;"
-                 "mov %[tgt], %%rdi;"
+                 "mov %[dst], %%rdi;"
                  "rep movsb;"
                  :
-                 : [len] "g"(len), [src] "g"(src), [tgt] "g"(target)
+                 : [len] "g"(len), [src] "g"(src), [dst] "g"(dst)
                  : "memory", "rcx", "rsi", "rdi");
+
+    return dst;
 }
 
 void memset(void* addr, uint8_t val, uint64_t len)
