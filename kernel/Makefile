@@ -34,16 +34,6 @@ INTERNALCFLAGS :=       \
 	-mno-red-zone       \
     -O3
 
-INTERNALOPTFLAGS :=     \
-	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
-	-std=gnu2x          \
-	-ffreestanding      \
-	-flto               \
-	-fno-pic            \
-	-fno-omit-frame-pointer \
-	-mno-red-zone       \
-	-O3
-
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)
 

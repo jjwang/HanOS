@@ -14,86 +14,46 @@ vec_new_static(pci_device_t, pci_devices);
 static void pci_scan_bus(uint8_t bus_id);
 static void pci_scan_device(uint8_t bus_id, uint8_t dev_id);
 
-#define ID_DEVICE_8086_100E     0
-#define ID_DEVICE_8086_153A     1
-#define ID_DEVICE_8086_10EA     2
-#define ID_DEVICE_8086_7113     3
-#define ID_DEVICE_8086_2922     4
-#define ID_DEVICE_8086_7000     5
-#define ID_DEVICE_8086_7010     6
-#define ID_DEVICE_8086_1237     7
-#define ID_DEVICE_10EC_8139     10
-#define ID_DEVICE_1234_1111     20
-#define ID_DEVICE_80EE_BEEF     30
-#define ID_DEVICE_80EE_CAFE     31
-#define ID_DEVICE_DEFAULT       99
-
-static const char* const device_name_table[] = 
+static pci_device_desc_t device_table[] =
 {
-    [ID_DEVICE_8086_100E] = "Gigabit Ethernet Controller",
-    [ID_DEVICE_8086_153A] = "Ethernet Connection I217-LM",
-    [ID_DEVICE_8086_10EA] = "Gigabit Network Connection",
-    [ID_DEVICE_8086_7113] = "82371AB/EB/MB PIIX4 ACPI",
-    [ID_DEVICE_8086_7000] = "82371SB PIIX3 ISA",
-    [ID_DEVICE_8086_7010] = "82371SB PIIX3 IDE",
-    [ID_DEVICE_8086_1237] = "440FX - 82441FX PMC",
-    [ID_DEVICE_8086_2922] = "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller",
-    [ID_DEVICE_10EC_8139] = "RTL-8100/8101L/8139 pci Fast Ethernet Adapter",
-    [ID_DEVICE_1234_1111] = "QEMU Virtual Video Controller",
-    [ID_DEVICE_80EE_BEEF] = "VirtualBox Graphics Adapter",
-    [ID_DEVICE_80EE_CAFE] = "VirtualBox Guest Service",
-    [ID_DEVICE_DEFAULT]   = "Unknown device"
+    /* Intel */
+    {0x8086, 0x0154, "3rd Gen Core processor DRAM Controller"},
+    {0x8086, 0x0166, "3rd Gen Core processor Graphics Controller"},
+    {0x8086, 0x100E, "Gigabit Ethernet Controller"},
+    {0x8086, 0x153A, "Ethernet Connection I217-LM"},
+    {0x8086, 0x10D3, "82574L Gigabit Network Connection"},
+    {0x8086, 0x10EA, "82577LM Gigabit Network Connection"},
+    {0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI"},
+    {0x8086, 0x7000, "82371SB PIIX3 ISA"},
+    {0x8086, 0x7010, "82371SB PIIX3 IDE"},
+    {0x8086, 0x1237, "440FX - 82441FX PMC"},
+    {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
+    {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
+    /* Realtek */
+    {0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter"},
+    /* QEMU */
+    {0x1234, 0x1111, "QEMU Virtual Video Controller"},
+    /* VirtualBox */
+    {0x80EE, 0xBEEF, "VirtualBox Graphics Adapter"},
+    {0x80EE, 0xCAFE, "VirtualBox Guest Service"},
+    /* End */
+    {0,      0,      "Unknown device"}
 };
 
 static const char *pci_device_id_to_string(pci_device_t *device)
 {
-    switch (device->vendor_id) {
-    /* Intel */
-    case 0x8086:
-        switch (device->device_id) {
-        case 0x100E:
-            return device_name_table[ID_DEVICE_8086_100E]; /* "Gigabit Ethernet Controller" */
-        case 0x153A:
-            return device_name_table[ID_DEVICE_8086_153A]; /* "Ethernet Connection I217-LM" */
-        case 0x10EA:
-            return device_name_table[ID_DEVICE_8086_10EA]; /* "Gigabit Network Connection" */
-        case 0x7113:
-            return device_name_table[ID_DEVICE_8086_7113]; /* "82371AB/EB/MB PIIX4 ACPI" */
-        case 0x2922:
-            return device_name_table[ID_DEVICE_8086_2922]; /* "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller" */
-        case 0x7000:
-            return device_name_table[ID_DEVICE_8086_7000]; /* "82371SB PIIX3 ISA" */
-        case 0x7010:
-            return device_name_table[ID_DEVICE_8086_7010]; /* "82371SB PIIX3 IDE" */
-        case 0x1237:
-            return device_name_table[ID_DEVICE_8086_1237]; /* "440FX - 82441FX PMC" */
+    for(uint64_t i = 0; ; i++) {
+        if (device_table[i].vendor_id == device->vendor_id) {
+            if (device_table[i].device_id == device->device_id) {
+                return device_table[i].desc;
+            }
         }
-        break;
-    /* Realtek */
-    case 0x10EC:
-        switch (device->device_id) {
-        case 0x8139:
-            return device_name_table[ID_DEVICE_10EC_8139]; /* "RTL-8100/8101L/8139 PCI Fast Ethernet Adapter" */
-        }
-        break;
-    /* QEMU */
-    case 0x1234:
-        switch (device->device_id) {
-        case 0x1111:
-            return device_name_table[ID_DEVICE_1234_1111]; /* "QEMU Virtual Video Controller" */
-        }
-        break;
-    /* VirtualBox */
-    case 0x80EE:
-        switch (device->device_id) {
-        case 0xBEEF:
-            return device_name_table[ID_DEVICE_80EE_BEEF]; /* "VirtualBox Graphics Adapter" */
-        case 0xCAFE:
-            return device_name_table[ID_DEVICE_80EE_CAFE]; /* "VirtualBox Guest Service" */
-        }
-        break;
+        /* Reach the last line */
+        if (device_table[i].vendor_id == 0) {
+            return device_table[i].desc;
+        }  
     }
-    return device_name_table[ID_DEVICE_DEFAULT];           /* "Unknown device" */
+    return NULL;
 }
 
 static uint32_t pci_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint32_t offset)
@@ -188,7 +148,7 @@ void pci_init(void)
 {
     pci_scan_bus(0);
 
-    klogi("PCI: Full recursive device scan done, [%d] devices found\n", pci_devices.len);
+    klogi("PCI: Full recursive device scan done, [%d] devices found\n", vec_length(&pci_devices));
 }
 
 void pci_debug(void)

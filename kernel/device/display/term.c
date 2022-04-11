@@ -26,7 +26,8 @@ static const uint32_t font_colors[6] = {
 
 static term_info_t term_info = {0};
 static term_info_t term_cli = {0};
-static int term_active_mode = TERM_MODE_INFO; 
+static int term_active_mode = TERM_MODE_UNKNOWN; 
+static uint8_t  term_cursor = 0;
 
 #define FONT_WIDTH          8
 #define FONT_HEIGHT         16
@@ -117,6 +118,11 @@ static void term_scroll(term_info_t* term_act)
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
 }
 
+void term_set_cursor(uint8_t c)
+{
+    term_cursor = c;
+}
+
 int term_get_mode(void)
 {
     return term_active_mode;
@@ -130,6 +136,20 @@ void term_refresh(int mode)
         term_act = &term_info;
     } else {
         term_act = &term_cli;
+        if( term_cursor != 0) {
+            uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
+            if (x >= term_act->width) {
+                x = 0;
+                y++;
+            }   
+            if (y >= term_act->height) {
+                term_scroll(term_act);
+                y--;
+                term_act->cursor_y--;
+            }   
+            fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
+                     term_act->fgcolor, term_act->bgcolor, term_cursor); 
+        }
     }
 
     if (term_act->state == STATE_UNKNOWN) {
@@ -171,6 +191,13 @@ void term_print(int mode, uint8_t c)
         term_act = &term_info;
     } else {
         term_act = &term_cli;
+    }
+
+    if (c == '\b') {
+        if (term_act->cursor_x > 0) term_act->cursor_x--;
+        term_print(mode, ' ');
+        if (term_act->cursor_x > 0) term_act->cursor_x--;
+        return;
     }
 
     if (term_act->cursor_y == term_act->height && c != '\0') {
@@ -299,6 +326,10 @@ void term_start()
 {
     fb_init(&(term_info.fb), NULL);
     fb_init(&(term_cli.fb), NULL);
+
+    klog_refresh(TERM_MODE_INFO);
+    klog_refresh(TERM_MODE_CLI);
+    term_active_mode = TERM_MODE_INFO;
 }
 
 void term_switch(int mode)
