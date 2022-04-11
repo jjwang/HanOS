@@ -23,6 +23,7 @@
 #define TERM_MODE_INFO      0
 #define TERM_MODE_CLI       1
 #define TERM_MODE_GUI       2
+#define TERM_MODE_UNKNOWN   3
 
 typedef struct {
     fb_info_t fb; 
@@ -53,3 +54,5 @@ void term_refresh(int mode);
 void term_start();
 void term_switch(int mode);
 int term_get_mode(void);
+void term_set_cursor(uint8_t c);
+

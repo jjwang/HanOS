@@ -30,7 +30,7 @@
 
 #define KB_BUFFER_SIZE    128
 
-static uint8_t keycodes[KB_BUFFER_SIZE + 1];
+static uint8_t key_buffer[KB_BUFFER_SIZE + 1];
 static volatile uint8_t buffer_length = 0;
 static volatile uint8_t read_index = 0;
 static volatile uint8_t write_index = 0;
@@ -67,10 +67,15 @@ static void keyboard_callback()
         uint8_t scan_code = key_code & 0x7f;
         uint8_t key_state = !(key_code & 0x80);
 
+        if (key_state && ps2_kb.key_pressed[scan_code]) return;
         keyboard_set_key(key_state, scan_code);
-        while (key_state && scan_code < sizeof(ascii_default)) {
-            if (ascii_default[scan_code] <= 0x10 
-                && ascii_default[scan_code] != 0x0A)
+
+        while (key_state) {
+            char ch = keyboard_get_ascii(
+                    scan_code,
+                    ps2_kb.key_pressed[KB_LSHIFT] | ps2_kb.key_pressed[KB_RSHIFT],
+                    ps2_kb.key_pressed[KB_CAPS_LOCK]);
+            if (ch == 0)
             {
 #if 0
                 klogv("Get keyboard code 0x%02x\n", key_code);
@@ -78,30 +83,22 @@ static void keyboard_callback()
                 break;
             }
             /* Ctrl + Shift (Left) */
-            if (ps2_kb.key_pressed[0x1d] && ps2_kb.key_pressed[0x2a]) {
-                if (ascii_default[scan_code] == '1') {
+            if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL]) {
+                if (ch == '!') {            /* Shift + '1' */
                     term_switch(TERM_MODE_CLI);
                     term_refresh(TERM_MODE_CLI);
-                } else if (ascii_default[scan_code] == '2') {
+                } else if (ch == '@') {     /* Shift + '2' */
                     term_switch(TERM_MODE_INFO);
                     term_refresh(TERM_MODE_INFO);
                 }
                 break;
             }
-            uint8_t ch;
-            if (!(ps2_kb.key_pressed[0x2a] || ps2_kb.key_pressed[0x36])) {
-                ch = ascii_default[scan_code];
-            } else {
-                ch = ascii_shift[scan_code];
-            }
 #if 0
-            if (scan_code == 0x1D || scan_code == 0x2A) {
-                break;
-            }
+            klogi("Scan code 0x%02x, Char '%c'\n", scan_code, ch);
 #endif
             if (buffer_length < KB_BUFFER_SIZE) {
                 lock_lock(&kb_lock);
-                keycodes[write_index] = ch;
+                key_buffer[write_index] = ch;
                 write_index++;
                 buffer_length++;
                 if (write_index == KB_BUFFER_SIZE) {
@@ -111,7 +108,8 @@ static void keyboard_callback()
             }
             break;
         }
-        status = port_inb(KEYBOARD_PORT_STATUS);
+        //status = port_inb(KEYBOARD_PORT_STATUS);
+        break;
     }
 }
 
@@ -121,7 +119,7 @@ uint8_t keyboard_get_key()
         return 0;
     }
    
-    uint8_t ch = keycodes[read_index];
+    uint8_t ch = key_buffer[read_index];
  
     lock_lock(&kb_lock);
     read_index++;

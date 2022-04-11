@@ -57,9 +57,9 @@ void dump_backtrace()
     }
     cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
-        klogu("End of trace. CPU %d System halted.\n\n", cpu->cpu_id);
+        klogu("End of trace. CPU %d System halted.\n \n", cpu->cpu_id);
     } else {
-        klogu("End of trace. System halted.\n\n");
+        klogu("End of trace. System halted.\n \n");
     }
     klog_unlock();
 }

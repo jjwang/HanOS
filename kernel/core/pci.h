@@ -21,6 +21,12 @@ typedef struct [[gnu::packed]] {
     uint16_t gsi_flags;
 } pci_device_t;
 
+typedef struct {
+    uint16_t vendor_id;
+    uint16_t device_id;
+    char desc[256];
+} pci_device_desc_t;
+
 void pci_init(void);
 void pci_debug(void);
 

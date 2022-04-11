@@ -24,29 +24,26 @@
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
-static uint8_t  log_cursor = 0;
 
-static void klog_refresh(int mode)
+void klog_refresh(int mode)
 {
-    klog_info_t* k = ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
+    if (term_get_mode() == TERM_MODE_UNKNOWN) {
+        klog_info_t* k = ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
 
-    term_clear(mode);
+        term_clear(mode);
 
-    int i = k->start;
-    while(true) {
-        term_putch(mode, k->buff[i]);
-        i++;
-        if(i >= KLOG_BUFFER_SIZE)
-            i = 0;
-        if(k->start < k->end) {
-            if(i >= k->end) break;
-        } else {
-            if(i < k->start && i >= k->end) break;
+        int i = k->start;
+        while(true) {
+            term_putch(mode, k->buff[i]);
+            i++;
+            if(i >= KLOG_BUFFER_SIZE)
+                i = 0;
+            if(k->start < k->end) {
+                if(i >= k->end) break;
+            } else {
+                if(i < k->start && i >= k->end) break;
+            }
         }
-    }
-
-    if (mode == TERM_MODE_CLI) {
-        term_putch(mode, log_cursor);
     }
 
     term_refresh(mode);
@@ -64,6 +61,8 @@ static void klog_putch(int mode, uint8_t i)
         k->start++;
     if(k->start >= KLOG_BUFFER_SIZE)
         k->start = 0;
+
+    term_putch(mode, i);
 }
 
 static void klog_puts(int mode, const char* s)
@@ -280,11 +279,3 @@ void kprintf(const char* s, ...)
     lock_release(&(klog_cli.lock))
 }
 
-void klog_cursor(uint8_t c)
-{
-    lock_lock(&(klog_cli.lock));
-    log_cursor = c;
-    klog_refresh(TERM_MODE_CLI);
-    lock_release(&(klog_cli.lock));
-
-}

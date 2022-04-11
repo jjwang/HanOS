@@ -19,7 +19,6 @@
 #include <lib/time.h>
 #include <lib/kmalloc.h>
 #include <proc/sched.h>
-#include <proc/tlist.h>
 #include <core/smp.h>
 #include <core/timer.h>
 #include <core/apic.h>
@@ -35,7 +34,7 @@ static task_t* tasks_running[CPU_MAX] = {0};
 static task_t* tasks_idle[CPU_MAX] = {0};
 static uint64_t tasks_coordinate[CPU_MAX] = {0};
 
-static task_list_t tasks_active = {0};
+vec_new_static(task_t*, tasks_active);
 
 extern void enter_context_switch(void* v);
 extern void exit_context_switch(task_t* next);
@@ -63,6 +62,8 @@ void do_context_switch(void* stack)
     uint64_t ticks = tasks_coordinate[cpu_id];
 
     task_t* curr = tasks_running[cpu_id];
+    task_t* next = NULL;
+
     if (curr) {
         curr->kstack_top = stack;
         curr->last_tick = ticks;
@@ -71,25 +72,29 @@ void do_context_switch(void* stack)
             curr->status = TASK_READY;
 
         if ((uint64_t)curr != (uint64_t)tasks_idle[cpu_id]) {
-            task_list_push(&tasks_active, curr);
+            vec_push_back(&tasks_active, curr);
         }
     }
 
-    task_t* next = NULL;
     uint64_t loop_size = 0;
     while (true) {
-        next = task_list_pop(&tasks_active);
-        if (next == NULL) break;
+        if (vec_length(&tasks_active) > 0) {
+            next = vec_at(&tasks_active, 0);
+            vec_erase(&tasks_active, 0);
+        } else {
+            next = NULL;
+            break;
+        }
         if (next->status == TASK_READY) break;
         if (next->status == TASK_SLEEPING) {
             if (hpet_get_nanos() >= next->wakeup_time) {
                 break;
             }
         }
-        task_list_push(&tasks_active, next);
+        vec_push_back(&tasks_active, next);
         /* If the whole task list is visited, exit with NULL task */
         loop_size++;
-        if (loop_size >= tasks_active.size) {
+        if (loop_size >= vec_length(&tasks_active)) {
             next = NULL;
             break;
         }
@@ -163,7 +168,7 @@ void sched_add(void (*entry)(task_id_t))
     task_t* t = task_make(entry, 0, TASK_KERNEL_MODE);
 
     lock_lock(&sched_lock);
-    task_list_push(&tasks_active, t);;
+    vec_push_back(&tasks_active, t);
     lock_release(&sched_lock);
 }
 

@@ -79,8 +79,8 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     /* enable the apic */
     apic_enable();
 
-    /* Wait for 50ms here */
-    sleep(50);
+    /* Wait for 100ms here */
+    sleep(100);
 
     /* initialize and wait for scheduler */
     sched_init(cpuinfo->cpu_id);

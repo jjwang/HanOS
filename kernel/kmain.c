@@ -77,21 +77,26 @@ void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
     }
 }
 
-static volatile int cursor_visible = 0;
+static volatile enum {
+    CURSOR_INVISIBLE = 0,
+    CURSOR_VISIBLE,
+    CURSOR_HIDE
+} cursor_visible = CURSOR_INVISIBLE;
 
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
         sched_sleep(500);
-        if (cursor_visible == 0) {
-            klog_cursor('_');
-            cursor_visible = 1;
-        } else if (cursor_visible == 1) {
-            klog_cursor(' ');
-            cursor_visible = 0;
+        if (cursor_visible == CURSOR_INVISIBLE) {
+            term_set_cursor('_');
+            cursor_visible = CURSOR_VISIBLE;
+        } else if (cursor_visible == CURSOR_VISIBLE) {
+            term_set_cursor(' ');
+            cursor_visible = CURSOR_INVISIBLE;
         } else {
-            klog_cursor(' ');
+            term_set_cursor(' ');
         }
+        term_refresh(TERM_MODE_CLI);
     }   
 
     (void)tid;
@@ -108,8 +113,6 @@ _Noreturn void kshell(task_id_t tid)
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
 
-    pci_init();
-
     while (true) {
         sched_sleep(16);
         uint8_t cur_key = keyboard_get_key();
@@ -117,10 +120,12 @@ _Noreturn void kshell(task_id_t tid)
             continue;
         }
         if (cur_key == 0x0A) {
+            cursor_visible = CURSOR_HIDE;
+            term_set_cursor(' ');
+            term_refresh(TERM_MODE_CLI);
             kprintf("%c", cur_key);
+
             if (cmd_end > 0) {
-                cursor_visible = 2;
-                klog_cursor(' ');
                 if (strcmp(cmd_buff, "memory") == 0) {
                     pmm_dump_usage();
                 } else if (strcmp(cmd_buff, "vfs") == 0) {
@@ -130,12 +135,19 @@ _Noreturn void kshell(task_id_t tid)
                 } else {
                     kprintf("Sorry, I cannot understand.\n");
                 }
-                cursor_visible = 0;
             }
+
+            cursor_visible = CURSOR_INVISIBLE;
             cmd_buff[0] = '\0';
             cmd_end = 0;
             kprintf("?[14;1m%s?[0m", "$ ");
-        } else if (cur_key > 0) {
+            cursor_visible = CURSOR_INVISIBLE;
+        } else if (cur_key == '\b') {
+            if (cmd_end > 0) {
+                cmd_buff[cmd_end--] = '\0';
+                kprintf("?[14;1m%c?[0m", cur_key);
+            }   
+        }  else if (cur_key > 0) {
             if (cmd_end < sizeof(cmd_buff) - 1) {
                 cmd_buff[cmd_end++] = cur_key;
                 cmd_buff[cmd_end] = '\0';
@@ -148,12 +160,15 @@ _Noreturn void kshell(task_id_t tid)
 /* This is HanOS kernel's entry point. */
 void kmain(struct stivale2_struct* bootinfo)
 {
+    uint8_t helloworld[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0x0};
+    cmos_init();
+
     bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
 
     term_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
     klog_init();
 
-    kprintf("Hello World\n\n");
+    kprintf("?[11;1m%s?[0m Hello World\n\n", helloworld);
 
     klogi("HanOS version 0.1 starting...\n");
     klogi("Boot info address: 0x%16x\n", (uint64_t)bootinfo);
@@ -167,11 +182,13 @@ void kmain(struct stivale2_struct* bootinfo)
     acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
     hpet_init();
     apic_init();
-    cmos_init();
     keyboard_init();
 
     vfs_init();
     smp_init();
+
+    pci_init();
+
 
 #if 0 
     int val1 = 10000, val2 = 0;
