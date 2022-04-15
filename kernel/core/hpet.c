@@ -27,10 +27,12 @@
  **-----------------------------------------------------------------------------
  */
 #include <lib/klog.h>
+#include <lib/time.h>
 #include <core/hpet.h>
 #include <core/acpi.h>
 #include <core/mm.h>
 #include <core/panic.h>
+#include <core/pit.h>
 
 static hpet_t* hpet = NULL;
 static uint64_t hpet_period = 0;
@@ -39,7 +41,7 @@ static uint64_t hpet_period = 0;
 uint64_t hpet_get_nanos()
 {
     if(hpet == NULL) {
-        return 0;
+        return pit_get_ticks() * MILLIS_TO_NANOS(1);
     }
 
     uint64_t tf = hpet->main_counter_value * hpet_period;
@@ -49,9 +51,7 @@ uint64_t hpet_get_nanos()
 void hpet_nanosleep(uint64_t nanos)
 {
     if(hpet == NULL) {
-        for(uint64_t i = 0; i < 1000 * 1000; i++) {
-            asm volatile ("nop");
-        }
+        pit_wait(nanos / MILLIS_TO_NANOS(1));
         return;
     }
 

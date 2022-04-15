@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <lib/klog.h>
+
 #define PIC1        0x20 /* Master PIC */
 #define PIC2        0xA0 /* Slave PIC */
 #define PIC1_DATA   (PIC1 + 1)
@@ -40,15 +42,15 @@
 typedef void (*exc_handler_t)();
 void exc_register_handler(uint64_t id, exc_handler_t handler);
 
-static inline void isr_enable_interrupts()
-{
-    asm volatile("sti");
-}
+#define isr_enable_interrupts()                     \
+    {                                               \
+        asm volatile("sti");                        \
+    }
 
-static inline void isr_disable_interrupts()
-{
-    asm volatile("cli");
-}
+#define isr_disable_interrupts()                    \
+    {                                               \
+        asm volatile("cli");                        \
+    }
 
 [[gnu::interrupt]] void exc0(void* p);
 [[gnu::interrupt]] void exc1(void* p);

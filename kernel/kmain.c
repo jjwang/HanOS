@@ -33,6 +33,7 @@
 #include <core/hpet.h>
 #include <core/panic.h>
 #include <core/pci.h>
+#include <core/pit.h>
 #include <device/display/term.h>
 #include <device/keyboard/keyboard.h>
 #include <proc/sched.h>
@@ -86,7 +87,7 @@ static volatile enum {
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
-        sched_sleep(500);
+        sleep(500);
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
             cursor_visible = CURSOR_VISIBLE;
@@ -107,7 +108,8 @@ _Noreturn void kshell(task_id_t tid)
     (void)tid;
 
     klogi("Shell task started\n");
-    kprintf("?[11;1m%s?[0m\n", "Welcome to HanOS world!");
+    kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
+            "Welcome to HanOS world!", "help");
     kprintf("?[14;1m%s?[0m", "$ ");
 
     char cmd_buff[1024] = {0};
@@ -161,11 +163,10 @@ _Noreturn void kshell(task_id_t tid)
 void kmain(struct stivale2_struct* bootinfo)
 {
     uint8_t helloworld[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0x0};
-    cmos_init();
 
     bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
-
     term_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
+
     klog_init();
 
     kprintf("?[11;1m%s?[0m Hello World\n\n", helloworld);
@@ -175,13 +176,18 @@ void kmain(struct stivale2_struct* bootinfo)
 
     pmm_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_MEMMAP_ID));
     vmm_init();
+
     term_start();
+
     gdt_init(NULL);
     idt_init();
 
     acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
     hpet_init();
+    cmos_init();
+    pit_init(); /* initialization after hpet to make log time correct */ 
     apic_init();
+
     keyboard_init();
 
     vfs_init();
@@ -189,8 +195,10 @@ void kmain(struct stivale2_struct* bootinfo)
 
     pci_init();
 
+    klogi("Press \"?[14;1m%s?[0m\" (left) to shell and \"?[14;1m%s?[0m\" back\n",
+          "ctrl+shift+1", "ctrl+shift+2");
 
-#if 0 
+#if 0
     int val1 = 10000, val2 = 0;
     kloge("Val: %d", val1 / val2);
 #endif

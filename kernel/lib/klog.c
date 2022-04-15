@@ -217,7 +217,7 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
         tm_t now_tm = {0};
         localtime(&now_time, &now_tm);
 
-        if (hpet_get_nanos() == 0 || boot_time == 0) {
+        if (boot_time == 0) {
             cmos_rtc_t rt = cmos_read_rtc();
             now_tm.year = rt.year - 1900;
             now_tm.mon  = rt.month - 1;

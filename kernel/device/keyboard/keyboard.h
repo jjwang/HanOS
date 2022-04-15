@@ -32,11 +32,12 @@
 #define KEYBOARD_INIT_MODE                  0x47
 #define KEYBOARD_MOUSE_ENABLE               0xf4
 
-#define KEYBOARD_STATUS_IBF                 0x02
-#define KEYBOARD_STATUS_OBF                 0x01
+#define KEYBOARD_STATUS_INBUF_FULL          0x02
+#define KEYBOARD_STATUS_OUTBUF_FULL         0x01
+#define KEYBOARD_STATUS_WHICHBUF            0x20
 
-#define WAIT_KB_WRITE() while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_IBF)
-#define WAIT_KB_READ()  while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_OBF)
+#define WAIT_KB_WRITE() while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_INBUF_FULL)
+#define WAIT_KB_READ()  while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_OUTBUF_FULL)
 
 typedef struct {
     int32_t mouse_x_offset;

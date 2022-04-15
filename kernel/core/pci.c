@@ -40,20 +40,22 @@ static pci_device_desc_t device_table[] =
     {0,      0,      "Unknown device"}
 };
 
+static const char unknown_device_desc[] = "Unknown device";
+
 static const char *pci_device_id_to_string(pci_device_t *device)
 {
     for(uint64_t i = 0; ; i++) {
+        /* Reach the last line */
+        if (device_table[i].vendor_id == 0) {
+            return unknown_device_desc;
+        }
         if (device_table[i].vendor_id == device->vendor_id) {
             if (device_table[i].device_id == device->device_id) {
                 return device_table[i].desc;
             }
         }
-        /* Reach the last line */
-        if (device_table[i].vendor_id == 0) {
-            return device_table[i].desc;
-        }  
     }
-    return NULL;
+    return unknown_device_desc;
 }
 
 static uint32_t pci_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint32_t offset)
@@ -100,7 +102,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
         if (is_bridge) {
             uint8_t sub_bus_id = pci_read_sub_bus(&device);
             if (sub_bus_id != bus_id) {
-                klog_printf("PCI:\tRead sub bus %2x\n", sub_bus_id);
+                klogi("PCI:\tRead sub bus %2x\n", sub_bus_id);
                 pci_scan_bus(pci_read_sub_bus(&device));
             }
         }
@@ -109,10 +111,10 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
         device.device_id = pci_read_device_id(&device);
         device.vendor_id = pci_read_vendor_id(&device);
 
-        klog_printf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
-                    device.bus, device.device, device.func,
-                    device.vendor_id, device.device_id,
-                    pci_device_id_to_string(&device));
+        klogi("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
+              device.bus, device.device, device.func,
+              device.vendor_id, device.device_id,
+              pci_device_id_to_string(&device));
         vec_push_back(&pci_devices, device);
 
         if (device.multifunction) {
@@ -126,10 +128,10 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
                     device2.device_id = pci_read_device_id(&device2);
                     device2.vendor_id = pci_read_vendor_id(&device2);
 
-                    klog_printf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
-                                device2.bus, device2.device, device2.func,
-                                device2.vendor_id, device2.device_id,
-                                pci_device_id_to_string(&device2));
+                    klogi("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
+                          device2.bus, device2.device, device2.func,
+                          device2.vendor_id, device2.device_id,
+                          pci_device_id_to_string(&device2));
                     vec_push_back(&pci_devices, device2);
                 }
             }

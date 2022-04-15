@@ -20,5 +20,8 @@
 
 #include <stdint.h>
 
-void pit_wait(uint64_t ms);
+#define PIT_FREQ_HZ         1000
 
+void pit_init(void);
+void pit_wait(uint64_t ms);
+uint64_t pit_get_ticks(void);

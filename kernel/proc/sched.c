@@ -33,6 +33,7 @@ static lock_t sched_lock = lock_new();
 static task_t* tasks_running[CPU_MAX] = {0};
 static task_t* tasks_idle[CPU_MAX] = {0};
 static uint64_t tasks_coordinate[CPU_MAX] = {0};
+static volatile uint16_t cpu_num = 0;
 
 vec_new_static(task_t*, tasks_active);
 
@@ -56,6 +57,10 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 
 void do_context_switch(void* stack)
 {
+    const smp_info_t* smp_info = smp_get_info();
+    if (smp_info == NULL) return;
+    if (smp_info->num_cpus != cpu_num) return;
+
     lock_lock(&sched_lock);
 
     uint16_t cpu_id = smp_get_current_cpu(true)->cpu_id;
@@ -160,7 +165,13 @@ void sched_init(uint16_t cpu_id)
     apic_timer_set_handler(enter_context_switch);
     apic_timer_start();
 
+    cpu_num++;
     klogi("Scheduler initialization finished for CPU %d\n", cpu_id);
+}
+
+uint16_t sched_get_cpu_num()
+{
+    return cpu_num;
 }
 
 void sched_add(void (*entry)(task_id_t))
