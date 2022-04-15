@@ -47,7 +47,7 @@ void dump_backtrace()
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
-            break;
+            continue;
         }   
         klogu(" \t[%02d] \t%x (%s+%04x)\n",
                     i, func_addr,
@@ -57,9 +57,9 @@ void dump_backtrace()
     }
     cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
-        klogu("End of trace. CPU %d System halted.\n \n", cpu->cpu_id);
+        klogu("End of trace. CPU %d System halted.\n \n \n", cpu->cpu_id);
     } else {
-        klogu("End of trace. System halted.\n \n");
+        klogu("End of trace. System halted.\n \n \n");
     }
     klog_unlock();
 }

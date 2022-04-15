@@ -27,6 +27,7 @@
 #include <core/hpet.h>
 #include <core/madt.h>
 #include <core/apic.h>
+#include <core/pit.h>
 #include <proc/sched.h>
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
@@ -108,6 +109,8 @@ static void prepare_trampoline()
                  :
                  :);
     *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) = (uint64_t)&smp_ap_entrypoint;
+
+    klogi("Trampoline start 0x%x end 0x%x\n", (uint64_t)&smp_trampoline_blob_start, (uint64_t)&smp_trampoline_blob_end);
 }
 
 void smp_init()
@@ -164,7 +167,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
+        pit_wait(50);
 
         bool success = false;
         for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
@@ -176,7 +179,7 @@ void smp_init()
                     success = true;
                     break;
                 }
-                for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
+                pit_wait(50);
             }
             if (success)
                 break;
@@ -190,6 +193,11 @@ void smp_init()
             smp_info->cpus[smp_info->num_cpus].is_bsp = false;
             smp_info->num_cpus++;
         }
+    }
+
+    while(true) {
+        if (sched_get_cpu_num() == smp_info->num_cpus - 1) break;
+        sleep(1);
     }
 
     klogi("SMP: %d processors brought up\n", smp_info->num_cpus);

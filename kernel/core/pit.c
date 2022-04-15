@@ -20,24 +20,48 @@
 #include <stdbool.h>
 #include <core/pit.h>
 #include <core/cpu.h>
+#include <core/idt.h>
+#include <core/isr_base.h>
 #include <lib/lock.h>
+#include <lib/klog.h>
+
+static volatile uint64_t pit_ticks = 0;
+
+static void pit_callback()
+{
+    pit_ticks++;
+}
+
+uint64_t pit_get_ticks(void)
+{
+    return pit_ticks;
+}
+
+void pit_init(void)
+{
+    klogi("PIT: Set frequency to %dHz\n", PIT_FREQ_HZ);
+
+    uint16_t x = 1193182 / PIT_FREQ_HZ;
+    if ((1193182 % PIT_FREQ_HZ) > (PIT_FREQ_HZ / 2))
+        x++;
+
+    port_outb(0x40, (uint8_t)(x & 0x00ff));
+    port_io_wait();
+    port_outb(0x40, (uint8_t)((x & 0xff00) >> 8));
+    port_io_wait();
+
+    exc_register_handler(IRQ0, pit_callback);
+
+    irq_clear_mask(0);
+}
 
 void pit_wait(uint64_t ms) 
 {
-    port_outb(0x43, 0b00110000);
-    while (ms--) {
-        port_outb(0x40, 0xa9);
-        port_outb(0x40, 0x04);
+    volatile uint64_t target_ticks = pit_ticks + ms;
 
-        while (true) {
-            uint8_t lo, hi; 
-            lo = port_inb(0x40);
-            hi = port_inb(0x40);
-            // check for overflow
-            if (hi > 0x04)
-                break;
-            hi = lo;
-        }   
+    while (true) {
+        if (pit_ticks >= target_ticks) break;
+        asm volatile ("nop;");
     }
 }
 

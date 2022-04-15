@@ -32,7 +32,7 @@ INTERNALCFLAGS :=       \
 	-mno-sse            \
 	-mno-sse2           \
 	-mno-red-zone       \
-    -O3
+    -O2
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)

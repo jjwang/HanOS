@@ -13,8 +13,6 @@
 
  @endverbatim
   Ref: https://wiki.osdev.org/PS2_Keyboard
- @author  JW
- @date    Mar 12, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -23,6 +21,7 @@
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <lib/lock.h>
+#include <lib/time.h>
 #include <lib/memutils.h>
 #include <core/isr_base.h>
 #include <core/cpu.h>
@@ -62,26 +61,28 @@ static void keyboard_callback()
 {
     uint8_t status = port_inb(KEYBOARD_PORT_STATUS);
 
-    while ((status & 0x01) && ((status & 0x20) == 0)) {
+    while ((status & KEYBOARD_STATUS_OUTBUF_FULL)
+           && ((status & KEYBOARD_STATUS_WHICHBUF) == 0))
+    {
         uint8_t key_code = port_inb(KEYBOARD_PORT_DATA);
         uint8_t scan_code = key_code & 0x7f;
         uint8_t key_state = !(key_code & 0x80);
 
-        if (key_state && ps2_kb.key_pressed[scan_code]) return;
-        keyboard_set_key(key_state, scan_code);
-
-        while (key_state) {
-            char ch = keyboard_get_ascii(
+        char ch = keyboard_get_ascii(
                     scan_code,
                     ps2_kb.key_pressed[KB_LSHIFT] | ps2_kb.key_pressed[KB_RSHIFT],
                     ps2_kb.key_pressed[KB_CAPS_LOCK]);
-            if (ch == 0)
-            {
-#if 0
-                klogv("Get keyboard code 0x%02x\n", key_code);
-#endif
-                break;
-            }
+
+        if (term_get_mode() == TERM_MODE_INFO) {
+            klogi("Keyboard scan code: 0x%02x (%c) with state %d\n", scan_code,
+                  (ch == 0 || ch == 0x0D || ch == 0x0A) ? ' ' : ch,
+                  key_state);
+        }
+
+        if (key_state && ps2_kb.key_pressed[scan_code]) return;
+        keyboard_set_key(key_state, scan_code);
+
+        while (key_state && ch != 0) {
             /* Ctrl + Shift (Left) */
             if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL]) {
                 if (ch == '!') {            /* Shift + '1' */
@@ -93,9 +94,7 @@ static void keyboard_callback()
                 }
                 break;
             }
-#if 0
-            klogi("Scan code 0x%02x, Char '%c'\n", scan_code, ch);
-#endif
+
             if (buffer_length < KB_BUFFER_SIZE) {
                 lock_lock(&kb_lock);
                 key_buffer[write_index] = ch;
@@ -108,8 +107,7 @@ static void keyboard_callback()
             }
             break;
         }
-        //status = port_inb(KEYBOARD_PORT_STATUS);
-        break;
+        status = port_inb(KEYBOARD_PORT_STATUS);
     }
 }
 
@@ -183,8 +181,6 @@ static void mouse_callback()
 
 void keyboard_init()
 {
-    uint64_t i, j;
-
     isr_disable_interrupts();
 
     WAIT_KB_WRITE();
@@ -229,11 +225,7 @@ void keyboard_init()
 
     isr_enable_interrupts();
 
-    for(i = 0; i < 1000; i++) {
-        for(j = 0; j < 1000; j++) {
-            asm volatile("nop;");
-        }   
-    }
+    sleep(50);
 
     klogi("Keyboard initialization finished\n");
 }
