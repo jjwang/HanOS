@@ -21,8 +21,6 @@
     5. Set ENABLE_CNF bit.
 
  @endverbatim
- @author  JW
- @date    DEC 12, 2021
 
  **-----------------------------------------------------------------------------
  */
@@ -33,6 +31,7 @@
 #include <core/mm.h>
 #include <core/panic.h>
 #include <core/pit.h>
+#include <proc/sched.h>
 
 static hpet_t* hpet = NULL;
 static uint64_t hpet_period = 0;
@@ -41,7 +40,7 @@ static uint64_t hpet_period = 0;
 uint64_t hpet_get_nanos()
 {
     if(hpet == NULL) {
-        return pit_get_ticks() * MILLIS_TO_NANOS(1);
+        return pit_get_ticks();
     }
 
     uint64_t tf = hpet->main_counter_value * hpet_period;
@@ -59,7 +58,7 @@ void hpet_nanosleep(uint64_t nanos)
     while (true) {
         uint64_t cur = hpet_get_nanos();
         if (cur >= tgt) break;
-        asm volatile ("nop");
+        asm volatile ("nop;");
     }
 }
 

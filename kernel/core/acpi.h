@@ -22,8 +22,6 @@
   (System Management Mode) code.
 
  @endverbatim
- @author  JW
- @date    DEC 12, 2021
 
  **-----------------------------------------------------------------------------
  */

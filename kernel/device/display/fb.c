@@ -15,8 +15,6 @@
                  enhancements.
 
  @endverbatim
- @author  JW
- @date    Nov 20, 2021
  @todo    Improve memcpy() by SSE enhancements.
 
  **-----------------------------------------------------------------------------

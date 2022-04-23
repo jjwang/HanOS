@@ -11,16 +11,12 @@
   control external circuitry (for example, IRQ 0).
 
  @endverbatim
- @author  JW
- @date    Mar 12, 2022
 
  **-----------------------------------------------------------------------------
  */
 #pragma once
 
 #include <stdint.h>
-
-#define PIT_FREQ_HZ         1000
 
 void pit_init(void);
 void pit_wait(uint64_t ms);

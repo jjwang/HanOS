@@ -8,8 +8,6 @@
   e.g., time value, time zone and time information.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */

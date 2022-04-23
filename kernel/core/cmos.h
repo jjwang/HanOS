@@ -10,8 +10,6 @@
   1984 which used Motorola MC146818A RTC.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -48,4 +46,5 @@ typedef struct {
 void cmos_init();
 cmos_rtc_t cmos_read_rtc();
 uint64_t cmos_boot_time();
+uint64_t cmos_current_time();
 

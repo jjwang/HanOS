@@ -8,8 +8,6 @@
   In this module, both keyboard and mouse driver are implemented.
 
  @endverbatim
- @author  JW
- @date    Mar 12, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -38,6 +36,12 @@
 
 #define WAIT_KB_WRITE() while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_INBUF_FULL)
 #define WAIT_KB_READ()  while(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_OUTBUF_FULL)
+
+#define KEYBOARD_DISABLE_FIRST_PORT         0xAD
+#define KEYBOARD_DISABLE_SECOND_PORT        0xA7
+
+#define KEYBOARD_ENABLE_FIRST_PORT          0xAE
+#define KEYBOARD_ENABLE_SECOND_PORT         0xA8
 
 typedef struct {
     int32_t mouse_x_offset;

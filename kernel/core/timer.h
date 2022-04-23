@@ -14,8 +14,6 @@
   have to know how many interrupts/sec it's capable of.
 
  @endverbatim
- @author  JW
- @date    Jan 8, 2022
 
  **-----------------------------------------------------------------------------
  */

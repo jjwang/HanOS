@@ -29,13 +29,13 @@
 
 #define KB_BUFFER_SIZE    128
 
-static uint8_t key_buffer[KB_BUFFER_SIZE + 1];
+static volatile uint8_t key_buffer[KB_BUFFER_SIZE + 1];
 static volatile uint8_t buffer_length = 0;
 static volatile uint8_t read_index = 0;
 static volatile uint8_t write_index = 0;
 
-static keyboard_t ps2_kb = {0};
-static lock_t kb_lock = lock_new();
+static volatile keyboard_t ps2_kb = {0};
+static volatile lock_t kb_lock = lock_new();
 
 void keyboard_set_key(bool state, uint8_t keycode)
 {
@@ -59,55 +59,48 @@ void keyboard_set_key(bool state, uint8_t keycode)
  */
 static void keyboard_callback()
 {
-    uint8_t status = port_inb(KEYBOARD_PORT_STATUS);
+    uint8_t key_code = port_inb(KEYBOARD_PORT_DATA);
+    uint8_t scan_code = key_code & 0x7f;
+    uint8_t key_state = !(key_code & 0x80);
 
-    while ((status & KEYBOARD_STATUS_OUTBUF_FULL)
-           && ((status & KEYBOARD_STATUS_WHICHBUF) == 0))
-    {
-        uint8_t key_code = port_inb(KEYBOARD_PORT_DATA);
-        uint8_t scan_code = key_code & 0x7f;
-        uint8_t key_state = !(key_code & 0x80);
+    char ch = keyboard_get_ascii(
+                  scan_code,
+                  ps2_kb.key_pressed[KB_LSHIFT] | ps2_kb.key_pressed[KB_RSHIFT],
+                  ps2_kb.key_pressed[KB_CAPS_LOCK]);
 
-        char ch = keyboard_get_ascii(
-                    scan_code,
-                    ps2_kb.key_pressed[KB_LSHIFT] | ps2_kb.key_pressed[KB_RSHIFT],
-                    ps2_kb.key_pressed[KB_CAPS_LOCK]);
+    if (term_get_mode() == TERM_MODE_INFO) {
+        klogi("Keyboard scan code: 0x%02x (%c) with state %d\n", scan_code,
+              (ch == 0 || ch == 0x0D || ch == 0x0A || ch == '\t') ? ' ' : ch,
+              key_state);
+    }
 
-        if (term_get_mode() == TERM_MODE_INFO) {
-            klogi("Keyboard scan code: 0x%02x (%c) with state %d\n", scan_code,
-                  (ch == 0 || ch == 0x0D || ch == 0x0A) ? ' ' : ch,
-                  key_state);
-        }
+    if (key_state && ps2_kb.key_pressed[scan_code]) return;
+    keyboard_set_key(key_state, scan_code);
 
-        if (key_state && ps2_kb.key_pressed[scan_code]) return;
-        keyboard_set_key(key_state, scan_code);
-
-        while (key_state && ch != 0) {
-            /* Ctrl + Shift (Left) */
-            if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL]) {
-                if (ch == '!') {            /* Shift + '1' */
-                    term_switch(TERM_MODE_CLI);
-                    term_refresh(TERM_MODE_CLI);
-                } else if (ch == '@') {     /* Shift + '2' */
-                    term_switch(TERM_MODE_INFO);
-                    term_refresh(TERM_MODE_INFO);
-                }
-                break;
-            }
-
-            if (buffer_length < KB_BUFFER_SIZE) {
-                lock_lock(&kb_lock);
-                key_buffer[write_index] = ch;
-                write_index++;
-                buffer_length++;
-                if (write_index == KB_BUFFER_SIZE) {
-                    write_index = 0;
-                }
-                lock_release(&kb_lock);
+    while (key_state && ch != 0) {
+        /* Ctrl + Shift (Left) */
+        if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL]) {
+            if (ch == '!') {            /* Shift + '1' */
+                term_switch(TERM_MODE_CLI);
+                term_refresh(TERM_MODE_CLI);
+            } else if (ch == '@') {     /* Shift + '2' */
+                term_switch(TERM_MODE_INFO);
+                term_refresh(TERM_MODE_INFO);
             }
             break;
         }
-        status = port_inb(KEYBOARD_PORT_STATUS);
+
+        if (buffer_length < KB_BUFFER_SIZE) {
+            lock_lock(&kb_lock);
+            key_buffer[write_index] = ch;
+            write_index++;
+            buffer_length++;
+            if (write_index == KB_BUFFER_SIZE) {
+                write_index = 0;
+            }
+            lock_release(&kb_lock);
+        }
+        break;
     }
 }
 
@@ -183,13 +176,19 @@ void keyboard_init()
 {
     isr_disable_interrupts();
 
-    WAIT_KB_WRITE();
-    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_CMD_WRITE);
+    /* don't let devices send data at the wrong time and mess up initialisation */
+    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_DISABLE_FIRST_PORT);
+    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_DISABLE_SECOND_PORT); /* ignored if not supported */
 
-    WAIT_KB_WRITE();
-    port_outb(KEYBOARD_PORT_DATA, KEYBOARD_INIT_MODE);
+    /* flush device buffer */
+    while (port_inb(KEYBOARD_PORT_CMD) & KEYBOARD_STATUS_OUTBUF_FULL) {
+        port_inb(KEYBOARD_PORT_DATA);
+    }
 
-#if 1
+    /* finilize PS/2 initialization by reenabling devices */
+    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_ENABLE_FIRST_PORT);
+    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_ENABLE_SECOND_PORT); /* ignored if unsupported? */
+
     uint8_t _status;
 
     /* Enable the auxiliary mouse device */
@@ -213,7 +212,6 @@ void keyboard_init()
     /* Enable the mouse */
     mouse_write(0xF4);
     mouse_read();  /* Acknowledge */
-#endif
 
     exc_register_handler(IRQ1, keyboard_callback);
     exc_register_handler(IRQ12, mouse_callback);
@@ -224,8 +222,6 @@ void keyboard_init()
     irq_clear_mask(12);
 
     isr_enable_interrupts();
-
-    sleep(50);
 
     klogi("Keyboard initialization finished\n");
 }

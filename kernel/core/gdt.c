@@ -13,8 +13,6 @@
   memory regions are from 0 to 4GB.
 
  @endverbatim
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */

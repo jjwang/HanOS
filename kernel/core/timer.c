@@ -24,8 +24,6 @@
 
  @endverbatim
    Ref: https://wiki.osdev.org/APIC_timer
- @author  JW
- @date    Jan 8, 2022
 
  **-----------------------------------------------------------------------------
  */

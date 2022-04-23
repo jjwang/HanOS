@@ -8,8 +8,6 @@
   e.g., malloc, free and realloc.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
  @todo    Memory allocation should be improved for better efficiency.
 
  **-----------------------------------------------------------------------------

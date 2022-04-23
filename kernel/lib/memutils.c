@@ -8,8 +8,6 @@
   e.g., comparison, set value and copy.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */
