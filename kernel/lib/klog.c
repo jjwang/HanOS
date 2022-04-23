@@ -63,10 +63,15 @@ static void klog_putch(int mode, uint8_t i)
     term_putch(mode, i);
 }
 
-static void klog_puts(int mode, const char* s)
+static void klog_puts(int mode, const char* s, int width)
 {
-    for (int i = 0; s[i] != '\0'; i++)
-        klog_putch(mode, s[i]);
+    int cnt = 0;
+    for (cnt = 0; s[cnt] != '\0'; cnt++)
+        klog_putch(mode, s[cnt]);
+    if(width > 0) {
+        for (; cnt < width; cnt++)
+            klog_putch(mode, ' ');
+    }
 }
 
 static void klog_puthex(int mode, uint64_t n, int width)
@@ -166,13 +171,13 @@ void klog_vprintf_core(int mode, const char* s, va_list args)
                 klog_puthex(mode, va_arg(args, uint64_t), arg_width);
                 break;
             case 's':
-                klog_puts(mode, va_arg(args, const char*));
+                klog_puts(mode, va_arg(args, const char*), arg_width);
                 break;
             case 'c':
                 klog_putch(mode, va_arg(args, int));
                 break;
             case 'b':
-                klog_puts(mode, va_arg(args, int) ? "true" : "false");
+                klog_puts(mode, va_arg(args, int) ? "true" : "false", 0);
                 break;
             }
             i++;
