@@ -21,6 +21,7 @@
 #include <lib/time.h>
 #include <lib/klog.h>
 #include <lib/string.h>
+#include <lib/shell.h>
 #include <core/mm.h>
 #include <core/gdt.h>
 #include <core/idt.h>
@@ -104,6 +105,11 @@ _Noreturn void kcursor(task_id_t tid)
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
+    command_t cmd_list[] = {
+        {"memory", pmm_dump_usage, "Dump memory usage information"},
+        {"vfs",    vfs_debug,      "Dump tree of virtual file system"},
+        {"pci",    pci_debug,      "Print list of PCI devices"},
+        {"",       NULL,           ""}};
 
     klogi("Shell task started\n");
     kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
@@ -126,14 +132,23 @@ _Noreturn void kshell(task_id_t tid)
             kprintf("%c", cur_key);
 
             if (cmd_end > 0) {
-                if (strcmp(cmd_buff, "memory") == 0) {
-                    pmm_dump_usage();
-                } else if (strcmp(cmd_buff, "vfs") == 0) {
-                     vfs_debug();
-                } else if (strcmp(cmd_buff, "pci") == 0) {
-                     pci_debug();
+                if (strcmp(cmd_buff, "help") == 0) {
+                    kprintf("%16s%s\n", "Command", "Description");
+                    kprintf("%16s%s\n", "-------", "-----------");
+                    for(int64_t i = 0; ; i++) {
+                        if (cmd_list[i].proc == NULL) break;
+                        kprintf("%16s%s\n", cmd_list[i].command, cmd_list[i].desc);
+                    }
                 } else {
-                    kprintf("Sorry, I cannot understand.\n");
+                    for(int64_t i = 0; ; i++) {
+                        if (cmd_list[i].proc == NULL) {
+                            kprintf("Sorry, I cannot understand.\n");
+                            break;
+                        } else if (strcmp(cmd_buff, cmd_list[i].command) == 0) {
+                            (cmd_list[i].proc)();
+                            break;
+                        }
+                    }
                 }
             }
 

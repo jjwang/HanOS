@@ -23,9 +23,12 @@ static pci_device_desc_t device_table[] =
     {0x8086, 0x153A, "Ethernet Connection I217-LM"},
     {0x8086, 0x10D3, "82574L Gigabit Network Connection"},
     {0x8086, 0x10EA, "82577LM Gigabit Network Connection"},
-    {0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI"},
     {0x8086, 0x7000, "82371SB PIIX3 ISA"},
     {0x8086, 0x7010, "82371SB PIIX3 IDE"},
+    {0x8086, 0x7110, "82371AB/EB/MB PIIX4 ISA"},
+    {0x8086, 0x7111, "82371AB/EB/MB PIIX4 IDE"},
+    {0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI"},
+    {0x8086, 0x7192, "440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled)"},
     {0x8086, 0x1237, "440FX - 82441FX PMC"},
     {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
     {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
@@ -36,6 +39,8 @@ static pci_device_desc_t device_table[] =
     /* VirtualBox */
     {0x80EE, 0xBEEF, "VirtualBox Graphics Adapter"},
     {0x80EE, 0xCAFE, "VirtualBox Guest Service"},
+    /* Hyper-V */
+    {0x1414, 0x5353, "Hyper-V virtual VGA"},
     /* End */
     {0,      0,      "Unknown device"}
 };
