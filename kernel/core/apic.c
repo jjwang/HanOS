@@ -15,8 +15,6 @@
   Ref: https://wiki.osdev.org/APIC
 
  @endverbatim
- @author  JW
- @date    DEC 12, 2021
 
  **-----------------------------------------------------------------------------
  */

@@ -8,8 +8,6 @@
   String functions including length, comparison, copy etc.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */

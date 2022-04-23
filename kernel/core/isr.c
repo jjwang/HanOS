@@ -1,16 +1,17 @@
-///-----------------------------------------------------------------------------
-///
-/// @file    isr.c
-/// @brief   Implementation of ISR related functions
-/// @details
-///
-///   The x86 architecture is an interrupt driven system. Only a common
-///   interrupt handling function is implemented.
-///
-/// @author  JW
-/// @date    Nov 27, 2021
-///
-///-----------------------------------------------------------------------------
+/**-----------------------------------------------------------------------------
+
+ @file    isr.c
+ @brief   Implementation of ISR related functions
+ @details
+ @verbatim
+
+  The x86 architecture is an interrupt driven system. Only a common interrupt
+  handling function is implemented.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdbool.h>
 #include <stdint.h>
 #include <lib/klog.h>
@@ -54,7 +55,7 @@ static char* exceptions[] = {
     [44] = "Reserved"
 };
 
-static exc_handler_t handlers[256] = { 0 };
+static volatile exc_handler_t handlers[256] = { 0 };
 
 void exc_register_handler(uint64_t id, exc_handler_t handler)
 {
@@ -67,9 +68,10 @@ void exc_handler_proc(uint64_t errcode, uint64_t excno)
 
     if (handler != 0) {
         handler();
-        // If the IRQ came from the Master PIC, it is sufficient to issue EOI
-        // command only to the Master PIC; however if the IRQ came from the
-        // Slave PIC, it is necessary to issue EOI to both PIC chips.
+        /* If the IRQ came from the Master PIC, it is sufficient to issue EOI
+         * command only to the Master PIC; however if the IRQ came from the
+         * Slave PIC, it is necessary to issue EOI to both PIC chips.
+         */
         if (excno >= IRQ0 + 8) {
             port_outb(PIC1, PIC_EOI);
             port_outb(PIC2, PIC_EOI);

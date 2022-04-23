@@ -8,8 +8,6 @@
   e.g., lock new, lock and release.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -25,7 +23,6 @@ typedef volatile struct {
 
 #define lock_new()        (lock_t){0, 0}
 
-#if 1
 #define lock_lock(s)                                            \
     {                                                           \
         asm volatile(                                           \
@@ -55,7 +52,5 @@ typedef volatile struct {
                      : [flags] "m"((s)->rflags) \
                      : "memory", "cc");         \
     }
-#else
-#define lock_lock(s)    {}
-#define lock_release(s) {}
-#endif
+
+

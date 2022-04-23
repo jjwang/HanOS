@@ -9,8 +9,6 @@
   mainly supports information display.
 
  @endverbatim
- @author  JW
- @date    Nov 20, 2021
 
  **-----------------------------------------------------------------------------
  */

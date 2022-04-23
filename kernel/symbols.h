@@ -9,8 +9,6 @@
   provide context information for debugging.
 
  @endverbatim
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */

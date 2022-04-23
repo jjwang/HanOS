@@ -9,8 +9,6 @@
   Service Routines (ISR) are located (one per interrupt vector).
 
  @endverbatim
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */

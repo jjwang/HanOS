@@ -10,8 +10,6 @@
   regular basis is a major responsibility of the kernel.
 
  @endverbatim
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */

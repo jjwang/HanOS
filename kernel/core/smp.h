@@ -9,8 +9,6 @@
   processors in one computer system.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -28,7 +26,7 @@
 #define SMP_TRAMPOLINE_ARG_CR3          0xfd0
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
-#define CPU_MAX                         2
+#define CPU_MAX                         256
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;

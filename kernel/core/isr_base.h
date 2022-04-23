@@ -8,8 +8,6 @@
   The x86 architecture is an interrupt driven system.
 
  @endverbatim
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */

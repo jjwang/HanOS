@@ -10,8 +10,6 @@
   can be used to enumerate the processors currently available.
 
  @endverbatim
- @author  JW
- @date    DEC 25, 2021
 
  **-----------------------------------------------------------------------------
  */

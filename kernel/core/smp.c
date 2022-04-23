@@ -10,8 +10,6 @@
 
  @endverbatim
   Ref: https://wiki.osdev.org/SMP
- @author  JW
- @date    Jan 2, 2022
 
  **-----------------------------------------------------------------------------
  */
@@ -167,7 +165,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        pit_wait(50);
+        sleep(100);
 
         bool success = false;
         for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
@@ -179,7 +177,7 @@ void smp_init()
                     success = true;
                     break;
                 }
-                pit_wait(50);
+                sleep(100);
             }
             if (success)
                 break;
@@ -191,8 +189,8 @@ void smp_init()
         } else {
             klogi("SMP: core %d initialization successed\n", lapics[i]->proc_id);
             smp_info->cpus[smp_info->num_cpus].is_bsp = false;
-            smp_info->num_cpus++;
         }
+        smp_info->num_cpus++;
     }
 
     while(true) {

@@ -11,8 +11,6 @@
     Feb 19, 2022  Added CLI task which supports some simple commands.
 
  @endverbatim
- @author  JW
- @date    Oct 23, 2021
 
  **-----------------------------------------------------------------------------
  */
@@ -116,7 +114,7 @@ _Noreturn void kshell(task_id_t tid)
     uint16_t cmd_end = 0;
 
     while (true) {
-        sched_sleep(16);
+        sleep(16);
         uint8_t cur_key = keyboard_get_key();
         if (term_get_mode() != TERM_MODE_CLI) {
             continue;
@@ -182,13 +180,15 @@ void kmain(struct stivale2_struct* bootinfo)
     gdt_init(NULL);
     idt_init();
 
-    acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
-    hpet_init();
-    cmos_init();
-    pit_init(); /* initialization after hpet to make log time correct */ 
-    apic_init();
+    /* Need to init after idt_init() because it will be used very often. */
+    pit_init();
 
     keyboard_init();
+
+    acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
+    hpet_init();
+    cmos_init(); 
+    apic_init();
 
     vfs_init();
     smp_init();
@@ -217,6 +217,6 @@ void kmain(struct stivale2_struct* bootinfo)
      * executed.
      */
     for (;;) {
-        asm ("hlt");
+        asm volatile ("hlt;");
     }
 }

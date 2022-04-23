@@ -13,8 +13,6 @@
   the base address of HPET can be found using ACPI.
 
  @endverbatim
- @author  JW
- @date    DEC 12, 2021
 
  **-----------------------------------------------------------------------------
  */

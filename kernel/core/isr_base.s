@@ -99,7 +99,6 @@ exc_errcode     30
 .macro irq_noerrcode irqno
 .global irq\irqno
 irq\irqno:
-
     push %rbp
     mov %rsp, %rbp
 

@@ -10,8 +10,6 @@
 
  @endverbatim
   Ref: https://wiki.osdev.org/PS2_Keyboard
- @author  JW
- @date    Mar 12, 2022
 
  **-----------------------------------------------------------------------------
  */

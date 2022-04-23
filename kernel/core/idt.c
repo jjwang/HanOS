@@ -13,14 +13,13 @@
 
  @endverbatim
   Ref: https://wiki.osdev.org/Interrupt_Descriptor_Table
- @author  JW
- @date    Nov 27, 2021
 
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
 
 #include <lib/klog.h>
+#include <lib/memutils.h>
 #include <core/isr_base.h>
 #include <core/idt.h>
 #include <core/cpu.h>
@@ -105,9 +104,13 @@ void idt_init()
     port_outb(PIC1_DATA, 0x01);
     port_outb(PIC2_DATA, 0x01);
 
-    /* mask all interrupts */
-    port_outb(PIC1_DATA, 0xff);
-    port_outb(PIC2_DATA, 0xff);
+    /* Mask all interrupts */
+    port_outb(PIC1_DATA, 0xFF);
+    port_outb(PIC2_DATA, 0xFF);
+
+    for(size_t i = 0; i < IDT_ENTRIES; i++) {
+        memset(&idt[i], 0, sizeof(idt_entry_t));
+    }
 
     /* Exceptions */
     idt[0] = idt_make_entry((uint64_t)&exc0);

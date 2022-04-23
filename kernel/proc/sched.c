@@ -5,12 +5,14 @@
  @details
  @verbatim
 
-  Include Context Switching, Scheduling Algorithms etc.
+  Context Switching, Scheduling Algorithms etc.
+
+  History:
+  Apr 20, 2022 - 1. Redesign the task queue based on vector data structue.
+                 2. Scheduler starts working after all processors are launched
+                    to avoid GPF exception.
 
  @endverbatim
- @author  JW
- @date    Jan 2, 2022
- @todo    Need to consider when HPET is not available (e.g., Hyper-V VM) 
 
  **-----------------------------------------------------------------------------
  */
@@ -126,7 +128,7 @@ void sched_sleep(time_t millis)
 {
     cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
-        pit_wait(millis);
+        sleep(millis);
         return;
     }
    
@@ -155,6 +157,17 @@ task_t* sched_get_current_task()
     return tasks_running[cpu->cpu_id];
 }
 
+uint64_t sched_get_ticks()
+{
+    cpu_t* cpu = smp_get_current_cpu(false);
+
+    if (cpu == NULL) {
+        return 0;
+    }
+
+    return tasks_coordinate[cpu->cpu_id];
+}
+
 void sched_init(uint16_t cpu_id)
 {
     tasks_idle[cpu_id] = task_make(task_idle_proc, 255, (cpu_id == 100) ? TASK_USER_MODE : TASK_KERNEL_MODE);
@@ -165,7 +178,10 @@ void sched_init(uint16_t cpu_id)
     apic_timer_set_handler(enter_context_switch);
     apic_timer_start();
 
+    lock_lock(&sched_lock);
     cpu_num++;
+    lock_release(&sched_lock);
+
     klogi("Scheduler initialization finished for CPU %d\n", cpu_id);
 }
 
