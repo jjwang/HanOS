@@ -192,8 +192,8 @@ void term_print(int mode, uint8_t c)
     }
 
     if (c == '\b') {
-        if (term_act->cursor_x > 0) term_act->cursor_x--;
         term_print(mode, ' ');
+        if (term_act->cursor_x > 0) term_act->cursor_x--;
         if (term_act->cursor_x > 0) term_act->cursor_x--;
         return;
     }
