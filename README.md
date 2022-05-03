@@ -14,6 +14,10 @@ Progress update
 - [x] Start up all CPUs
 - [x] Set up APIC interrupt controller
 - [x] Read RTC time from CMOS and configure HPET timer
+- [x] When HPET timer not available in Hyper-V VM, PIT is used instead
+- [x] Scheduling driven by APIC timer
+- [x] Command line interface
+- [x] VFS and FAT32 file system 
 
 Screenshots
 - Jan 3, 2022: Kernel Log
