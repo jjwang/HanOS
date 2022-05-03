@@ -82,8 +82,6 @@ typedef struct task_t {
     task_status_t status;
     task_mode_t mode;
 
-    vec_struct(vfs_node_desc_t*) openfiles;
-
     struct task_t* next;
     struct task_t* prev;
 } task_t;

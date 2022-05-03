@@ -37,11 +37,13 @@ void dump_backtrace()
 
     klog_lock();
     klogu("\nStacktrace:\n");
-    for (int i = 0;; i++) {
+    uint64_t prev_func_addr = 0;
+    for (size_t i = 0; ; i++) {
         uint64_t func_addr = *(rbp_val + 1);
-        if (func_addr == 0x0) {
+        if (func_addr == 0x0 || func_addr == prev_func_addr) {
             break;
         }
+        prev_func_addr = func_addr;
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);

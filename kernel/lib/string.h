@@ -14,10 +14,15 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 int strlen(const char* s);
 int strcmp(const char* a, const char* b); 
 int strncmp(const char* a, const char* b, size_t len);
 int strcpy(char* dest, const char* src);
 int strcat(char* dest, const char* src);
+char *strchrnul(const char *s, int c);
+int islower(int);
+int tolower(int);
+int toupper(int);
 
