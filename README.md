@@ -20,8 +20,8 @@ Progress update
 - [x] VFS and FAT32 file system 
 
 Screenshots
-- Jan 3, 2022: Kernel Log
+- May 3, 2022: Live Demo
 
-![Oh~~~ Klog](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0003-klog.png)
+![Cool~~~](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0004-demo220503.gif)
 
 
