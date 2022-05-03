@@ -7,8 +7,11 @@
 #include <lib/memutils.h>
 #include <lib/string.h>
 
+/* list of opened files */
+vec_extern(vfs_node_desc_t*, vfs_openfiles);
+
 /* allocates a tnode in memory */
-vfs_tnode_t* vfs_alloc_tnode(char* name, vfs_inode_t* inode, vfs_inode_t* parent)
+vfs_tnode_t* vfs_alloc_tnode(const char* name, vfs_inode_t* inode, vfs_inode_t* parent)
 {
     vfs_tnode_t* tnode = (vfs_tnode_t*)kmalloc(sizeof(vfs_tnode_t));
     memset(tnode, 0, sizeof(vfs_tnode_t));
@@ -31,7 +34,7 @@ vfs_inode_t* vfs_alloc_inode(vfs_node_type_t type, uint32_t perms, uint32_t uid,
         .fs = fs,
         .ident = NULL,
         .mountpoint = mountpoint,
-        .refcount = 1
+        .refcount = 0
     };
     return inode;
 }
@@ -48,16 +51,15 @@ void vfs_free_nodes(vfs_tnode_t* tnode)
 /* returns the node descriptor for a handle */
 vfs_node_desc_t* vfs_handle_to_fd(vfs_handle_t handle)
 {
-    task_t* curr = sched_get_current_task();
-    if ((size_t)handle >= curr->openfiles.len || !(curr->openfiles.data[handle])) {
-        kloge("Invalid handle %d\n", handle);
+    if ((size_t)handle >= vfs_openfiles.len || !(vfs_openfiles.data[handle])) {
+        kloge("Invalid file handle %d\n", handle);
         return NULL;
     }
-    return curr->openfiles.data[handle];
+    return vfs_openfiles.data[handle];
 }
 
 /* converts a path to a node, creates the node if required */
-vfs_tnode_t* vfs_path_to_node(char* path, uint8_t mode, vfs_node_type_t create_type)
+vfs_tnode_t* vfs_path_to_node(const char* path, uint8_t mode, vfs_node_type_t create_type)
 {
     static char tmpbuff[VFS_MAX_PATH_LEN];
     vfs_tnode_t* curr = &vfs_root;
@@ -112,16 +114,16 @@ vfs_tnode_t* vfs_path_to_node(char* path, uint8_t mode, vfs_node_type_t create_t
             vfs_tnode_t* new_tnode = vfs_alloc_tnode(tmpbuff, new_inode, curr->inode);
 
             vec_push_back(&(curr->inode->child), new_tnode);
-            curr->inode->fs->mknode(new_tnode);
+            if (curr->inode->fs != NULL) curr->inode->fs->mknode(new_tnode);
             return new_tnode;
         } else {
-            kloge("'%s' doesn't exist\n", path);
+            klogw("\"%s\" doesn't exist\n", path);
             return NULL;
         }
     }
     /* the node should not have existed */
     else if (mode & ERR_ON_EXIST) {
-        kloge("'%s' already exists\n", path);
+        klogw("'%s' already exists\n", path);
         return NULL;
     }
 

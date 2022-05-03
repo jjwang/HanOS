@@ -66,3 +66,36 @@ int strcat(char* dest, const char* src)
     return i;
 }
 
+char *strchrnul(const char *s, int c)
+{
+    while (*s) {
+        if ((*s++) == c) {
+            break;
+        }
+    }
+
+    return (char *)s;
+}
+
+int islower(int c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+int tolower(int c)
+{
+    if (c >= 0x41 && c <= 0x5a) {
+        return c + 0x20;
+    }
+
+    return c;
+}
+
+int toupper(int c)
+{
+    if (islower(c)) {
+        return c - ('a' - 'A');
+    } else {
+        return c;
+    }
+}

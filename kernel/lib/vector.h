@@ -14,6 +14,7 @@
         type*  data;                                                \
     }
 
+#define vec_extern(type, name)      extern vec_struct(type) name
 #define vec_new(type, name)         vec_struct(type) name = {0}
 #define vec_new_static(type, name)  static vec_new(type, name)
 

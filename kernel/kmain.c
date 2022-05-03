@@ -35,6 +35,7 @@
 #include <core/pit.h>
 #include <device/display/term.h>
 #include <device/keyboard/keyboard.h>
+#include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>
 
@@ -115,6 +116,29 @@ _Noreturn void kshell(task_id_t tid)
     kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
             "Welcome to HanOS world!", "help");
     kprintf("?[14;1m%s?[0m", "$ ");
+
+    pci_init();
+    ata_init();
+
+    char* fn1 = "/disk/0/EFI/BOOT";
+    char* fn2 = "/disk/0/LIMINE.CFG";
+
+    vfs_handle_t f1 = vfs_open(fn1, VFS_MODE_READ);
+    if (f1 != VFS_INVALID_HANDLE) {
+        vfs_close(f1);
+    } else {
+        kloge("Open %s failed\n", fn1);
+    }
+
+    vfs_handle_t f2 = vfs_open(fn2, VFS_MODE_READ);
+    if (f2 != VFS_INVALID_HANDLE) {
+        char buff[1024] = {0};
+        size_t readlen = vfs_read(f2, sizeof(buff) - 1, buff);
+        klogi("Read %d bytes from LIMINE.CFG\n%s\n", readlen, buff);
+        vfs_close(f2);
+    } else {
+        kloge("Open %s failed\n", fn2);
+    }
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
@@ -207,8 +231,6 @@ void kmain(struct stivale2_struct* bootinfo)
 
     vfs_init();
     smp_init();
-
-    pci_init();
 
     klogi("Press \"?[14;1m%s?[0m\" (left) to shell and \"?[14;1m%s?[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");

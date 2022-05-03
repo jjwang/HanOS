@@ -1,6 +1,6 @@
 #include <fs/vfs.h>
 #include <fs/filebase.h>
-#include <fs/ramfs.h>
+#include <fs/fat32.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/lock.h>
@@ -16,6 +16,9 @@ vfs_tnode_t vfs_root;
 
 /* list of installed filesystems */
 vec_new_static(vfs_fsinfo_t*, vfs_fslist);
+
+/* list of opened files */
+vec_new(vfs_node_desc_t*, vfs_openfiles);
 
 static void dumpnodes_helper(vfs_tnode_t* from, int lvl)
 {
@@ -52,13 +55,13 @@ vfs_fsinfo_t* vfs_get_fs(char* name)
 
 void vfs_init()
 {
-    /* initialize the root folder and mount ramfs there */
+    /* initialize the root folder */
     vfs_root.inode = vfs_alloc_inode(VFS_NODE_FOLDER, 0777, 0, NULL, NULL);
-    vfs_register_fs(&ramfs);
-    vfs_mount(NULL, "/", "ramfs");
+
+    vfs_register_fs(&fat32);
 
     vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
-    vfs_path_to_node("/bin", CREATE, VFS_NODE_FOLDER);
+    vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
 
     klogi("VFS initialization finished\n");
 }
@@ -144,11 +147,14 @@ fail:
 int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
-    if (!fd)
+    if (!fd) {
         return 0;
+    }
 
     lock_lock(&vfs_lock);
     vfs_inode_t* inode = fd->inode;
+
+    klogw("VFS: %s file size %d\n", fd->tnode->name, inode->size);
 
     /* truncate if asking for more data than available */
     if (fd->seek_pos + len > inode->size) {
@@ -175,7 +181,7 @@ int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
 
     /* cannot write to read-only files */
     if (fd->mode == VFS_MODE_READ) {
-        kloge("File is read only\n");
+        kloge("File handle %d is read only\n", handle);
         return 0;
     }
 
@@ -213,14 +219,47 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos)
     return 0;
 }
 
+void vfs_get_parent_dir(const char* path, char* parent)
+{
+    strcpy(parent, path);
+
+    uint64_t idx = strlen(parent) - 1;
+    if (idx > 0) {
+        if (parent[idx] == '/') idx--;
+    }   
+
+    while(idx > 0) {
+        if (parent[idx] == '/') {
+            parent[idx] = '\0';
+            break;
+        }   
+        idx--;
+    }   
+}
+
 vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 {
     lock_lock(&vfs_lock);
 
     /* find the node */
     vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0);
-    if (!req)
-        goto fail;
+    if (!req) {
+        vfs_tnode_t* pn = NULL;
+        char curpath[VFS_MAX_PATH_LEN] = {0}, parent[VFS_MAX_PATH_LEN] = {0};
+        strcpy(curpath, path);
+        while (true) {
+            vfs_get_parent_dir(curpath, parent);
+            if (strcmp(curpath, parent) == 0) break;
+            pn = vfs_path_to_node(parent, NO_CREATE, 0);
+            if (pn) break;
+            strcpy(curpath, parent);
+        }
+        if (pn->inode->fs != NULL) {
+            klogw("VFS: Can not open %s, visit back to %s\n", path, parent);
+            req = pn->inode->fs->open(pn->inode, path);
+        }
+        if (!req) goto fail;
+    }
     req->inode->refcount++;
 
     /* create node descriptor */
@@ -231,12 +270,14 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     nd->mode = mode;
 
     /* add to current task */
-    task_t* curr = sched_get_current_task();
-    vec_push_back(&(curr->openfiles), nd);
+    vec_push_back(&(vfs_openfiles), nd);
 
     /* return the handle */
     lock_release(&vfs_lock);
-    return ((vfs_handle_t)(curr->openfiles.len - 1));
+
+    vfs_handle_t h = ((vfs_handle_t)(vfs_openfiles.len - 1));
+    klogv("VFS: Open %s and return handle %d\n", path, h);
+    return h;
 fail:
     lock_release(&vfs_lock);
     return -1;
@@ -244,9 +285,9 @@ fail:
 
 int64_t vfs_close(vfs_handle_t handle)
 {
-    lock_lock(&vfs_lock);
+    klogv("VFS: close file handle %d\n", handle);
 
-    task_t* curr = sched_get_current_task();
+    lock_lock(&vfs_lock);
 
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
     if (!fd)
@@ -254,80 +295,10 @@ int64_t vfs_close(vfs_handle_t handle)
 
     fd->inode->refcount--;
     kmfree(fd);
-    curr->openfiles.data[handle] = NULL;
+    vfs_openfiles.data[handle] = NULL;
 
     lock_release(&vfs_lock);
     return 0;
-fail:
-    lock_release(&vfs_lock);
-    return -1;
-}
-
-int64_t vfs_link(char* oldpath, char* newpath)
-{
-    lock_lock(&vfs_lock);
-
-    /* get the old node */
-    vfs_tnode_t* old_tnode = vfs_path_to_node(oldpath, NO_CREATE, 0);
-    if (!old_tnode)
-        goto fail;
-    vfs_inode_t* old_inode = old_tnode->inode;
-
-    /* create the new node */
-    vfs_tnode_t* new_tnode = vfs_path_to_node(newpath, CREATE | ERR_ON_EXIST, old_tnode->inode->type);
-    if (!new_tnode)
-        goto fail;
-    vfs_inode_t* new_inode = new_tnode->inode;
-
-    /* the mountpoints of the nodes must match */
-    if (new_inode->mountpoint != old_inode->mountpoint) {
-        kloge("Mountpoints do not match\n");
-        new_inode->fs->setlink(new_tnode, NULL);
-        vfs_free_nodes(new_tnode);
-        goto fail;
-    }
-
-    /* link the two nodes */
-    old_inode->refcount++;
-    new_inode->refcount = 0;
-    old_inode->fs->setlink(new_tnode, old_inode);
-    new_tnode->inode = old_inode;
-
-    /* free the new inode */
-    kmfree(new_inode);
-
-    lock_release(&vfs_lock);
-    return 0;
-fail:
-    lock_release(&vfs_lock);
-    return -1;
-}
-
-int64_t vfs_unlink(char* path)
-{
-    lock_lock(&vfs_lock);
-    vfs_tnode_t* tnode = vfs_path_to_node(path, NO_CREATE, 0);
-    if (!tnode)
-        goto fail;
-
-    if (tnode->inode->child.len != 0) {
-        kloge("Target not an empty folder\n");
-        goto fail;
-    }
-
-    /* decrease refcount and unlink */
-    tnode->inode->refcount--;
-    int64_t status = tnode->inode->fs->setlink(tnode, NULL);
-
-    /* remove the tnode from the parent */
-    vfs_inode_t* parent = tnode->parent;
-    vec_erase_val(&(parent->child), tnode);
-
-    /* free the node data */
-    vfs_free_nodes(tnode);
-
-    lock_release(&vfs_lock);
-    return status;
 fail:
     lock_release(&vfs_lock);
     return -1;
