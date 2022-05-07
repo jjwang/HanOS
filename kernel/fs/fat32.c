@@ -29,19 +29,28 @@ vfs_fsinfo_t fat32 = {
 static fat32_ident_t* create_ident()
 {
     fat32_ident_t* id = (fat32_ident_t*)kmalloc(sizeof(fat32_ident_t));
-    *id = (fat32_ident_t) { .alloc_size = 0, .data = NULL };
+    memset(id, 0, sizeof(fat32_ident_t));
     return id;
 }
 
+/* Notes: need to consider multiple sectors which are not continuous */
 int64_t fat32_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
 
     uint32_t cluster = id->rw.cluster_offset;
-    klogi("FAT32: Read %d bytes from offset %d, cluster %d\n", len, offset, cluster);
+    klogi("FAT32: Read %4d bytes from cluster %d, offset %d\n", len, cluster, offset);
+    uint32_t temp_cluster = cluster;
+    while (true) {
+        temp_cluster = fat32_next_cluster(temp_cluster, id->fat, id->fat_len);
+        if (temp_cluster == 0) break;
+        klogi("FAT32:                      cluster %d, bytes per cluster %d\n",
+              temp_cluster, id->bs.bytes_per_sector * id->bs.sectors_per_cluster);
+    }
 
     size_t sector_num = DIV_ROUNDUP(offset + len, id->bs.bytes_per_sector);
     uint8_t* dd = (uint8_t*)kmalloc(sector_num * id->bs.bytes_per_sector);
+
     ata_pio_read28(id->device,
                    id->bs.cluster_begin_lba + (cluster - 2) * id->bs.sectors_per_cluster,
                    sector_num, dd);
@@ -56,24 +65,41 @@ int64_t fat32_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
 int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
-    memcpy(((uint8_t*)id->data) + offset, buff, len);
-    return 0;
+
+    uint32_t cluster = id->rw.cluster_offset;
+    klogi("FAT32: Write %d bytes from offset %d, cluster %d\n", len, offset, cluster);
+
+    size_t sector_num = DIV_ROUNDUP(offset + len, id->bs.bytes_per_sector);
+    uint8_t* dd = (uint8_t*)kmalloc(sector_num * id->bs.bytes_per_sector);
+
+    ata_pio_read28(id->device,
+                   id->bs.cluster_begin_lba + (cluster - 2) * id->bs.sectors_per_cluster,
+                   sector_num, dd);
+
+    memcpy(dd + offset, buff, len);
+    
+    ata_pio_write28(id->device,
+                    id->bs.cluster_begin_lba + (cluster - 2) * id->bs.sectors_per_cluster,
+                    sector_num, dd);
+
+    size_t retlen = MIN(sector_num * id->bs.bytes_per_sector - offset, len);
+    return retlen;
 }
 
 /* synchronizes file size (and other metadata) */
 int64_t fat32_sync(vfs_inode_t* this)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
-    if (this->size > id->alloc_size) {
-        id->alloc_size = this->size;
-        id->data = kmrealloc(id->data, id->alloc_size);
-    }
+    (void)id;
+
     return 0;
 }
 
 int64_t fat32_refresh(vfs_inode_t* this)
 {
-    (void)this;
+    fat32_ident_t* id = (fat32_ident_t*)this->ident;
+    (void)id;
+
     return 0;
 }
 
@@ -83,18 +109,11 @@ int64_t fat32_mknode(vfs_tnode_t* this)
     return 0;
 }
 
-#if 0
-void fat32_read_offset(vfs_inode_t* this, uint64_t location, void *dst, size_t len)
-{
-    fat32_ident_t* id = (fat32_ident_t*)this->ident;
-}
-#endif
-
 int fat32_read_entry(vfs_inode_t* this, uint32_t cluster, size_t index, fat32_entry_t *dest)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
 
-    /* Need to design cache here */
+    /* Need to add cache to speed up reading in the future */
     uint8_t dd[512] = {0};
     ata_pio_read28(id->device, id->bs.cluster_begin_lba + (cluster - 2) * id->bs.sectors_per_cluster, 1, dd);
 
@@ -109,20 +128,14 @@ int fat32_read_entry(vfs_inode_t* this, uint32_t cluster, size_t index, fat32_en
 
     memcpy(dest->name, de[index].file_name_and_ext, 11);
     dest->attribute = de[index].attribute;
-    dest->cluster_begin = de[index].cluster_num_low | (de[index].cluster_num_high << 16);
+    dest->cluster_begin = de[index].cluster_num_high;
+    dest->cluster_begin = de[index].cluster_num_low | (dest->cluster_begin << 16);
     dest->file_size_bytes = de[index].file_size_bytes;
 
     return 1;
 }
 
-uint32_t fat32_next_cluster(uint32_t cluster, uint32_t *fat, uint32_t fat_len)
-{
-    if (cluster >= fat_len / 4) return 0;
-    if (fat[cluster] >= 0xFFFFFFF8) return 0;
-    return fat[cluster];
-}
-
-int fat32_compare_ent_and_path(fat32_entry_t *ent, const char *path)
+int fat32_compare_entry_and_path(fat32_entry_t *ent, const char *path)
 {
     const char *ext = strchrnul(path, '.');
 
@@ -186,13 +199,6 @@ fat32_entry_t fat32_parse_path(vfs_inode_t* this, const char *path)
 
     path++;
 
-    size_t fat_len = id->bs.sectors_per_fat * id->bs.bytes_per_sector;
-    uint32_t *fat = (uint32_t*)kmalloc(fat_len);
-    klogi("FAT32: Read FAT table from %d len %d\n", id->bs.fat_begin_lba, id->bs.sectors_per_fat);
-    ata_pio_read28(id->device, id->bs.fat_begin_lba, id->bs.sectors_per_fat, (void*)fat);
-    klogi("FAT32 table: 0x%08x 0x%08x ... 0x%08x ... 0x%08x\n",
-          fat[0], fat[1], fat[7], fat[fat_len / sizeof(uint32_t) - 1]);
-
     fat32_entry_t ent = {0};
     for (i = 0; ; i++) {
         if (!fat32_read_entry(this, cluster, i, &ent)) {
@@ -200,7 +206,7 @@ fat32_entry_t fat32_parse_path(vfs_inode_t* this, const char *path)
         }
         if (i == id->bs.sectors_per_cluster * 16) {
             i = 0;
-            cluster = fat32_next_cluster(cluster, fat, fat_len);
+            cluster = fat32_next_cluster(cluster, id->fat, id->fat_len);
             if (cluster * id->bs.sectors_per_cluster + 16 >= id->bs.total_sectors) break;
         }
 
@@ -221,11 +227,10 @@ fat32_entry_t fat32_parse_path(vfs_inode_t* this, const char *path)
             path += strlen(sub_elem) + 1;
         }
 
-        if (fat32_compare_ent_and_path(&ent, sub_elem)) {
+        if (fat32_compare_entry_and_path(&ent, sub_elem)) {
             klogv("FAT32: [%s] matches with top level %d\n", sub_elem, top_level);
             if (top_level) {
                 /* found file we were looking for */
-                kmfree(fat);
                 return ent;
             } else {
                 klogv("FAT32: Found directory entry matching %s\n", sub_elem);
@@ -235,7 +240,6 @@ fat32_entry_t fat32_parse_path(vfs_inode_t* this, const char *path)
         }
     }
 
-    kmfree(fat);
     fat32_entry_t err = {0};
     return err;
 }
@@ -360,6 +364,15 @@ vfs_inode_t* fat32_mount(vfs_inode_t* at)
                 id->bs.fat_begin_lba = mbr.partitions[i].lba_start + id->bs.reserved_sector_count;
                 /* Cluster sector number */
                 id->bs.cluster_begin_lba = id->bs.fat_begin_lba + id->bs.num_fats * id->bs.sectors_per_fat;
+
+                id->fat_len = id->bs.sectors_per_fat * id->bs.bytes_per_sector;
+                id->fat = (uint32_t*)kmalloc(id->fat_len);
+                klogi("FAT32: Read FAT table from %d len %d\n", id->bs.fat_begin_lba, id->bs.sectors_per_fat);
+                ata_pio_read28(id->device, id->bs.fat_begin_lba, id->bs.sectors_per_fat, (void*)id->fat);
+
+                for (size_t m = 0; m < 20; m += 4) {
+                    klogi("FAT32: [%04d] 0x%08x 0x%08x 0x%08x 0x%08x\n", m, id->fat[m], id->fat[m+1], id->fat[m+2], id->fat[m+3]);
+                }
 
                 /* Finished reading all needed FAT32 partition information */
                 break;

@@ -101,8 +101,8 @@ typedef struct {
     fat32_bs_info_t bs;
     fat32_rw_info_t rw;
 
-    size_t alloc_size;
-    void* data;
+    uint32_t* fat;
+    size_t fat_len;
 } fat32_ident_t;
 
 typedef struct {
@@ -121,6 +121,14 @@ int64_t fat32_read(vfs_inode_t* this, size_t offset, size_t len, void* buff);
 int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff);
 int64_t fat32_sync(vfs_inode_t* this);
 int64_t fat32_refresh(vfs_inode_t* this);
+
+static inline uint32_t fat32_next_cluster(uint32_t cluster, uint32_t *fat, uint32_t fat_len)
+{
+    if (cluster >= fat_len / 4) return 0;
+    if (fat[cluster] >= 0xFFFFFFF8) return 0;
+    if (fat[cluster] == 0x0FFFFFFF) return 0;
+    return fat[cluster];
+}
 
 static inline void fat32_get_short_filename(char* file_name_and_ext, char* fname)
 {
