@@ -156,4 +156,5 @@ typedef struct [[gnu::packed]] {
 
 int ata_init(void);
 void ata_pio_read28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* target);
+void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* source);
 

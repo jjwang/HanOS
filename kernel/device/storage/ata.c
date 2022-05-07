@@ -403,7 +403,6 @@ void ata_pio_read28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8
 
     ata_io_wait(dev);
 
-    /* HARD CODE MASTER (for now) */
     port_outb(bus + ATA_REG_HDDEVSEL,  0xE0 | slave << 4 | ((lba & 0x0f000000) >> 24));
     ata_io_wait(dev);
    
@@ -427,7 +426,42 @@ void ata_pio_read28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8
         }
         /* Transfer the data! */
         port_insw(bus + ATA_REG_DATA, (void *)target, 256);
-        target += 256;
+        target += 512;
+        ata_io_wait(dev);
+    }
+}
+
+void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* source)
+{
+    uint16_t bus = dev->io_base;
+    uint8_t slave = dev->slave;
+
+    ata_io_wait(dev);
+
+    port_outb(bus + ATA_REG_HDDEVSEL,  0xE0 | slave << 4 | ((lba & 0x0f000000) >> 24));
+    ata_io_wait(dev);
+   
+    uint8_t status = 0;
+ 
+    port_outb(bus + ATA_REG_ERROR, 0x00);
+    port_outb(bus + ATA_REG_SECCOUNT0, sector_count);
+    port_outb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0); 
+    port_outb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8); 
+    port_outb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
+    port_outb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+
+    for(uint64_t i = 0; i < sector_count; i++) {
+        for(uint64_t k = 0; k < 10 * 1000 * 10; k++) {  /* sleep 10ms */
+            port_inb(bus + ATA_REG_ALTSTATUS); /* 100ns */
+            status = port_inb(bus + ATA_REG_STATUS);
+            if(status & ATA_SR_DRQ) {
+                /* Drive is ready to transfer data! */
+                break;
+            }
+        }
+        /* Transfer the data! */
+        port_outsw(bus + ATA_REG_DATA, (void *)source, 256);
+        source += 256;
         ata_io_wait(dev);
     }
 }
