@@ -52,6 +52,33 @@ static void ata_soft_reset(ata_device_t* dev)
     port_outb(dev->control, 0x00);
 }
 
+static void ata_poll(ata_device_t *dev, int advanced_check)
+{
+    ata_io_wait(dev);
+
+    uint8_t s = port_inb(dev->io_base + ATA_REG_STATUS);
+    while(s & ATA_SR_BSY) {
+        port_inb(dev->io_base + ATA_REG_ALTSTATUS); /* 100ns */
+        s = port_inb(dev->io_base + ATA_REG_STATUS);
+    }
+
+    if (advanced_check) {
+        while (true) {
+            port_inb(dev->io_base + ATA_REG_ALTSTATUS); /* 100ns */
+            s = port_inb(dev->io_base + ATA_REG_STATUS);
+            if ((s & ATA_SR_ERR) || (s & ATA_SR_DF)) {
+                ata_io_wait(dev);
+                uint8_t err = port_inb(dev->io_base + ATA_REG_ERROR);
+                kpanic("ATA: Device error code %d\n", err);
+            }
+            if (s & ATA_SR_DRQ) {
+                break;
+            }
+            ata_io_wait(dev);
+        }
+    }
+}
+
 static int ata_device_init(ata_device_t * dev)
 {
     klogi("Initializing IDE device on bus %d\n", dev->io_base);
@@ -262,7 +289,7 @@ static int atapi_device_init(ata_device_t * dev) {
     command.command_bytes[11] = 0;
 
     port_outb(bus + ATA_REG_FEATURES, 0x00);
-    port_outb(bus + ATA_REG_LBA1, 0x08);
+    port_outb(bus + ATA_REG_LBA1,  0x08);
     port_outb(bus + ATA_REG_LBA2, 0x08);
     port_outb(bus + ATA_REG_COMMAND, ATA_CMD_PACKET);
 
@@ -406,29 +433,23 @@ void ata_pio_read28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8
     port_outb(bus + ATA_REG_HDDEVSEL,  0xE0 | slave << 4 | ((lba & 0x0f000000) >> 24));
     ata_io_wait(dev);
    
-    uint8_t status = 0;
- 
     port_outb(bus + ATA_REG_ERROR, 0x00);
     port_outb(bus + ATA_REG_SECCOUNT0, sector_count);
     port_outb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
     port_outb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
     port_outb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
     port_outb(bus + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
-    
+
     for(uint64_t i = 0; i < sector_count; i++) {
-        for(uint64_t k = 0; k < 10 * 1000 * 10; k++) {  /* sleep 10ms */
-            port_inb(bus + ATA_REG_ALTSTATUS); /* 100ns */
-            status = port_inb(bus + ATA_REG_STATUS);
-            if(status & ATA_SR_DRQ) {
-                /* Drive is ready to transfer data! */
-                break;
-            }
-        }
+        ata_poll(dev, 1);
+
         /* Transfer the data! */
         port_insw(bus + ATA_REG_DATA, (void *)target, 256);
         target += 512;
         ata_io_wait(dev);
     }
+
+    ata_poll(dev, 0);
 }
 
 void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* source)
@@ -440,9 +461,7 @@ void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint
 
     port_outb(bus + ATA_REG_HDDEVSEL,  0xE0 | slave << 4 | ((lba & 0x0f000000) >> 24));
     ata_io_wait(dev);
-   
-    uint8_t status = 0;
- 
+
     port_outb(bus + ATA_REG_ERROR, 0x00);
     port_outb(bus + ATA_REG_SECCOUNT0, sector_count);
     port_outb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0); 
@@ -450,20 +469,23 @@ void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint
     port_outb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
     port_outb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 
+    ata_io_wait(dev);
+
     for(uint64_t i = 0; i < sector_count; i++) {
-        for(uint64_t k = 0; k < 10 * 1000 * 10; k++) {  /* sleep 10ms */
-            port_inb(bus + ATA_REG_ALTSTATUS); /* 100ns */
-            status = port_inb(bus + ATA_REG_STATUS);
-            if(status & ATA_SR_DRQ) {
-                /* Drive is ready to transfer data! */
-                break;
-            }
-        }
+        ata_poll(dev, 1);
+
         /* Transfer the data! */
-        port_outsw(bus + ATA_REG_DATA, (void *)source, 256);
-        source += 256;
+        uint16_t* od = (uint16_t*)source;
+        for (size_t idx = 0; idx < 256; idx++) {
+            port_outw(bus + ATA_REG_DATA, od[idx]);
+        }
+        source += 512;
         ata_io_wait(dev);
     }
+
+    ata_poll(dev, 0);
+    port_outb(bus + ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH);
+    ata_poll(dev, 0);
 }
 
 static int ata_read_partition_map(ata_device_t* dev, char* devname)
