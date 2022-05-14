@@ -92,25 +92,24 @@ typedef struct {
 } fat32_bs_info_t;
 
 typedef struct {
-    uint32_t cluster_offset;
-} fat32_rw_info_t;
-
-typedef struct {
-    ata_device_t* device;
-    lock_t lock;
-    fat32_bs_info_t bs;
-    fat32_rw_info_t rw;
-
-    uint32_t* fat;
-    size_t fat_len;
-} fat32_ident_t;
-
-typedef struct {
     uint8_t  name[11];
     uint8_t  attribute;
     uint32_t cluster_begin;
     uint32_t file_size_bytes;
+
+    uint32_t dir_entry_cluster;
+    size_t dir_entry_index;
 } fat32_entry_t;
+
+typedef struct {
+    ata_device_t* device;
+    lock_t lock;
+    fat32_bs_info_t bs; 
+    fat32_entry_t entry; 
+
+    uint32_t* fat;
+    size_t fat_len;
+} fat32_ident_t;
 
 extern vfs_fsinfo_t fat32;
 
@@ -122,12 +121,21 @@ int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* bu
 int64_t fat32_sync(vfs_inode_t* this);
 int64_t fat32_refresh(vfs_inode_t* this);
 
-static inline uint32_t fat32_next_cluster(uint32_t cluster, uint32_t *fat, uint32_t fat_len)
+static inline uint32_t fat32_get_next_cluster(
+        uint32_t cluster, uint32_t *fat, uint32_t fat_len)
 {
     if (cluster >= fat_len / 4) return 0;
     if (fat[cluster] >= 0xFFFFFFF8) return 0;
     if (fat[cluster] == 0x0FFFFFFF) return 0;
     return fat[cluster];
+}
+
+static inline uint32_t fat32_get_free_cluster(uint32_t *fat, uint32_t fat_len)
+{
+    for (size_t i = 0; i < fat_len; i++) {
+        if (fat[i] == 0) return i;
+    }
+    return 0;
 }
 
 static inline void fat32_get_short_filename(char* file_name_and_ext, char* fname)

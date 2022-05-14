@@ -38,6 +38,7 @@
 #include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>
+#include <test/test.h>
 
 /* Tell the stivale bootloader where we want our stack to be. */
 static uint8_t stack[64000];
@@ -48,8 +49,10 @@ static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
         .identifier = STIVALE2_HEADER_TAG_FRAMEBUFFER_ID,
         .next = 0
     },
+#if 1
     .framebuffer_width  = FB_WIDTH,
     .framebuffer_height = FB_HEIGHT,
+#endif
     .framebuffer_bpp    = FB_PITCH * 8 / FB_WIDTH
 };
 
@@ -120,54 +123,6 @@ _Noreturn void kshell(task_id_t tid)
     pci_init();
     ata_init();
 
-    char* fn1 = "/disk/0/EFI/BOOT";
-    char* fn2 = "/disk/0/HELLOWLD.TXT";
-    char* fn3 = "/disk/0/HANOS.TXT";
-#if 1
-    vfs_handle_t f1 = vfs_open(fn1, VFS_MODE_READ);
-    if (f1 != VFS_INVALID_HANDLE) {
-        vfs_close(f1);
-    } else {
-        kloge("Open %s failed\n", fn1);
-    }
-
-    vfs_handle_t f2 = vfs_open(fn2, VFS_MODE_READWRITE);
-    vfs_handle_t f21 = vfs_open(fn2, VFS_MODE_READWRITE);
-    if (f2 != VFS_INVALID_HANDLE) {
-        char buff_read[1024] = {0};
-        char buff_write[1024] = "(1) This is a test-----------------------------------END";
-        vfs_write(f2, strlen(buff_write), buff_write);
-        size_t readlen = vfs_read(f2, sizeof(buff_read) - 1, buff_read);
-        klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn2, f2, buff_read);
-        vfs_close(f2);
-    } else {
-        kloge("Open %s(%d) failed\n", fn2, f21);
-    }
-
-    if (f21 != VFS_INVALID_HANDLE) {
-        char buff_read[1024] = {0};
-        char buff_write[1024] = "(2) This is a test";
-        vfs_seek(f21, 10);
-        vfs_write(f21, strlen(buff_write), buff_write);
-        vfs_seek(f21, 0);
-        size_t readlen = vfs_read(f21, sizeof(buff_read) - 1, buff_read);
-        klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn2, f21, buff_read);
-        vfs_close(f21);
-    } else {
-        kloge("Open %s(%d) failed\n", fn2, f21);
-    }
-
-    vfs_handle_t f3 = vfs_open(fn3, VFS_MODE_READ);
-    if (f3 != VFS_INVALID_HANDLE) {
-        char buff_read[1024] = {0};
-        size_t readlen = vfs_read(f3, sizeof(buff_read) - 1, buff_read);
-        klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn3, f3, buff_read);
-
-        vfs_close(f3);
-    } else {
-        kloge("Open %s failed\n", fn3);
-    } 
-#endif
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
 
