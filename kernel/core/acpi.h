@@ -27,7 +27,7 @@
  */
 #pragma once
 
-#include <3rd-party/boot/stivale2.h>
+#include <3rd-party/boot/limine.h>
 
 /* RSDP (Root System Description Pointer)
  * RSDT (Root System Description Table)
@@ -75,5 +75,5 @@ typedef struct [[gnu::packed]] {
     uint64_t address;
 } acpi_gas_t;
 
-void acpi_init(struct stivale2_struct_tag_rsdp*);
+void acpi_init(struct limine_rsdp_response*);
 acpi_sdt_t* acpi_get_sdt(const char* sign);

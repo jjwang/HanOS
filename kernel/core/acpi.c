@@ -43,12 +43,12 @@ acpi_sdt_t* acpi_get_sdt(const char* sign)
     return NULL;
 }
 
-void acpi_init(struct stivale2_struct_tag_rsdp* rsdp_info)
+void acpi_init(struct limine_rsdp_response* rsdp_info)
 {
     /* RSDP (Root System Description Pointer) is a data structure used in the
      * ACPI programming interface.
      */
-    rsdp_t* rsdp = (rsdp_t*)PHYS_TO_VIRT(rsdp_info->rsdp);
+    rsdp_t* rsdp = (rsdp_t*)rsdp_info->address;
 
     /* The ACPI Version can be detected using the Revision field in the RSDP.
      * If this field contains 0, then ACPI Version 1.0 is used. For subsequent

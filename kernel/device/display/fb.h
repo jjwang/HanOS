@@ -16,11 +16,11 @@
 #pragma once
 
 #include <stdint.h>
-#include <3rd-party/boot/stivale2.h>
+#include <3rd-party/boot/limine.h>
 #include <device/display/font.h>
 
-#define FB_WIDTH            800
-#define FB_HEIGHT           600
+#define FB_WIDTH            1024
+#define FB_HEIGHT           768
 #define FB_PITCH            (FB_WIDTH * 4)
 
 #define COLOR_BLACK         0x000000
@@ -43,7 +43,7 @@ typedef struct {
     uint32_t backbuffer_len;
 } fb_info_t;
 
-void fb_init(fb_info_t* fb, struct stivale2_struct_tag_framebuffer* s);
+void fb_init(fb_info_t* fb, struct limine_framebuffer* s);
 void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color);
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t bgcolor, uint8_t ch);
 void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t bgcolor, uint8_t* ch);

@@ -9,7 +9,8 @@
 
   History:
     Feb 19, 2022  Added CLI task which supports some simple commands.
-
+    May 21, 2022  Changed boot protocol to limine with corresponding
+                  modifications.
  @endverbatim
 
  **-----------------------------------------------------------------------------
@@ -17,7 +18,7 @@
 
 #include <stddef.h>
 
-#include <3rd-party/boot/stivale2.h>
+#include <3rd-party/boot/limine.h>
 #include <lib/time.h>
 #include <lib/klog.h>
 #include <lib/string.h>
@@ -25,6 +26,7 @@
 #include <core/mm.h>
 #include <core/gdt.h>
 #include <core/idt.h>
+#include <core/isr_base.h>
 #include <core/smp.h>
 #include <core/cmos.h>
 #include <core/acpi.h>
@@ -40,46 +42,30 @@
 #include <fs/vfs.h>
 #include <test/test.h>
 
-/* Tell the stivale bootloader where we want our stack to be. */
-static uint8_t stack[64000];
-
-/* Only define framebuffer header tag since we do not want to use stivale2 terminal. */
-static struct stivale2_header_tag_framebuffer framebuffer_hdr_tag = {
-    .tag = {
-        .identifier = STIVALE2_HEADER_TAG_FRAMEBUFFER_ID,
-        .next = 0
-    },
-#if 1
-    .framebuffer_width  = FB_WIDTH,
-    .framebuffer_height = FB_HEIGHT,
-#endif
-    .framebuffer_bpp    = FB_PITCH * 8 / FB_WIDTH
+static volatile struct limine_framebuffer_request fb_request = { 
+    .id = LIMINE_FRAMEBUFFER_REQUEST,
+    .revision = 0 
 };
 
-/* According to stivale2 specification, we need to define a "header structure". */
-__attribute__((section(".stivale2hdr"), used))
-static struct stivale2_header stivale_hdr = {
-    .entry_point = 0,
-    .stack = (uintptr_t)stack + sizeof(stack),
-    .flags = 0,
-    .tags = (uintptr_t)&framebuffer_hdr_tag
+static volatile struct limine_memmap_request mm_request = { 
+    .id = LIMINE_MEMMAP_REQUEST,
+    .revision = 0 
 };
 
-/* Scan for tags that we want FROM the bootloader (structure tags). */
-void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
-    struct stivale2_tag *current_tag = (void *)PHYS_TO_VIRT(stivale2_struct->tags);
-    for (;;) {
-        if (current_tag == NULL) {
-            return NULL;
-        }
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST,
+    .revision = 0
+};
 
-        if (current_tag->identifier == id) {
-            return current_tag;
-        }
+static volatile struct limine_rsdp_request rsdp_request = { 
+    .id = LIMINE_RSDP_REQUEST,
+    .revision = 0 
+};
 
-        current_tag = (void *)PHYS_TO_VIRT(current_tag->next);
-    }
-}
+static volatile struct limine_kernel_address_request kernel_addr_request = {
+    .id = LIMINE_KERNEL_ADDRESS_REQUEST,
+    .revision = 0
+};
 
 static volatile enum {
     CURSOR_INVISIBLE = 0,
@@ -116,6 +102,8 @@ _Noreturn void kshell(task_id_t tid)
         {"",       NULL,           ""}};
 
     klogi("Shell task started\n");
+
+    kprintf("?[11;1m%s?[0m\n\n", "Hello World");
     kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
             "Welcome to HanOS world!", "help");
     kprintf("?[14;1m%s?[0m", "$ ");
@@ -179,35 +167,49 @@ _Noreturn void kshell(task_id_t tid)
     }   
 }
 
-/* This is HanOS kernel's entry point. */
-void kmain(struct stivale2_struct* bootinfo)
+static void done(void)
 {
-    uint8_t helloworld[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0x0};
+    for (;;) {
+        asm volatile ("hlt;");
+    }   
+}
 
-    bootinfo = (struct stivale2_struct*)PHYS_TO_VIRT(bootinfo);
-    term_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_FRAMEBUFFER_ID));
+/* This is HanOS kernel's entry point. */
+void kmain(void)
+{
+    if (hhdm_request.response != NULL) {
+        klogi("HHDM offset 0x%x, revision %d\n",
+             hhdm_request.response->offset, hhdm_request.response->revision);
+    }
+
+    if (fb_request.response == NULL
+        || fb_request.response->framebuffer_count < 1) {
+        done();  
+    }   
+
+    struct limine_framebuffer* fb =
+        fb_request.response->framebuffers[0];
+
+    term_init(fb);
 
     klog_init();
-
-    kprintf("?[11;1m%s?[0m Hello World\n\n", helloworld);
-
     klogi("HanOS version 0.1 starting...\n");
-    klogi("Boot info address: 0x%16x\n", (uint64_t)bootinfo);
-
-    pmm_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_MEMMAP_ID));
-    vmm_init();
-
-    term_start();
 
     gdt_init(NULL);
     idt_init();
+
+    pmm_init(mm_request.response);
+    vmm_init(mm_request.response, kernel_addr_request.response);
+
+    term_start();
 
     /* Need to init after idt_init() because it will be used very often. */
     pit_init();
 
     keyboard_init();
 
-    acpi_init(stivale2_get_tag(bootinfo, STIVALE2_STRUCT_TAG_RSDP_ID));
+    acpi_init(rsdp_request.response);
+
     hpet_init();
     cmos_init(); 
     apic_init();
@@ -233,10 +235,10 @@ void kmain(struct stivale2_struct* bootinfo)
         kpanic("Can not get CPU info in shell process\n");
     }
 
+    goto exit;
     /* According to current implementation, the below codes will not be
      * executed.
      */
-    for (;;) {
-        asm volatile ("hlt;");
-    }
+exit:
+    done();
 }

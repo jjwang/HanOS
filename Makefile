@@ -8,14 +8,15 @@ all: $(ISO_IMAGE)
 
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
 # Option for CDROM: -cdrom $(ISO_IMAGE)
+# Option for debug information: -d in_asm,out_asm,int,op
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
+	qemu-system-x86_64 -M q35 -m 2G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime -monitor stdio
 
 test: $(HDD_IMAGE)
 	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -m 2G -smp 2 -rtc base=localtime
 
 limine:
-	git clone https://github.com/limine-bootloader/limine.git --branch=latest-binary --depth=1
+	git clone https://github.com/limine-bootloader/limine.git --branch=v3.0-branch-binary --depth=1
 	make -C limine
 
 kernel/hanos.elf:
@@ -25,13 +26,13 @@ $(ISO_IMAGE): limine kernel/hanos.elf
 	rm -rf iso_root
 	mkdir -p iso_root
 	cp kernel/hanos.elf \
-		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-eltorito-efi.bin iso_root/
+		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
 	xorriso -as mkisofs -b limine-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
-		--efi-boot limine-eltorito-efi.bin \
+		--efi-boot limine-cd-efi.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		iso_root -o $(ISO_IMAGE)
-	limine/limine-install $(ISO_IMAGE)
+	limine/limine-deploy $(ISO_IMAGE)
 	rm -rf iso_root
 
 clean:
