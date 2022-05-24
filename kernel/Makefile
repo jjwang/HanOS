@@ -32,7 +32,7 @@ INTERNALCFLAGS :=       \
 	-mno-sse            \
 	-mno-sse2           \
 	-mno-red-zone       \
-    -O2
+    -O3
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)
@@ -64,11 +64,11 @@ $(KERNEL): $(TRAMPOLINEBLOB) $(COBJ) $(ASMOBJ)
 	@echo ">>>>> Re-linking symbols..."
 	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
 
-stivale2.h:
+limine.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))
-	@if [ ! -e "$(BOOT_DIR)/stivale2.h" ]; then wget -P $(BOOT_DIR) https://github.com/stivale/stivale/raw/master/stivale2.h; fi
+	@if [ ! -e "$(BOOT_DIR)/limine.h" ]; then wget -P $(BOOT_DIR) https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h; fi
 
-$(COBJ): %.o: %.c stivale2.h
+$(COBJ): %.o: %.c limine.h
 	@echo Compiling $^ ...
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -c $< -o $@
 

@@ -45,7 +45,7 @@ typedef struct {
     bool last_qu_char;
 } term_info_t;
 
-void term_init(struct stivale2_struct_tag_framebuffer* s);
+void term_init(struct limine_framebuffer* s);
 void term_putch(int mode, uint8_t c);
 void term_clear(int mode);
 void term_refresh(int mode);

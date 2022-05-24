@@ -126,7 +126,7 @@ void smp_init()
     uint64_t cpunum = madt_get_num_lapic();
     madt_record_lapic_t** lapics = madt_get_lapics();
     klogi("SMP: core number is %d\n", cpunum);
-    
+ 
     /* loop through the lapic's present and initialize them one by one */
     for (uint64_t i = 0; i < cpunum; i++) {
         memset(&(smp_info->cpus[smp_info->num_cpus].tss), 0, sizeof(tss_t));

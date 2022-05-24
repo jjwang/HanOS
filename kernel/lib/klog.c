@@ -30,17 +30,14 @@ void klog_refresh(int mode)
 
         term_clear(mode);
 
+        /* Note that the string ends at (k->end - 1) */
         int i = k->start;
         while(true) {
-            term_putch(mode, k->buff[i]);
-            i++;
             if(i >= KLOG_BUFFER_SIZE)
                 i = 0;
-            if(k->start < k->end) {
-                if(i >= k->end) break;
-            } else {
-                if(i < k->start && i >= k->end) break;
-            }
+            if(i >= k->end) break;
+            term_putch(mode, k->buff[i]);
+            i++;
         }
     }
 

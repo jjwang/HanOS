@@ -24,6 +24,9 @@
 #include <core/panic.h>
 #include <core/smp.h>
 
+static gdt_table_t gdt_list[CPU_MAX] = {0};
+static size_t gdt_num = 0;
+
 static void gdt_make_entry(
     gdt_entry_t* gate,
     uint64_t base,
@@ -53,7 +56,7 @@ static void gdt_make_entry(
 void gdt_init(cpu_t* cpuinfo)
 {
     /* GDT table should be allocated for each CPU separately */
-    gdt_table_t* gdt = (gdt_table_t*)kmalloc(sizeof(gdt_table_t));
+    gdt_table_t* gdt = (gdt_table_t*)&gdt_list[gdt_num++];
     memset(gdt, 0, sizeof(gdt_table_t));
 
     gdt_make_entry(&(gdt->null), 0, 0, 0);
@@ -81,7 +84,7 @@ void gdt_init(cpu_t* cpuinfo)
     if (cpuinfo != NULL) {
         klogi("GDT: initialization finished for CPU %d\n", cpuinfo->cpu_id);
     } else {
-        klogi("GDT initialization finished\n");
+        klogi("GDT 0x%x initialization finished\n", (uint64_t)gdt);
     }
 }
 

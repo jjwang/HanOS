@@ -16,7 +16,7 @@
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <core/panic.h>
-#include <3rd-party/boot/stivale2.h>
+#include <3rd-party/boot/limine.h>
 
 static const uint32_t font_colors[6] = { 
     COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_BLUE, DEFAULT_FGCOLOR,
@@ -27,8 +27,8 @@ static term_info_t term_cli = {0};
 static int term_active_mode = TERM_MODE_UNKNOWN; 
 static uint8_t  term_cursor = 0;
 
-#define FONT_WIDTH          8
-#define FONT_HEIGHT         16
+#define FONT_WIDTH              8
+#define FONT_HEIGHT             16
 
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
 
@@ -144,7 +144,7 @@ void term_refresh(int mode)
                 term_scroll(term_act);
                 y--;
                 term_act->cursor_y--;
-            }   
+            }
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
                      term_act->fgcolor, term_act->bgcolor, term_cursor); 
         }
@@ -289,7 +289,8 @@ void term_putch(int mode, uint8_t c)
 
     term_print(mode, c);  
 }
-void term_init(struct stivale2_struct_tag_framebuffer* s)
+
+void term_init(struct limine_framebuffer* s)
 {
     term_info_t* term_act;
     int i;
@@ -314,9 +315,9 @@ void term_init(struct stivale2_struct_tag_framebuffer* s)
         term_clear((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
         term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
 
-        klogi("Terminal %d width: %d, height: %d, pitch: %d, addr: %x\n", 
-                i, term_act->fb.width, term_act->fb.height, term_act->fb.pitch,
-                term_act->fb.addr);
+        klogi("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n", 
+                i, (uint64_t)term_act, term_act->fb.width,
+                term_act->fb.height, term_act->fb.pitch, term_act->fb.addr);
     }
 }
 
@@ -327,6 +328,7 @@ void term_start()
 
     klog_refresh(TERM_MODE_INFO);
     klog_refresh(TERM_MODE_CLI);
+
     term_active_mode = TERM_MODE_INFO;
 }
 

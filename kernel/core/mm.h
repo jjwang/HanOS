@@ -19,13 +19,16 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <3rd-party/boot/stivale2.h>
+#include <3rd-party/boot/limine.h>
 
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
 
-#define USERSPACE_OFFSET        0x20000000
+#define USERSPACE_OFFSET        0x1000
 #define HIGHERHALF_OFFSET       0xffffffff80000000
+
+/* This address should be same with linker.ld */
+#define KERNEL_OFFSET           0xffffffff80200000
 
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
 #define PAGE_ALIGN_UP(num)      (NUM_PAGES(num) * PAGE_SIZE)
@@ -38,7 +41,7 @@ typedef struct {
     uint8_t* bitmap;
 } mem_info_t;
 
-void pmm_init(struct stivale2_struct_tag_memmap* map);
+void pmm_init(struct limine_memmap_response* map);
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_free(uint64_t addr, uint64_t numpages);
@@ -64,7 +67,10 @@ typedef struct {
     uint64_t* PML4;
 } addrspace_t;
 
-void vmm_init();
+void vmm_init(
+    struct limine_memmap_response* map,
+    struct limine_kernel_address_response* kernel);
+
 void vmm_map(uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
 void vmm_unmap(uint64_t vaddr, uint64_t np);
 

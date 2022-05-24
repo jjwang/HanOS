@@ -88,41 +88,45 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr)
     return 0;
 }
 
-void pmm_init(struct stivale2_struct_tag_memmap* map)
+void pmm_init(struct limine_memmap_response* map)
 {
     kmem_info.phys_limit = 0;
     kmem_info.total_size = 0;
     kmem_info.free_size = 0;
 
-    klogv("Physical memory's entry number: %d\n", map->entries);
+    klogv("Physical memory's entry number: %d\n", map->entry_count);
 
-    for (uint64_t i = 0; i < map->entries; i++) {
-        struct stivale2_mmap_entry entry = map->memmap[i];
-        uint64_t new_limit = entry.base + entry.length;
+    for (size_t i = 0; i < map->entry_count; i++) {
+        struct limine_memmap_entry* entry = map->entries[i];
+        uint64_t new_limit = entry->base + entry->length;
 
         if (new_limit > kmem_info.phys_limit) {
             kmem_info.phys_limit = new_limit;
         }
 
-        if (entry.type == STIVALE2_MMAP_USABLE
-            || entry.type == STIVALE2_MMAP_BOOTLOADER_RECLAIMABLE
-            || entry.type == STIVALE2_MMAP_ACPI_RECLAIMABLE
-            || entry.type == STIVALE2_MMAP_KERNEL_AND_MODULES) {
-            kmem_info.total_size += entry.length;
+        if (entry->type == LIMINE_MEMMAP_USABLE
+            || entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE
+            || entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE
+            || entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+            kmem_info.total_size += entry->length;
         }   
     }
 
     /* look for a good place to keep our bitmap */
     uint64_t bm_size = kmem_info.phys_limit / (PAGE_SIZE * BMP_PAGES_PER_BYTE);
-    for (size_t i = 0; i < map->entries; i++) {
-        struct stivale2_mmap_entry entry = map->memmap[i];
+    bool gotit = false;
+    for (size_t i = 0; i < map->entry_count; i++) {
+        struct limine_memmap_entry* entry = map->entries[i];
 
-        if (entry.base + entry.length <= 0x100000)
+        klogv("PMM: entry %2d base 0x%x length %10d type %d\n",
+              i, entry->base, entry->length, entry->type);
+
+        if (entry->base + entry->length <= 0x100000)
             continue;
 
-        if (entry.length >= bm_size && entry.type == STIVALE2_MMAP_USABLE) {
-            kmem_info.bitmap = (uint8_t*)PHYS_TO_VIRT(entry.base);
-            break;
+        if (entry->length >= bm_size && entry->type == LIMINE_MEMMAP_USABLE) {
+            if (!gotit) kmem_info.bitmap = (uint8_t*)PHYS_TO_VIRT(entry->base);
+            gotit = true;
         }
     }
 
@@ -130,14 +134,14 @@ void pmm_init(struct stivale2_struct_tag_memmap* map)
     klogi("Memory bitmap address: 0x%x\n", kmem_info.bitmap);
 
     /* now populate the bitmap */
-    for (size_t i = 0; i < map->entries; i++) {
-        struct stivale2_mmap_entry entry = map->memmap[i];
+    for (size_t i = 0; i < map->entry_count; i++) {
+        struct limine_memmap_entry* entry = map->entries[i];
 
-        if (entry.base + entry.length <= 0x100000)
+        if (entry->base + entry->length <= 0x100000)
             continue;
 
-        if (entry.type == STIVALE2_MMAP_USABLE)
-            pmm_free(entry.base, NUM_PAGES(entry.length));
+        if (entry->type == LIMINE_MEMMAP_USABLE)
+            pmm_free(entry->base, NUM_PAGES(entry->length));
     }
 
     /* mark the bitmap as used */
@@ -275,22 +279,33 @@ void vmm_map(uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags)
         map_page(vaddr + i, paddr + i, flags);
 }
 
-void vmm_init()
+void vmm_init(
+    struct limine_memmap_response* map,
+    struct limine_kernel_address_response* kernel)
 {
     kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(0xffffffff80000000, 0, NUM_PAGES(USERSPACE_OFFSET), VMM_FLAGS_USERMODE);
-    klogd("Mapped lower 512MB to 0xFFFFFFFF80000000\n");
+    vmm_map(0xffffffff80000000, 0, NUM_PAGES(kmem_info.phys_limit),
+           VMM_FLAGS_USERMODE);
+    klogd("Mapped all memory to 0xFFFFFFFF80000000\n");
 
-    vmm_map(0xffff800000000000, 0, NUM_PAGES(kmem_info.phys_limit), VMM_FLAGS_DEFAULT);
+    vmm_map(0xffff800000000000, 0, NUM_PAGES(kmem_info.phys_limit),
+            VMM_FLAGS_DEFAULT);
     klogd("Mapped all memory to 0xFFFF800000000000\n");
 
-    vmm_map(USERSPACE_OFFSET,
-            USERSPACE_OFFSET, 
-            NUM_PAGES(kmem_info.phys_limit - (uint64_t)USERSPACE_OFFSET),
-            VMM_FLAGS_USERMODE);
-    klogd("Mapped 512MB and higher space to 0x%x\n", USERSPACE_OFFSET);
+    for (size_t i = 0; i < map->entry_count; i++) {
+        struct limine_memmap_entry* entry = map->entries[i];
+
+        if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES
+            && kernel->physical_base >= entry->base
+            && kernel->physical_base <= entry->base + entry->length)
+        {
+            vmm_map(KERNEL_OFFSET, entry->base, NUM_PAGES(entry->length),
+                    VMM_FLAGS_DEFAULT); 
+            break;
+        }
+    }
 
     write_cr("cr3", VIRT_TO_PHYS(kaddrspace.PML4));
     klogi("VMM initialization finished\n");
