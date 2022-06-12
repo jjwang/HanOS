@@ -3,4 +3,5 @@
 #include <lib/klog.h>
 
 void file_test(void);
+void dir_test(void);
 

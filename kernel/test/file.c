@@ -3,6 +3,33 @@
 #include <lib/klog.h>
 #include <test/test.h>
 
+void dir_test(void)
+{
+    char* fn1 = "/disk/0";
+
+    kprintf("List all files in \"%s\":\n", fn1);
+
+    vfs_handle_t f1 = vfs_open(fn1, VFS_MODE_READWRITE);
+    if (f1 != VFS_INVALID_HANDLE) {
+        klogi("Open %s(%d) successed\n", fn1, f1);
+        vfs_refresh(f1);
+
+        vfs_dirent_t de = {0};
+        while (true) {
+            int64_t ret = vfs_getdent(f1, &de);
+            if (ret <= 0) break;
+            kprintf("%04d-%02d-%02d %02d:%02d ?[14;1m%5s?[0m %s\n",
+                  1900 + de.tm.year, de.tm.mon + 1, de.tm.mday,
+                  de.tm.hour, de.tm.min,
+                  de.type == VFS_NODE_FOLDER ? "<DIR>" : "",
+                  de.name);
+        }
+        vfs_close(f1);
+    } else {
+        klogi("Open %s(%d) failed\n", fn1, f1);
+    } 
+}
+
 void file_test(void)
 {
 #if 0

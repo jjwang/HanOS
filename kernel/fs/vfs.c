@@ -264,6 +264,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 
     /* create node descriptor */
     vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+    strcpy(nd->path, path);
     nd->tnode = req;
     nd->inode = req->inode;
     nd->seek_pos = 0;
@@ -304,6 +305,30 @@ fail:
     return -1;
 }
 
+int64_t vfs_refresh(vfs_handle_t handle)
+{
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    if (!fd)
+        return -1; 
+
+    lock_lock(&vfs_lock);
+    fd->inode->fs->refresh(fd->inode);
+    for (size_t i = 0; ; i++) {
+        vfs_dirent_t de;
+        if (fd->inode->fs->getdent(fd->inode, i, &de)) break;
+
+        char path[VFS_MAX_PATH_LEN];
+        strcpy(path, fd->path);
+        strcat(path, "/");
+        strcat(path, de.name);
+        vfs_tnode_t* tn = vfs_path_to_node(path, CREATE, de.type);
+        memcpy(&tn->inode->tm, &de.tm, sizeof(tm_t));
+    }
+    lock_release(&vfs_lock);
+
+    return 0;
+}
+
 /* get next directory entry */
 int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
     int64_t status;
@@ -320,6 +345,8 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
         goto done;
     }
 
+    /* need to make sure that we alreay load all children here */
+
     /* we've reached the end */
     if (fd->seek_pos >= fd->inode->child.len) {
         status = 0;
@@ -330,6 +357,7 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
     vfs_tnode_t* entry = vec_at(&(fd->inode->child), fd->seek_pos);
     dirent->type = entry->inode->type;
     memcpy(dirent->name, entry->name, sizeof(entry->name));
+    memcpy(&dirent->tm, &entry->inode->tm, sizeof(tm_t));
 
     /* we're done here, advance the offset */
     status = 1;

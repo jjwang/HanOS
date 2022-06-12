@@ -4,6 +4,7 @@
 #include <lib/memutils.h>
 #include <lib/string.h>
 #include <lib/lock.h>
+#include <lib/time.h>
 #include <device/storage/ata.h>
 
 #define FAT32_ATTR_READ_ONLY            0x01
@@ -60,9 +61,13 @@ typedef struct [[gnu::packed]] {
 typedef struct [[gnu::packed]] {
     char file_name_and_ext[8 + 3];
     uint8_t attribute;
-    uint8_t file_data_1[8];
+    uint8_t file_data_1[2];
+    uint16_t create_time;       /* 0~4 sec(0~29 * 2), 5~10 min, 11~15 hour */
+    uint16_t create_date;       /* 0~4 day, 5~8 mon, 9~15 year (1980+) */
+    uint16_t last_visit_date;
     uint16_t cluster_num_high;  /* first cluster high 16 bits */
-    uint8_t file_data_2[4];
+    uint16_t modify_time;
+    uint16_t modify_date;
     uint16_t cluster_num_low;   /* first cluster low 16 bits */
     uint32_t file_size_bytes;   /* file size (in bytes) */
 } fat_dir_entry_t;
@@ -111,6 +116,13 @@ typedef struct {
     size_t fat_len;
 } fat32_ident_t;
 
+typedef struct {
+    fat_dir_entry_t entry;
+    tm_t tm;
+    char name[VFS_MAX_NAME_LEN];
+    vfs_inode_t* parent;
+} fat32_ident_item_t;
+
 extern vfs_fsinfo_t fat32;
 
 vfs_inode_t* fat32_mount(vfs_inode_t* at);
@@ -120,6 +132,7 @@ int64_t fat32_read(vfs_inode_t* this, size_t offset, size_t len, void* buff);
 int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff);
 int64_t fat32_sync(vfs_inode_t* this);
 int64_t fat32_refresh(vfs_inode_t* this);
+int64_t fat32_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent);
 
 static inline uint32_t fat32_get_next_cluster(
         uint32_t cluster, uint32_t *fat, uint32_t fat_len)
@@ -179,11 +192,14 @@ static inline void fat32_name_copy(char *dst, char *src, int len)
     }
 }
 
+/* The entry sequence (idx, first) is (3, 1), (2, 0), (1, 0) */
 static inline uint32_t fat32_get_long_filename(
     fat_lfn_entry_t* lfne, fat_lfn_entry_t* lfne_last, char* fname)
 {
     char fn_temp[VFS_MAX_NAME_LEN] = {0};
-    uint32_t last_idx = 0, entry_num = 0, count = 0;
+    uint32_t count = 0, entry_num = 0;
+
+    fname[0] = '\0';
 
     while(true) {
         strcpy(fn_temp, fname);
@@ -194,15 +210,13 @@ static inline uint32_t fat32_get_long_filename(
         fat32_name_copy(fname, lfne->name1, 5);
         fat32_name_copy(&fname[5], lfne->name2, 6);
         fat32_name_copy(&fname[11], lfne->name3, 2);
+        fname[13] = '\0';
 
         strcat(fname, fn_temp);
+
         if (first) entry_num = idx;
+        if (idx == 1 && count == entry_num) return count;
 
-        if (idx == 1 && count == entry_num)      return count;
-        if (last_idx > 0 && idx != last_idx - 1) return 1;
-        if (idx == 1 && count != entry_num)      return count;
-
-        last_idx = idx;
         if ((uint64_t)lfne == (uint64_t) lfne_last) break; 
         lfne = (fat_lfn_entry_t*)((uint64_t)lfne + sizeof(fat_lfn_entry_t));
     }
@@ -226,3 +240,18 @@ static inline uint8_t fat32_checksum(const char *name)
     return s;
 }
 
+static inline void fat32_get_datetime(fat_dir_entry_t* de, tm_t *t)
+{
+    int year  = ((de->modify_date & 0xFE00) >> 9) + 1980;
+    int month = (de->modify_date & 0x01E0) >> 5;
+    int day   = de->modify_date & 0x001F; 
+    int hour  = ((de->modify_time & 0xF800) >> 11);
+    int min   = (de->modify_time & 0x07E0) >> 5;
+    int sec   = (de->modify_time & 0x001F) * 2;
+
+    time_t create_time = secs_of_years(year - 1) +
+            secs_of_month(month - 1, year) + (day - 1) * 86400 +
+            hour * 3600 + min * 60 + sec;
+
+    localtime(&create_time, t);
+}
