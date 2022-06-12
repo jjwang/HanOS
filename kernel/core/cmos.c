@@ -27,8 +27,6 @@ int century_register = 0x00;    /* Set by ACPI table parsing code if possible */
 uint8_t get_rtc_register(uint8_t reg);
 bool update_in_progress();
 bool rtc_values_are_not_equal(cmos_rtc_t c1, cmos_rtc_t c2);
-uint64_t secs_of_month(uint64_t months, uint64_t year);
-uint64_t secs_of_years(uint64_t years);
 
 static uint64_t boot_time = 0;
 

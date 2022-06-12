@@ -92,6 +92,8 @@ _Noreturn void kcursor(task_id_t tid)
     (void)tid;
 }
 
+static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
+
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
@@ -99,6 +101,7 @@ _Noreturn void kshell(task_id_t tid)
         {"memory", pmm_dump_usage, "Dump memory usage information"},
         {"vfs",    vfs_debug,      "Dump tree of virtual file system"},
         {"pci",    pci_debug,      "Print list of PCI devices"},
+        {"ls",     dir_test,       "List all files of current directory"},
         {"",       NULL,           ""}};
 
     klogi("Shell task started\n");

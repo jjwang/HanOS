@@ -57,15 +57,6 @@ static long days_in_month(int month, int year)
     return 0;
 }
 
-static long secs_of_month(int months, int year)
-{
-    long days = 0;
-    for (int i = 1; i < months; ++i) {
-        days += days_in_month(months, year);
-    }
-    return days * 86400;
-}
-
 void localtime(const time_t* timep, tm_t* _timevalue)
 {
     time_t seconds = 0;
@@ -117,20 +108,6 @@ void localtime(const time_t* timep, tm_t* _timevalue)
         }
     }
 }
-
-static unsigned int secs_of_years(int years)
-{
-    unsigned int days = 0;
-    while (years > 1969) {
-        days += 365;
-        if (year_is_leap(years)) {
-            days++;
-        }
-        years--;
-    }
-    return days * 86400;
-}
-
 
 time_t mktime(tm_t* tm)
 {

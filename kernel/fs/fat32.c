@@ -8,6 +8,7 @@
 #include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
+#include <lib/vector.h>
 
 #define SECTORSHIFT                 9   /* 512 bytes */
 #define SECTOR_TO_OFFSET(x)         ((x) << SECTORSHIFT)
@@ -17,12 +18,14 @@
 vfs_fsinfo_t fat32 = {
     .name = "fat32",
     .istemp = false,
+    .filelist = {0},
     .open = fat32_open,
     .mount = fat32_mount,
     .mknode = fat32_mknode,
     .sync = fat32_sync,
     .refresh = fat32_refresh,
     .read = fat32_read,
+    .getdent = fat32_getdent,
     .write = fat32_write,
 };
 
@@ -219,10 +222,132 @@ int64_t fat32_sync(vfs_inode_t* this)
     return 0;
 }
 
+int64_t fat32_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
+{
+    size_t num = 0;
+
+    for (size_t i = 0; i < vec_length(&fat32.filelist); i++) {
+        fat32_ident_item_t* item = vec_at(&fat32.filelist, i);
+        if ((uint64_t)item->parent != (uint64_t)this) continue;
+        if (num == pos) {
+            strcpy(dirent->name, item->name);
+            memcpy(&dirent->tm, &item->tm, sizeof(tm_t));
+            dirent->type = VFS_NODE_FILE;
+            if (item->entry.attribute & FAT32_ATTR_DIRECTORY) {
+                dirent->type = VFS_NODE_FOLDER;
+            }
+            return 0;
+        }
+        num++;
+    }
+
+    return -1;
+}
+
 int64_t fat32_refresh(vfs_inode_t* this)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
-    (void)id;
+
+    uint64_t cluster_len = id->bs.sectors_per_cluster * id->bs.bytes_per_sector;
+    uint64_t temp_len = cluster_len;
+    uint8_t* temp_buffer = (uint8_t*)kmalloc(temp_len);
+    uint32_t temp_cluster = id->entry.cluster_begin;
+
+    if (temp_cluster < 2) temp_cluster = 2;
+
+    klogi("FAT32: Read %4d bytes from cluster %d when refreshing (type %d)\n",
+            temp_len, temp_cluster, this->type);
+
+    while (true) {
+        ata_pio_read28(id->device, id->bs.cluster_begin_lba
+                + (temp_cluster - 2) * id->bs.sectors_per_cluster,
+                id->bs.sectors_per_cluster, temp_buffer);
+        temp_cluster = fat32_get_next_cluster(
+                temp_cluster, id->fat, id->fat_len);
+
+        for (size_t i = 0; i < temp_len / sizeof(fat_dir_entry_t);) {
+            fat_dir_entry_t *fe, *fe1;
+
+            fe  = (fat_dir_entry_t*)(temp_buffer + i * sizeof(fat_dir_entry_t));
+            if (fe->attribute == 0) {
+                i++;
+                continue;
+            }
+            fe1  = (fat_dir_entry_t*)(temp_buffer + temp_len - sizeof(fat_dir_entry_t));
+
+            char fn[VFS_MAX_NAME_LEN] = {0};
+            bool lfn_meet = false;
+            uint8_t lfn_checksum = 0;
+
+            /* Firstly we processed the long file name */
+            if (fe->attribute & FAT32_ATTR_LONGNAME) {
+                lfn_meet = true;
+                lfn_checksum = ((fat_lfn_entry_t*)fe)->dos_checksum;
+                size_t count = fat32_get_long_filename(
+                        (fat_lfn_entry_t*)fe, (fat_lfn_entry_t*)fe1, fn);
+                if (count > 0) {
+                    i += count;
+                    klogi("FAT32: file long name \"%s\"\n", fn);
+                } else {
+                    if (temp_cluster == 0) break;
+                    if (temp_cluster >= 0xFFFFFFF8) break;
+
+                    /* Need load more data from disk */
+                    /* The below code needs further test */
+                    uint8_t* buf = (uint8_t*)kmalloc(
+                           temp_len + cluster_len - i * sizeof(fat_dir_entry_t));
+                    memcpy(buf, &temp_buffer[i * sizeof(fat_dir_entry_t)],
+                           temp_len - i * sizeof(fat_dir_entry_t));    
+                    ata_pio_read28(id->device, id->bs.cluster_begin_lba
+                                   + (temp_cluster - 2) * id->bs.sectors_per_cluster,
+                                   id->bs.sectors_per_cluster,
+                                   &buf[i * sizeof(fat_dir_entry_t)]);
+                    kmfree(temp_buffer);
+                    temp_buffer = buf;
+                    temp_len += cluster_len - i * sizeof(fat_dir_entry_t);
+                    i = 0;
+                    /* Continue the loop processing */
+                    continue;
+                }
+            }
+
+            /* Then short file name should be consistent with long name */
+            fe  = (fat_dir_entry_t*)(temp_buffer + i * sizeof(fat_dir_entry_t));
+            if (strlen(fn) == 0) {
+                fat32_get_short_filename ((char*)fe->file_name_and_ext, fn);
+            }
+            if (!(lfn_meet && lfn_checksum ==
+                    fat32_checksum((char*)fe->file_name_and_ext)))
+            {
+                klogi("FAT32: file attribute %d, name \"%s\"\n", fe->attribute, fn);
+            }
+#if 0
+            tm_t now_tm = {0};
+            fat32_get_datetime(fe, &now_tm);
+            klogi("FAT32: %04d-%02d-%02d %02d:%02d:%02d %s\n",
+                    1900 + now_tm.year, now_tm.mon + 1, now_tm.mday,
+                    now_tm.hour, now_tm.min, now_tm.sec, fn);
+#endif
+
+            fat32_ident_item_t* item =
+                (fat32_ident_item_t*)kmalloc(sizeof(fat32_ident_item_t));
+            if (item != NULL) {
+                memcpy(&item->entry, fe, sizeof(fat_dir_entry_t));
+                strcpy(item->name, fn);
+                fat32_get_datetime(fe, &item->tm);
+                item->parent = this;
+                vec_push_back(&fat32.filelist, (void*)item);
+            }
+            i++;
+        }
+        if (temp_cluster == 0) break;
+        if (temp_cluster >= 0xFFFFFFF8) break;
+        klogi("FAT32:                      cluster 0x%x, bytes per cluster %d\n",
+                temp_cluster,
+                id->bs.bytes_per_sector * id->bs.sectors_per_cluster);
+    }   
+
+    kmfree(temp_buffer);
 
     return 0;
 }

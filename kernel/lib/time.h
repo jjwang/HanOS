@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include <core/hpet.h>
+#include <core/cmos.h>
 
 #define sleep(x)            hpet_nanosleep(MILLIS_TO_NANOS(x))
 

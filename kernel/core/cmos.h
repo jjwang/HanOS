@@ -43,6 +43,9 @@ typedef struct {
   uint8_t century;
 } cmos_rtc_t;
 
+uint64_t secs_of_month(uint64_t months, uint64_t year);
+uint64_t secs_of_years(uint64_t years);
+
 void cmos_init();
 cmos_rtc_t cmos_read_rtc();
 uint64_t cmos_boot_time();
