@@ -1,3 +1,17 @@
+/**-----------------------------------------------------------------------------
+
+ @file    fat32.c
+ @brief   Implementation of FAT32 related functions
+ @details
+ @verbatim
+
+  The functions in this file are all needed by VFS requirements. The r/w of
+  FAT32 are PIO 28 which need to be improved for higher speed.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 #include <device/storage/ata.h>
 #include <core/panic.h>

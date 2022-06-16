@@ -1,7 +1,18 @@
-/*
-    Common functions required by many VFS components
-*/
+/**-----------------------------------------------------------------------------
 
+ @file    filebase.c
+ @brief   Implementation of fundamental VFS file node related functions
+ @details
+ @verbatim
+
+  This file contains implementation of all inode (index node) and tnode (tree
+  node) related functions, e.g., alloc, free and node to fd (file descriptor),
+  path to node conversions.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <fs/filebase.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>

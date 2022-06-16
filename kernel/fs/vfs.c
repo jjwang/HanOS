@@ -1,3 +1,16 @@
+/**-----------------------------------------------------------------------------
+
+ @file    vfs.c
+ @brief   Implementation of VFS related functions
+ @details
+ @verbatim
+
+  Main VFS functions are implemented in this file. 
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <fs/vfs.h>
 #include <fs/filebase.h>
 #include <fs/fat32.h>

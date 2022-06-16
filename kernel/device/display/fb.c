@@ -25,6 +25,7 @@
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/lock.h>
+#include <lib/klog.h>
 
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)

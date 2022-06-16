@@ -1,3 +1,22 @@
+/**-----------------------------------------------------------------------------
+
+ @file    fat32.h
+ @brief   Definition of FAT32 related data structures and functions
+ @details
+ @verbatim
+
+  FAT 32 was introduced to us by Windows95-B and Windows98. FAT32 solved some of
+  FAT's problems. No more 64K max clusters! Although FAT32 uses 32 bits per FAT
+  entry, only the bottom 28 bits are actually used to address clusters on the
+  disk (top 4 bits are reserved). With 28 bits per FAT entry, the filesystem can
+  address a maximum of about 270 million clusters in a partition. This enables
+  very large hard disks to still maintain reasonably small cluster sizes and
+  thus reduce slack space between files.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <fs/vfs.h>

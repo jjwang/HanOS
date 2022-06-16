@@ -1,3 +1,16 @@
+/**-----------------------------------------------------------------------------
+
+ @file    vfs.h
+ @brief   Definition of VFS related data structures and functions
+ @details
+ @verbatim
+
+  All VFS data structures and interfaces are defined in this file. 
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>
