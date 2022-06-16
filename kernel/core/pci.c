@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    pci.c
+ @brief   Implementation of PCI related functions
+ @details
+ @verbatim
+
+  There are two functions in this file:
+  1. pci_init() which can scan all PCI devices and store information into an
+     array.
+  2. pci_debug() which can be called by command line and display PCI device
+     list.
+
+ @endverbatim
+  Ref: https://wiki.osdev.org/PCI
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 
 #include <core/pci.h>

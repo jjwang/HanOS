@@ -1,3 +1,17 @@
+/**-----------------------------------------------------------------------------
+
+ @file    vector.h
+ @brief   Definition of vector related data structures and functions
+ @details
+ @verbatim
+
+  This file provides the implementation of a variable length array. All the
+  functions are defined in macros.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

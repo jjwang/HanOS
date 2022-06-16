@@ -1,3 +1,16 @@
+/**-----------------------------------------------------------------------------
+
+ @file    file.c
+ @brief   Implementation of file test functions
+ @details
+ @verbatim
+
+  The file test functions in this file can be called in kmain() file.. 
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <fs/vfs.h>
 #include <fs/fat32.h>
 #include <lib/klog.h>

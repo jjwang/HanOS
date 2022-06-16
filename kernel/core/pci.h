@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    pci.h
+ @brief   Definition of PCI related data structures and functions
+ @details
+ @verbatim
+
+  The PCI (Peripheral Component Interconnect) bus was defined to establish a
+  high performance and low cost local bus that would remain through several
+  generations of products.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
