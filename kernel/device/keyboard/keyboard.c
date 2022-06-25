@@ -80,7 +80,9 @@ static void keyboard_callback()
 
     while (key_state && ch != 0) {
         /* Ctrl + Shift (Left) */
-        if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL]) {
+        if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL])
+        {
+            lock_lock(&kb_lock);
             if (ch == '!' || ch == '1') {            /* Shift + '1' */
                 term_switch(TERM_MODE_CLI);
                 term_refresh(TERM_MODE_CLI);
@@ -88,6 +90,7 @@ static void keyboard_callback()
                 term_switch(TERM_MODE_INFO);
                 term_refresh(TERM_MODE_INFO);
             }
+            lock_release(&kb_lock);
             break;
         }
 

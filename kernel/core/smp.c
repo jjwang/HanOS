@@ -71,7 +71,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
 
     /* initialze gdt and make a tss */
     init_tss(cpuinfo);
-    
+ 
     /* put cpu information in gs */
     write_msr(MSR_GS_BASE, (uint64_t)cpuinfo);
 
@@ -168,10 +168,10 @@ void smp_init()
         sleep(100);
 
         bool success = false;
-        for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
+        for (size_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
             apic_send_ipi(lapics[i]->apic_id, SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE, APIC_IPI_TYPE_STARTUP);
             /* check if cpu has started */
-            for (uint64_t j = 0; j < 20; j++) {
+            for (size_t j = 0; j < 20; j++) {
                 counter_curr = *ap_boot_counter;
                 if (counter_curr != counter_prev) {
                     success = true;

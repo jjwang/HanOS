@@ -42,6 +42,11 @@
 #include <fs/vfs.h>
 #include <test/test.h>
 
+static volatile struct limine_terminal_request terminal_request = {
+    .id = LIMINE_TERMINAL_REQUEST,
+    .revision = 0
+};
+
 static volatile struct limine_framebuffer_request fb_request = { 
     .id = LIMINE_FRAMEBUFFER_REQUEST,
     .revision = 0 
@@ -170,7 +175,7 @@ _Noreturn void kshell(task_id_t tid)
     }   
 }
 
-static void done(void)
+void done(void)
 {
     for (;;) {
         asm volatile ("hlt;");
@@ -212,7 +217,6 @@ void kmain(void)
     keyboard_init();
 
     acpi_init(rsdp_request.response);
-
     hpet_init();
     cmos_init(); 
     apic_init();
@@ -222,7 +226,6 @@ void kmain(void)
 
     klogi("Press \"?[14;1m%s?[0m\" (left) to shell and \"?[14;1m%s?[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
-
 #if 0
     int val1 = 10000, val2 = 0;
     kloge("Val: %d", val1 / val2);

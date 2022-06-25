@@ -24,6 +24,7 @@
 #include <core/mm.h>
 #include <core/cpu.h>
 #include <core/idt.h>
+#include <core/panic.h>
 #include <lib/klog.h>
 
 /* The local APIC registers are memory mapped to an address that can be found
@@ -65,6 +66,11 @@ void apic_enable()
 
 void apic_init()
 {
+    /* QEMU does not support APIC virtualization if host CPU cannot support. */
+    if (cpuid_check_feature(CPUID_FEATURE_APIC)) {
+        kloge("APIC: unsupported indicated by CPU flag\n");
+    }
+
     lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
     vmm_map((uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
 

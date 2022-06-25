@@ -343,7 +343,7 @@ static int ata_device_detect(ata_device_t * dev) {
     ata_soft_reset(dev);
     port_outb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
     ata_io_wait(dev);
-    
+ 
     unsigned char cl = port_inb(dev->io_base + ATA_REG_LBA1); /* CYL_LO */
     unsigned char ch = port_inb(dev->io_base + ATA_REG_LBA2); /* CYL_HI */
 
@@ -373,6 +373,7 @@ static int ata_device_detect(ata_device_t * dev) {
         ata_read_partition_map(dev, devname);
 
         ata_drive_char++;
+
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) ||
                (cl == 0x69 && ch == 0x96)) {
@@ -394,6 +395,7 @@ static int ata_device_detect(ata_device_t * dev) {
         inode->ident = (void*)dev;
 
         cdrom_number++;
+
         return 2;
     }
 
@@ -488,7 +490,7 @@ void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint
     ata_poll(dev, 0);
 }
 
-static int ata_read_partition_map(ata_device_t* dev, char* devname)
+int ata_read_partition_map(ata_device_t* dev, char* devname)
 {
     mbr_t mbr;
     ata_pio_read28(dev, 0, 1, (uint8_t*)&mbr);

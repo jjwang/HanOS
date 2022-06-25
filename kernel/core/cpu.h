@@ -1,15 +1,11 @@
 /**-----------------------------------------------------------------------------
-
  @file    cpu.h
  @brief   Definition of CPU related data structures and macros
  @details
  @verbatim
-
   e.g., Read & write control registers, model specific registers and port
   input & output.
-
  @endverbatim
-
  **-----------------------------------------------------------------------------
  */
 #pragma once
@@ -143,6 +139,15 @@ typedef struct {
     uint32_t mask;
 } cpuid_feature_t;
 
-static const cpuid_feature_t CPUID_FEATURE_PAT = { .func = 0x00000001, .reg = CPUID_REG_EDX, .mask = 1 << 16 };
+static const cpuid_feature_t CPUID_FEATURE_PAT  = {
+    .func = 0x00000001,
+    .reg = CPUID_REG_EDX,
+    .mask = 1 << 16 };
+
+static const cpuid_feature_t CPUID_FEATURE_APIC = {
+    .func = 0x00000001,
+    .reg = CPUID_REG_EDX,
+    .mask = 1 << 9 };
 
 bool cpuid_check_feature(cpuid_feature_t feature);
+

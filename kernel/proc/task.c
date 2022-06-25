@@ -35,7 +35,7 @@ task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_
     ntask->kstack_limit = kmalloc(KSTACK_SIZE);
     ntask->kstack_top = ntask->kstack_limit + KSTACK_SIZE;
 
-    ntask->ustack_limit = umalloc(KSTACK_SIZE);
+    ntask->ustack_limit = kmalloc(KSTACK_SIZE);
     ntask->ustack_top = ntask->ustack_limit + KSTACK_SIZE;
 
     task_regs_t* ntask_regs = NULL;
@@ -49,12 +49,12 @@ task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_
     } else {
         ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
 
-        ntask_regs->cs = DEFAULT_UMODE_CS;
-        ntask_regs->ss = DEFAULT_UMODE_SS;
+        ntask_regs->cs = DEFAULT_KMODE_CS;
+        ntask_regs->ss = DEFAULT_KMODE_SS;
 
-        ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
         ntask_regs->rsp = (uint64_t)ntask->ustack_top;
-    }   
+    }
+
     ntask_regs->rflags = DEFAULT_RFLAGS;
     ntask_regs->rip = (uint64_t)entry;
     ntask_regs->rdi = curr_tid;
