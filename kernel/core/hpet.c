@@ -54,10 +54,15 @@ void hpet_nanosleep(uint64_t nanos)
         return;
     }
 
+    uint64_t stt = hpet_get_nanos();
     uint64_t tgt = hpet_get_nanos() + nanos;
     while (true) {
         uint64_t cur = hpet_get_nanos();
         if (cur >= tgt) break;
+        if (cur <= stt) {
+            pit_wait(nanos / MILLIS_TO_NANOS(1));
+            break;
+        }
         asm volatile ("nop;");
     }
 }
@@ -70,14 +75,17 @@ void hpet_init()
         kloge("HPET not found\n");
         return;
     }
-
     hpet = (hpet_t *)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
+    vmm_map((uint64_t)hpet, (uint64_t)hpet_sdt->base_addr.address,
+            1, VMM_FLAGS_MMIO);
 
     uint64_t tmp = hpet->general_capabilities;
-
     /* Check that the HPET is valid or not */
-    if (!(tmp & (1 << 15)))
-        kpanic("HPET is not legacy replacement capable");
+    if (!(tmp & (1 << 15))) {
+        kloge("HPET is not legacy replacement capable\n");
+        hpet = NULL;
+        return;
+    }
 
     /* Calculate HPET frequency (f = 10^15 / period) */
     uint64_t counter_clk_period = tmp >> 32;
@@ -87,7 +95,7 @@ void hpet_init()
     hpet_period = counter_clk_period / 1000000;
 
     /* Set ENABLE_CNF bit */
-    hpet->general_configuration =  hpet->general_configuration | 0b01;
+    hpet->general_configuration = hpet->general_configuration | 0b01;
 
     klogi("HPET initialization finished\n");
 }

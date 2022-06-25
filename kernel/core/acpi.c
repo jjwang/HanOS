@@ -23,18 +23,18 @@
 #include <lib/string.h>
 
 static acpi_sdt_t* sdt = NULL;
-static bool is_xsdt = false;
+static bool use_xsdt = false;
 
 acpi_sdt_t* acpi_get_sdt(const char* sign)
 {
-    uint64_t len = (sdt->hdr.length - sizeof(acpi_sdt_t))
-                    /
-                   (is_xsdt ? sizeof(uint64_t) : sizeof(uint32_t));
-    for (uint64_t i = 0; i < len; i++) {
+    uint64_t len = (sdt->hdr.length
+            - sizeof(acpi_sdt_hdr_t)) / (use_xsdt ? 8 : 4);
+
+    for (size_t i = 0; i < len; i++) {
         acpi_sdt_t* table = (acpi_sdt_t*)PHYS_TO_VIRT(
-                   (is_xsdt ? ((uint64_t*)sdt->data)[i] : ((uint32_t*)sdt->data)[i]));
+                   (use_xsdt ? ((uint64_t*)sdt->data)[i] : ((uint32_t*)sdt->data)[i]));
         if (memcmp(table->hdr.sign, sign, strlen(sign))) {
-            klogi("ACPI: found SDT \"%s\"\n", sign);
+            klogi("ACPI: found SDT \"%s\" 0x%x\n", sign, table);
             return table;
         }
     }
@@ -57,11 +57,11 @@ void acpi_init(struct limine_rsdp_response* rsdp_info)
     if (rsdp->revision == 2) {
         klogi("ACPI: v2.0 detected\n");
         sdt = (acpi_sdt_t*)PHYS_TO_VIRT(rsdp->xsdt_addr);
-        is_xsdt = true;
+        use_xsdt = true;
     } else {
         klogi("ACPI: v1.0 (revision %d) detected\n", rsdp->revision);
         sdt = (acpi_sdt_t*)PHYS_TO_VIRT(rsdp->rsdt_addr);
-        is_xsdt = false;
+        use_xsdt = false;
     }
 
     madt_init();

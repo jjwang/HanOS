@@ -1,14 +1,10 @@
 /**-----------------------------------------------------------------------------
-
  @file    cpu.c
  @brief   Implementation of CPU related functions
  @details
  @verbatim
-
    e.g., CPU initialization...
-
  @endverbatim
-
  **-----------------------------------------------------------------------------
  */
 #include <core/cpu.h>
@@ -122,3 +118,4 @@ bool cpu_ok()
 {
     return cpu_initialized;
 }
+

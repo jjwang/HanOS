@@ -135,6 +135,10 @@ void term_refresh(int mode)
     } else {
         term_act = &term_cli;
         if( term_cursor != 0) {
+            if (term_act->state != STATE_UNKNOWN && mode == term_active_mode) {
+                fb_refresh(&(term_act->fb));
+            }
+
             uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
             if (x >= term_act->width) {
                 x = 0;
@@ -145,8 +149,10 @@ void term_refresh(int mode)
                 y--;
                 term_act->cursor_y--;
             }
+
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, term_cursor); 
+                     term_act->fgcolor, term_act->bgcolor, term_cursor);
+            return;
         }
     }
 

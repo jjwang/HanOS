@@ -117,10 +117,10 @@ void pmm_init(struct limine_memmap_response* map)
     bool gotit = false;
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
-
+#if 0
         klogv("PMM: entry %2d base 0x%x length %10d type %d\n",
               i, entry->base, entry->length, entry->type);
-
+#endif
         if (entry->base + entry->length <= 0x100000)
             continue;
 
@@ -297,13 +297,13 @@ void vmm_init(
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
-        if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES
-            && kernel->physical_base >= entry->base
-            && kernel->physical_base <= entry->base + entry->length)
-        {
-            vmm_map(KERNEL_OFFSET, entry->base, NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT); 
-            break;
+        if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+            uint64_t vaddr = kernel->virtual_base
+                             + entry->base - kernel->physical_base;
+            vmm_map(vaddr, entry->base, NUM_PAGES(entry->length),
+                    VMM_FLAGS_DEFAULT);
+            klogd("Mapped kernel 0x%x to 0x%x with length %d\n",
+                  entry->base, vaddr, entry->length);
         }
     }
 

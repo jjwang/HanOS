@@ -121,6 +121,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
 void fb_refresh(fb_info_t* fb)
 {
     if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
-        memcpy(fb->addr, fb->backbuffer, fb->height * fb->pitch * sizeof(uint8_t));
+        uint64_t len = fb->backbuffer_len;
+        memcpy(fb->addr, fb->backbuffer, len);
     }
 }

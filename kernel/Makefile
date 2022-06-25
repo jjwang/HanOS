@@ -20,7 +20,7 @@ INTERNALLDFLAGS :=  \
 	-I .
 
 INTERNALCFLAGS :=       \
-	-I. -Wall -Wextra -Ofast -mcmodel=kernel \
+	-I. -Wall -Wextra -mcmodel=kernel \
 	-std=gnu2x          \
 	-ffreestanding      \
 	-flto               \
@@ -32,7 +32,7 @@ INTERNALCFLAGS :=       \
 	-mno-sse            \
 	-mno-sse2           \
 	-mno-red-zone       \
-    -O3
+    -O2
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)

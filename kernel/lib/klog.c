@@ -215,9 +215,12 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
     if (level < KLOG_LEVEL_UNK) lock_lock(&(k->lock))
 
     if (level < KLOG_LEVEL_UNK) {
+        uint64_t now_sec = hpet_get_nanos() / 1000000000;
+        uint64_t now_ms = (hpet_get_nanos() / 1000000) % 1000;
+
         time_t boot_time = cmos_boot_time();
-        time_t now_time = hpet_get_nanos() / 1000000000 + boot_time;
-        int now_ms = (hpet_get_nanos() / 1000000) % 1000;
+        time_t now_time = now_sec + boot_time;
+
         tm_t now_tm = {0};
         localtime(&now_time, &now_tm);
 

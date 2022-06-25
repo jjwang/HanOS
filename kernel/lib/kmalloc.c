@@ -14,6 +14,7 @@
  */
 #include <stddef.h>
 #include <lib/kmalloc.h>
+#include <lib/klog.h>
 #include <lib/memutils.h>
 #include <core/mm.h>
 
