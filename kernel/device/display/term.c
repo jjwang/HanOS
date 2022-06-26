@@ -15,6 +15,7 @@
 #include <stddef.h>
 #include <device/display/term.h>
 #include <lib/klog.h>
+#include <lib/lock.h>
 #include <core/panic.h>
 #include <3rd-party/boot/limine.h>
 
@@ -25,7 +26,8 @@ static const uint32_t font_colors[6] = {
 static term_info_t term_info = {0};
 static term_info_t term_cli = {0};
 static int term_active_mode = TERM_MODE_UNKNOWN; 
-static uint8_t  term_cursor = 0;
+static uint8_t term_cursor = 0;
+static lock_t term_lock = {0};
 
 #define FONT_WIDTH              8
 #define FONT_HEIGHT             16
@@ -130,6 +132,8 @@ void term_refresh(int mode)
 {
     term_info_t* term_act;
 
+    lock_lock(&term_lock);
+
     if (mode == TERM_MODE_INFO) {
         term_act = &term_info;
     } else {
@@ -152,17 +156,21 @@ void term_refresh(int mode)
 
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
                      term_act->fgcolor, term_act->bgcolor, term_cursor);
+            lock_release(&term_lock);
             return;
         }
     }
 
     if (term_act->state == STATE_UNKNOWN) {
+        lock_release(&term_lock);
         return;
     }
 
     if (mode == term_active_mode) {
         fb_refresh(&(term_act->fb));
     }
+
+    lock_release(&term_lock);
 }
 
 void term_clear(int mode)
@@ -299,9 +307,10 @@ void term_putch(int mode, uint8_t c)
 void term_init(struct limine_framebuffer* s)
 {
     term_info_t* term_act;
-    int i;
+    
+    term_lock = lock_new();
 
-    for (i = 0; i <= 1; i++) {
+    for (size_t i = 0; i <= 1; i++) {
         term_act = ((i == 0) ? &term_info : &term_cli);
 
         fb_init(&(term_act->fb), s);
