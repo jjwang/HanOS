@@ -11,7 +11,7 @@
     Feb 19, 2022  Added CLI task which supports some simple commands.
     May 21, 2022  Changed boot protocol to limine with corresponding
                   modifications.
- @endverbatim
+@endverbatim
 
  **-----------------------------------------------------------------------------
  */
@@ -36,6 +36,8 @@
 #include <core/pci.h>
 #include <core/pit.h>
 #include <device/display/term.h>
+#include <device/display/edid.h>
+#include <device/display/gfx.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -117,7 +119,11 @@ _Noreturn void kshell(task_id_t tid)
     kprintf("?[14;1m%s?[0m", "$ ");
 
     pci_init();
+#if 0
     ata_init();
+#endif
+
+    pci_get_gfx_device(kernel_addr_request.response);
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
@@ -182,9 +188,23 @@ void done(void)
     }   
 }
 
+void kdisplay(char* s)
+{
+    if (terminal_request.response == NULL
+        || terminal_request.response->terminal_count < 1) {
+        done();
+    }   
+
+    struct limine_terminal *terminal = terminal_request.response->terminals[0];
+    terminal_request.response->write(terminal, s, strlen(s));
+}
+
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
+    klog_init();
+    klogi("HanOS version 0.1 starting...\n");
+
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
              hhdm_request.response->offset, hhdm_request.response->revision);
@@ -192,7 +212,7 @@ void kmain(void)
 
     if (fb_request.response == NULL
         || fb_request.response->framebuffer_count < 1) {
-        done();  
+        goto exit;  
     }   
 
     struct limine_framebuffer* fb =
@@ -200,8 +220,12 @@ void kmain(void)
 
     term_init(fb);
 
-    klog_init();
-    klogi("HanOS version 0.1 starting...\n");
+    if (fb->edid_size == sizeof(edid_info_t)) {
+        edid_info_t* edid = (edid_info_t*)fb->edid;
+        klogi("EDID %d.%d: %d * %d\n", edid->edid_version, edid->edid_revision,
+              edid->max_hor_size, edid->max_ver_size);
+    }
+    klogi("Framebuffer address 0x%x\n", fb->address);
 
     gdt_init(NULL);
     idt_init();

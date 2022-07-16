@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -124,6 +125,61 @@ static inline void port_io_wait()
     }
 }
 
+/* memory mapped I/O functions */
+static inline void mmio_outb(void *p, uint8_t data)
+{
+    *(volatile uint8_t *)(p) = data;
+}
+
+static inline uint8_t mmio_inb(void *p)
+{
+    return *(volatile uint8_t *)(p);
+}
+
+static inline void mmio_outw(void *p, uint16_t data)
+{
+    *(volatile uint16_t *)(p) = data;
+}
+
+static inline uint16_t mmio_inw(void *p)
+{
+    return *(volatile uint16_t *)(p);
+}
+
+static inline void mmio_outd(void *p, uint32_t data)
+{
+    *(volatile uint32_t *)(p) = data;
+}
+
+static inline uint32_t mmio_ind(void *p)
+{
+    return *(volatile uint32_t *)(p);
+}
+
+static inline void mmio_outl(void *p, uint64_t data)
+{
+    *(volatile uint64_t *)(p) = data;
+}
+
+static inline uint64_t mmio_inl(void *p)
+{
+    return *(volatile uint64_t *)(p);
+}
+
+static inline void mmio_inn(
+    void *dst, const volatile void *src, size_t bytes)
+{
+    volatile uint8_t *s = (volatile uint8_t *)src;
+    uint8_t *d = (uint8_t *)dst;
+    while (bytes > 0) {
+        *d =  *s;
+        ++s;
+        ++d;
+        --bytes;
+    }
+}
+
+/* CPU related functions and data structures*/
 void cpu_init();
 bool cpu_ok();
 

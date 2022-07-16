@@ -33,11 +33,11 @@ void dump_backtrace();
 #define panic_unless(c) ({ \
     if(!(c)) \
         kpanic("panic_unless(" #c ") triggered in " \
-              "__FILE__:%d", __LINE__);     \
+              "%s:%d", __FILE__, __LINE__);     \
 })
 
 #define panic_if(c) ({ \
     if((c)) \
         kpanic("panic_if(" #c ") triggered in " \
-              "__FILE__:%d", __LINE__); \
+              "%s:%d", __FILE__, __LINE__); \
 })

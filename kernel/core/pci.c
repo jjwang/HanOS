@@ -27,7 +27,7 @@
 #define MAX_FUNCTION            8
 #define MAX_DEVICE              16
 
-vec_new_static(pci_device_t, pci_devices);
+vec_new(pci_device_t, pci_devices);
 
 static void pci_scan_bus(uint8_t bus_id);
 static void pci_scan_device(uint8_t bus_id, uint8_t dev_id);
@@ -38,6 +38,9 @@ static pci_device_desc_t device_table[] =
     {0x8086, 0x0154, "3rd Gen Core processor DRAM Controller"},
     {0x8086, 0x0166, "3rd Gen Core processor Graphics Controller"},
     {0x8086, 0x100E, "Gigabit Ethernet Controller"},
+    {0x8086, 0x0A04, "Haswell-ULT DRAM Controller"},
+    {0x8086, 0x0A0C, "Haswell-ULT HD Audio Controller"},
+    {0x8086, 0x0A16, "Haswell-ULT Integrated Graphics Controller"},
     {0x8086, 0x153A, "Ethernet Connection I217-LM"},
     {0x8086, 0x10D3, "82574L Gigabit Network Connection"},
     {0x8086, 0x10EA, "82577LM Gigabit Network Connection"},
@@ -65,7 +68,7 @@ static pci_device_desc_t device_table[] =
 
 static const char unknown_device_desc[] = "Unknown device";
 
-static const char *pci_device_id_to_string(pci_device_t *device)
+const char *pci_device_id_to_string(pci_device_t *device)
 {
     for(uint64_t i = 0; ; i++) {
         /* Reach the last line */
@@ -81,34 +84,130 @@ static const char *pci_device_id_to_string(pci_device_t *device)
     return unknown_device_desc;
 }
 
-static uint32_t pci_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint32_t offset)
+static void pci_read_bar(
+    uint32_t id, uint32_t index, uint32_t *address, uint32_t *mask)
 {
-    uint32_t bus32 = (uint32_t)bus;
-    uint32_t device32 = (uint32_t)slot;
-    uint32_t func32 = (uint32_t)func;
+    uint32_t reg = PCI_CONFIG_BAR0 + index * sizeof(uint32_t);
 
-    uint32_t address = 0x80000000 | (bus32 << 16)
-                    | (device32 << 11) 
-                    | (func32 << 8)
-                    | (offset & 0xFC);
+    /* Get address */
+    *address = pci_ind(id, reg);
 
-    panic_unless(!(offset & 3));
-    port_outd(0xCF8, address);
-    return port_ind(0xCFC);
+    /* Find out size of the bar */
+    pci_outd(id, reg, 0xffffffff);
+    *mask = pci_ind(id, reg);
+
+    /* Restore adddress */
+    pci_outd(id, reg, *address);
 }
 
-#define pci_func_exist(dev)     ((uint16_t)(pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0) & 0xFFFF) != 0xFFFF)
+void pci_get_bar(pci_bar_t *bar, uint32_t id, uint32_t index)
+{
+    /* Read pci bar register */
+    uint32_t addr_low;
+    uint32_t mask_low;
+    pci_read_bar(id, index, &addr_low, &mask_low);
 
-#define pci_read_vendor_id(dev) (pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x00) & 0xFFFF)
-#define pci_read_device_id(dev) (pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x00) >> 16)
-#define pci_read_class(dev)     (pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x08) >> 24)
-#define pci_read_subclass(dev)  ((pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x08) >> 16) & 0xFF)
-#define pci_read_prog_if(dev)   ((pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x08) >> 8) & 0xFF)
-#define pci_read_header(dev)    (((pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x08) >> 16) & ~(1 << 7)) & 0xFF)
-#define pci_read_sub_bus(dev)   ((pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x18) >> 8) & 0xFF)
+    if (addr_low & PCI_BAR_64) {
+        /* 64-bit mmio */
+        uint32_t addr_high;
+        uint32_t mask_high;
+        pci_read_bar(id, index + 1, &addr_high, &mask_high);
 
-#define pci_is_bridge(dev)      (pci_read_header(dev) == 0x1 && pci_read_class(dev) == 0x6)
-#define pci_has_multi_func(dev) (((pci_read_dword((dev)->bus, (dev)->device, (dev)->func, 0x0C) >> 16) & (1 << 7)) & 0xFF)
+        bar->u.address =
+            (void *)(((uintptr_t)addr_high << 32) | (addr_low & ~0xf));
+        bar->size = ~(((uint64_t)mask_high << 32) | (mask_low & ~0xf)) + 1;
+        bar->flags = addr_low & 0xf;
+    } else if (addr_low & PCI_BAR_IO) {
+        /* I/O register */
+        bar->u.port = (uint16_t)(addr_low & ~0x3);
+        bar->size = (uint16_t)(~(mask_low & ~0x3) + 1);
+        bar->flags = addr_low & 0x3;
+    } else {
+        /* 32-bit mmio */
+        bar->u.address = (void *)(uintptr_t)(addr_low & ~0xf);
+        bar->size = ~(mask_low & ~0xf) + 1;
+        bar->flags = addr_low & 0xf;
+    }
+}
+
+uint8_t pci_inb(uint32_t id, uint32_t offset)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+
+    port_outd(PCI_PORT_ADDR, address);
+    return port_inb(PCI_PORT_DATA + (offset & 0x03));
+}
+
+void pci_outb(uint32_t id, uint32_t offset, uint8_t data)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+
+    port_outd(PCI_PORT_ADDR, address);
+    port_outb(PCI_PORT_DATA + (offset & 0x03), data);
+}
+
+uint16_t pci_inw(uint32_t id, uint32_t offset)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+
+    port_outd(PCI_PORT_ADDR, address);
+    return port_inw(PCI_PORT_DATA + (offset & 0x02));
+}   
+
+void pci_outw(uint32_t id, uint32_t offset, uint16_t data)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+    
+    port_outd(PCI_PORT_ADDR, address);
+    port_outw(PCI_PORT_DATA + (offset & 0x02), data);
+}   
+
+uint32_t pci_ind(uint32_t id, uint32_t offset)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+
+    port_outd(PCI_PORT_ADDR, address);
+    return port_ind(PCI_PORT_DATA);
+}
+
+void pci_outd(uint32_t id, uint32_t offset, uint32_t data)
+{
+    uint32_t address = 0x80000000 | id | (offset & 0xFC);
+
+    port_outd(PCI_PORT_ADDR, address);
+    port_outd(PCI_PORT_DATA, data);
+}
+
+#define pci_func_exist(dev)     \
+    ((uint16_t)(pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_LEGACY) & 0xFFFF) \
+    != 0xFFFF)
+
+#define pci_read_vendor_id(dev) \
+    (pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_LEGACY) & 0xFFFF)
+
+#define pci_read_device_id(dev) \
+    (pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_LEGACY) >> 16)
+
+#define pci_read_class(dev)     \
+    (pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_PERIHPERALS) >> 24)
+
+#define pci_read_subclass(dev)  \
+    ((pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_PERIHPERALS) >> 16) & 0xFF)
+
+#define pci_read_prog_if(dev)   \
+    ((pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_PERIHPERALS) >> 8) & 0xFF)
+
+#define pci_read_header(dev)    \
+    (((pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_PERIHPERALS) >> 16) & ~(1 << 7)) & 0xFF)
+
+#define pci_read_sub_bus(dev)   \
+    ((pci_ind(PCI_MAKE_DEVICE_ID(dev), 0x18) >> 8) & 0xFF)
+
+#define pci_is_bridge(dev)      \
+    (pci_read_header(dev) == 0x1 && pci_read_class(dev) == 0x6)
+
+#define pci_has_multi_func(dev) \
+    (((pci_ind(PCI_MAKE_DEVICE_ID(dev), PCI_CLASS_SERIAL_BUS) >> 16) & (1 << 7)) & 0xFF)
 
 static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
 {
@@ -120,6 +219,13 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
     uint8_t func_exist = pci_func_exist(&device);
     uint8_t is_bridge = pci_is_bridge(&device);
     uint8_t has_multi_func = pci_func_exist(&device);
+
+    if (is_bridge) {
+        klogi("PCI:\t%2x:%2x.%1x - %4x:%4x [bridge] func %s\n",
+              device.bus, device.device, device.func,
+              device.vendor_id, device.device_id,
+              func_exist ? "existed" : "not existed");
+    }
 
     if (func_exist) {
         if (is_bridge) {
@@ -164,7 +270,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
 
 static void pci_scan_bus(uint8_t bus_id)
 {
-    for (uint8_t dev = 0; dev != MAX_DEVICE; dev++) {
+    for (size_t dev = 0; dev != MAX_DEVICE; dev++) {
         pci_scan_device(bus_id, dev);
     }
 }
@@ -173,15 +279,17 @@ void pci_init(void)
 {
     pci_scan_bus(0);
 
-    klogi("PCI: Full recursive device scan done, [%d] devices found\n", vec_length(&pci_devices));
+    klogi("PCI: Full recursive device scan done, [%d] devices found\n",
+          vec_length(&pci_devices));
 }
 
 void pci_debug(void)
 {
-    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
+    for (size_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i); 
         kprintf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
                 dev.bus, dev.device, dev.func, dev.vendor_id, dev.device_id,
                 pci_device_id_to_string(&dev));
     } 
 }
+
