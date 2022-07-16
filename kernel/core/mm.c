@@ -34,6 +34,7 @@
 #include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
+#include <lib/klib.h>
 
 static mem_info_t kmem_info = {0};
 static addrspace_t kaddrspace = {0};
@@ -286,13 +287,13 @@ void vmm_init(
     kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(0xffffffff80000000, 0, NUM_PAGES(kmem_info.phys_limit),
-           VMM_FLAGS_USERMODE);
-    klogd("Mapped all memory to 0xFFFFFFFF80000000\n");
+    vmm_map(0xffffffff80000000, 0,
+            NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_USERMODE);
+    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n", MM_SIZE);
 
-    vmm_map(0xffff800000000000, 0, NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT);
-    klogd("Mapped all memory to 0xFFFF800000000000\n");
+    vmm_map(0xffff800000000000, 0,
+            NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_DEFAULT);
+    klogd("Mapped %d bytes memory to 0xFFFF800000000000\n", MM_SIZE);
 
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
@@ -302,8 +303,21 @@ void vmm_init(
                              + entry->base - kernel->physical_base;
             vmm_map(vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogd("Mapped kernel 0x%x to 0x%x with length %d\n",
+            klogd("Mapped kernel 0x%x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
+        } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
+            vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
+                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+            klogd("Mapped framebuffer 0x%x to 0x%x (len: %d)\n",
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length);
+
+        } else if (entry->type != LIMINE_MEMMAP_USABLE && (entry->base >= MM_SIZE
+                  || entry->base + entry-> length > MM_SIZE))
+        {
+            vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
+                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+            klogd("Mapped 0x%x to 0x%x(len: %d)\n",
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }
     }
 

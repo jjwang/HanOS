@@ -314,7 +314,6 @@ void term_init(struct limine_framebuffer* s)
         term_act = ((i == 0) ? &term_info : &term_cli);
 
         fb_init(&(term_act->fb), s);
-
         term_act->width = term_act->fb.width / FONT_WIDTH;
         term_act->height = term_act->fb.height / FONT_HEIGHT;
 
