@@ -93,7 +93,7 @@ _Noreturn void kcursor(task_id_t tid)
         } else {
             term_set_cursor(' ');
         }
-        term_refresh(TERM_MODE_CLI);
+        term_refresh(TERM_MODE_CLI, false);
     }   
 
     (void)tid;
@@ -113,7 +113,7 @@ _Noreturn void kshell(task_id_t tid)
 
     klogi("Shell task started\n");
 
-    kprintf("?[11;1m%s?[0m\n\n", "Hello World");
+    term_clear(TERM_MODE_CLI);
     kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
             "Welcome to HanOS world!", "help");
     kprintf("?[14;1m%s?[0m", "$ ");
@@ -129,7 +129,7 @@ _Noreturn void kshell(task_id_t tid)
     uint16_t cmd_end = 0;
 
     while (true) {
-        sleep(16);
+        sleep(1);
         uint8_t cur_key = keyboard_get_key();
         if (term_get_mode() != TERM_MODE_CLI) {
             continue;
@@ -137,7 +137,7 @@ _Noreturn void kshell(task_id_t tid)
         if (cur_key == 0x0A) {
             cursor_visible = CURSOR_HIDE;
             term_set_cursor(' ');
-            term_refresh(TERM_MODE_CLI);
+            term_refresh(TERM_MODE_CLI, false);
             kprintf("%c", cur_key);
 
             if (cmd_end > 0) {
@@ -220,13 +220,6 @@ void kmain(void)
 
     term_init(fb);
 
-    if (fb->edid_size == sizeof(edid_info_t)) {
-        edid_info_t* edid = (edid_info_t*)fb->edid;
-        klogi("EDID %d.%d: %d * %d\n", edid->edid_version, edid->edid_revision,
-              edid->max_hor_size, edid->max_ver_size);
-    }
-    klogi("Framebuffer address 0x%x\n", fb->address);
-
     gdt_init(NULL);
     idt_init();
 
@@ -254,6 +247,23 @@ void kmain(void)
     int val1 = 10000, val2 = 0;
     kloge("Val: %d", val1 / val2);
 #endif
+
+    if (fb->edid_size == sizeof(edid_info_t)) {
+        edid_info_t* edid = (edid_info_t*)fb->edid;
+        klogi("EDID: version %d.%d, screen size %dcm * %dcm\n", edid->edid_version, edid->edid_revision,
+              edid->max_hor_size, edid->max_ver_size);
+        if (edid->dpms_flags & 0x02) {
+            klogi("EDID: Preferred timing mode specified in DTD-1\n");
+            klogi("EDID: %d * %d\n",
+                  (uint16_t)edid->det_timings[0].horz_active +
+                      (uint16_t)((uint16_t)(edid->det_timings[0].horz_active_blank_msb &
+                      0xF0) << 4),
+                  (uint16_t)edid->det_timings[0].vert_active +
+                      (uint16_t)((uint16_t)(edid->det_timings[0].vert_active_blank_msb &
+                      0xF0) << 4));
+        }
+    }   
+    klogi("Framebuffer address 0x%x\n", fb->address);
 
     sched_add(kshell);
     sched_add(kcursor);

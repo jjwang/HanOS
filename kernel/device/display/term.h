@@ -48,7 +48,7 @@ typedef struct {
 void term_init(struct limine_framebuffer* s);
 void term_putch(int mode, uint8_t c);
 void term_clear(int mode);
-void term_refresh(int mode);
+void term_refresh(int mode, bool forced);
 void term_start();
 void term_switch(int mode);
 int term_get_mode(void);

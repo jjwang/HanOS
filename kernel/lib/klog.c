@@ -45,7 +45,7 @@ void klog_refresh(int mode)
         }
     }
 
-    term_refresh(mode);
+    term_refresh(mode, false);
 }
 
 static void klog_putch(int mode, uint8_t i)

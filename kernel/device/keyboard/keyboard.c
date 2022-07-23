@@ -85,10 +85,10 @@ static void keyboard_callback()
             lock_lock(&kb_lock);
             if (ch == '!' || ch == '1') {            /* Shift + '1' */
                 term_switch(TERM_MODE_CLI);
-                term_refresh(TERM_MODE_CLI);
+                term_refresh(TERM_MODE_CLI, true);
             } else if (ch == '@' || ch == '2') {     /* Shift + '2' */
                 term_switch(TERM_MODE_INFO);
-                term_refresh(TERM_MODE_INFO);
+                term_refresh(TERM_MODE_INFO, true);
             }
             lock_release(&kb_lock);
             break;

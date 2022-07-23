@@ -22,7 +22,7 @@
 
 #define IS_TRAVERSABLE(x) ((x)->type == VFS_NODE_FOLDER || (x)->type == VFS_NODE_MOUNTPOINT)
 
-/* modes for path to node conversion */
+/* Modes for path to node conversion */
 #define NO_CREATE       0b0001U
 #define CREATE          0b0010U
 #define ERR_ON_EXIST    0b0100U
