@@ -13,6 +13,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
+#include <kconfig.h>
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <lib/lock.h>
@@ -128,7 +129,7 @@ int term_get_mode(void)
     return term_active_mode;
 }
 
-void term_refresh(int mode)
+void term_refresh(int mode, bool forced)
 {
     term_info_t* term_act;
 
@@ -140,7 +141,7 @@ void term_refresh(int mode)
         term_act = &term_cli;
         if( term_cursor != 0) {
             if (term_act->state != STATE_UNKNOWN && mode == term_active_mode) {
-                fb_refresh(&(term_act->fb));
+                fb_refresh(&(term_act->fb), forced);
             }
 
             uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
@@ -156,6 +157,9 @@ void term_refresh(int mode)
 
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
                      term_act->fgcolor, term_act->bgcolor, term_cursor);
+            if (mode == term_active_mode) {
+                fb_refresh(&(term_act->fb), false);
+            }
             lock_release(&term_lock);
             return;
         }
@@ -167,7 +171,7 @@ void term_refresh(int mode)
     }
 
     if (mode == term_active_mode) {
-        fb_refresh(&(term_act->fb));
+        fb_refresh(&(term_act->fb), forced);
     }
 
     lock_release(&term_lock);
@@ -327,7 +331,7 @@ void term_init(struct limine_framebuffer* s)
         term_act->lastch = 0;
 
         term_clear((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
-        term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
+        term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI, false);
 
         klogi("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n", 
                 i, (uint64_t)term_act, term_act->fb.width,
@@ -343,7 +347,14 @@ void term_start()
     klog_refresh(TERM_MODE_INFO);
     klog_refresh(TERM_MODE_CLI);
 
+#if LAUNCHER_CLI
+    term_active_mode = TERM_MODE_CLI;
+
+    fb_putlogo(&(term_cli.fb), DEFAULT_FGCOLOR, DEFAULT_BGCOLOR);
+    term_refresh(TERM_MODE_CLI, true);
+#else
     term_active_mode = TERM_MODE_INFO;
+#endif
 }
 
 void term_switch(int mode)

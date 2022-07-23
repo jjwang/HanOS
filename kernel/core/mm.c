@@ -303,12 +303,12 @@ void vmm_init(
                              + entry->base - kernel->physical_base;
             vmm_map(vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogd("Mapped kernel 0x%x to 0x%x (len: %d)\n",
+            klogd("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
-            klogd("Mapped framebuffer 0x%x to 0x%x (len: %d)\n",
+            klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
 
         } else if (entry->type != LIMINE_MEMMAP_USABLE && (entry->base >= MM_SIZE
@@ -316,7 +316,7 @@ void vmm_init(
         {
             vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
-            klogd("Mapped 0x%x to 0x%x(len: %d)\n",
+            klogd("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }
     }

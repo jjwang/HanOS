@@ -41,11 +41,17 @@ typedef struct {
     uint32_t pitch;
     uint8_t  *backbuffer;
     uint32_t backbuffer_len;
+
+    uint32_t dirty_left;
+    uint32_t dirty_top;
+    uint32_t dirty_right;
+    uint32_t dirty_bottom;
 } fb_info_t;
 
 void fb_init(fb_info_t* fb, struct limine_framebuffer* s);
 void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color);
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t bgcolor, uint8_t ch);
 void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t bgcolor, uint8_t* ch);
+void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor);
 uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y);
-void fb_refresh(fb_info_t* fb);
+void fb_refresh(fb_info_t* fb, bool forced);

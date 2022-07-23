@@ -19,7 +19,7 @@
 #include <lib/vector.h>
 #include <lib/time.h>
 
-/* some limits */
+/* Some limits */
 #define VFS_MAX_PATH_LEN    4096
 #define VFS_MAX_NAME_LEN    256
 
@@ -27,11 +27,11 @@
 
 typedef int vfs_handle_t;
 
-/* forward declaration */
+/* Forward declaration */
 typedef struct vfs_inode_t vfs_inode_t;
 typedef struct vfs_tnode_t vfs_tnode_t;
 
-/* stores type of node */
+/* Stores type of node */
 typedef enum {
     VFS_NODE_FILE,
     VFS_NODE_FOLDER,
@@ -52,7 +52,7 @@ typedef struct {
     char name[VFS_MAX_NAME_LEN];
 } vfs_dirent_t;
 
-/* details about fs format */
+/* Details about fs format */
 typedef struct vfs_fsinfo_t {
     char name[16];
     bool istemp;
@@ -66,7 +66,6 @@ typedef struct vfs_fsinfo_t {
     int64_t (*sync)(vfs_inode_t* this);
     int64_t (*refresh)(vfs_inode_t* this);
     int64_t (*getdent)(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent);
-    int64_t (*ioctl)(vfs_inode_t* this, int64_t req_param, void* req_data);
 } vfs_fsinfo_t;
 
 struct vfs_tnode_t {
