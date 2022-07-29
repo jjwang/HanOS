@@ -1,0 +1,4 @@
+# This file is a placeholder file in the root folder which mounts the RAMFS.
+
+Hello World!
+

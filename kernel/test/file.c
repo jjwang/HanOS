@@ -16,9 +16,12 @@
 #include <lib/klog.h>
 #include <test/test.h>
 
+void file_test(void);
+
 void dir_test(void)
 {
-    char* fn1 = "/disk/0";
+#if 1
+    char* fn1 = "/";
 
     kprintf("List all files in \"%s\":\n", fn1);
 
@@ -40,7 +43,9 @@ void dir_test(void)
         vfs_close(f1);
     } else {
         klogi("Open %s(%d) failed\n", fn1, f1);
-    } 
+    }
+#endif
+    file_test();
 }
 
 void file_test(void)
@@ -55,14 +60,18 @@ void file_test(void)
     }
 #endif
 
-    char* fn2 = "/disk/0/HELLOWLD.TXT";
+    char* fn2 = "/HELLOWLD.TXT";
     vfs_handle_t f2 = vfs_open(fn2, VFS_MODE_READWRITE);
     if (f2 != VFS_INVALID_HANDLE) {
         char buff_read[1024] = {0};
+        size_t readlen = vfs_read(f2, sizeof(buff_read) - 1, buff_read);
+        klogi("Originally read %d bytes from %s(%d)\n%s\n", readlen, fn2, f2, buff_read);
+
         char buff_write[1024] = "(1) This is a test -- END";
         vfs_write(f2, strlen(buff_write), buff_write);
-        size_t readlen = vfs_read(f2, sizeof(buff_read) - 1, buff_read);
+        readlen = vfs_read(f2, sizeof(buff_read) - 1, buff_read);
         klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn2, f2, buff_read);
+
         vfs_close(f2);
     } else {
         kloge("Open %s(%d) failed\n", fn2, f2);
@@ -75,7 +84,7 @@ void file_test(void)
         char buff_write[1800] = "(2) This is a test";
 
         size_t m = strlen(buff_write);
-        for (; m < 80; m++) {
+        for (; m < 120; m++) {
             buff_write[m] = 'A';
         }
         buff_write[m] = 'B';

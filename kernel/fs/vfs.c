@@ -14,6 +14,7 @@
 #include <fs/vfs.h>
 #include <fs/filebase.h>
 #include <fs/fat32.h>
+#include <fs/ramfs.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/lock.h>
@@ -71,8 +72,21 @@ void vfs_init()
     /* Initialize the root folder */
     vfs_root.inode = vfs_alloc_inode(VFS_NODE_FOLDER, 0777, 0, NULL, NULL);
 
+    /* Register all file systems which will be used */
     vfs_register_fs(&fat32);
+    vfs_register_fs(&ramfs);
 
+    char* fn = "/";
+    /* Mount RAMFS without device name (NULL) */
+    vfs_mount(NULL, fn, "ramfs");
+    /* Call vsf_refrsh() to load all RAMFS files */
+    vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
+    if (f != VFS_INVALID_HANDLE) {
+        vfs_refresh(f);
+        vfs_close(f);
+    }
+
+    /* Create directory for mounting devices in the future */
     vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
     vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
 
@@ -272,6 +286,11 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
             req = pn->inode->fs->open(pn->inode, path);
         }
         if (!req) goto fail;
+    } else {
+        if (req->inode->fs != NULL) {
+            klogw("VFS: inode for %s already exists\n", path);
+            req = req->inode->fs->open(req->inode, path);
+        }
     }
     req->inode->refcount++;
 
@@ -330,12 +349,13 @@ int64_t vfs_refresh(vfs_handle_t handle)
         vfs_dirent_t de;
         if (fd->inode->fs->getdent(fd->inode, i, &de)) break;
 
-        char path[VFS_MAX_PATH_LEN];
+        char path[VFS_MAX_PATH_LEN] = {0};
         strcpy(path, fd->path);
         strcat(path, "/");
         strcat(path, de.name);
         vfs_tnode_t* tn = vfs_path_to_node(path, CREATE, de.type);
         memcpy(&tn->inode->tm, &de.tm, sizeof(tm_t));
+        tn->inode->size = de.size;
     }
     lock_release(&vfs_lock);
 

@@ -50,6 +50,7 @@ typedef struct {
     vfs_node_type_t type;
     tm_t tm;
     char name[VFS_MAX_NAME_LEN];
+    size_t size;
 } vfs_dirent_t;
 
 /* Details about fs format */

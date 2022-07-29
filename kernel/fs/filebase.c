@@ -17,6 +17,8 @@
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/string.h>
+#include <core/hpet.h>
+#include <core/cmos.h>
 
 /* List of opened files */
 vec_extern(vfs_node_desc_t*, vfs_openfiles);
@@ -124,7 +126,15 @@ vfs_tnode_t* vfs_path_to_node(
         if (mode & CREATE && curr_index > pathlen && IS_TRAVERSABLE(curr->inode)) {
             vfs_inode_t* new_inode = vfs_alloc_inode(
                 create_type, 0777, 0, curr->inode->fs, curr->inode->mountpoint);
-            vfs_tnode_t* new_tnode = vfs_alloc_tnode(tmpbuff, new_inode, curr->inode);
+
+            uint64_t now_sec = hpet_get_nanos() / 1000000000;
+
+            time_t boot_time = cmos_boot_time();
+            time_t now_time = now_sec + boot_time;
+            localtime(&now_time, &(new_inode->tm));
+            
+            vfs_tnode_t* new_tnode = 
+                vfs_alloc_tnode(tmpbuff, new_inode, curr->inode);
 
             vec_push_back(&(curr->inode->child), new_tnode);
             if (curr->inode->fs != NULL) curr->inode->fs->mknode(new_tnode);
