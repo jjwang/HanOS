@@ -125,6 +125,8 @@ _Noreturn void kshell(task_id_t tid)
 
     pci_get_gfx_device(kernel_addr_request.response);
 
+    file_test();
+
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
 

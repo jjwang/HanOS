@@ -227,7 +227,6 @@ int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* bu
     return retlen;
 }
 
-/* synchronizes file size (and other metadata) */
 int64_t fat32_sync(vfs_inode_t* this)
 {
     fat32_ident_t* id = (fat32_ident_t*)this->ident;
