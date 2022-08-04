@@ -20,8 +20,16 @@
 #include <core/panic.h>
 #include <3rd-party/boot/limine.h>
 
-static const uint32_t font_colors[6] = { 
-    COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_BLUE, DEFAULT_FGCOLOR,
+static const uint32_t font_colors[9] = { 
+    COLOR_BLACK,
+    COLOR_RED,
+    COLOR_GREEN,
+    COLOR_BROWN,
+    COLOR_BLUE,
+    COLOR_MAGENTA,
+    COLOR_CYAN,
+    COLOR_GREY,
+    DEFAULT_FGCOLOR,
 };
 
 static term_info_t term_info = {0};
@@ -29,6 +37,7 @@ static term_info_t term_cli = {0};
 static int term_active_mode = TERM_MODE_UNKNOWN; 
 static uint8_t term_cursor = 0;
 static lock_t term_lock = {0};
+static bool term_need_redraw = false;
 
 #define FONT_WIDTH              8
 #define FONT_HEIGHT             16
@@ -49,7 +58,8 @@ static bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
     }
 
     if (term_act->state == STATE_IDLE) {
-        if (byte == '?' /*0x3F*/) {
+        char *s = "\e";
+        if (byte == s[0]) {
             if (!term_act->last_qu_char) {
                 term_act->state = STATE_CMD;
                 term_act->last_qu_char = true;
@@ -74,10 +84,10 @@ static bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
             if (term_act->cparams[0] == 0) {
                 term_act->fgcolor = DEFAULT_FGCOLOR;
                 term_act->bgcolor = DEFAULT_BGCOLOR;
-            } else if (term_act->cparams[0] >= 10 && term_act->cparams[0] <= 15) {
-                term_act->fgcolor = font_colors[term_act->cparams[0] - 10];
-            } else if (term_act->cparams[0] >= 20 && term_act->cparams[0] <= 25) {
-                term_act->bgcolor = font_colors[term_act->cparams[0] - 20];
+            } else if (term_act->cparams[0] >= 30 && term_act->cparams[0] <= 37) {
+                term_act->fgcolor = font_colors[term_act->cparams[0] - 30];
+            } else if (term_act->cparams[0] >= 40 && term_act->cparams[0] <= 47) {
+                term_act->bgcolor = font_colors[term_act->cparams[0] - 40];
             }
             goto succ;
         } else if (byte >= '0' && byte <= '9') {
@@ -293,8 +303,9 @@ void term_putch(int mode, uint8_t c)
     if (term_act->last_qu_char && c != '[') {
         term_act->state = STATE_IDLE;
 
-        /* Resend the '?' character */
-        term_print(mode, '?');
+        /* Resend the '\e' character */
+        char *s = "\e";
+        term_print(mode, s[0]);
         term_act->last_qu_char = false;
 
         term_putch(mode, c);
@@ -350,11 +361,23 @@ void term_start()
 #if LAUNCHER_CLI
     term_active_mode = TERM_MODE_CLI;
 
-    fb_putlogo(&(term_cli.fb), DEFAULT_FGCOLOR, DEFAULT_BGCOLOR);
+    fb_putlogo(&(term_cli.fb), COLOR_CYAN, DEFAULT_BGCOLOR);
     term_refresh(TERM_MODE_CLI, true);
 #else
     term_active_mode = TERM_MODE_INFO;
 #endif
+
+    term_need_redraw = true;
+}
+
+bool term_get_redraw()
+{
+    return term_need_redraw;
+}
+
+void term_set_redraw(bool val)
+{
+    term_need_redraw = val;
 }
 
 void term_switch(int mode)

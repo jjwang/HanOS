@@ -21,6 +21,7 @@
  */
 #include <stddef.h>
 #include <core/mm.h>
+#include <core/hpet.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
@@ -30,6 +31,8 @@
 #include <lib/string.h>
 
 #define LOGO_SCALE      6
+
+static uint64_t fb_refresh_times = 0, fb_refresh_nanos = 0;
 
 void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)
@@ -62,8 +65,8 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
         static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
         for(size_t i = 0; i < 16; i++) {
             for(size_t k = 0; k < 8; k++) {
-                for(size_t m = 0; m < LOGO_SCALE; m++) {
-                    for(size_t n = 0; n < LOGO_SCALE; n++) {
+                for(size_t m = 1; m < LOGO_SCALE; m++) {
+                    for(size_t n = 1; n < LOGO_SCALE; n++) {
                         uint32_t color = (asc16_font[offset + i] & masks[k])
                             ? fgcolor : bgcolor;
                         fb_putpixel(fb, x + (idx * 8 + k) * LOGO_SCALE + m,
@@ -137,6 +140,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
         }
         return;
     }
+
     fb->addr = (uint8_t*)s->address;
     fb->width = s->width;
     fb->height = s->height;
@@ -161,6 +165,9 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
 void fb_refresh(fb_info_t* fb, bool forced)
 {
     if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
+        fb_refresh_times++;
+        uint64_t begin = hpet_get_nanos();
+
         uint64_t len = fb->backbuffer_len;
         if (fb->dirty_right >= fb->dirty_left
             && fb->dirty_bottom >= fb->dirty_top
@@ -179,5 +186,14 @@ void fb_refresh(fb_info_t* fb, bool forced)
         fb->dirty_top = fb->height;
         fb->dirty_right = 0;
         fb->dirty_bottom = 0;
+
+        uint64_t end = hpet_get_nanos();
+        fb_refresh_nanos += end - begin;
     }
+}
+
+void fb_debug(void)
+{
+    klogi("FB: refresh %d times, avg %d nanos\n", fb_refresh_times,
+          (fb_refresh_times > 0) ? (fb_refresh_nanos / fb_refresh_times) : 0);
 }

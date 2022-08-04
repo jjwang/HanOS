@@ -17,7 +17,8 @@ INTERNALLDFLAGS :=  \
 	-nostdlib       \
 	-Tlinker.ld     \
 	-z max-page-size=0x2000 \
-	-I .
+	-I .    \
+    -O2
 
 INTERNALCFLAGS :=       \
 	-I. -Wall -Wextra -mcmodel=kernel \
@@ -25,14 +26,14 @@ INTERNALCFLAGS :=       \
 	-ffreestanding      \
 	-flto               \
 	-fno-pic            \
-    -fno-omit-frame-pointer \
+	-fno-omit-frame-pointer \
 	-mno-3dnow          \
 	-mno-80387          \
 	-mno-mmx            \
 	-mno-sse            \
 	-mno-sse2           \
 	-mno-red-zone       \
-    -O2
+	-O2
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)

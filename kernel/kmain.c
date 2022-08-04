@@ -44,11 +44,6 @@
 #include <fs/vfs.h>
 #include <test/test.h>
 
-static volatile struct limine_terminal_request terminal_request = {
-    .id = LIMINE_TERMINAL_REQUEST,
-    .revision = 0
-};
-
 static volatile struct limine_framebuffer_request fb_request = { 
     .id = LIMINE_FRAMEBUFFER_REQUEST,
     .revision = 0 
@@ -114,9 +109,11 @@ _Noreturn void kshell(task_id_t tid)
     klogi("Shell task started\n");
 
     term_clear(TERM_MODE_CLI);
-    kprintf("?[11;1m%s?[0m Type \"?[14;1m%s?[0m\" for command list\n",
+    kprintf("\e[31m%s\e[0m Type \"\e[36m%s\e[0m\" for command list\n",
             "Welcome to HanOS world!", "help");
-    kprintf("?[14;1m%s?[0m", "$ ");
+    kprintf("System initialization spends %d seconds\n",
+            cmos_current_time() - cmos_boot_time());
+    kprintf("\e[36m%s\e[0m", "$ ");
 
     pci_init();
 #if 0
@@ -126,6 +123,8 @@ _Noreturn void kshell(task_id_t tid)
     pci_get_gfx_device(kernel_addr_request.response);
 
     file_test();
+    klog_debug();
+    fb_debug();
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
@@ -166,19 +165,19 @@ _Noreturn void kshell(task_id_t tid)
             cursor_visible = CURSOR_INVISIBLE;
             cmd_buff[0] = '\0';
             cmd_end = 0;
-            kprintf("?[14;1m%s?[0m", "$ ");
+            kprintf("\e[36m%s\e[0m", "$ ");
             cursor_visible = CURSOR_INVISIBLE;
         } else if (cur_key == '\b') {
             if (cmd_end > 0) {
                 cmd_buff[cmd_end--] = '\0';
-                kprintf("?[14;1m%c?[0m", cur_key);
+                kprintf("\e[36m%c\e[0m", cur_key);
             }   
         }  else if (cur_key > 0) {
             if (cmd_end < sizeof(cmd_buff) - 1) {
                 cmd_buff[cmd_end++] = cur_key;
                 cmd_buff[cmd_end] = '\0';
             }   
-            kprintf("?[14;1m%c?[0m", cur_key);
+            kprintf("\e[36m%c\e[0m", cur_key);
         }
     }   
 }
@@ -190,20 +189,11 @@ void done(void)
     }   
 }
 
-void kdisplay(char* s)
-{
-    if (terminal_request.response == NULL
-        || terminal_request.response->terminal_count < 1) {
-        done();
-    }   
-
-    struct limine_terminal *terminal = terminal_request.response->terminals[0];
-    terminal_request.response->write(terminal, s, strlen(s));
-}
-
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
+    cpu_init();
+
     klog_init();
     klogi("HanOS version 0.1 starting...\n");
 
@@ -243,7 +233,7 @@ void kmain(void)
     vfs_init();
     smp_init();
 
-    klogi("Press \"?[14;1m%s?[0m\" (left) to shell and \"?[14;1m%s?[0m\" back\n",
+    klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
 #if 0
     int val1 = 10000, val2 = 0;
