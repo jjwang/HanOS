@@ -23,9 +23,20 @@
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
 
+static uint64_t 
+    klog_clear_times    = 0, 
+    klog_refresh_times  = 0,
+    klog_putchar_times  = 0;
+
+void klog_debug(void)
+{
+    klogd("KLOG: clear %d, refresh %d and putchar %d times\n", 
+          klog_clear_times, klog_refresh_times, klog_putchar_times);
+}
+
 void klog_refresh(int mode)
 {
-    if (term_get_mode() == TERM_MODE_UNKNOWN) {
+    if (term_get_redraw()) {
         klog_info_t* k = ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
 
         term_clear(mode);
@@ -41,11 +52,15 @@ void klog_refresh(int mode)
                 if (i >= k->end && i < k->start) break;
             }
             term_putch(mode, k->buff[i]);
+            klog_putchar_times++;
             i++;
         }
+        klog_clear_times++;
+        term_set_redraw(false);
     }
 
     term_refresh(mode, false);
+    klog_refresh_times++;
 }
 
 static void klog_putch(int mode, uint8_t i)
@@ -62,6 +77,7 @@ static void klog_putch(int mode, uint8_t i)
         k->start = 0;
 
     term_putch(mode, i);
+    klog_putchar_times++;
 }
 
 static void klog_puts(int mode, const char* s, int width)
@@ -246,19 +262,19 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
 
     switch (level) {
     case KLOG_LEVEL_VERBOSE:
-        klog_vprintf_wrapper(TERM_MODE_INFO, "?[15;1m[VERB] ?[0m ");
+        klog_vprintf_wrapper(TERM_MODE_INFO, "\e[34m[VERB] \e[0m ");
         break;
     case KLOG_LEVEL_DEBUG:
-        klog_vprintf_wrapper(TERM_MODE_INFO, "?[15;1m[DEBUG]?[0m ");
+        klog_vprintf_wrapper(TERM_MODE_INFO, "\e[34m[DEBUG]\e[0m ");
         break;
     case KLOG_LEVEL_INFO:
-        klog_vprintf_wrapper(TERM_MODE_INFO, "?[12;1m[INFO] ?[0m ");
+        klog_vprintf_wrapper(TERM_MODE_INFO, "\e[32m[INFO] \e[0m ");
         break;
     case KLOG_LEVEL_WARN:
-        klog_vprintf_wrapper(TERM_MODE_INFO, "?[13;1m[WARN] ?[0m ");
+        klog_vprintf_wrapper(TERM_MODE_INFO, "\e[33m[WARN] \e[0m ");
         break;
     case KLOG_LEVEL_ERROR:
-        klog_vprintf_wrapper(TERM_MODE_INFO, "?[11;1m[ERROR]?[0m ");
+        klog_vprintf_wrapper(TERM_MODE_INFO, "\e[31m[ERROR]\e[0m ");
         break;
     case KLOG_LEVEL_UNK:
         break;

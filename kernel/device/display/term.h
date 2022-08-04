@@ -18,6 +18,8 @@
 #include <stdint.h>
 #include <device/display/fb.h>
 
+void kdisplay(char* s);     /* Implemented in entry C file */
+
 #define TERM_MODE_INFO      0
 #define TERM_MODE_CLI       1
 #define TERM_MODE_GUI       2
@@ -52,5 +54,8 @@ void term_refresh(int mode, bool forced);
 void term_start();
 void term_switch(int mode);
 int term_get_mode(void);
+bool term_get_redraw(void);
+void term_set_redraw(bool val);
 void term_set_cursor(uint8_t c);
+
 

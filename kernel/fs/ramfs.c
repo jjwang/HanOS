@@ -196,7 +196,7 @@ vfs_inode_t* ramfs_mount(vfs_inode_t* at)
             item->entry.size = (uint64_t)&helloworld_text_file_end
                 - (uint64_t)&helloworld_text_file_start;
             break;
-        case 1:            
+        case 1: 
             strcpy(item->entry.name, "HELLOWLD2.TXT");
             item->entry.data = (void*)&helloworld_text_file_start;
             item->entry.size = (uint64_t)&helloworld_text_file_end

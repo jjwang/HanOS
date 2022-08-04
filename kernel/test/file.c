@@ -34,7 +34,7 @@ void dir_test(void)
         while (true) {
             int64_t ret = vfs_getdent(f1, &de);
             if (ret <= 0) break;
-            kprintf("%04d-%02d-%02d %02d:%02d ?[14;1m%5s?[0m %s\n",
+            kprintf("%04d-%02d-%02d %02d:%02d \e[36m%5s\e[0m %s\n",
                   1900 + de.tm.year, de.tm.mon + 1, de.tm.mday,
                   de.tm.hour, de.tm.min,
                   de.type == VFS_NODE_FOLDER ? "<DIR>" : "",

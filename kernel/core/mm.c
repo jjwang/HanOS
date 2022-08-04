@@ -307,7 +307,8 @@ void vmm_init(
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
-                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+                    NUM_PAGES(entry->length),
+                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
 

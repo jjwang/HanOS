@@ -24,14 +24,16 @@
 #define FB_PITCH            (FB_WIDTH * 4)
 
 #define COLOR_BLACK         0x000000
-#define COLOR_RED           0xFF7777
-#define COLOR_GREEN         0x77FF77
-#define COLOR_YELLOW        0xFFFF77
-#define COLOR_BLUE          0x7777FF
-#define COLOR_WHITE         0xFFFFFF
-#define COLOR_LIGHT_WHITE   0xC0C0C0
+#define COLOR_RED           0xAA0000
+#define COLOR_GREEN         0x00AA00
+#define COLOR_YELLOW        0xAAAA00
+#define COLOR_BROWN         0xAA5500
+#define COLOR_BLUE          0x0000AA
+#define COLOR_MAGENTA       0xAA00AA
+#define COLOR_CYAN          0x00AAAA
+#define COLOR_GREY          0xAAAAAA
 
-#define DEFAULT_FGCOLOR     COLOR_LIGHT_WHITE
+#define DEFAULT_FGCOLOR     COLOR_GREY
 #define DEFAULT_BGCOLOR     COLOR_BLACK
 
 typedef struct {
@@ -55,3 +57,4 @@ void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t 
 void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor);
 uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y);
 void fb_refresh(fb_info_t* fb, bool forced);
+void fb_debug(void);
