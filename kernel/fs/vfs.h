@@ -37,7 +37,8 @@ typedef enum {
     VFS_NODE_FOLDER,
     VFS_NODE_BLOCK_DEVICE,
     VFS_NODE_CHAR_DEVICE,
-    VFS_NODE_MOUNTPOINT
+    VFS_NODE_MOUNTPOINT,
+    VFS_NODE_INVALID
 } vfs_node_type_t;
 
 typedef enum {
