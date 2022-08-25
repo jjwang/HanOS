@@ -66,6 +66,21 @@ int strcat(char* dest, const char* src)
     return i;
 }
 
+uint64_t strtol(char* s, num_sys_t type)
+{
+    size_t len = strlen(s);
+    uint64_t val = 0;
+    uint8_t max_single_num = ((type == OCT) ? 7 : 9);
+
+    for (size_t i = 0; i < len; i++) {
+        if (s[i] >= '0' && s[i] <= ('0' + max_single_num)) {
+            val = val * (max_single_num + 1) + s[i] - '0';
+        }
+    }
+
+    return val;
+}
+
 char *strchrnul(const char *s, int c)
 {
     while (*s) {

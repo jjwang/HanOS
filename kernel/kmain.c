@@ -42,6 +42,7 @@
 #include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>
+#include <fs/ramfs.h>
 #include <test/test.h>
 
 static volatile struct limine_framebuffer_request fb_request = { 
@@ -67,6 +68,11 @@ static volatile struct limine_rsdp_request rsdp_request = {
 static volatile struct limine_kernel_address_request kernel_addr_request = {
     .id = LIMINE_KERNEL_ADDRESS_REQUEST,
     .revision = 0
+};
+
+static volatile struct limine_module_request module_request = { 
+    .id = LIMINE_MODULE_REQUEST,
+    .revision = 0 
 };
 
 static volatile enum {
@@ -111,18 +117,22 @@ _Noreturn void kshell(task_id_t tid)
     term_clear(TERM_MODE_CLI);
     kprintf("\e[31m%s\e[0m Type \"\e[36m%s\e[0m\" for command list\n",
             "Welcome to HanOS world!", "help");
-    kprintf("System initialization spends %d seconds\n",
-            cmos_current_time() - cmos_boot_time());
+    kprintf("System initialization spends %d ms\n",
+            hpet_get_nanos() / 1000000);
     kprintf("\e[36m%s\e[0m", "$ ");
 
     pci_init();
+
 #if 0
     ata_init();
 #endif
 
     pci_get_gfx_device(kernel_addr_request.response);
 
+#if 0
     file_test();
+#endif
+
     klog_debug();
     fb_debug();
 
@@ -232,6 +242,21 @@ void kmain(void)
 
     vfs_init();
     smp_init();
+
+    struct limine_module_response *module_response = module_request.response;
+    if (module_response != NULL) {
+        for (size_t i = 0; i < module_response->module_count; i++) {
+            struct limine_file *module = module_response->modules[i];
+            klogi("Module %d path   : %s\n", i, module->path);
+            klogi("Module %d cmdline: %s\n", i, module->cmdline);
+            klogi("Module %d size   : %d\n", i, module->size);
+            if (strcmp(module->cmdline, "INITRD") == 0) {
+                ramfs_init(module->address, module->size);
+            }
+        }
+    } else {
+        kpanic("Cannot find INITRD module\n");
+    } 
 
     klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");

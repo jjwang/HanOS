@@ -1,13 +1,14 @@
 #include <fs/ramfs.h>
 #include <fs/filebase.h>
-#include <fs/ramfs_file.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/klog.h>
+#include <lib/klib.h>
 #include <lib/string.h>
 #include <core/panic.h>
 #include <core/hpet.h>
 #include <core/cmos.h>
+#include <core/mm.h>
 
 /* Filesystem information */
 vfs_fsinfo_t ramfs = {
@@ -35,6 +36,87 @@ static ramfs_ident_t* create_ident()
     ramfs_ident_t* id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
     *id = (ramfs_ident_t) { .alloc_size = 0, .data = NULL };
     return id;
+}
+
+static uint32_t oct2bin(unsigned char *str, size_t size)
+{
+    int n = 0;
+    unsigned char *c = str;
+    while (size-- > 0) {
+        n *= 8;
+        n += *c - '0';
+        c++;
+    }
+    return n;
+}
+
+static uint8_t ustar_type_to_vfs_type(uint8_t type)
+{
+    switch (type) {
+    case '0':
+        return VFS_NODE_FILE;
+    case '3':
+        return VFS_NODE_CHAR_DEVICE;
+    case '4':
+        return VFS_NODE_BLOCK_DEVICE;
+    case '5':
+        return VFS_NODE_FOLDER;
+    default:
+        return VFS_NODE_INVALID;
+    }
+}
+
+void ramfs_init(void* address, uint64_t size)
+{
+    klogi("RAMFS: init from 0x%x with len %d\n", address, size);
+
+    vmm_map((uint64_t)address, VIRT_TO_PHYS(address), NUM_PAGES(size),
+        VMM_FLAGS_DEFAULT);
+
+    unsigned char* ptr = (unsigned char*)address;
+
+    while (memcmp(ptr + 257, "ustar", 5)) {
+        int filesize = oct2bin(ptr + 0x7c, 11);
+        ustar_file_t* file = (ustar_file_t*)ptr;
+        if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FOLDER) {
+            char dname[VFS_MAX_PATH_LEN] = "/";
+            strcat(dname, file->name);
+            size_t dlen = strlen(dname);
+            if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
+            vfs_path_to_node(dname, CREATE, VFS_NODE_FOLDER);
+
+            klogi("RAMFS: folder \"%s\"\n", file->name);
+            /* TODO: modify folder's datetime related attribute */
+        } else if(ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE) {
+            time_t file_time = strtol((char*)file->last_modified, OCT);
+            ramfs_ident_item_t* item =
+                (ramfs_ident_item_t*)kmalloc(sizeof(ramfs_ident_item_t));
+            if (item == NULL) continue;
+
+            memset(item, 0, sizeof(ramfs_ident_item_t));
+            localtime(&file_time, &(item->tm));
+            item->parent = vfs_path_to_node("/", NO_CREATE, 0)->inode;
+
+            strcpy(item->entry.name, "HELLOWLD.TXT");
+            item->entry.data = (void*)kmalloc(filesize);
+            memcpy(item->entry.data, (void*)(ptr + 512), filesize);
+            item->entry.size = filesize;
+        
+            strcpy(item->name, file->name);
+
+            vec_push_back(&ramfs.filelist, (void*)item);
+
+            char dname[VFS_MAX_PATH_LEN] = "/";
+            strcat(dname, file->name);
+            vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
+
+            klogi("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
+                  file->name, filesize, file->last_modified);
+        }
+        ptr += (DIV_ROUNDUP(filesize, 512) + 1) * 512;
+    }
+
+    vmm_unmap((uint64_t)address, NUM_PAGES(size));
 }
 
 vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
@@ -161,8 +243,6 @@ int64_t ramfs_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
 
 int64_t ramfs_mknode(vfs_tnode_t* this)
 {
-    klogi("RAMFS: mknode 0x%x\n", this);
-
     this->inode->ident = create_ident();
     return 0;
 }
@@ -174,41 +254,6 @@ vfs_inode_t* ramfs_mount(vfs_inode_t* at)
     vfs_inode_t* ret = vfs_alloc_inode(
         VFS_NODE_MOUNTPOINT, 0777, 0, &ramfs, NULL);
     ret->ident = create_ident();
-
-    uint64_t now_sec = hpet_get_nanos() / 1000000000;
-    
-    time_t boot_time = cmos_boot_time();
-    time_t now_time = now_sec + boot_time;
-
-    for (size_t i = 0; i < RAMFS_FILE_NUM; i++) {
-        ramfs_ident_item_t* item =
-            (ramfs_ident_item_t*)kmalloc(sizeof(ramfs_ident_item_t));
-        if (item == NULL) continue;
-
-        memset(item, 0, sizeof(ramfs_ident_item_t));
-        localtime(&now_time, &(item->tm));
-        item->parent = ret;
-
-        switch (i) {
-        case 0:
-            strcpy(item->entry.name, "HELLOWLD.TXT");
-            item->entry.data = (void*)&helloworld_text_file_start;
-            item->entry.size = (uint64_t)&helloworld_text_file_end
-                - (uint64_t)&helloworld_text_file_start;
-            break;
-        case 1: 
-            strcpy(item->entry.name, "HELLOWLD2.TXT");
-            item->entry.data = (void*)&helloworld_text_file_start;
-            item->entry.size = (uint64_t)&helloworld_text_file_end
-                - (uint64_t)&helloworld_text_file_start;
-            break;
-        }
-        strcpy(item->name, item->entry.name);
-
-        vec_push_back(&ramfs.filelist, (void*)item);
-
-        /* Call vfs_path_to_node() to alloc nodes */
-    }
 
     return ret;
 }
