@@ -49,21 +49,21 @@ TRAMPOLINEBLOB = core/trampoline.bin
 all: $(KERNEL)
 
 $(KERNEL): $(TRAMPOLINEBLOB) $(COBJ) $(ASMOBJ)
-	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) -o $@
+	$(LD) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) -o $@
 
 	@echo ">>>>> Generating symbols..."
 	@./gensym $@
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -x c -c _symbols.gen -o $(SYMBOLS)
 
 	@echo ">>>>> Linking symbols..."
-	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
+	$(LD) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
 
 	@echo ">>>>> Re-generating symbols..."
 	@./gensym $@
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -x c -c _symbols.gen -o $(SYMBOLS)
 
 	@echo ">>>>> Re-linking symbols..."
-	$(CC) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
+	$(LD) $(INTERNALLDFLAGS) $(COBJ) $(ASMOBJ) $(SYMBOLS) -o $@
 
 limine.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))

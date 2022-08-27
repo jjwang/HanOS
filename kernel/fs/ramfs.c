@@ -88,27 +88,38 @@ void ramfs_init(void* address, uint64_t size)
             klogi("RAMFS: folder \"%s\"\n", file->name);
             /* TODO: modify folder's datetime related attribute */
         } else if(ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE) {
+            char dname[VFS_MAX_PATH_LEN] = "/";
+            strcat(dname, file->name);
+            size_t dlen = strlen(dname);
+            int64_t name_index = 0;
+
+            for (name_index = dlen - 1; name_index >= 0; name_index--) {
+                if (dname[name_index] == '/') {
+                    name_index++;
+                    break;
+                }
+            }
+
             time_t file_time = strtol((char*)file->last_modified, OCT);
-            ramfs_ident_item_t* item =
+            ramfs_ident_item_t *item =
                 (ramfs_ident_item_t*)kmalloc(sizeof(ramfs_ident_item_t));
             if (item == NULL) continue;
 
             memset(item, 0, sizeof(ramfs_ident_item_t));
             localtime(&file_time, &(item->tm));
+
             item->parent = vfs_path_to_node("/", NO_CREATE, 0)->inode;
 
-            strcpy(item->entry.name, "HELLOWLD.TXT");
+            strcpy(item->entry.name, &(dname[name_index]));
             item->entry.data = (void*)kmalloc(filesize);
             memcpy(item->entry.data, (void*)(ptr + 512), filesize);
-            item->entry.size = filesize;
-        
-            strcpy(item->name, file->name);
+            item->entry.size = filesize;        
+            strcpy(item->name, &(dname[name_index]));
 
             vec_push_back(&ramfs.filelist, (void*)item);
 
-            char dname[VFS_MAX_PATH_LEN] = "/";
-            strcat(dname, file->name);
-            vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
+            vfs_tnode_t *tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
+            tnode->inode->size = filesize;
 
             klogi("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
                   file->name, filesize, file->last_modified);

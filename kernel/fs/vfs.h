@@ -106,6 +106,7 @@ void vfs_debug();
 vfs_handle_t vfs_open(char* path, vfs_openmode_t mode);
 int64_t vfs_create(char* path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
+int64_t vfs_tell(vfs_handle_t handle);
 int64_t vfs_seek(vfs_handle_t handle, size_t pos);
 int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff);
 int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff);

@@ -170,6 +170,19 @@ fail:
     return -1;
 }
 
+/* Get the length of a file */
+int64_t vfs_tell(vfs_handle_t handle)
+{
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+
+    if (!fd) { 
+        return 0;
+    } else {
+        vfs_inode_t* inode = fd->inode;
+        return inode->size;
+    }
+}
+
 /* Read specified number of bytes from a file */
 int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
 {
