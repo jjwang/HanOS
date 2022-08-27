@@ -18,6 +18,7 @@
 
 #include <stddef.h>
 
+#include <kconfig.h>
 #include <3rd-party/boot/limine.h>
 #include <lib/time.h>
 #include <lib/klog.h>
@@ -44,6 +45,7 @@
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
 #include <test/test.h>
+#include <proc/elf.h>
 
 static volatile struct limine_framebuffer_request fb_request = { 
     .id = LIMINE_FRAMEBUFFER_REQUEST,
@@ -135,6 +137,8 @@ _Noreturn void kshell(task_id_t tid)
 
     klog_debug();
     fb_debug();
+
+    load_elf(DEFAULT_SHELL_APP);
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;

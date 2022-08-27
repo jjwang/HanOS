@@ -23,10 +23,11 @@ limine:
 	make -C limine
 
 kernel/hanos.elf:
+	$(MAKE) -C userspace
 	$(MAKE) -C kernel
 
 initrd:
-	tar -cvf initrd.tar -C $(TARGET_ROOT) usr bin etc HELLOWLD.TXT
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin
 
 $(ISO_IMAGE): limine kernel/hanos.elf initrd
 	rm -rf iso_root
@@ -43,5 +44,6 @@ $(ISO_IMAGE): limine kernel/hanos.elf initrd
 
 clean:
 	rm -f $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar
+	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
 
