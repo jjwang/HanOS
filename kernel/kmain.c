@@ -138,7 +138,8 @@ _Noreturn void kshell(task_id_t tid)
     klog_debug();
     fb_debug();
 
-    load_elf(DEFAULT_SHELL_APP);
+    auxval_t aux = {0};
+    load_elf(DEFAULT_SHELL_APP, &aux);
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
