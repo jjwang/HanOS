@@ -20,6 +20,7 @@
 #include <lib/vector.h>
 #include <core/smp.h>
 #include <fs/vfs.h>
+#include <proc/task.h>
 
 #define KSTACK_SIZE             4096
 
@@ -33,6 +34,13 @@
 
 typedef uint16_t task_id_t;
 typedef uint8_t task_priority_t;
+
+typedef struct {
+    uint64_t entry;
+    uint64_t phdr;
+    uint16_t phentsize;
+    uint16_t phnum;
+} auxval_t;
 
 typedef enum {
     TASK_KERNEL_MODE,

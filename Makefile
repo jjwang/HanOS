@@ -1,6 +1,6 @@
 ISO_IMAGE = cdrom.iso
 HDD_IMAGE = hdd.img
-TARGET_ROOT = $(shell pwd)/tgroot
+TARGET_ROOT = $(shell pwd)/initrd
 QEMU_HDA_FLAGS = -drive id=handisk,file=$(HDD_IMAGE),if=ide,bus=0,unit=0
 
 .PHONY: clean all run
@@ -23,10 +23,10 @@ limine:
 	make -C limine
 
 kernel/hanos.elf:
-	$(MAKE) -C userspace
 	$(MAKE) -C kernel
 
 initrd:
+	$(MAKE) -C userspace
 	tar -cvf initrd.tar -C $(TARGET_ROOT) bin
 
 $(ISO_IMAGE): limine kernel/hanos.elf initrd

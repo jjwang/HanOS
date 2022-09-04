@@ -37,4 +37,4 @@ $(CELF): %.elf: %.o
 
 clean:
 	rm -rf $(COBJ) $(CELF)
-	rm -rf ../tgroot/bin/*.elf
+	rm -rf ../initrd/bin/*.elf

@@ -7,10 +7,14 @@
 #include <core/mm.h>
 #include <core/panic.h>
 
-int64_t load_elf(char *path_name)
+#define BASE    0xffffffff80000000
+
+int64_t load_elf(char *path_name, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
     size_t elf_len = 0;
+
+    elf_phdr_t *phdr = NULL;
 
     char* fn = path_name;
     vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
@@ -35,13 +39,54 @@ int64_t load_elf(char *path_name)
     if (hdr.elf[EI_OSABI] != ABI_SYSV)  goto err_exit;
     if (hdr.machine != ARCH_X86_64)     goto err_exit;
 
-    elf_phdr_t *phdr = kmalloc(hdr.ph_num * sizeof(elf_phdr_t));
+    aux->entry = hdr.entry;
+    aux->phnum = hdr.phnum;
+    aux->phentsize = hdr.phentsize;
+
+    phdr = kmalloc(hdr.phnum * sizeof(elf_phdr_t));
     if (!phdr) goto err_exit;
+
+    aux->phdr = (uint64_t)phdr;
+    memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
+
+    for (size_t i = 0; i < hdr.phnum; i++) {
+        if (phdr[i].type != PT_LOAD) {
+            continue;
+        }
+
+        size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
+        size_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
+
+        uint64_t addr = pmm_get(page_count, 0x0);
+        if (!addr) {
+            goto err_exit;
+        }
+
+        size_t pf = VMM_FLAG_PRESENT | VMM_FLAG_USER;
+        if(phdr[i].flags & PF_W) {
+            pf |= VMM_FLAG_READWRITE;
+        }
+
+        for (size_t j = 0; j < page_count; j++) {
+            uint64_t virt = BASE + (phdr[i].vaddr + (j * PAGE_SIZE));
+            uint64_t phys = addr + (j * PAGE_SIZE);
+            vmm_map(virt, phys, 1, pf);
+            memset((void*)virt, 0, PAGE_SIZE);
+            klogi("ELF: %d bytes, map 0x%11x to virt 0x%x\n", phdr[i].memsz, phys, virt);
+        }
+
+        char *buf = (char *)(BASE + phdr[i].vaddr);
+        memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
+
+        /* Need to free in some other places */
+        /* pmm_free(addr, page_count); */
+    }
 
     if (!phdr)      kmfree(phdr);
     if (!elf_buff)  kmfree(elf_buff);
 
-    klogi("ELF: Read header with ph_num = %d\n", hdr.ph_num);
+    klogi("ELF: Read header with phnum %d, shnum %d, entry 0x%x\n",
+          hdr.phnum, hdr.shnum, hdr.entry);
     return 0;
 
 err_exit:
