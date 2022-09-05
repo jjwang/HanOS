@@ -38,8 +38,11 @@ typedef uint8_t task_priority_t;
 typedef struct {
     uint64_t entry;
     uint64_t phdr;
+    uint64_t phaddr;
     uint16_t phentsize;
     uint16_t phnum;
+    uint64_t shdr;
+    uint16_t shnum;
 } auxval_t;
 
 typedef enum {

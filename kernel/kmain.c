@@ -140,6 +140,7 @@ _Noreturn void kshell(task_id_t tid)
 
     auxval_t aux = {0};
     load_elf(DEFAULT_SHELL_APP, &aux);
+    klogi("Shell entry address: 0x%x\n", aux.entry);
 
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;

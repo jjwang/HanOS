@@ -39,9 +39,9 @@ typedef struct {
     uint16_t shstrndx;  /* Section header string table index */
 } elf_hdr_t;
 
-#define PF_X        1
-#define PF_W        2
-#define PF_R        4
+#define PF_X            1
+#define PF_W            2
+#define PF_R            4
 
 typedef struct {
     uint32_t type;      /* Segment type */
@@ -56,6 +56,27 @@ typedef struct {
                          * p_offset modulus p_align.
                          */
 } elf_phdr_t;
+
+#define SHT_NULL            0       /* sh_type */
+#define SHT_PROGBITS        1
+#define SHT_SYMTAB          2
+#define SHT_STRTAB          3
+#define SHT_RELA            4
+#define SHT_HASH            5
+#define SHT_DYNAMIC         6
+#define SHT_NOTE            7
+#define SHT_NOBITS          8
+#define SHT_REL             9
+#define SHT_SHLIB           10
+#define SHT_DYNSYM          11
+#define SHT_UNKNOWN12       12
+#define SHT_UNKNOWN13       13
+#define SHT_INIT_ARRAY      14
+#define SHT_FINI_ARRAY      15
+#define SHT_PREINIT_ARRAY   16
+#define SHT_GROUP           17
+#define SHT_SYMTAB_SHNDX    18
+#define SHT_NUM             19
 
 typedef struct elf_shdr_t {
     uint32_t name;      /* An offset to a string in the shstrtab section */
