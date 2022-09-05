@@ -9,12 +9,15 @@
 
 #define BASE    0xffffffff80000000
 
+/* Need to free aux->phdr, aux->phaddr, aux->shdr ... */
 int64_t load_elf(char *path_name, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
     size_t elf_len = 0;
 
     elf_phdr_t *phdr = NULL;
+    elf_shdr_t *shdr = NULL;
+    uint64_t *phaddr = NULL;
 
     char* fn = path_name;
     vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
@@ -39,7 +42,7 @@ int64_t load_elf(char *path_name, auxval_t *aux)
     if (hdr.elf[EI_OSABI] != ABI_SYSV)  goto err_exit;
     if (hdr.machine != ARCH_X86_64)     goto err_exit;
 
-    aux->entry = hdr.entry;
+    aux->entry = BASE + hdr.entry;
     aux->phnum = hdr.phnum;
     aux->phentsize = hdr.phentsize;
 
@@ -49,7 +52,13 @@ int64_t load_elf(char *path_name, auxval_t *aux)
     aux->phdr = (uint64_t)phdr;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
 
+    phaddr = (uint64_t*)kmalloc(hdr.phnum * sizeof(uint64_t));
+    if (phaddr == NULL)                 goto err_exit;
+    aux->phaddr = (uint64_t)phaddr;
+
     for (size_t i = 0; i < hdr.phnum; i++) {
+        phaddr[i] = (uint64_t)NULL;
+
         if (phdr[i].type != PT_LOAD) {
             continue;
         }
@@ -59,8 +68,9 @@ int64_t load_elf(char *path_name, auxval_t *aux)
 
         uint64_t addr = pmm_get(page_count, 0x0);
         if (!addr) {
-            goto err_exit;
+            kpanic("ELF: cannot alloc %d bytes memory", page_count * PAGE_SIZE);
         }
+        phaddr[i] = addr;
 
         size_t pf = VMM_FLAG_PRESENT | VMM_FLAG_USER;
         if(phdr[i].flags & PF_W) {
@@ -79,10 +89,21 @@ int64_t load_elf(char *path_name, auxval_t *aux)
         memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
 
         /* Need to free in some other places */
-        /* pmm_free(addr, page_count); */
     }
 
-    if (!phdr)      kmfree(phdr);
+    shdr = kmalloc(hdr.shnum * sizeof(elf_shdr_t));
+    if (!shdr) goto err_exit;
+
+    aux->shdr = (uint64_t)shdr;
+    memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));
+
+    char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
+    for (size_t k = 0; k < hdr.shnum; k++) {
+        /* if (shdr[k].type != SHT_SYMTAB) continue; */
+
+        klogi("ELF: %d section name \"%s\"\n", k, &header_strs[shdr[k].name]);
+    }
+
     if (!elf_buff)  kmfree(elf_buff);
 
     klogi("ELF: Read header with phnum %d, shnum %d, entry 0x%x\n",
@@ -91,6 +112,8 @@ int64_t load_elf(char *path_name, auxval_t *aux)
 
 err_exit:
     if (!phdr)      kmfree(phdr);
+    if (!phaddr)    kmfree(phaddr);
+    if (!shdr)      kmfree(shdr);
     if (!elf_buff)  kmfree(elf_buff);
 
     return -1;
