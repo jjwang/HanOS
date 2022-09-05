@@ -27,7 +27,7 @@ COBJ   := $(CFILES:.c=.o)
 CELF   := $(CFILES:.c=.elf)
 
 all: $(COBJ) $(CELF)
-	cp $(CELF) ../tgroot/bin
+	cp $(CELF) ../initrd/bin
 
 $(COBJ): %.o: %.c
 	$(CC) $(CFLAGS) $(INTERNALCFLAGS) -c $< -o $@
