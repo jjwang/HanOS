@@ -3,7 +3,7 @@ HDD_IMAGE = hdd.img
 TARGET_ROOT = $(shell pwd)/initrd
 QEMU_HDA_FLAGS = -drive id=handisk,file=$(HDD_IMAGE),if=ide,bus=0,unit=0
 
-.PHONY: clean all run
+.PHONY: clean all run initrd
 
 all: $(ISO_IMAGE)
 
@@ -27,10 +27,10 @@ kernel/hanos.elf:
 
 initrd:
 	$(MAKE) -C userspace
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin
 
-$(ISO_IMAGE): limine kernel/hanos.elf initrd
-	rm -rf iso_root
+$(ISO_IMAGE): limine initrd kernel/hanos.elf
+	rm -rf iso_root initrd.tar
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
