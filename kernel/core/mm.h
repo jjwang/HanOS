@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <3rd-party/boot/limine.h>
+#include <lib/lock.h>
 
 #define MM_SIZE                 (256 * MB)
 
@@ -62,17 +63,23 @@ void pmm_dump_usage(void);
 
 #define MEM_VIRT_OFFSET         0xffff800000000000
 
+#define PAGE_TABLE_ENTRIES      512
+
 #define VIRT_TO_PHYS(a)         (((uint64_t)(a)) - MEM_VIRT_OFFSET)
 #define PHYS_TO_VIRT(a)         (((uint64_t)(a)) + MEM_VIRT_OFFSET)
 
 typedef struct {
     uint64_t* PML4;
+    lock_t lock;
 } addrspace_t;
 
 void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel);
 
-void vmm_map(uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
-void vmm_unmap(uint64_t vaddr, uint64_t np);
+void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
+void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np);
+
+addrspace_t *create_addrspace(void);
+void destory_addrspace(addrspace_t *addrspace);
 

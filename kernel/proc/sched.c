@@ -40,13 +40,31 @@ static volatile uint16_t cpu_num = 0;
 vec_new_static(task_t*, tasks_active);
 
 extern void enter_context_switch(void* v);
-extern void exit_context_switch(task_t* next);
+extern void exit_context_switch(task_t* next, uint64_t cr3val);
+
+void task_debug(void)
+{
+    lock_lock(&sched_lock);
+
+    size_t task_num = vec_length(&tasks_active);
+    for (size_t i = 0; i < task_num; i++) {
+        task_t *t  = vec_at(&tasks_active, i);
+    }
+    for (size_t k = 0; k < CPU_MAX; k++) {
+        if (tasks_running[k] != NULL && tasks_running[k] != tasks_idle[k]) {
+            task_num++;
+        }
+    }
+    lock_release(&sched_lock);
+
+    kprintf("Totally %d active tasks.\n", task_num);
+}
 
 _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-#if 0
+#if 1
     /* This is for writing test of user space memory. */
     uint64_t* temp_val = (uint64_t*)0x20001000;
     *temp_val = 0;
@@ -61,6 +79,8 @@ void do_context_switch(void* stack)
 {
     const smp_info_t* smp_info = smp_get_info();
     if (smp_info == NULL) return;
+
+    /* Make sure that all CPUs initialization finished */
     if (smp_info->num_cpus != cpu_num) return;
 
     lock_lock(&sched_lock);
@@ -121,7 +141,7 @@ void do_context_switch(void* stack)
 
     apic_send_eoi();
     
-    exit_context_switch(next->kstack_top);
+    exit_context_switch(next->kstack_top, 0);
 }
 
 void sched_sleep(time_t millis)
@@ -170,7 +190,7 @@ uint64_t sched_get_ticks()
 
 void sched_init(uint16_t cpu_id)
 {
-    tasks_idle[cpu_id] = task_make(task_idle_proc, 255, (cpu_id == 100) ? TASK_USER_MODE : TASK_KERNEL_MODE);
+    tasks_idle[cpu_id] = task_make(task_idle_proc, 255, (cpu_id != 100) ? TASK_USER_MODE : TASK_KERNEL_MODE);
 
     apic_timer_init(); 
     apic_timer_set_period(TIMESLICE_DEFAULT);

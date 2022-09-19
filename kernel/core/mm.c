@@ -174,14 +174,16 @@ void pmm_dump_usage(void)
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 
-static void map_page(uint64_t vaddr, uint64_t paddr, uint64_t flags)
+static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t flags)
 {
+    addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
+
     uint16_t pte   = (vaddr >> 12) & 0x1ff;
     uint16_t pde   = (vaddr >> 21) & 0x1ff;
     uint16_t pdpe  = (vaddr >> 30) & 0x1ff;
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
-    uint64_t* pml4 = kaddrspace.PML4;
+    uint64_t* pml4 = as->PML4;
     uint64_t* pdpt;
     uint64_t* pd; 
     uint64_t* pt; 
@@ -211,18 +213,20 @@ static void map_page(uint64_t vaddr, uint64_t paddr, uint64_t flags)
 
     uint64_t cr3val;
     read_cr("cr3", &cr3val);
-    if (cr3val == (uint64_t)(VIRT_TO_PHYS(kaddrspace.PML4)))
+    if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
         asm volatile("invlpg (%0)" ::"r"(vaddr));
 }
 
-static void unmap_page(uint64_t vaddr)
+static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
 {
+    addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
+
     uint16_t pte = (vaddr >> 12) & 0x1ff;
     uint16_t pde = (vaddr >> 21) & 0x1ff;
     uint16_t pdpe = (vaddr >> 30) & 0x1ff;
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
-    uint64_t* pml4 = kaddrspace.PML4;
+    uint64_t* pml4 = as->PML4;
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
         return;
 
@@ -243,7 +247,7 @@ static void unmap_page(uint64_t vaddr)
 
     uint64_t cr3val;
     read_cr("cr3", &cr3val);
-    if (cr3val == (uint64_t)(VIRT_TO_PHYS(kaddrspace.PML4)))
+    if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
         asm volatile("invlpg (%0)" ::"r"(vaddr));
 
     for (int i = 0; i < 512; i++)
@@ -268,16 +272,16 @@ done:
     return;
 }
 
-void vmm_unmap(uint64_t vaddr, uint64_t np) 
+void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np) 
 {
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
-        unmap_page(vaddr + i); 
+        unmap_page(addrspace, vaddr + i); 
 }
 
-void vmm_map(uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags)
+void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags)
 {
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
-        map_page(vaddr + i, paddr + i, flags);
+        map_page(addrspace, vaddr + i, paddr + i, flags);
 }
 
 void vmm_init(
@@ -287,11 +291,11 @@ void vmm_init(
     kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(0xffffffff80000000, 0,
+    vmm_map(NULL, 0xffffffff80000000, 0,
             NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_USERMODE);
     klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n", MM_SIZE);
 
-    vmm_map(0xffff800000000000, 0,
+    vmm_map(NULL, 0xffff800000000000, 0,
             NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_DEFAULT);
     klogd("Mapped %d bytes memory to 0xFFFF800000000000\n", MM_SIZE);
 
@@ -301,12 +305,12 @@ void vmm_init(
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             uint64_t vaddr = kernel->virtual_base
                              + entry->base - kernel->physical_base;
-            vmm_map(vaddr, entry->base, NUM_PAGES(entry->length),
+            vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
             klogd("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
-            vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
+            vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
@@ -315,7 +319,7 @@ void vmm_init(
         } else if (entry->type != LIMINE_MEMMAP_USABLE && (entry->base >= MM_SIZE
                   || entry->base + entry-> length > MM_SIZE))
         {
-            vmm_map(PHYS_TO_VIRT(entry->base), entry->base,
+            vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
             klogd("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
@@ -325,4 +329,52 @@ void vmm_init(
     write_cr("cr3", VIRT_TO_PHYS(kaddrspace.PML4));
     klogi("VMM initialization finished\n");
 }
+
+addrspace_t *create_addrspace(void)
+{
+    addrspace_t *as = kmalloc(sizeof(addrspace_t));
+    if (!as)
+        return NULL;
+    as->PML4 = (uint64_t*)pmm_get(1, 0x0);
+    if (!as->PML4) {
+        kmfree(as);
+        return NULL;
+    }
+    as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
+    memset(as->PML4, 0, PAGE_SIZE);
+    as->lock = lock_new();
+    return as;
+}
+
+void destory_addrspace(addrspace_t *as)
+{
+    uint64_t *pdpt, *pd, *pt;
+
+    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
+        if (as->PML4[i] & 1) {
+            pdpt = (uint64_t *)PHYS_TO_VIRT(as->PML4[i] & 0xfffffffffffff000);
+            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+                if (pdpt[j] & 1) {
+                    pd = (uint64_t *)PHYS_TO_VIRT(pdpt[j] & 0xfffffffffffff000);
+                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
+                        if (pd[k] & 1) {
+                            pt = (uint64_t *)PHYS_TO_VIRT(pd[k] & 0xfffffffffffff000);
+                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
+                                if (pt[l] & 1)
+                                    pmm_free(VIRT_TO_PHYS(pt[l] & 0xfffffffffffff000), 1);
+                            }
+                            pmm_free(VIRT_TO_PHYS(pd[k] & 0xfffffffffffff000), 1);
+                        }
+                    }
+                    pmm_free(VIRT_TO_PHYS(pdpt[j] & 0xfffffffffffff000), 1);
+                }
+            }
+            pmm_free(VIRT_TO_PHYS(as->PML4[i] & 0xfffffffffffff000), 1);
+        }
+    }
+
+    pmm_free(VIRT_TO_PHYS(as->PML4), 1);
+    kmfree(as);
+}
+
 
