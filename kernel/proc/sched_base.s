@@ -29,6 +29,12 @@ enter_context_switch:
     iretq
 
 exit_context_switch:
+    /* Need to set CR3 here */
+    test %rsi, %rsi
+    jz .dont_load_cr3
+    mov %cr3, %rsi
+.dont_load_cr3:
+
     mov %rdi, %rsp
 
     pop %r15

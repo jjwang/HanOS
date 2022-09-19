@@ -112,6 +112,7 @@ _Noreturn void kshell(task_id_t tid)
         {"vfs",    vfs_debug,      "Dump tree of virtual file system"},
         {"pci",    pci_debug,      "Print list of PCI devices"},
         {"ls",     dir_test,       "List all files of current directory"},
+        {"task",   task_debug,     "Display active task information"},
         {"",       NULL,           ""}};
 
     klogi("Shell task started\n");

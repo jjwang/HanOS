@@ -19,6 +19,7 @@
 #include <lib/time.h>
 #include <lib/vector.h>
 #include <core/smp.h>
+#include <core/mm.h>
 #include <fs/vfs.h>
 #include <proc/task.h>
 
@@ -81,10 +82,10 @@ typedef struct {
 } task_regs_t;
 
 typedef struct task_t {
-    void* kstack_top;
-    void* kstack_limit;
-    void* ustack_top;
-    void* ustack_limit;
+    void *kstack_top;
+    void *kstack_limit;
+    void *ustack_top;
+    void *ustack_limit;
 
     task_id_t tid;
     task_priority_t priority;
@@ -93,8 +94,10 @@ typedef struct task_t {
     task_status_t status;
     task_mode_t mode;
 
-    struct task_t* next;
-    struct task_t* prev;
+    struct task_t *next;
+    struct task_t *prev;
+
+    addrspace_t *addrspace;
 } task_t;
 
 task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);

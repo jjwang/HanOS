@@ -9,6 +9,10 @@
 
 #define BASE    0xffffffff80000000
 
+#define IS_TEXT(p)  (p.flags & PF_X)
+#define IS_DATA(p)  (p.flags & PF_W)
+#define IS_BSS(p)   (p.filesz < p.memsz)
+
 /* Need to free aux->phdr, aux->phaddr, aux->shdr ... */
 int64_t load_elf(char *path_name, auxval_t *aux)
 {
@@ -63,6 +67,14 @@ int64_t load_elf(char *path_name, auxval_t *aux)
             continue;
         }
 
+        if (IS_TEXT(phdr[i])) {
+            klogi("ELF: %d hdr is text program header\n", i);
+        } else if (IS_DATA(phdr[i])) {
+            klogi("ELF: %d hdr is data program header\n", i);
+        } if (IS_BSS(phdr[i])) {
+            klogi("ELF: %d hdr is bss program header\n", i);
+        }
+
         size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
         size_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
@@ -80,7 +92,7 @@ int64_t load_elf(char *path_name, auxval_t *aux)
         for (size_t j = 0; j < page_count; j++) {
             uint64_t virt = BASE + (phdr[i].vaddr + (j * PAGE_SIZE));
             uint64_t phys = addr + (j * PAGE_SIZE);
-            vmm_map(virt, phys, 1, pf);
+            vmm_map(NULL, virt, phys, 1, pf);
             memset((void*)virt, 0, PAGE_SIZE);
             klogi("ELF: %d bytes, map 0x%11x to virt 0x%x\n", phdr[i].memsz, phys, virt);
         }
@@ -101,7 +113,8 @@ int64_t load_elf(char *path_name, auxval_t *aux)
     for (size_t k = 0; k < hdr.shnum; k++) {
         /* if (shdr[k].type != SHT_SYMTAB) continue; */
 
-        klogi("ELF: %d section name \"%s\"\n", k, &header_strs[shdr[k].name]);
+        klogi("ELF: %d section 0x%x type %d name \"%s\"\n", k,
+              shdr[k].addr, shdr[k].type, &header_strs[shdr[k].name]);
     }
 
     if (!elf_buff)  kmfree(elf_buff);
