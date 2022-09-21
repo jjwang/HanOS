@@ -288,16 +288,12 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel)
 {
-    kaddrspace.PML4 = kmalloc(PAGE_SIZE);
+    kaddrspace.PML4 = umalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(NULL, 0xffffffff80000000, 0,
-            NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_USERMODE);
-    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n", MM_SIZE);
-
-    vmm_map(NULL, 0xffff800000000000, 0,
-            NUM_PAGES(MIN(kmem_info.phys_limit, MM_SIZE)), VMM_FLAGS_DEFAULT);
-    klogd("Mapped %d bytes memory to 0xFFFF800000000000\n", MM_SIZE);
+    vmm_map(NULL, MEM_KER_OFFSET, 0,
+            NUM_PAGES(kmem_info.phys_limit), VMM_FLAGS_DEFAULT);
+    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n", kmem_info.phys_limit);
 
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
@@ -315,12 +311,10 @@ void vmm_init(
                     VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
-
-        } else if (entry->type != LIMINE_MEMMAP_USABLE && (entry->base >= MM_SIZE
-                  || entry->base + entry-> length > MM_SIZE))
-        {
+        } else {
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
-                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+                    NUM_PAGES(entry->length),
+                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
             klogd("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }
@@ -332,7 +326,7 @@ void vmm_init(
 
 addrspace_t *create_addrspace(void)
 {
-    addrspace_t *as = kmalloc(sizeof(addrspace_t));
+    addrspace_t *as = umalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
     as->PML4 = (uint64_t*)pmm_get(1, 0x0);
@@ -340,7 +334,7 @@ addrspace_t *create_addrspace(void)
         kmfree(as);
         return NULL;
     }
-    as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
+    as->PML4 = (void *)PHYS_TO_KER(as->PML4);
     memset(as->PML4, 0, PAGE_SIZE);
     as->lock = lock_new();
     return as;

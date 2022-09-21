@@ -294,7 +294,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
             if (pn) break;
             strcpy(curpath, parent);
         }
-        if (pn->inode->fs != NULL) {
+        if (pn != NULL && pn->inode->fs != NULL) {
             klogw("VFS: Can not open %s, visit back to %s\n", path, parent);
             req = pn->inode->fs->open(pn->inode, path);
         }

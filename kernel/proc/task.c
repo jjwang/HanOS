@@ -35,7 +35,7 @@ task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_
     ntask->kstack_limit = kmalloc(KSTACK_SIZE);
     ntask->kstack_top = ntask->kstack_limit + KSTACK_SIZE;
 
-    ntask->ustack_limit = kmalloc(KSTACK_SIZE);
+    ntask->ustack_limit = umalloc(KSTACK_SIZE);
     ntask->ustack_top = ntask->ustack_limit + KSTACK_SIZE;
 
     task_regs_t* ntask_regs = NULL;
