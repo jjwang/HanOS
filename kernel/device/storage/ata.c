@@ -7,7 +7,6 @@
 #include <lib/lock.h>
 #include <lib/klog.h>
 #include <lib/string.h>
-#include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>

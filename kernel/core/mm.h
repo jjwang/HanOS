@@ -22,16 +22,20 @@
 #include <3rd-party/boot/limine.h>
 #include <lib/lock.h>
 
-#define MM_SIZE                 (256 * MB)
-
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
 
-#define USERSPACE_OFFSET        0x1000
-#define HIGHERHALF_OFFSET       0xffffffff80000000
+#define MEM_KER_OFFSET          0xffffffff80000000
+#define MEM_VIRT_OFFSET         0xffff800000000000
+
+#define KER_TO_PHYS(a)          (((uint64_t)(a)) - MEM_KER_OFFSET)
+#define PHYS_TO_KER(a)          (((uint64_t)(a)) + MEM_KER_OFFSET)
+
+#define VIRT_TO_PHYS(a)         (((uint64_t)(a)) - MEM_VIRT_OFFSET)
+#define PHYS_TO_VIRT(a)         (((uint64_t)(a)) + MEM_VIRT_OFFSET)
 
 /* This address should be same with linker.ld */
-#define KERNEL_OFFSET           0xffffffff80200000
+#define KERNEL_CODE_OFFSET      0xffffffff80200000
 
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
 #define PAGE_ALIGN_UP(num)      (NUM_PAGES(num) * PAGE_SIZE)
@@ -61,12 +65,7 @@ void pmm_dump_usage(void);
 #define VMM_FLAGS_MMIO          (VMM_FLAGS_DEFAULT | VMM_FLAG_CACHE_DISABLE)
 #define VMM_FLAGS_USERMODE      (VMM_FLAGS_DEFAULT | VMM_FLAG_USER)
 
-#define MEM_VIRT_OFFSET         0xffff800000000000
-
 #define PAGE_TABLE_ENTRIES      512
-
-#define VIRT_TO_PHYS(a)         (((uint64_t)(a)) - MEM_VIRT_OFFSET)
-#define PHYS_TO_VIRT(a)         (((uint64_t)(a)) + MEM_VIRT_OFFSET)
 
 typedef struct {
     uint64_t* PML4;

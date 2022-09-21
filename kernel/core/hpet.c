@@ -75,7 +75,7 @@ void hpet_init()
         kloge("HPET not found\n");
         return;
     }
-    hpet = (hpet_t *)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
+    hpet = (hpet_t *)PHYS_TO_KER(hpet_sdt->base_addr.address);
     vmm_map(NULL, (uint64_t)hpet, (uint64_t)hpet_sdt->base_addr.address,
             1, VMM_FLAGS_MMIO);
 

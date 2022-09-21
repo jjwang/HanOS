@@ -228,6 +228,7 @@ void kmain(void)
         fb_request.response->framebuffers[0];
 
     term_init(fb);
+    klogi("Framebuffer address: 0x%x\n", fb->address);
 
     gdt_init(NULL);
     idt_init();
@@ -239,7 +240,6 @@ void kmain(void)
 
     /* Need to init after idt_init() because it will be used very often. */
     pit_init();
-
     keyboard_init();
 
     acpi_init(rsdp_request.response);

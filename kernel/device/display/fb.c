@@ -135,7 +135,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
 {
     if(s == NULL) {
         if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) {
-            fb->backbuffer = kmalloc(fb->backbuffer_len);
+            fb->backbuffer = umalloc(fb->backbuffer_len);
             memcpy(fb->backbuffer, fb->addr, fb->backbuffer_len);
         }
         return;

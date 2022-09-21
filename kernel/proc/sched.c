@@ -49,6 +49,7 @@ void task_debug(void)
     size_t task_num = vec_length(&tasks_active);
     for (size_t i = 0; i < task_num; i++) {
         task_t *t  = vec_at(&tasks_active, i);
+        (void)t;
     }
     for (size_t k = 0; k < CPU_MAX; k++) {
         if (tasks_running[k] != NULL && tasks_running[k] != tasks_idle[k]) {
@@ -64,7 +65,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-#if 1
+#if 0
     /* This is for writing test of user space memory. */
     uint64_t* temp_val = (uint64_t*)0x20001000;
     *temp_val = 0;

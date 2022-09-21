@@ -18,7 +18,6 @@
  */
 #include <stdint.h>
 #include <lib/klog.h>
-#include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <core/gdt.h>
 #include <core/panic.h>
