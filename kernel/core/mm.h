@@ -40,12 +40,15 @@
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
 #define PAGE_ALIGN_UP(num)      (NUM_PAGES(num) * PAGE_SIZE)
 
+#define MAX_MEM_TOTAL_SIZE      (128 * GB)
+#define MAX_MEM_BMP_SIZE        (NUM_PAGES(MAX_MEM_TOTAL_SIZE) / BMP_PAGES_PER_BYTE)
+
 typedef struct {
     uint64_t phys_limit;
     uint64_t total_size;
     uint64_t free_size;
 
-    uint8_t* bitmap;
+    uint8_t *bitmap;
 } mem_info_t;
 
 void pmm_init(struct limine_memmap_response* map);
@@ -68,9 +71,16 @@ void pmm_dump_usage(void);
 #define PAGE_TABLE_ENTRIES      512
 
 typedef struct {
-    uint64_t* PML4;
-    lock_t lock;
+    uint64_t *PML4;
+    lock_t    lock;
 } addrspace_t;
+
+typedef struct addrspace_node {
+    void  *virt_start;
+    void  *phys_start;
+    size_t size;
+    int    page_flags;
+} __attribute__((packed)) addrspace_node_t;
 
 void vmm_init(
     struct limine_memmap_response* map,

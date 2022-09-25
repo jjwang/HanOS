@@ -100,5 +100,14 @@ typedef struct {
     uint32_t type;
 } elf_nhdr_t;
 
-int64_t load_elf(char *path_name, auxval_t *aux);
+typedef struct {
+    uint32_t name;      /* Symbol name (string tbl index) */
+    uint8_t  info;      /* Symbol type and binding */
+    uint8_t  other;     /* Symbol visibility (and 0) */
+    uint16_t shndx;     /* Section index */
+    uint64_t value;     /* Symbol value */
+    uint64_t size;      /* Symbol size */
+} elf_sym_t;
+
+int64_t elf_load(task_t *task, char *path_name, auxval_t *aux);
 

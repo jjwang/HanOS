@@ -139,10 +139,6 @@ _Noreturn void kshell(task_id_t tid)
     klog_debug();
     fb_debug();
 
-    auxval_t aux = {0};
-    load_elf(DEFAULT_SHELL_APP, &aux);
-    klogi("Shell entry address: 0x%x\n", aux.entry);
-
     char cmd_buff[1024] = {0};
     uint16_t cmd_end = 0;
 
@@ -289,7 +285,12 @@ void kmain(void)
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-    sched_add(kshell);
+    task_t *tshell = sched_add(kshell);
+
+    auxval_t aux = {0};
+    elf_load(tshell, DEFAULT_SHELL_APP, &aux);
+    klogi("Shell entry address: 0x%x\n", aux.entry);
+
     sched_add(kcursor);
 
     cpu_t *cpu = smp_get_current_cpu(false);

@@ -1,30 +1,23 @@
 /**-----------------------------------------------------------------------------
-
  @file    mm.c
  @brief   Implementation of memory management functions
  @details
  @verbatim
-
   Memory management is a critical part of any operating system kernel.
   Providing a quick way for programs to allocate and free memory on a
   regular basis is a major responsibility of the kernel.
-
   High Half Kernel: To setup a higher half kernel, you have to map your
   kernel to the appropriate virtual address. Without a boot loader help,
   you'll need a small trampoline code which runs in lower half, sets up
   higher half paging and jumps.
-
   If page protection is not enabled, virtual address is equal with physical
   address. The highest bit of CR0 indicates whether paging is enabled or
   not: mov cr0,8000000 can enable paging.
-
   PMM: The method behind PMM is very simple. The memories with type -
   STIVALE2_MMAP_USABLE are devided into 4K-size pages. A bitmap array is
   used for indicated whether it is free or not. One bit for one page in
   bitmap array.
-
  @endverbatim
-
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
@@ -42,7 +35,8 @@ static addrspace_t kaddrspace = {0};
 static void bitmap_markused(uint64_t addr, uint64_t numpages)
 {
     for (uint64_t i = addr; i < addr + (numpages * PAGE_SIZE); i += PAGE_SIZE) { 
-        kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)] &= ~((1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE)));
+        kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)]
+            &= ~((1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE)));
     }
 }
 
@@ -51,7 +45,8 @@ static bool bitmap_isfree(uint64_t addr, uint64_t numpages)
     bool free = true;
     
     for (uint64_t i = addr; i < addr + (numpages * PAGE_SIZE); i += PAGE_SIZE) {
-        free = kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)] & (1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE));
+        free = kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)]
+            & (1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE));
         if (!free)
             break;
     }
@@ -64,7 +59,8 @@ void pmm_free(uint64_t addr, uint64_t numpages)
         if (!bitmap_isfree(i, 1))
             kmem_info.free_size += PAGE_SIZE;
         
-        kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)] |= 1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE);
+        kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)]
+            |= 1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE);
     }
 }
 
@@ -174,7 +170,8 @@ void pmm_dump_usage(void)
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 
-static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t flags)
+static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
+uint64_t flags)
 {
     addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
 
@@ -278,7 +275,8 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np)
         unmap_page(addrspace, vaddr + i); 
 }
 
-void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags)
+void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
+    uint64_t np, uint64_t flags)
 {
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
         map_page(addrspace, vaddr + i, paddr + i, flags);
@@ -293,7 +291,8 @@ void vmm_init(
 
     vmm_map(NULL, MEM_KER_OFFSET, 0,
             NUM_PAGES(kmem_info.phys_limit), VMM_FLAGS_DEFAULT);
-    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n", kmem_info.phys_limit);
+    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n",
+            kmem_info.phys_limit);
 
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
@@ -334,7 +333,7 @@ addrspace_t *create_addrspace(void)
         kmfree(as);
         return NULL;
     }
-    as->PML4 = (void *)PHYS_TO_KER(as->PML4);
+    as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
     memset(as->PML4, 0, PAGE_SIZE);
     as->lock = lock_new();
     return as;
@@ -368,7 +367,6 @@ void destory_addrspace(addrspace_t *as)
     }
 
     pmm_free(VIRT_TO_PHYS(as->PML4), 1);
-    kmfree(as);
+    umfree(as);
 }
-
 
