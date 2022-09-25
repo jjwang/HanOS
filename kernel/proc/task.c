@@ -22,7 +22,9 @@
 
 static task_id_t curr_tid = 0;
 
-task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode)
+task_t* task_make(
+    const char *name, void (*entry)(task_id_t), task_priority_t priority,
+    task_mode_t mode)
 {
     if (curr_tid == TID_MAX) {
         klogw("Could not allocate tid\n");
@@ -64,6 +66,10 @@ task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_
     ntask->priority = priority;
     ntask->last_tick = 0;
     ntask->status = TASK_READY;
+
+    ntask->addrspace = create_addrspace();
+
+    klogi("TASK: Create tid %d in function %s\n", ntask->tid, name);
 
     curr_tid++;
     return ntask;

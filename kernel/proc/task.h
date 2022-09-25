@@ -98,7 +98,8 @@ typedef struct task_t {
     struct task_t *prev;
 
     addrspace_t *addrspace;
+    vec_struct(addrspace_node_t*) aslist;
 } task_t;
 
-task_t* task_make(void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);
+task_t* task_make(const char *name, void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);
 

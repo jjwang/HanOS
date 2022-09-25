@@ -3,18 +3,47 @@
 #include <lib/klib.h>
 #include <lib/klog.h>
 #include <lib/memutils.h>
+#include <lib/string.h>
 #include <fs/vfs.h>
 #include <core/mm.h>
 #include <core/panic.h>
 
-#define BASE    0xffffffff80000000
+#define BASE        MEM_VIRT_OFFSET
 
 #define IS_TEXT(p)  (p.flags & PF_X)
 #define IS_DATA(p)  (p.flags & PF_W)
 #define IS_BSS(p)   (p.filesz < p.memsz)
 
+int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
+{
+    for (size_t i = 0; i < hdr->shnum; i++) {
+        if (shdr[i].type == SHT_SYMTAB)
+        {
+            return i;
+            break;
+        }
+    }
+
+    return -1;
+}
+
+void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
+    const char *src, char *dst)
+{
+    elf_sym_t *syms = (elf_sym_t*)(src + shdr_sym->offset);
+    const char* strings = src + shdr[shdr_sym->link].offset;
+    
+    for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+        if (strcmp(name, strings + syms[i].name) == 0) {
+            return dst + syms[i].value;
+        }
+    }
+
+    return NULL;
+}
+
 /* Need to free aux->phdr, aux->phaddr, aux->shdr ... */
-int64_t load_elf(char *path_name, auxval_t *aux)
+int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
     size_t elf_len = 0;
@@ -92,10 +121,18 @@ int64_t load_elf(char *path_name, auxval_t *aux)
         for (size_t j = 0; j < page_count; j++) {
             uint64_t virt = BASE + (phdr[i].vaddr + (j * PAGE_SIZE));
             uint64_t phys = addr + (j * PAGE_SIZE);
-            vmm_map(NULL, virt, phys, 1, pf);
+            vmm_map(task->addrspace, virt, phys, 1, pf);
             memset((void*)virt, 0, PAGE_SIZE);
             klogi("ELF: %d bytes, map 0x%11x to virt 0x%x\n", phdr[i].memsz, phys, virt);
         }
+
+        addrspace_node_t node;
+        node.virt_start = (void*)(BASE + phdr[i].vaddr);
+        node.phys_start = (void*)addr;
+        node.size = page_count * PAGE_SIZE;
+        node.page_flags = pf;
+
+        vec_push_back(&task->aslist, &node);
 
         char *buf = (char *)(BASE + phdr[i].vaddr);
         memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
@@ -111,10 +148,14 @@ int64_t load_elf(char *path_name, auxval_t *aux)
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
     for (size_t k = 0; k < hdr.shnum; k++) {
-        /* if (shdr[k].type != SHT_SYMTAB) continue; */
-
         klogi("ELF: %d section 0x%x type %d name \"%s\"\n", k,
               shdr[k].addr, shdr[k].type, &header_strs[shdr[k].name]);
+    }
+
+    int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
+    void *entry = elf_find_sym("main", shdr, shdr + symbol_table_index, (char*)elf_buff, NULL);
+    if (entry != NULL) {
+        klogi("ELF: Found entry function (main)\n");
     }
 
     if (!elf_buff)  kmfree(elf_buff);
