@@ -171,7 +171,7 @@ void pmm_dump_usage(void)
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 
 static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-uint64_t flags)
+    uint64_t flags)
 {
     addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
 
@@ -290,7 +290,8 @@ void vmm_init(
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
     vmm_map(NULL, MEM_KER_OFFSET, 0,
-            NUM_PAGES(kmem_info.phys_limit), VMM_FLAGS_DEFAULT);
+            NUM_PAGES(kmem_info.phys_limit),
+            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
     klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n",
             kmem_info.phys_limit);
 
@@ -301,13 +302,13 @@ void vmm_init(
             uint64_t vaddr = kernel->virtual_base
                              + entry->base - kernel->physical_base;
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT);
+                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
             klogd("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
+                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE | VMM_FLAGS_USERMODE);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         } else {
