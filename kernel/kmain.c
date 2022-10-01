@@ -107,6 +107,7 @@ static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
+
     command_t cmd_list[] = {
         {"memory", pmm_dump_usage, "Dump memory usage information"},
         {"vfs",    vfs_debug,      "Dump tree of virtual file system"},
@@ -285,13 +286,13 @@ void kmain(void)
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-    task_t *tshell = sched_add(kshell);
-
+    task_t *tshell = sched_add(kshell, true);
+#if 1
     auxval_t aux = {0};
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
     klogi("Shell entry address: 0x%x\n", aux.entry);
-
-    sched_add(kcursor);
+#endif
+    sched_add(kcursor, false);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {

@@ -32,7 +32,7 @@ exit_context_switch:
     /* Need to set CR3 here */
     test %rsi, %rsi
     jz .dont_load_cr3
-    mov %cr3, %rsi
+    mov %rsi, %cr3
 .dont_load_cr3:
 
     mov %rdi, %rsp

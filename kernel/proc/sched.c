@@ -142,7 +142,8 @@ void do_context_switch(void* stack)
 
     apic_send_eoi();
     
-    exit_context_switch(next->kstack_top, (uint64_t)next->addrspace->PML4);
+    exit_context_switch(next->kstack_top,
+        next->addrspace == NULL ? 0 : (uint64_t)next->addrspace->PML4);
 }
 
 void sched_sleep(time_t millis)
@@ -191,9 +192,7 @@ uint64_t sched_get_ticks()
 
 void sched_init(uint16_t cpu_id)
 {
-    tasks_idle[cpu_id] = task_make(
-        __func__, task_idle_proc, 255,
-        (cpu_id != 100) ? TASK_USER_MODE : TASK_KERNEL_MODE);
+    tasks_idle[cpu_id] = task_make(__func__, task_idle_proc, 255, TASK_KERNEL_MODE);
 
     apic_timer_init(); 
     apic_timer_set_period(TIMESLICE_DEFAULT);
@@ -213,9 +212,10 @@ uint16_t sched_get_cpu_num()
     return cpu_num;
 }
 
-task_t *sched_add(void (*entry)(task_id_t))
+task_t *sched_add(void (*entry)(task_id_t), bool usermode)
 {
-    task_t* t = task_make(__func__, entry, 0, TASK_KERNEL_MODE);
+    task_t* t = task_make(__func__, entry, 0,
+        usermode ? TASK_USER_MODE : TASK_KERNEL_MODE);
 
     lock_lock(&sched_lock);
     vec_push_back(&tasks_active, t);

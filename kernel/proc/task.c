@@ -49,12 +49,12 @@ task_t* task_make(
 
         ntask_regs->rsp = (uint64_t)ntask->kstack_top;
     } else {
-        ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
+        ntask_regs = ntask->kstack_top - sizeof(task_regs_t);
 
-        ntask_regs->cs = DEFAULT_KMODE_CS;
-        ntask_regs->ss = DEFAULT_KMODE_SS;
+        ntask_regs->cs = DEFAULT_UMODE_CS;
+        ntask_regs->ss = DEFAULT_UMODE_SS;
 
-        ntask_regs->rsp = (uint64_t)ntask->ustack_top;
+        ntask_regs->rsp = (uint64_t)ntask->kstack_top;
     }
 
     ntask_regs->rflags = DEFAULT_RFLAGS;
@@ -67,7 +67,7 @@ task_t* task_make(
     ntask->last_tick = 0;
     ntask->status = TASK_READY;
 
-    ntask->addrspace = create_addrspace();
+    /* ntask->addrspace = create_addrspace(); */
 
     klogi("TASK: Create tid %d in function %s\n", ntask->tid, name);
 
