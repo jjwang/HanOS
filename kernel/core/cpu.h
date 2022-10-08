@@ -15,11 +15,55 @@
 #include <stdbool.h>
 
 #define MSR_PAT         0x0277
-#define MSR_GS_BASE     0xC0000102
+
+#define MSR_FS_BASE     0xC0000100
+#define MSR_GS_BASE     0xC0000101
+#define MSR_KGS_BASE    0xC0000102
+
 #define MSR_EFER        0xC0000080
+
+/* @see https://wiki.osdev.org/SYSCALL#AMD:_SYSCALL.2FSYSRET */
+/* Ring 0 and Ring 3 Segment bases, as well as SYSCALL EIP.
+ * Low 32 bits = SYSCALL EIP, bits 32-47 are kernel segment base, bits 48-63 are
+ * user segment base.
+ */
 #define MSR_STAR        0xC0000081
+/* The kernel's RIP SYSCALL entry for 64 bit software */
 #define MSR_LSTAR       0xC0000082
+/* The kernel's RIP for SYSCALL in compatibility mode */
+#define MSR_CSTAR       0xC0000083
+/* The low 32 bits are the SYSCALL flag mask. If a bit in this is set, the
+ * corresponding bit in rFLAGS is cleared
+ */
 #define MSR_SFMASK      0xC0000084
+
+/* NOTE: these instructions assume a flat segmented memory model (paging
+ * allowed). They require that "the code-segment base, limit, and attributes
+ * (except for CPL) are consistent for all application and system processes."
+ * --AMD System programming
+ *
+ * SYSCALL loads CS from STAR 47:32. It masks EFLAGS with SFMASK. Next it stores
+ * EIP in ECX. It then loads EIP from STAR 32:0 and SS from STAR 47:32 + 8. It
+ * then executes.
+ *
+ * Note that the Kernel does not automatically have a kernel stack loaded. This
+ * is the handler's responsibility.
+ *
+ * SYSRET loads CS from STAR 63:48. It loads EIP from ECX and SS from STAR 63:48
+ * + 8.
+ *
+ * Note that the User stack is not automatically loaded. Also note that ECX must
+ * be preserved
+ *
+ * - 64 bit mode -
+ *
+ * The operation in 64 bit mode is the same, except that RIP is loaded from
+ * LSTAR, or CSTAR of in IA32-e submode (A.K.A. compatibility mode). It also
+ * respectively saves and loads RFLAGS to and from R11. As well, in Long Mode,
+ * userland CS will be loaded from STAR 63:48 + 16 and userland SS from STAR
+ * 63:48 + 8 on SYSRET. Therefore, you might need to setup your GDT accordingly.
+ *
+ */
 
 /* Read & write control registers on x64 CPUs, which contains flags controlling
  * CPU features related to memory protection, multitasking, paging, etc.

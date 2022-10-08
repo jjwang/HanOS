@@ -44,8 +44,10 @@
 #define DEFAULT_KMODE_CS        0b00001000 /* 0x08 */
 #define DEFAULT_KMODE_SS        0b00010000 /* 0x10 */
 
-/* Refer: http://jamesmolloy.co.uk/tutorial_html/10.-User%20Mode.html */
 /*
+ * User Mode Refer:
+ *  http://jamesmolloy.co.uk/tutorial_html/10.-User%20Mode.html
+ *
  * The x86 is strange in that there is no direct way to switch to user mode. The
  * only way one can reach user mode is to return from an exception that began in
  * user mode. The only method of getting there in the first place is to set up the

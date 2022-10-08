@@ -47,12 +47,12 @@ void dump_backtrace()
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
-            continue;
-        }   
-        klogu(" \t[%02d] \t%x (%s+%04x)\n",
+        } else { 
+            klogu(" \t[%02d] \t%x (%s+%04x)\n",
                     i, func_addr,
                     _kernel_symtab[idx].name,
                     func_addr - _kernel_symtab[idx].addr);
+        }
         rbp_val = (uint64_t*)*rbp_val;
     }
     cpu_t* cpu = smp_get_current_cpu(false);

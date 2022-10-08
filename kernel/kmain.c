@@ -42,6 +42,7 @@
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
+#include <proc/syscall.h>
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
 #include <test/test.h>
@@ -107,6 +108,9 @@ static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
+    char msg[256] = "Hello from kshell";
+    syscall(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
+    for (;;) { asm volatile ("nop;"); } 
 
     command_t cmd_list[] = {
         {"memory", pmm_dump_usage, "Dump memory usage information"},
@@ -246,6 +250,7 @@ void kmain(void)
 
     vfs_init();
     smp_init();
+    syscall_init();
 
     struct limine_module_response *module_response = module_request.response;
     if (module_response != NULL) {

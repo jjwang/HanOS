@@ -76,6 +76,9 @@ _Noreturn static void task_idle_proc(task_id_t tid)
     }
 }
 
+/* Even if it is a user process, the stack also can be kernel stack which
+ * is used in syscall.
+ */
 void do_context_switch(void* stack)
 {
     const smp_info_t* smp_info = smp_get_info();
