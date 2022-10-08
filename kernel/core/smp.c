@@ -49,7 +49,7 @@ const smp_info_t* smp_get_info()
 cpu_t* smp_get_current_cpu(bool force_read)
 {
     if (smp_initialized || force_read) {
-        return (cpu_t*)read_msr(MSR_GS_BASE);
+        return (cpu_t*)read_msr(MSR_KGS_BASE);
     } else {
         return NULL;
     }
@@ -74,6 +74,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
  
     /* put cpu information in gs */
     write_msr(MSR_GS_BASE, (uint64_t)cpuinfo);
+    write_msr(MSR_KGS_BASE, (uint64_t)cpuinfo);
 
     /* enable the apic */
     apic_enable();
@@ -147,6 +148,7 @@ void smp_init()
             klogi("SMP: core %d is BSP\n", lapics[i]->proc_id);
             smp_info->cpus[smp_info->num_cpus].is_bsp = true;
             write_msr(MSR_GS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
+            write_msr(MSR_KGS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
             for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
             init_tss(&(smp_info->cpus[smp_info->num_cpus]));
             smp_info->num_cpus++;

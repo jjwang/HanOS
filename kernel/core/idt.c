@@ -26,7 +26,9 @@
 #include <core/panic.h>
 
 static idt_entry_t idt[IDT_ENTRIES];
-static uint8_t available_vector = 80;
+
+/* Vector 0x80 is reserved for system calls */ 
+static uint8_t available_vector = 0x81;
 
 static idt_entry_t idt_make_entry(uint64_t offset)
 {

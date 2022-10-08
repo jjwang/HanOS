@@ -35,13 +35,13 @@ static void gdt_make_entry(
     if (limit > 65536) {
         /* Adjust granularity if required */
         limit = limit >> 12;
-        gate->granularity = 0xA0;
+        gate->granularity = (GDT_GR | GDT_LM) << 4;
     } else {
-        gate->granularity = 0x80;
+        gate->granularity = GDT_GR << 4;
     }
     /* Encode the limit */
     gate->limit = limit & 0xFFFF;
-    gate->granularity|= (limit >> 16) & 0xF;
+    gate->granularity |= (limit >> 16) & 0xF;
  
     /* Encode the base */
     gate->base_low  = base & 0xFFFF;
@@ -59,10 +59,18 @@ void gdt_init(cpu_t* cpuinfo)
     memset(gdt, 0, sizeof(gdt_table_t));
 
     gdt_make_entry(&(gdt->null), 0, 0, 0);
-    gdt_make_entry(&(gdt->kcode), 0, 0xFFFFFFFF, 0x9A);
-    gdt_make_entry(&(gdt->kdata), 0, 0xFFFFFFFF, 0x92);
-    gdt_make_entry(&(gdt->ucode), 0, 0xFFFFFFFF, 0xFA);
-    gdt_make_entry(&(gdt->udata), 0, 0xFFFFFFFF, 0xF2);
+
+    gdt_make_entry(&(gdt->kcode), 0, 0xFFFFFFFF,
+        AC_RW | AC_EX | AC_DPL_KERN | AC_PR | AC_ST);
+
+    gdt_make_entry(&(gdt->kdata), 0, 0xFFFFFFFF,
+        AC_RW | AC_DPL_KERN | AC_PR | AC_ST);
+
+    gdt_make_entry(&(gdt->ucode), 0, 0xFFFFFFFF,
+        AC_RW | AC_EX | AC_DPL_USER | AC_PR | AC_ST);
+
+    gdt_make_entry(&(gdt->udata), 0, 0xFFFFFFFF,
+        AC_RW | AC_DPL_USER | AC_PR | AC_ST);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
     asm volatile("lgdt %0;"
