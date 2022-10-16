@@ -28,6 +28,8 @@
 #include <core/pit.h>
 #include <proc/sched.h>
 
+#define STACK_SIZE      (8 * PAGE_SIZE)
+
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
 static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_KER(SMP_AP_BOOT_COUNTER_ADDR);
@@ -49,7 +51,9 @@ const smp_info_t* smp_get_info()
 cpu_t* smp_get_current_cpu(bool force_read)
 {
     if (smp_initialized || force_read) {
-        return (cpu_t*)read_msr(MSR_KGS_BASE);
+        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        return cpu;
     } else {
         return NULL;
     }
@@ -57,6 +61,7 @@ cpu_t* smp_get_current_cpu(bool force_read)
 
 void init_tss(cpu_t* cpuinfo)
 {
+    cpuinfo->syscall_stack = (uint8_t*)kmalloc(STACK_SIZE);
     gdt_install_tss(cpuinfo);
 }
 
@@ -74,7 +79,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
  
     /* put cpu information in gs */
     write_msr(MSR_GS_BASE, (uint64_t)cpuinfo);
-    write_msr(MSR_KGS_BASE, (uint64_t)cpuinfo);
+    write_msr(MSR_KERN_GS_BASE, (uint64_t)cpuinfo);
 
     /* enable the apic */
     apic_enable();
@@ -148,7 +153,7 @@ void smp_init()
             klogi("SMP: core %d is BSP\n", lapics[i]->proc_id);
             smp_info->cpus[smp_info->num_cpus].is_bsp = true;
             write_msr(MSR_GS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
-            write_msr(MSR_KGS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
+            write_msr(MSR_KERN_GS_BASE, (uint64_t)&(smp_info->cpus[smp_info->num_cpus]));
             for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
             init_tss(&(smp_info->cpus[smp_info->num_cpus]));
             smp_info->num_cpus++;
@@ -158,8 +163,8 @@ void smp_init()
         klogi("SMP: initializing core %d...\n", lapics[i]->proc_id);
 
         /* allocate and pass the stack */
-        void* stack = kmalloc(PAGE_SIZE);
-        *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_RSP)) = (uint64_t)stack + PAGE_SIZE;
+        void* stack = kmalloc(STACK_SIZE);
+        *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_RSP)) = (uint64_t)stack + STACK_SIZE;
 
         /* pass cpu information */
         *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_CPUINFO)) = (uint64_t)&(smp_info->cpus[smp_info->num_cpus]);

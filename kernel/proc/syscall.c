@@ -27,7 +27,8 @@ size_t k_write(int fd, const void* buf, size_t count)
         if (msg != NULL) {
             msg[count] = '\0';
             memcpy(msg, buf, count);
-            klogi("k_write: %s\n", msg);
+            klogi("k_write: %s(0x%x, len %d)\n", msg, (uint64_t)buf, count);
+            kmfree(msg);
             return 0;
         }
     }
@@ -46,13 +47,14 @@ void syscall_init(void)
 
     uint64_t star = read_msr(MSR_STAR);
 
-    star |= (uint64_t)DEFAULT_KMODE_CS << 32;
-    star |= (uint64_t)(DEFAULT_UMODE_CS & 0b11111100) << 48;
+    star = (uint64_t)DEFAULT_KMODE_CS << 32;
+    star |= (uint64_t)(DEFAULT_KMODE_SS | 0b00000011) << 48;
 
     write_msr(MSR_STAR, star);
 
     write_msr(MSR_LSTAR, (uint64_t)&syscall_handler);
-    write_msr(MSR_SFMASK, 0);
+    write_msr(MSR_SFMASK, X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF
+        | X86_EFLAGS_IOPL | X86_EFLAGS_AC | X86_EFLAGS_NT);
 
     klogi("SYSCALL: MSR_EFER=0x%016x MSR_STAR=0x%016x MSR_LSTAR=0x%016x\n",
           read_msr(MSR_EFER),
