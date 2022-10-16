@@ -1,0 +1,68 @@
+%ifndef CPU_MACROS_MAC
+%define CPU_MACROS_MAC
+
+    %macro push_all 0
+        push qword r8
+        push qword r9
+        push qword r10
+        push qword r11
+        push qword r12
+        push qword r13
+        push qword r14
+        push qword r15
+    
+        push qword rbp
+    
+        push qword rdx
+        push qword rcx
+        push qword rbx
+        push qword rax
+        push qword rsi
+        push qword rdi
+    %endmacro
+    
+    %macro pop_all 0
+        pop qword rdi    
+        pop qword rsi
+        pop qword rax 
+        pop qword rbx    
+        pop qword rcx
+        pop qword rdx
+    
+        pop qword rbp    
+    
+        pop qword r15
+        pop qword r14
+        pop qword r13
+        pop qword r12
+        pop qword r11
+        pop qword r10
+        pop qword r9
+        pop qword r8
+
+        pop qword rax
+    %endmacro
+
+    %macro pop_all_syscall 0
+        pop qword rdi    
+        pop qword rsi 
+        pop qword rbx
+        pop qword rbx    
+        pop qword rcx 
+        pop qword rdx 
+            
+        pop qword rbp    
+            
+        pop qword r15 
+        pop qword r14
+        pop qword r13
+        pop qword r12
+        pop qword r11
+        pop qword r10
+        pop qword r9
+        pop qword r8
+
+        pop qword rax
+    %endmacro
+
+%endif

@@ -108,8 +108,12 @@ static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
-    char msg[256] = "Hello from kshell";
-    syscall(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
+    static char msg[256] = "Hello from kshell";
+    syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
+
+    strcpy(msg, "I am a robot");
+    syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
+
     for (;;) { asm volatile ("nop;"); } 
 
     command_t cmd_list[] = {
@@ -292,7 +296,8 @@ void kmain(void)
     klogi("Framebuffer address 0x%x\n", fb->address);
 
     task_t *tshell = sched_add(kshell, true);
-#if 1
+    (void)tshell;
+#if 0
     auxval_t aux = {0};
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
     klogi("Shell entry address: 0x%x\n", aux.entry);

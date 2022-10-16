@@ -50,7 +50,15 @@ typedef struct [[gnu::packed]] {
     uint16_t io_bitmap_offset;
 } tss_t;
 
+/*
+ * In 64bit and with smp, there is a local structure for each cpu stored in the
+ * gs register (other kernels can use fs). This structure contains a temporary
+ * stack for the syscall, an address to store the process stack temporarily.
+ */
 typedef struct {
+    uint8_t *syscall_stack; /* the stack for the syscall */
+    uint64_t saved_stack;   /* saving the current process stack */
+
     tss_t tss;
     uint16_t cpu_id;
     uint16_t lapic_id;
