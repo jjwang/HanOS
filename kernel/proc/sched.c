@@ -65,7 +65,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-#if 0
+#if 1
     /* This is for writing test of user space memory. */
     uint64_t* temp_val = (uint64_t*)0x20001000;
     *temp_val = 0;
@@ -76,9 +76,6 @@ _Noreturn static void task_idle_proc(task_id_t tid)
     }
 }
 
-/* Even if it is a user process, the stack also can be kernel stack which
- * is used in syscall.
- */
 void do_context_switch(void* stack)
 {
     const smp_info_t* smp_info = smp_get_info();
@@ -89,14 +86,17 @@ void do_context_switch(void* stack)
 
     lock_lock(&sched_lock);
 
-    uint16_t cpu_id = smp_get_current_cpu(true)->cpu_id;
+    cpu_t *cpu = smp_get_current_cpu(true);
+    if (cpu == NULL) return;
+
+    uint16_t cpu_id = cpu->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu_id];
 
     task_t* curr = tasks_running[cpu_id];
     task_t* next = NULL;
 
     if (curr) {
-        curr->kstack_top = stack;
+        curr->tstack_top = stack;
         curr->last_tick = ticks;
 
         if (curr->status == TASK_RUNNING)
@@ -138,14 +138,14 @@ void do_context_switch(void* stack)
     next->status = TASK_RUNNING;
     tasks_running[cpu_id] = next;
 
-    smp_get_current_cpu(true)->tss.rsp0 = (uint64_t)(next->kstack_limit + KSTACK_SIZE);
+    cpu->tss.rsp0 = (uint64_t)(next->tstack_limit + STACK_SIZE);
     tasks_coordinate[cpu_id]++;
     
     lock_release(&sched_lock);
 
     apic_send_eoi();
     
-    exit_context_switch(next->kstack_top,
+    exit_context_switch(next->tstack_top,
         next->addrspace == NULL ? 0 : (uint64_t)next->addrspace->PML4);
 }
 

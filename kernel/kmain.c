@@ -108,6 +108,8 @@ static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
 _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
+
+#if 1
     static char msg[256] = "Hello from kshell";
     syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
 
@@ -115,6 +117,7 @@ _Noreturn void kshell(task_id_t tid)
     syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
 
     for (;;) { asm volatile ("nop;"); } 
+#endif
 
     command_t cmd_list[] = {
         {"memory", pmm_dump_usage, "Dump memory usage information"},

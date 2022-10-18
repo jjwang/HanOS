@@ -28,8 +28,6 @@
 #include <core/pit.h>
 #include <proc/sched.h>
 
-#define STACK_SIZE      (8 * PAGE_SIZE)
-
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
 static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_KER(SMP_AP_BOOT_COUNTER_ADDR);
@@ -61,7 +59,7 @@ cpu_t* smp_get_current_cpu(bool force_read)
 
 void init_tss(cpu_t* cpuinfo)
 {
-    cpuinfo->syscall_stack = (uint8_t*)kmalloc(STACK_SIZE);
+    cpuinfo->syscall_stack = (uint8_t*)kmalloc(STACK_SIZE) + STACK_SIZE;
     gdt_install_tss(cpuinfo);
 }
 

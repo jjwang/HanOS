@@ -37,6 +37,7 @@ exit_context_switch:
 
     mov %rdi, %rsp
 
+    /* The order here should be same with task_regs_t */ 
     pop %r15
     pop %r14
     pop %r13
