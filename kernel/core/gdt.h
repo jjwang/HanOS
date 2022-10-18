@@ -90,8 +90,8 @@ typedef struct [[gnu::packed]] {
     gdt_entry_t null;
     gdt_entry_t kcode;
     gdt_entry_t kdata;
-    gdt_entry_t ucode;
     gdt_entry_t udata;
+    gdt_entry_t ucode;
     sys_seg_desc_t tss;
 } gdt_table_t;
 

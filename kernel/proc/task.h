@@ -8,6 +8,8 @@
   Create and return task data structure which contains registers and other task
   related information.
 
+  Below is interrupt related information.
+
   When the CPU calls the interrupt handlers, it changes the value in the RSP
   register to the value specified in the IST, and if there is none, the stack
   stays the same. Onto the new stack, the CPU pushes these values in this order:
@@ -39,10 +41,8 @@
 #include <fs/vfs.h>
 #include <proc/task.h>
 
-#define KSTACK_SIZE             4096
-
-#define DEFAULT_KMODE_CS        0b00001000 /* 0x08 */
-#define DEFAULT_KMODE_SS        0b00010000 /* 0x10 */
+#define DEFAULT_KMODE_CODE      0b00001000 /* 0x08 */
+#define DEFAULT_KMODE_DATA      0b00010000 /* 0x10 */
 
 /*
  * User Mode Refer:
@@ -88,8 +88,8 @@
  * our data segment selector will be (0x20 | 0x3 = 0x23).
  *
  */
-#define DEFAULT_UMODE_CS        0b00011011 /* 0x1b */
-#define DEFAULT_UMODE_SS        0b00100011 /* 0x23 */
+#define DEFAULT_UMODE_DATA      0b00011011 /* 0x1b */
+#define DEFAULT_UMODE_CODE      0b00100011 /* 0x23 */
 
 /* ----- EFLAGS Register -----
  * 0        CF  Carry flag
@@ -180,10 +180,12 @@ typedef struct {
 } task_regs_t;
 
 typedef struct task_t {
+    void *tstack_top;
+    void *tstack_limit;
+
+    /* kstack only used once for first task switch */ 
     void *kstack_top;
     void *kstack_limit;
-    void *ustack_top;
-    void *ustack_limit;
 
     task_id_t tid;
     task_priority_t priority;
