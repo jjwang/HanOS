@@ -39,8 +39,7 @@ static uint8_t term_cursor = 0;
 static lock_t term_lock = {0};
 static bool term_need_redraw = false;
 
-#define FONT_WIDTH              8
-#define FONT_HEIGHT             16
+term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
 

@@ -19,6 +19,7 @@
 #include <core/hpet.h>
 #include <core/cmos.h>
 #include <core/smp.h>
+#include <core/serial.h>
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
@@ -78,6 +79,10 @@ static void klog_putch(int mode, uint8_t i)
 
     term_putch(mode, i);
     klog_putchar_times++;
+
+    if (mode == TERM_MODE_INFO) {
+        serial_write(i);
+    }
 }
 
 static void klog_puts(int mode, const char* s, int width)

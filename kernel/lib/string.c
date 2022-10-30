@@ -12,7 +12,6 @@
  **-----------------------------------------------------------------------------
  */
 #include <lib/string.h>
-#include <lib/klog.h>
 
 int strlen(const char* s)
 {

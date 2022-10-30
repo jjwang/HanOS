@@ -8,7 +8,7 @@
 #include <core/mm.h>
 #include <core/panic.h>
 
-#define BASE        MEM_VIRT_OFFSET
+#define BASE        0 /* MEM_VIRT_OFFSET */
 
 #define IS_TEXT(p)  (p.flags & PF_X)
 #define IS_DATA(p)  (p.flags & PF_W)
@@ -17,10 +17,8 @@
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {
     for (size_t i = 0; i < hdr->shnum; i++) {
-        if (shdr[i].type == SHT_SYMTAB)
-        {
+        if (shdr[i].type == SHT_SYMTAB) {
             return i;
-            break;
         }
     }
 
@@ -79,6 +77,8 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
     aux->phnum = hdr.phnum;
     aux->phentsize = hdr.phentsize;
 
+    klogi("ELF: entry address 0x%x\n", hdr.entry);
+
     phdr = kmalloc(hdr.phnum * sizeof(elf_phdr_t));
     if (!phdr) goto err_exit;
 
@@ -136,6 +136,8 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 
         char *buf = (char *)(BASE + phdr[i].vaddr);
         memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
+        klogi("ELF: %d hdr's task binary file size %d(%d) bytes\n",
+              i, phdr[i].filesz, phdr[i].memsz);
 
         /* Need to free in some other places */
     }
@@ -148,15 +150,24 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
     for (size_t k = 0; k < hdr.shnum; k++) {
-        klogi("ELF: %d section 0x%x type %d name \"%s\"\n", k,
-              shdr[k].addr, shdr[k].type, &header_strs[shdr[k].name]);
+        klogi("%d 0x%x type %d \"%s\", offset %d, size %d\n", k,
+              shdr[k].addr, shdr[k].type, &header_strs[shdr[k].name],
+              shdr[k].offset, shdr[k].size);
     }
 
     int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
-    void *entry = elf_find_sym("main", shdr, shdr + symbol_table_index, (char*)elf_buff, NULL);
-    if (entry != NULL) {
-        klogi("ELF: Found entry function (main)\n");
-    }
+
+    elf_shdr_t *shdr_sym = (elf_shdr_t*)(shdr + symbol_table_index);
+    elf_sym_t *syms = (elf_sym_t*)((uint8_t*)elf_buff + shdr_sym->offset);
+    const char* strings = (char*)elf_buff + shdr[shdr_sym->link].offset;
+        
+    for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+        if (strcmp("main", strings + syms[i].name) == 0) {
+            klogi("ELF: Found entry function (main) with len %d, "
+                  "session idx %d, value 0x%x\n",
+                  syms[i].size, syms[i].shndx, BASE + syms[i].value);
+        }   
+    }   
 
     if (!elf_buff)  kmfree(elf_buff);
 

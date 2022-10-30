@@ -56,7 +56,7 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
-    char* logo = "HanOS";
+    char *logo = "HanOS";
     size_t len = strlen(logo);
     uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
     uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
@@ -75,7 +75,15 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
                 }
             }
         } /* End every character */
-    }   
+    }
+
+    char *desc_str = "- A Hobby OS for x64 -";
+    size_t desc_len = strlen(desc_str);   
+    x = (fb->width - 8 * desc_len) / 2;
+    for (size_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
+        fb_putch(fb, x + 8 * desc_idx, (fb->height + 16 * LOGO_SCALE) / 2,
+            COLOR_GREY, bgcolor, desc_str[desc_idx]);
+    }
 }
 
 void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y,  

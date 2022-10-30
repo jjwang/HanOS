@@ -18,6 +18,7 @@ Progress update
 - [x] Scheduling driven by APIC timer
 - [x] Keyboard/mouse driver and command line interface
 - [x] VFS and FAT32 file system 
+- [x] Tasks of kernel and user space
 
 Screenshots
 - May 3, 2022: Live Demo
