@@ -5,7 +5,20 @@
 #define STDOUT              1
 #define STDERR              2
 
-#define SYSCALL_WRITE       1
+#define SYSCALL_READ        1
+#define SYSCALL_WRITE       2
+
+#define EPERM               1   /* Operation not permitted */
+#define ENOENT              2   /* No such file or directory */
+#define EBADF               9   /* Bad file descriptor */
+#define EINVAL              22  /* Invalid argument */
+#define ENFILE              23  /* File table overflow */
+#define EMFILE              24  /* Too many open files */
+#define ENOSYS              38  /* Function not implemented */
+#define ENOTSOCK            88  /* Argument is not a socket */
+#define EPROTONOSUPPORT     93  /* Protocol not supported */
+#define ESOCKTNOSUPPORT     94  /* Socket type not supported */
+#define EAFNOSUPPORT        97  /* Address family not supported */
 
 /*
  * EFLAGS bits
@@ -47,5 +60,6 @@ void syscall_init(void);
  */
 extern int64_t syscall_entry(uint64_t id, ...);
 
-size_t k_write(int fd, const void* buf, size_t count);
+int64_t k_read(int fd, void* buf, size_t count);
+int64_t k_write(int fd, const void* buf, size_t count);
 

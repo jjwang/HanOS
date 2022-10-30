@@ -10,6 +10,7 @@
 #include <lib/memutils.h>
 #include <proc/task.h>
 #include <proc/syscall.h>
+#include <device/keyboard/keyboard.h>
 
 extern int64_t syscall_handler();
 
@@ -20,24 +21,63 @@ int64_t k_not_implemented()
     return -1;
 }
 
-size_t k_write(int fd, const void* buf, size_t count)
+int64_t k_read(int fd, void* buf, size_t count)
+{
+    if (fd == STDIN) {
+        if (count <= 0) {
+            return 0;
+        }
+
+        uint8_t keycode = keyboard_get_key();
+        if (keycode) {
+            ((uint8_t*)buf)[0] = keycode;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (fd < 3) {
+        klogd("k_read: invalid file descriptor fd=%d\n", fd);
+        return -EPERM;
+    }
+
+    return -EBADF;
+}
+
+int64_t k_write(int fd, const void* buf, size_t count)
 {
     if (fd == STDOUT || fd == STDERR) {
         char *msg = (char*)kmalloc(count + 1);
         if (msg != NULL) {
             msg[count] = '\0';
             memcpy(msg, buf, count);
-            klogi("k_write: %s(0x%x, len %d)\n", msg, (uint64_t)buf, count);
+
+            cursor_visible = CURSOR_HIDE;
+            term_set_cursor(' ');
+            term_refresh(TERM_MODE_CLI, false);
+
+            kprintf("%s", msg);
+            cursor_visible = CURSOR_INVISIBLE;
+
             kmfree(msg);
-            return 0xFF;
+            return count;
+        } else {
+            return 0;
         }
     }
 
-    return -1;
+    if (fd < 3) {
+        klogd("k_write: invalid file descriptor fd=%d\n", fd);
+        return -EPERM;
+    }
+
+    return -EBADF;
 }
 
 syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_READ]  = (syscall_ptr_t)k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t)k_write
 };
 

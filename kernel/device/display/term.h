@@ -25,6 +25,15 @@ void kdisplay(char* s);     /* Implemented in entry C file */
 #define TERM_MODE_GUI       2
 #define TERM_MODE_UNKNOWN   3
 
+#define FONT_WIDTH          8
+#define FONT_HEIGHT         16
+
+typedef enum {
+    CURSOR_INVISIBLE = 0,
+    CURSOR_VISIBLE,
+    CURSOR_HIDE
+} term_cursor_visible_t;
+
 typedef struct {
     fb_info_t fb; 
 
@@ -46,6 +55,8 @@ typedef struct {
     uint8_t lastch;
     bool last_qu_char;
 } term_info_t;
+
+extern term_cursor_visible_t cursor_visible;
 
 void term_init(struct limine_framebuffer* s);
 void term_putch(int mode, uint8_t c);

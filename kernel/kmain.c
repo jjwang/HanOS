@@ -30,6 +30,7 @@
 #include <core/isr_base.h>
 #include <core/smp.h>
 #include <core/cmos.h>
+#include <core/serial.h>
 #include <core/acpi.h>
 #include <core/apic.h>
 #include <core/hpet.h>
@@ -78,12 +79,6 @@ static volatile struct limine_module_request module_request = {
     .revision = 0 
 };
 
-static volatile enum {
-    CURSOR_INVISIBLE = 0,
-    CURSOR_VISIBLE,
-    CURSOR_HIDE
-} cursor_visible = CURSOR_INVISIBLE;
-
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
@@ -103,110 +98,6 @@ _Noreturn void kcursor(task_id_t tid)
     (void)tid;
 }
 
-static volatile char current_dir[VFS_MAX_PATH_LEN] = {0};
-
-_Noreturn void kshell(task_id_t tid)
-{
-    (void)tid;
-
-#if 1
-    static char msg[256] = "Hello from kshell";
-    syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
-
-    strcpy(msg, "I am a robot");
-    syscall_entry(SYSCALL_WRITE, STDOUT, msg, strlen(msg));
-
-    for (;;) { asm volatile ("nop;"); } 
-#endif
-
-    command_t cmd_list[] = {
-        {"memory", pmm_dump_usage, "Dump memory usage information"},
-        {"vfs",    vfs_debug,      "Dump tree of virtual file system"},
-        {"pci",    pci_debug,      "Print list of PCI devices"},
-        {"ls",     dir_test,       "List all files of current directory"},
-        {"task",   task_debug,     "Display active task information"},
-        {"",       NULL,           ""}};
-
-    klogi("Shell task started\n");
-
-    term_clear(TERM_MODE_CLI);
-    kprintf("\e[31m%s\e[0m Type \"\e[36m%s\e[0m\" for command list\n",
-            "Welcome to HanOS world!", "help");
-    kprintf("System initialization spends %d ms\n",
-            hpet_get_nanos() / 1000000);
-    kprintf("\e[36m%s\e[0m", "$ ");
-
-    pci_init();
-
-#if 0
-    ata_init();
-#endif
-
-    pci_get_gfx_device(kernel_addr_request.response);
-
-#if 0
-    file_test();
-#endif
-
-    klog_debug();
-    fb_debug();
-
-    char cmd_buff[1024] = {0};
-    uint16_t cmd_end = 0;
-
-    while (true) {
-        sleep(1);
-        uint8_t cur_key = keyboard_get_key();
-        if (term_get_mode() != TERM_MODE_CLI) {
-            continue;
-        }
-        if (cur_key == 0x0A) {
-            cursor_visible = CURSOR_HIDE;
-            term_set_cursor(' ');
-            term_refresh(TERM_MODE_CLI, false);
-            kprintf("%c", cur_key);
-
-            if (cmd_end > 0) {
-                if (strcmp(cmd_buff, "help") == 0) {
-                    kprintf("%16s%s\n", "Command", "Description");
-                    kprintf("%16s%s\n", "-------", "-----------");
-                    for(int64_t i = 0; ; i++) {
-                        if (cmd_list[i].proc == NULL) break;
-                        kprintf("%16s%s\n", cmd_list[i].command, cmd_list[i].desc);
-                    }
-                } else {
-                    for(int64_t i = 0; ; i++) {
-                        if (cmd_list[i].proc == NULL) {
-                            kprintf("Sorry, I cannot understand.\n");
-                            break;
-                        } else if (strcmp(cmd_buff, cmd_list[i].command) == 0) {
-                            (cmd_list[i].proc)();
-                            break;
-                        }
-                    }
-                }
-            }
-
-            cursor_visible = CURSOR_INVISIBLE;
-            cmd_buff[0] = '\0';
-            cmd_end = 0;
-            kprintf("\e[36m%s\e[0m", "$ ");
-            cursor_visible = CURSOR_INVISIBLE;
-        } else if (cur_key == '\b') {
-            if (cmd_end > 0) {
-                cmd_buff[cmd_end--] = '\0';
-                kprintf("\e[36m%c\e[0m", cur_key);
-            }   
-        }  else if (cur_key > 0) {
-            if (cmd_end < sizeof(cmd_buff) - 1) {
-                cmd_buff[cmd_end++] = cur_key;
-                cmd_buff[cmd_end] = '\0';
-            }   
-            kprintf("\e[36m%c\e[0m", cur_key);
-        }
-    }   
-}
-
 void done(void)
 {
     for (;;) {
@@ -219,6 +110,7 @@ void kmain(void)
 {
     cpu_init();
 
+    serial_init();
     klog_init();
     klogi("HanOS version 0.1 starting...\n");
 
@@ -298,14 +190,31 @@ void kmain(void)
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
 
+#if 0
     task_t *tshell = sched_add(kshell, true);
     (void)tshell;
-#if 0
+#else
+    task_t *tshell = sched_add(NULL, true);
     auxval_t aux = {0};
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
-    klogi("Shell entry address: 0x%x\n", aux.entry);
+    
+    task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
+    tshell_regs->rip = (uint64_t)aux.entry;
 #endif
+
+    pci_init();
+    ata_init();
+    pci_get_gfx_device(kernel_addr_request.response);
+
+#if 0
+    file_test();
+#endif
+
+    klog_debug();
+    fb_debug();
+
     sched_add(kcursor, false);
+    term_clear(TERM_MODE_CLI);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {
