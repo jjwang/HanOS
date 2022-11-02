@@ -82,7 +82,7 @@ static volatile struct limine_module_request module_request = {
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
-        sleep(500);
+        sched_sleep(500);
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
             cursor_visible = CURSOR_VISIBLE;

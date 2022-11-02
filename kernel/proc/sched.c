@@ -153,7 +153,7 @@ void sched_sleep(time_t millis)
 {
     cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
-        sleep(millis);
+        hpet_sleep(millis);
         return;
     }
    

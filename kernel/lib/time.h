@@ -17,7 +17,7 @@
 #include <core/hpet.h>
 #include <core/cmos.h>
 
-#define sleep(x)            hpet_nanosleep(MILLIS_TO_NANOS(x))
+#define hpet_sleep(x)       hpet_nanosleep(MILLIS_TO_NANOS(x))
 
 #define SECONDS_TO_NANOS(x) ((x)*1000000000ULL)
 #define MILLIS_TO_NANOS(x)  ((x)*1000000ULL)
