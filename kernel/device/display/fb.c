@@ -20,6 +20,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
+#include <version.h>
 #include <core/mm.h>
 #include <core/hpet.h>
 #include <device/display/fb.h>
@@ -77,7 +78,9 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
         } /* End every character */
     }
 
-    char *desc_str = "- A Hobby OS for x64 -";
+    char desc_str[64] = "- A Hobby OS for x64 v";
+    strcat(desc_str, VERSION);
+    strcat(desc_str, " -");
     size_t desc_len = strlen(desc_str);   
     x = (fb->width - 8 * desc_len) / 2;
     for (size_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {

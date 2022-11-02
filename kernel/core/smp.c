@@ -82,8 +82,8 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     /* enable the apic */
     apic_enable();
 
-    /* Wait for 100ms here */
-    sleep(100);
+    /* Wait for 10ms here */
+    hpet_sleep(10);
 
     /* initialize and wait for scheduler */
     sched_init(cpuinfo->cpu_id);
@@ -169,7 +169,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        sleep(100);
+        hpet_sleep(10);
 
         bool success = false;
         for (size_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
@@ -181,7 +181,7 @@ void smp_init()
                     success = true;
                     break;
                 }
-                sleep(100);
+                hpet_sleep(10);
             }
             if (success)
                 break;
@@ -199,7 +199,7 @@ void smp_init()
 
     while(true) {
         if (sched_get_cpu_num() == smp_info->num_cpus - 1) break;
-        sleep(1);
+        hpet_sleep(1);
     }
 
     klogi("SMP: %d processors brought up\n", smp_info->num_cpus);

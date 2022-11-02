@@ -106,7 +106,7 @@ void apic_timer_init(void)
     divisor = 4;
 
     apic_write_reg(APIC_REG_TIMER_ICR, UINT32_MAX);
-    sleep(50);
+    hpet_sleep(10);
     base_freq = ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
     klogi("APIC timer base frequency: %d Hz. Divisor: 4\n", base_freq);
