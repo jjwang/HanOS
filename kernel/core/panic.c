@@ -47,6 +47,7 @@ void dump_backtrace()
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
+            break;
         } else { 
             klogu(" \t[%02d] \t%x (%s+%04x)\n",
                     i, func_addr,

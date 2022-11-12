@@ -69,11 +69,9 @@ static void keyboard_callback()
                   ps2_kb.key_pressed[KB_CAPS_LOCK]);
 
     if (term_get_mode() == TERM_MODE_INFO) {
-#if 0
         klogi("Keyboard scan code: 0x%02x (%c) with state %d\n", scan_code,
               (ch == 0 || ch == 0x0D || ch == 0x0A || ch == '\t') ? ' ' : ch,
               key_state);
-#endif
     }
 
     keyboard_set_key(key_state, scan_code);

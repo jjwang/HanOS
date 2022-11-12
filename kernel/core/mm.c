@@ -114,10 +114,7 @@ void pmm_init(struct limine_memmap_response* map)
     bool gotit = false;
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
-#if 0
-        klogv("PMM: entry %2d base 0x%x length %10d type %d\n",
-              i, entry->base, entry->length, entry->type);
-#endif
+
         if (entry->base + entry->length <= 0x100000)
             continue;
 

@@ -89,34 +89,6 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
     }
 }
 
-void fb_putzh(fb_info_t* fb, uint32_t x, uint32_t y,  
-              uint32_t fgcolor, uint32_t bgcolor, uint8_t* ch) 
-{
-    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
-
-    (void)x;
-    (void)y;
-    (void)fgcolor;
-    (void)bgcolor;
-    (void)ch;
-#if 0
-    int qh = ch[0] - 0xa1;
-    int wh = ch[1] - 0xa1;
-    uint32_t offset = (94 * qh + wh) * 16 * 16 / 8;
-    for(int i = 0; i < 16; i++){
-        for(int n = 0; n < 2; n++) {
-            for(int k = 0; k < 8; k++){
-                if(hzk16_font[offset + i * 2 + n] & (0x80 >> k)) {
-                    fb_putpixel(fb, x + k + n * 8, y + i, fgcolor);
-                } else {
-                    fb_putpixel(fb, x + k + n * 8, y + i, bgcolor);
-                }
-            }   
-        }   
-    }
-#endif
-}
-
 void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;

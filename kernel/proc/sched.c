@@ -27,6 +27,7 @@
 #include <core/hpet.h>
 #include <core/pit.h>
 #include <core/isr_base.h>
+#include <core/panic.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
@@ -35,12 +36,14 @@ static lock_t sched_lock = lock_new();
 static task_t* tasks_running[CPU_MAX] = {0};
 static task_t* tasks_idle[CPU_MAX] = {0};
 static uint64_t tasks_coordinate[CPU_MAX] = {0};
+
 static volatile uint16_t cpu_num = 0;
 
 vec_new_static(task_t*, tasks_active);
 
 extern void enter_context_switch(void* v);
 extern void exit_context_switch(task_t* next, uint64_t cr3val);
+extern void force_context_switch();
 
 void task_debug(void)
 {
@@ -65,29 +68,35 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-#if 1
     /* This is for writing test of user space memory. */
     uint64_t* temp_val = (uint64_t*)0x20001000;
     *temp_val = 0;
-#endif
 
     while (true) {
-        asm volatile ("nop;");
+        asm volatile ("nop");
     }
 }
 
-void do_context_switch(void* stack)
+/*
+ * force parameter will be set to true when called from
+ * enter_force_context_switch()
+ *
+ */
+void do_context_switch(void* stack, int64_t force)
 {
     const smp_info_t* smp_info = smp_get_info();
-    if (smp_info == NULL) return;
+    if (smp_info == NULL)               return;
 
     /* Make sure that all CPUs initialization finished */
-    if (smp_info->num_cpus != cpu_num) return;
+    if (smp_info->num_cpus != cpu_num)  return;
 
     lock_lock(&sched_lock);
 
     cpu_t *cpu = smp_get_current_cpu(true);
-    if (cpu == NULL) return;
+    if (cpu == NULL) {
+        lock_release(&sched_lock);
+        return;
+    }
 
     uint16_t cpu_id = cpu->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu_id];
@@ -105,6 +114,7 @@ void do_context_switch(void* stack)
         if ((uint64_t)curr != (uint64_t)tasks_idle[cpu_id]) {
             vec_push_back(&tasks_active, curr);
         }
+
     }
 
     uint64_t loop_size = 0;
@@ -138,13 +148,17 @@ void do_context_switch(void* stack)
     next->status = TASK_RUNNING;
     tasks_running[cpu_id] = next;
 
+    /* Need to review TSS related settings */
     cpu->tss.rsp0 = (uint64_t)(next->tstack_limit + STACK_SIZE);
+
     tasks_coordinate[cpu_id]++;
     
+    if (!force) {
+        apic_send_eoi();
+    }
+
     lock_release(&sched_lock);
 
-    apic_send_eoi();
-    
     exit_context_switch(next->tstack_top,
         next->addrspace == NULL ? 0 : (uint64_t)next->addrspace->PML4);
 }
@@ -164,11 +178,11 @@ void sched_sleep(time_t millis)
     if (curr) {
         curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
         curr->status = TASK_SLEEPING;
-    }   
+    }
 
     lock_release(&sched_lock);
 
-    asm volatile("hlt");
+    force_context_switch();
 }
 
 task_t* sched_get_current_task()

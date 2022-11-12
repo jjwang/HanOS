@@ -71,6 +71,9 @@ $(KERNEL): $(TRAMPOLINEBLOB) $(COBJ) $(AS_OBJ) $(ASM_OBJ)
 	@echo ">>>>> Re-linking symbols..."
 	$(LD) $(INTERNALLDFLAGS) $(COBJ) $(AS_OBJ) $(ASM_OBJ) $(SYMBOLS) -o $@
 
+	objcopy --only-keep-debug $@ hanos.sym
+	objcopy --strip-debug $@
+
 limine.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))
 	@if [ ! -e "$(BOOT_DIR)/limine.h" ]; then wget -P $(BOOT_DIR) https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h; fi
@@ -93,4 +96,4 @@ $(TRAMPOLINEBLOB): $(TRAMPOLINEFILE)
 	@$(NASM) $^ -o $@
 
 clean:
-	rm -rf $(KERNEL) $(COBJ) $(AS_OBJ) $(ASM_OBJ) _symbols.* $(TRAMPOLINEBLOB)
+	rm -rf $(KERNEL) $(COBJ) $(AS_OBJ) $(ASM_OBJ) _symbols.* hanos.sym $(TRAMPOLINEBLOB)

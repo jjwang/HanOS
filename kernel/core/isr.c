@@ -81,8 +81,8 @@ void exc_handler_proc(uint64_t errcode, uint64_t excno)
         return;
     }   
 
-    kpanic("Unhandled Exception: %s (%d). Error Code: %d.\n",
-                 exceptions[excno], excno, errcode);
+    kpanic("Unhandled Exception: %s (%d). Error Code: %d (0x%x).\n",
+                 exceptions[excno], excno, errcode, errcode);
     while (true)
         ;
 }

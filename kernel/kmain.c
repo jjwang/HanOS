@@ -82,7 +82,7 @@ static volatile struct limine_module_request module_request = {
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
-        sched_sleep(500);
+        sched_sleep(1000);
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
             cursor_visible = CURSOR_VISIBLE;
@@ -168,10 +168,6 @@ void kmain(void)
 
     klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
-#if 0
-    int val1 = 10000, val2 = 0;
-    kloge("Val: %d", val1 / val2);
-#endif
 
     if (fb->edid_size == sizeof(edid_info_t)) {
         edid_info_t* edid = (edid_info_t*)fb->edid;
@@ -190,25 +186,17 @@ void kmain(void)
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-#if 0
-    task_t *tshell = sched_add(kshell, true);
-    (void)tshell;
-#else
     task_t *tshell = sched_add(NULL, true);
     auxval_t aux = {0};
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
     
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
     tshell_regs->rip = (uint64_t)aux.entry;
-#endif
+    klogi("Shell: task stack 0x%x\n", tshell->tstack_top);
 
     pci_init();
     ata_init();
     pci_get_gfx_device(kernel_addr_request.response);
-
-#if 0
-    file_test();
-#endif
 
     klog_debug();
     fb_debug();

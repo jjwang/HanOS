@@ -34,29 +34,35 @@ task_t* task_make(
     task_t* ntask = kmalloc(sizeof(task_t));
     memset(ntask, 0, sizeof(task_t));
 
-    ntask->tstack_limit = kmalloc(STACK_SIZE);
-    ntask->tstack_top = ntask->tstack_limit + STACK_SIZE;
-
-    ntask->kstack_limit = umalloc(STACK_SIZE);
+    ntask->kstack_limit = kmalloc(STACK_SIZE);
     ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
+
+    ntask->ustack_limit = umalloc(STACK_SIZE);
+    ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
+
+    klogi("TASK: %s 0x%11x kstack 0x%11x ustack 0x%11x\n",
+          name, ntask, ntask->kstack_top, ntask->ustack_top);
 
     task_regs_t* ntask_regs = NULL;
     if (mode == TASK_KERNEL_MODE) {
-        ntask_regs = ntask->tstack_top - sizeof(task_regs_t);
+        ntask_regs = ntask->kstack_top - sizeof(task_regs_t);
 
         ntask_regs->cs = DEFAULT_KMODE_CODE;
         ntask_regs->ss = DEFAULT_KMODE_DATA;
 
-        ntask_regs->rsp = (uint64_t)ntask->tstack_top;
+        ntask->tstack_top = ntask->kstack_top;
+        ntask->tstack_limit = ntask->kstack_limit;
     } else {
-        ntask_regs = ntask->kstack_top - sizeof(task_regs_t);
+        ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
 
         ntask_regs->cs = DEFAULT_UMODE_CODE;
         ntask_regs->ss = DEFAULT_UMODE_DATA;
 
-        ntask_regs->rsp = (uint64_t)ntask->kstack_top;
+        ntask->tstack_top = ntask->ustack_top;
+        ntask->tstack_limit = ntask->ustack_limit;
     }
 
+    ntask_regs->rsp = (uint64_t)ntask->tstack_top;
     ntask_regs->rflags = DEFAULT_RFLAGS;
     ntask_regs->rip = (uint64_t)entry;
     ntask_regs->rdi = curr_tid;

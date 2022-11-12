@@ -231,14 +231,6 @@ pci_device_t pci_get_gfx_device(struct limine_kernel_address_response* kernel)
     gfx_init_gtt(&pci, &gtt, dev);
     gfx_init_mem_manager(&pci, &gtt, &mgr);
 
-#if 0
-    gfx_disable_vga(&pci);
-
-    /* Need to force out of D6 state before we can read/write to registers */
-    gfx_enter_force_wake(&pci);
-    gfx_exit_force_wake(&pci);
-#endif
-
     klogi("PCI: GFX device checking finished.\n");
     return dev;
 }
