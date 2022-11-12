@@ -1,26 +1,17 @@
+%include "core/cpu_macros.mac"
+
 global enter_context_switch
 global exit_context_switch
+global force_context_switch
 
 extern do_context_switch
+extern lock_release
 
 enter_context_switch:
-    push rax
-    push rbx
-    push rcx
-    push rdx
-    push rsi
-    push rdi
-    push rbp
-    push r8
-    push r9
-    push r10
-    push r11
-    push r12
-    push r13
-    push r14
-    push r15
+    push_all
 
     mov rdi, rsp
+    mov rsi, 0
 
     ; Will call exit_context_switch in the end of implementation
     call do_context_switch
@@ -37,21 +28,32 @@ exit_context_switch:
 
     mov rsp, rdi
 
-    ; The order here should be same with task_regs_t
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rbp
-    pop rdi
-    pop rsi
-    pop rdx
-    pop rcx
-    pop rbx
-    pop rax
+    pop_all
 
     iretq
+
+force_context_switch:
+    cli
+
+    mov rax, rsp
+
+    push qword 0x10
+    push rax
+    push qword 0x202
+    push qword 0x08
+    mov rax, .exit
+    push rax
+
+    push_all
+
+    mov rdi, rsp
+    mov rsi, 1
+  
+    call do_context_switch
+
+    add rsp, 120
+    iretq
+
+.exit:
+    ret
+

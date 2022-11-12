@@ -134,7 +134,7 @@
 typedef uint16_t task_id_t;
 typedef uint8_t task_priority_t;
 
-typedef struct {
+typedef struct [[gnu::packed]] {
     uint64_t entry;
     uint64_t phdr;
     uint64_t phaddr;
@@ -156,7 +156,7 @@ typedef enum {
     TASK_DEAD
 } task_status_t;
 
-typedef struct {
+typedef struct [[gnu::packed]] {
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -183,9 +183,11 @@ typedef struct task_t {
     void *tstack_top;
     void *tstack_limit;
 
-    /* kstack only used once for first task switch */ 
     void *kstack_top;
     void *kstack_limit;
+
+    void *ustack_top;
+    void *ustack_limit;
 
     task_id_t tid;
     task_priority_t priority;

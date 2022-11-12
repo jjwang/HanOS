@@ -334,13 +334,6 @@ int64_t fat32_refresh(vfs_inode_t* this)
             {
                 klogi("FAT32: file attribute %d, name \"%s\"\n", fe->attribute, fn);
             }
-#if 0
-            tm_t now_tm = {0};
-            fat32_get_datetime(fe, &now_tm);
-            klogi("FAT32: %04d-%02d-%02d %02d:%02d:%02d %s\n",
-                    1900 + now_tm.year, now_tm.mon + 1, now_tm.mday,
-                    now_tm.hour, now_tm.min, now_tm.sec, fn);
-#endif
 
             fat32_ident_item_t* item =
                 (fat32_ident_item_t*)kmalloc(sizeof(fat32_ident_item_t));

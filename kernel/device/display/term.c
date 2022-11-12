@@ -266,10 +266,15 @@ void term_print(int mode, uint8_t c)
                 term_scroll(term_act);
                 term_act->cursor_y--;
             }
-            uint8_t c3[3] = {term_act->lastch, c, 0};
+
+            /* Do not display Chinese character */
+            /* uint8_t c3[3] = {term_act->lastch, c, 0}; */
+
             term_act->lastch = 0;
-            fb_putzh(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, c3);
+            fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
+                     term_act->fgcolor, term_act->bgcolor, '?');
+            fb_putch(&(term_act->fb), (term_act->cursor_x + 1) * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
+                     term_act->fgcolor, term_act->bgcolor, '?');
             term_act->cursor_x += 2;
         }
     }

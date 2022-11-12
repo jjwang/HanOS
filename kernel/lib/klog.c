@@ -233,7 +233,7 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
     klog_info_t* k = &klog_info;
 
     cpu_t* cpu = smp_get_current_cpu(false);
-    if (level < KLOG_LEVEL_UNK) lock_lock(&(k->lock))
+    if (level < KLOG_LEVEL_UNK) lock_lock(&(k->lock));
 
     if (level < KLOG_LEVEL_UNK) {
         uint64_t now_sec = hpet_get_nanos() / 1000000000;
@@ -291,12 +291,12 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
     va_end(args);
 
     klog_refresh(TERM_MODE_INFO);
-    if (level < KLOG_LEVEL_UNK) lock_release(&(k->lock))
+    if (level < KLOG_LEVEL_UNK) lock_release(&(k->lock));
 }
 
 void kprintf(const char* s, ...)
 {
-    lock_lock(&(klog_cli.lock))
+    lock_lock(&(klog_cli.lock));
 
     va_list args;
     va_start(args, s);
@@ -304,6 +304,6 @@ void kprintf(const char* s, ...)
     va_end(args);
 
     klog_refresh(TERM_MODE_CLI);
-    lock_release(&(klog_cli.lock))
+    lock_release(&(klog_cli.lock));
 }
 
