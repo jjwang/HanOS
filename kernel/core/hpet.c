@@ -29,6 +29,7 @@
 #include <core/hpet.h>
 #include <core/acpi.h>
 #include <core/mm.h>
+#include <core/pit.h>
 #include <core/panic.h>
 #include <proc/sched.h>
 
@@ -38,6 +39,10 @@ static uint64_t hpet_period = 0;
 /* get current time in nanoseconds */
 uint64_t hpet_get_nanos()
 {
+    if(hpet == NULL) {
+        return pit_get_ticks();
+    }
+
     uint64_t tf = hpet->main_counter_value * hpet_period;
     return tf;
 }
