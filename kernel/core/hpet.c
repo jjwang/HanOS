@@ -30,7 +30,6 @@
 #include <core/acpi.h>
 #include <core/mm.h>
 #include <core/panic.h>
-#include <core/pit.h>
 #include <proc/sched.h>
 
 static hpet_t* hpet = NULL;
@@ -39,28 +38,18 @@ static uint64_t hpet_period = 0;
 /* get current time in nanoseconds */
 uint64_t hpet_get_nanos()
 {
-    if(hpet == NULL) {
-        return pit_get_ticks();
-    }
-
     uint64_t tf = hpet->main_counter_value * hpet_period;
     return tf;
 }
 
 void hpet_nanosleep(uint64_t nanos)
 {
-    if(hpet == NULL) {
-        pit_wait(nanos / MILLIS_TO_NANOS(1));
-        return;
-    }
-
     uint64_t stt = hpet_get_nanos();
     uint64_t tgt = hpet_get_nanos() + nanos;
     while (true) {
         uint64_t cur = hpet_get_nanos();
         if (cur >= tgt) break;
         if (cur <= stt) {
-            pit_wait(nanos / MILLIS_TO_NANOS(1));
             break;
         }
         asm volatile ("nop;");
@@ -72,7 +61,7 @@ void hpet_init()
     /* Find the HPET description table */
     hpet_sdt_t* hpet_sdt = (hpet_sdt_t*)acpi_get_sdt("HPET");
     if (!hpet_sdt) {
-        kloge("HPET not found\n");
+        kpanic("HPET not found\n");
         return;
     }
     hpet = (hpet_t *)PHYS_TO_KER(hpet_sdt->base_addr.address);
