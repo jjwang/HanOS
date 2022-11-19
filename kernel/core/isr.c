@@ -64,6 +64,12 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
 
 void exc_handler_proc(uint64_t errcode, uint64_t excno)
 {
+    /* IRQ7 should be skipped */
+    if (excno == IRQ7) {
+        return;
+    }
+
+    /* Process other exceptions and interrupts */
     exc_handler_t handler = handlers[excno];
 
     if (handler != 0) {

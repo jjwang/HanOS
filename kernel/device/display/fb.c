@@ -92,7 +92,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
-    char *logo = "HanOS";
+    char *logo = "HNK";
     size_t len = strlen(logo);
     uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
     uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
@@ -117,7 +117,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
         } /* End every character */
     }
 
-    char desc_str[64] = "- A Hobby OS for x64 v";
+    char desc_str[64] = "- A Hobby OS Kernel for x64 v";
     strcat(desc_str, VERSION);
     strcat(desc_str, " -");
     size_t desc_len = strlen(desc_str);   
