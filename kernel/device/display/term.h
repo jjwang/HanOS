@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <device/display/fb.h>
+#include <lib/image.h>
 
 void kdisplay(char* s);     /* Implemented in entry C file */
 
@@ -68,5 +69,6 @@ int term_get_mode(void);
 bool term_get_redraw(void);
 void term_set_redraw(bool val);
 void term_set_cursor(uint8_t c);
+bool term_set_bg_image(image_t *img);
 
 

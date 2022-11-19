@@ -30,7 +30,7 @@
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
-static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_KER(SMP_AP_BOOT_COUNTER_ADDR);
+static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
 
 static smp_info_t* smp_info = NULL;
 
@@ -102,15 +102,15 @@ static void prepare_trampoline()
     /* copy the trampoline blob to 0x1000 physical */
     uint64_t trmpblobsize = (uint64_t)&smp_trampoline_blob_end - (uint64_t)&smp_trampoline_blob_start;
 
-    memcpy((void*)PHYS_TO_KER(SMP_TRAMPOLINE_BLOB_ADDR), &smp_trampoline_blob_start, trmpblobsize);
+    memcpy((void*)PHYS_TO_VIRT(SMP_TRAMPOLINE_BLOB_ADDR), &smp_trampoline_blob_start, trmpblobsize);
 
     /* pass arguments to trampoline code */
-    read_cr("cr3", (uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_CR3));
+    read_cr("cr3", (uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CR3));
     asm volatile("sidt %0"
-                 : "=m"(*(uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_IDTPTR))
+                 : "=m"(*(uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_IDTPTR))
                  :
                  :);
-    *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) = (uint64_t)&smp_ap_entrypoint;
+    *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) = (uint64_t)&smp_ap_entrypoint;
 
     klogi("Trampoline start 0x%x end 0x%x\n", (uint64_t)&smp_trampoline_blob_start, (uint64_t)&smp_trampoline_blob_end);
 }
@@ -134,7 +134,7 @@ void smp_init()
     /* loop through the lapic's present and initialize them one by one */
     for (uint64_t i = 0; i < cpunum; i++) {
         memset(&(smp_info->cpus[smp_info->num_cpus].tss), 0, sizeof(tss_t));
-        int counter_prev = *ap_boot_counter, counter_curr;
+        int counter_prev = *ap_boot_counter;
 
         /* if cpu is not online capable, do not initialize it */
         if (!(lapics[i]->flags & MADT_LAPIC_FLAG_ONLINE_CAPABLE)
@@ -161,11 +161,11 @@ void smp_init()
         klogi("SMP: initializing core %d...\n", lapics[i]->proc_id);
 
         /* allocate and pass the stack */
-        void* stack = kmalloc(STACK_SIZE);
-        *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_RSP)) = (uint64_t)stack + STACK_SIZE;
+        void *stack = kmalloc(STACK_SIZE);
+        *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_RSP)) = (uint64_t)stack + STACK_SIZE;
 
         /* pass cpu information */
-        *((uint64_t*)PHYS_TO_KER(SMP_TRAMPOLINE_ARG_CPUINFO)) = (uint64_t)&(smp_info->cpus[smp_info->num_cpus]);
+        *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CPUINFO)) = (uint64_t)&(smp_info->cpus[smp_info->num_cpus]);
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
@@ -176,7 +176,7 @@ void smp_init()
             apic_send_ipi(lapics[i]->apic_id, SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE, APIC_IPI_TYPE_STARTUP);
             /* check if cpu has started */
             for (size_t j = 0; j < 20; j++) {
-                counter_curr = *ap_boot_counter;
+                int counter_curr = *ap_boot_counter;
                 if (counter_curr != counter_prev) {
                     success = true;
                     break;

@@ -25,11 +25,7 @@
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
 
-#define MEM_KER_OFFSET          0xffffffff80000000
 #define MEM_VIRT_OFFSET         0xffff800000000000
-
-#define KER_TO_PHYS(a)          (((uint64_t)(a)) - MEM_KER_OFFSET)
-#define PHYS_TO_KER(a)          (((uint64_t)(a)) + MEM_KER_OFFSET)
 
 #define VIRT_TO_PHYS(a)         (((uint64_t)(a)) - MEM_VIRT_OFFSET)
 #define PHYS_TO_VIRT(a)         (((uint64_t)(a)) + MEM_VIRT_OFFSET)

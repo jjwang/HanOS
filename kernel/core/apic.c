@@ -71,8 +71,8 @@ void apic_init()
         kloge("APIC: unsupported indicated by CPU flag\n");
     }
 
-    lapic_base = (void*)PHYS_TO_KER(madt_get_lapic_base());
-    vmm_map(NULL, (uint64_t)lapic_base, KER_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
+    lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
+    vmm_map(NULL, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
 
     apic_enable();
 

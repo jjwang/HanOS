@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <3rd-party/boot/limine.h>
 #include <device/display/font.h>
+#include <lib/image.h>
 
 #define FB_WIDTH            1024
 #define FB_HEIGHT           768
@@ -37,17 +38,20 @@
 #define DEFAULT_BGCOLOR     COLOR_BLACK
 
 typedef struct {
-    uint8_t* addr;
+    uint8_t  *addr;
+    uint8_t  *bg;
     uint32_t width;
     uint32_t height;
     uint32_t pitch;
     uint8_t  *backbuffer;
-    uint32_t backbuffer_len;
+    uint32_t backbuffer_len;;
 
     uint32_t dirty_left;
     uint32_t dirty_top;
     uint32_t dirty_right;
     uint32_t dirty_bottom;
+
+    image_t  img_bg;
 } fb_info_t;
 
 void fb_init(fb_info_t* fb, struct limine_framebuffer* s);
@@ -57,3 +61,5 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor);
 uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y);
 void fb_refresh(fb_info_t* fb, bool forced);
 void fb_debug(void);
+bool fb_set_bg_image(fb_info_t *fb, image_t *img);
+

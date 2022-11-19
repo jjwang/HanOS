@@ -71,8 +71,9 @@ $(KERNEL): $(TRAMPOLINEBLOB) $(COBJ) $(AS_OBJ) $(ASM_OBJ)
 	@echo ">>>>> Re-linking symbols..."
 	$(LD) $(INTERNALLDFLAGS) $(COBJ) $(AS_OBJ) $(ASM_OBJ) $(SYMBOLS) -o $@
 
-	objcopy --only-keep-debug $@ hanos.sym
-	objcopy --strip-debug $@
+# Below are used to generate symbol file for gdb debug
+# objcopy --only-keep-debug $@ hanos.sym
+# objcopy --strip-debug $@
 
 limine.h:
 	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))

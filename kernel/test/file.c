@@ -20,7 +20,6 @@ void file_test(void);
 
 void dir_test(void)
 {
-#if 1
     char* fn1 = "/";
 
     kprintf("List all files in \"%s\":\n", fn1);
@@ -44,21 +43,19 @@ void dir_test(void)
     } else {
         klogi("Open %s(%d) failed\n", fn1, f1);
     }
-#endif
     file_test();
 }
 
 void file_test(void)
 {
-#if 0
-    char* fn1 = "/disk/0/EFI/BOOT";
+    char* fn1 = "/assets/desktop.bmp";
     vfs_handle_t f1 = vfs_open(fn1, VFS_MODE_READ);
     if (f1 != VFS_INVALID_HANDLE) {
+        klogi("Successfully open %s with length %d\n", fn1, vfs_tell(f1));
         vfs_close(f1);
     } else {
         kloge("Open %s failed\n", fn1);
     }
-#endif
 
     char* fn2 = "/HELLOWLD.TXT";
     vfs_handle_t f2 = vfs_open(fn2, VFS_MODE_READWRITE);
@@ -77,7 +74,6 @@ void file_test(void)
         kloge("Open %s(%d) failed\n", fn2, f2);
     }
 
-#if 1
     vfs_handle_t f21 = vfs_open(fn2, VFS_MODE_READWRITE);
     if (f21 != VFS_INVALID_HANDLE) {
         char buff_read[1800] = {0};
@@ -98,20 +94,5 @@ void file_test(void)
     } else {
         kloge("Open %s(%d) failed\n", fn2, f21);
     }
-#endif
-
-#if 0
-    char* fn3 = "/disk/0/HANOS.TXT";
-    vfs_handle_t f3 = vfs_open(fn3, VFS_MODE_READ);
-    if (f3 != VFS_INVALID_HANDLE) {
-        char buff_read[1024] = {0};
-        size_t readlen = vfs_read(f3, sizeof(buff_read) - 1, buff_read);
-        klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn3, f3, buff_read);
-
-        vfs_close(f3);
-    } else {
-        kloge("Open %s failed\n", fn3);
-    } 
-#endif
 }
 

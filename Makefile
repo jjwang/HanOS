@@ -13,13 +13,13 @@ all: $(ISO_IMAGE)
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -serial stdio -M q35 -m 4G -smp 1 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
+	qemu-system-x86_64 -serial stdio -M q35 -m 4G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
 
 test: $(HDD_IMAGE)
 	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -no-reboot -m 4G -smp 2 -rtc base=localtime
 
 limine:
-	git clone https://github.com/limine-bootloader/limine.git --branch=v3.0-branch-binary --depth=1
+	git clone https://github.com/limine-bootloader/limine.git --branch=v4.x-branch-binary --depth=1
 	make -C limine
 
 kernel/hanos.elf:
@@ -30,7 +30,7 @@ initrd:
 
 $(ISO_IMAGE): limine initrd kernel/hanos.elf
 	rm -rf iso_root initrd.tar
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin assets
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
