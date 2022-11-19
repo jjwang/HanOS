@@ -17,6 +17,7 @@
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <lib/lock.h>
+#include <lib/memutils.h>
 #include <core/panic.h>
 #include <3rd-party/boot/limine.h>
 
@@ -42,6 +43,11 @@ static bool term_need_redraw = false;
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
+
+bool term_set_bg_image(image_t *img)
+{
+    return fb_set_bg_image(&(term_cli.fb), img);
+}
 
 static bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
 {
@@ -200,9 +206,15 @@ void term_clear(int mode)
         return;
     }
 
-    for (size_t y = 0; y < term_act->fb.height; y++)
-        for (size_t x = 0; x < term_act->fb.width; x++)
-            fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+    if (term_act->fb.bg == NULL) {
+        for (size_t y = 0; y < term_act->fb.height; y++)
+            for (size_t x = 0; x < term_act->fb.width; x++)
+                fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+    } else {
+        memcpy(term_act->fb.addr, term_act->fb.bg,
+               term_act->fb.width * term_act->fb.height * 4);
+
+    }
 
     term_act->cursor_x = 0;
     term_act->cursor_y = 0;
@@ -365,6 +377,7 @@ void term_start()
 #if LAUNCHER_CLI
     term_active_mode = TERM_MODE_CLI;
 
+    term_clear(term_active_mode);
     fb_putlogo(&(term_cli.fb), COLOR_CYAN, DEFAULT_BGCOLOR);
     term_refresh(TERM_MODE_CLI, true);
 #else

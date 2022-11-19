@@ -39,7 +39,7 @@ void umfree(void* addr)
 
 void* kmalloc(uint64_t size)
 {
-    metadata_t* alloc = (metadata_t*)PHYS_TO_KER(pmm_get(NUM_PAGES(size) + 1, 0x0));
+    metadata_t* alloc = (metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0));
     alloc->numpages = NUM_PAGES(size);
     alloc->size = size;
     return ((uint8_t*)alloc) + PAGE_SIZE;
@@ -48,7 +48,7 @@ void* kmalloc(uint64_t size)
 void kmfree(void* addr)
 {
     metadata_t* d = (metadata_t*)((uint8_t*)addr - PAGE_SIZE);
-    pmm_free(KER_TO_PHYS(d), d->numpages + 1);
+    pmm_free(VIRT_TO_PHYS(d), d->numpages + 1);
 }
 
 void* kmrealloc(void* addr, size_t newsize)

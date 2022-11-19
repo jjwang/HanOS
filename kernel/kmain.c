@@ -19,8 +19,10 @@
 #include <stddef.h>
 
 #include <kconfig.h>
+#include <version.h>
 #include <3rd-party/boot/limine.h>
 #include <lib/time.h>
+#include <lib/image.h>
 #include <lib/klog.h>
 #include <lib/string.h>
 #include <lib/shell.h>
@@ -37,6 +39,7 @@
 #include <core/panic.h>
 #include <core/pci.h>
 #include <core/pit.h>
+#include <device/display/fb.h>
 #include <device/display/term.h>
 #include <device/display/edid.h>
 #include <device/display/gfx.h>
@@ -79,6 +82,11 @@ static volatile struct limine_module_request module_request = {
     .revision = 0 
 };
 
+static volatile struct limine_terminal_request terminal_request = {
+    .id = LIMINE_TERMINAL_REQUEST,
+    .revision = 0
+};
+
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
@@ -108,35 +116,49 @@ void done(void)
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
+    /* Limine sanity check */
+    if (terminal_request.response == NULL
+        || terminal_request.response->terminal_count < 1) {
+        done();
+    }
+    struct limine_terminal *terminal = terminal_request.response->terminals[0];
+    terminal_request.response->write(terminal, "Starting HanOS...\n", 18);
+
     cpu_init();
 
     serial_init();
     klog_init();
-    klogi("HanOS version 0.1 starting...\n");
+    klogi("HanOS version %s starting...\n", VERSION);
 
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
              hhdm_request.response->offset, hhdm_request.response->revision);
     }
 
-    if (fb_request.response == NULL
-        || fb_request.response->framebuffer_count < 1) {
+    if (fb_request.response == NULL) {
+        goto exit;
+    } else if (fb_request.response->framebuffer_count < 1) {
         goto exit;  
     }   
 
-    struct limine_framebuffer* fb =
+    struct limine_framebuffer *fb =
         fb_request.response->framebuffers[0];
+    if (fb->width > FB_WIDTH || fb->height > FB_HEIGHT) {
+        char *err_msg = "Resolution cannot be supported";
+        terminal_request.response->write(terminal, err_msg, strlen(err_msg));
+        done();
+    }
 
     term_init(fb);
     klogi("Framebuffer address: 0x%x\n", fb->address);
-
-    gdt_init(NULL);
-    idt_init();
 
     pmm_init(mm_request.response);
     vmm_init(mm_request.response, kernel_addr_request.response);
 
     term_start();
+
+    gdt_init(NULL);
+    idt_init();
 
     /* Need to init after idt_init() because it will be used very often. */
     pit_init();
@@ -197,6 +219,13 @@ void kmain(void)
     pci_init();
     ata_init();
     pci_get_gfx_device(kernel_addr_request.response);
+
+    image_t image;
+    if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
+        klogi("Background image: %d*%d with bpp %d, size %d\n",
+              image.img_width, image.img_height, image.bpp, image.size);
+        term_set_bg_image(&image);
+    }
 
     klog_debug();
     fb_debug();

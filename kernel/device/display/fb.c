@@ -35,7 +35,38 @@
 
 static uint64_t fb_refresh_times = 0, fb_refresh_nanos = 0;
 
-void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, 
+bool fb_set_bg_image(fb_info_t *fb, image_t *img)
+{
+    if (img->bpp == 24 && img->img_width == fb->width
+        && img->img_height == fb->height) {
+        memcpy(&(fb->img_bg), img, sizeof(image_t));
+        if (fb->bg == NULL) {
+            fb->bg = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+        }
+
+        for (size_t y = 0; y < fb->height; y++) {
+            size_t off = img->pitch * (fb->height - 1 - y);
+            for (size_t x = 0; x < fb->width; x++) {
+                uint8_t *img_pixel = (uint8_t*)img->img + off + x * img->bpp / 8;
+                uint8_t r, g, b;
+                uint8_t shift = 2;
+
+                b  = img_pixel[0] >> shift;
+                g = img_pixel[1] >> shift;
+                r = img_pixel[2] >> shift;
+
+                uint32_t color;
+                color = (uint32_t)b + ((uint32_t)g << 8) + ((uint32_t)r << 16);
+                ((uint32_t*)(fb->bg + (fb->pitch * y)))[x] = color;
+            }
+        }
+        memcpy(fb->backbuffer, fb->bg, fb->width * fb->height * 4); 
+        return true;
+    }   
+    return false;
+}
+
+void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y, 
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
@@ -47,13 +78,17 @@ void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y,
             if(asc16_font[offset + i] & masks[k]) {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
-                fb_putpixel(fb, x + k, y + i, bgcolor);
+                uint32_t bg_img_color = bgcolor;
+                if (fb->bg != NULL) {
+                    bg_img_color = ((uint32_t*)(fb->bg + fb->pitch * y + x * 4))[0];
+                }
+                fb_putpixel(fb, x + k, y + i, bg_img_color);
             }
         }
     }
 }
 
-void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor) 
+void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor) 
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
@@ -68,8 +103,12 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
             for(size_t k = 0; k < 8; k++) {
                 for(size_t m = 1; m < LOGO_SCALE; m++) {
                     for(size_t n = 1; n < LOGO_SCALE; n++) {
+                        uint32_t bg_img_color = bgcolor;
+                        if (fb->bg != NULL) {
+                            bg_img_color = ((uint32_t*)(fb->bg + fb->pitch * y + x * 4))[0];
+                        } 
                         uint32_t color = (asc16_font[offset + i] & masks[k])
-                            ? fgcolor : bgcolor;
+                            ? fgcolor : bg_img_color;
                         fb_putpixel(fb, x + (idx * 8 + k) * LOGO_SCALE + m,
                                     y + i * LOGO_SCALE + n, color);
                     }
@@ -89,7 +128,7 @@ void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor)
     }
 }
 
-void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color)
+void fb_putpixel(fb_info_t *fb, uint32_t x, uint32_t y, uint32_t color)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
@@ -103,7 +142,7 @@ void fb_putpixel(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t color)
     fb->dirty_bottom = MAX(fb->dirty_bottom, y);
 }
 
-uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y)
+uint32_t fb_getpixel(fb_info_t *fb, uint32_t x, uint32_t y)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return 0;
 
@@ -114,7 +153,7 @@ uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y)
     }
 }
 
-void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
+void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
 {
     if(s == NULL) {
         if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) {
@@ -125,6 +164,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
     }
 
     fb->addr = (uint8_t*)s->address;
+    fb->bg = NULL;
     fb->width = s->width;
     fb->height = s->height;
     fb->pitch = s->pitch;
@@ -136,6 +176,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
     fb->dirty_top = fb->height;
     fb->dirty_right = 0;
     fb->dirty_bottom = 0;
+    memset(&(fb->img_bg), sizeof(image_t), 0);;
 
     for(uint32_t x = 0; x < fb->width; x++) {
         for(uint32_t y = 0; y < fb->height; y++) {
@@ -145,7 +186,7 @@ void fb_init(fb_info_t* fb, struct limine_framebuffer* s)
     fb_refresh(fb, false);
 }
 
-void fb_refresh(fb_info_t* fb, bool forced)
+void fb_refresh(fb_info_t *fb, bool forced)
 {
     if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
         fb_refresh_times++;

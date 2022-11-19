@@ -286,11 +286,11 @@ void vmm_init(
     kaddrspace.PML4 = umalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(NULL, MEM_KER_OFFSET, 0,
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0,
             NUM_PAGES(kmem_info.phys_limit),
             VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
-    klogd("Mapped %d bytes memory to 0xFFFFFFFF80000000\n",
-            kmem_info.phys_limit);
+    klogd("Mapped %d bytes memory to 0x%x\n",
+            kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];

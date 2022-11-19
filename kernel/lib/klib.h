@@ -18,4 +18,5 @@
 #define MAX(x, y)                   ((x) > (y) ? (x) : (y))
 
 #define DIV_ROUNDUP(a, b)           (((a) + ((b) - 1)) / (b))
+#define ALIGNUP(x, a)               (DIV_ROUNDUP(x, a) * a)
 
