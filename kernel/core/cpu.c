@@ -9,8 +9,15 @@
  */
 #include <core/cpu.h>
 #include <lib/klog.h>
+#include <lib/memutils.h>
+#include <lib/string.h>
 
 static bool cpu_initialized = false;
+
+static uint32_t cpu_model = 0;
+static uint32_t cpu_family = 0;
+static char cpu_model_name[60] = {0}; /* Should no less than 48 */
+static char cpu_manufacturer[60] = {0};
 
 void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx)
 {   
@@ -111,6 +118,37 @@ void cpu_init()
     vcr4 |= 1 << 10; 
     write_cr("cr4", vcr4);
 
+    uint32_t x, y, na;
+    cpuid(0, 0, &na, &y, &na, &na);
+
+    strcpy(cpu_manufacturer, "Unknown");
+
+    if (y == 0x756e6547) {
+        cpuid(1, 0, &x, &y, &na, &na);
+        strcpy(cpu_manufacturer, "Intel");
+        cpu_model = (x >> 4) & 0x0F;
+        cpu_family = (x >> 8) & 0x0F;
+    } else if (y == 0x68747541) {
+        cpuid(1, 0, &x, &na, &na, &na);
+        strcpy(cpu_manufacturer, "AMD");
+        cpu_model = (x >> 4) & 0x0F;
+        cpu_family = (x >> 8) & 0x0F;
+    }
+
+    klogi("CPU: model 0x%2x, family 0x%2x, manufacturer %s\n",
+          cpu_model, cpu_family, cpu_manufacturer);
+
+    cpuid(0x80000000, 0, &x, &na, &na, &na);
+    if (x >= 0x80000004) {
+        uint32_t brand[12];
+        cpuid(0x80000002, 0, &(brand[0]), &(brand[1]), &(brand[2]), &(brand[3]));
+        cpuid(0x80000003, 0, &(brand[4]), &(brand[5]), &(brand[6]), &(brand[7]));
+        cpuid(0x80000004, 0, &(brand[8]), &(brand[9]), &(brand[10]), &(brand[11]));
+        memcpy(cpu_model_name, brand, 48);
+        cpu_model_name[48] = '\0';
+        klogi("CPU: %s\n", cpu_model_name);
+    }
+
     cpu_initialized = true;
 }
 
@@ -119,3 +157,7 @@ bool cpu_ok()
     return cpu_initialized;
 }
 
+char *cpu_get_model_name()
+{
+    return cpu_model_name;
+}

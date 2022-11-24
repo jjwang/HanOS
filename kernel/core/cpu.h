@@ -226,6 +226,7 @@ static inline void mmio_inn(
 /* CPU related functions and data structures*/
 void cpu_init();
 bool cpu_ok();
+char *cpu_get_model_name();
 
 typedef struct {
     uint32_t func;

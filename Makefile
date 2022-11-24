@@ -1,5 +1,5 @@
 ISO_IMAGE = cdrom.iso
-HDD_IMAGE = hdd.img
+HDD_IMAGE = release/hdd.img
 TARGET_ROOT = $(shell pwd)/initrd
 QEMU_HDA_FLAGS = -drive id=handisk,file=$(HDD_IMAGE),if=ide,bus=0,unit=0
 
@@ -13,7 +13,7 @@ all: $(ISO_IMAGE)
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -serial stdio -M q35 -m 4G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
+	qemu-system-x86_64 -M q35 -m 512M -smp 1 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
 
 test: $(HDD_IMAGE)
 	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -no-reboot -m 4G -smp 2 -rtc base=localtime

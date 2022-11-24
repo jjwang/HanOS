@@ -6,13 +6,14 @@
  @verbatim
 
   Graphics can be displayed in a linear framebuffer - a simple array mapped
-  in memory that represents the screen. The address of framebuffer  was got
+  in memory that represents the screen. The address of framebuffer was got
   from Limine bootloader.
 
   History:
   Mar 27, 2022 - Rewrite fb_refresh() by memcpy() significantly improve the
                  frame rate. In the future, we should rewrite memcpy() by SSE
                  enhancements.
+  Nov 25, 2022 - Background picture could be set by a bitmap file.
 
  @endverbatim
  @todo    Improve memcpy() by SSE enhancements.
@@ -37,33 +38,62 @@ static uint64_t fb_refresh_times = 0, fb_refresh_nanos = 0;
 
 bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 {
-    if (img->bpp == 24 && img->img_width == fb->width
-        && img->img_height == fb->height) {
-        memcpy(&(fb->img_bg), img, sizeof(image_t));
-        if (fb->bg == NULL) {
-            fb->bg = (uint8_t*)kmalloc(fb->width * fb->height * 4);
-        }
+    if (img->bpp != 24) {
+        return false;
+    }
 
-        for (size_t y = 0; y < fb->height; y++) {
-            size_t off = img->pitch * (fb->height - 1 - y);
-            for (size_t x = 0; x < fb->width; x++) {
-                uint8_t *img_pixel = (uint8_t*)img->img + off + x * img->bpp / 8;
-                uint8_t r, g, b;
-                uint8_t shift = 2;
+    memcpy(&(fb->img_bg), img, sizeof(image_t));
+    if (fb->bg == NULL) {
+        fb->bg = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+    }
 
-                b  = img_pixel[0] >> shift;
-                g = img_pixel[1] >> shift;
-                r = img_pixel[2] >> shift;
+    for (size_t y = 0; y < fb->height; y++) {
+        for (size_t x = 0; x < fb->width; x++) {
+            size_t x2, y2;
 
-                uint32_t color;
-                color = (uint32_t)b + ((uint32_t)g << 8) + ((uint32_t)r << 16);
-                ((uint32_t*)(fb->bg + (fb->pitch * y)))[x] = color;
+            /* Determine the best-fit point's (x, y) in original bitmap */
+            if (img->img_width == fb->width && img->img_height == fb->height) {
+                x2 = x;
+                y2 = y;
+            } else {
+                size_t x_new, y_new, x_rb, y_rb;
+                x_new = x * 100 * img->img_width / fb->width;
+                y_new = y * 100 * img->img_height / fb->height;
+                x2 = MAX(MIN(DIV_ROUNDUP(x_new, 100), img->img_width), 1);
+                y2 = MAX(MIN(DIV_ROUNDUP(y_new, 100), img->img_height), 1);
+
+                uint64_t max_dist = (100 ^ 4), cur_dist;
+                for (size_t k = 0; k < 2; k++) {
+                    for (size_t m = 0; m < 2; m++) {
+                        cur_dist = ((x_new - (x_rb - k) * 100) ^ 2)
+                            + ((y_new - (y_rb - m) * 100) ^ 2);
+                        if (cur_dist < max_dist) {
+                            x2 = x_rb - k;
+                            y2 = y_rb - m;
+                            max_dist = cur_dist;
+                        }
+                    }
+                }
             }
+
+            size_t off = img->pitch * (img->img_height - 1 - y2);
+            uint8_t *img_pixel = (uint8_t*)img->img + off + x2 * img->bpp / 8;
+            uint8_t r, g, b;
+            uint8_t shift = 2;
+
+            b = img_pixel[0] >> shift;
+            g = img_pixel[1] >> shift;
+            r = img_pixel[2] >> shift;
+
+            uint32_t color;
+            color = (uint32_t)b + ((uint32_t)g << 8) + ((uint32_t)r << 16);
+            ((uint32_t*)(fb->bg + (fb->pitch * y)))[x] = color;
         }
-        memcpy(fb->backbuffer, fb->bg, fb->width * fb->height * 4); 
-        return true;
-    }   
-    return false;
+    }
+
+    memcpy(fb->backbuffer, fb->bg, fb->width * fb->height * 4); 
+
+    return true;
 }
 
 void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y, 
@@ -73,9 +103,9 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
 
     uint32_t offset = ((uint32_t)ch) * 16;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-    for(size_t i = 0; i < 16; i++){
-        for(size_t k = 0; k < 8; k++){
-            if(asc16_font[offset + i] & masks[k]) {
+    for (size_t i = 0; i < FONT_HEIGHT; i++) {
+        for (size_t k = 0; k < 8; k++) {
+            if (i < 16 && (asc16_font[offset + i] & masks[k])) {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
                 uint32_t bg_img_color = bgcolor;
