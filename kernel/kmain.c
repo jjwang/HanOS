@@ -21,6 +21,7 @@
 #include <kconfig.h>
 #include <version.h>
 #include <3rd-party/boot/limine.h>
+#include <3rd-party/tiny-regex-c/re.h>
 #include <lib/time.h>
 #include <lib/image.h>
 #include <lib/klog.h>
@@ -86,6 +87,8 @@ static volatile struct limine_terminal_request terminal_request = {
     .id = LIMINE_TERMINAL_REQUEST,
     .revision = 0
 };
+
+static volatile computer_info_t self_info = {0};
 
 _Noreturn void kcursor(task_id_t tid)
 {
@@ -195,15 +198,21 @@ void kmain(void)
         edid_info_t* edid = (edid_info_t*)fb->edid;
         klogi("EDID: version %d.%d, screen size %dcm * %dcm\n", edid->edid_version, edid->edid_revision,
               edid->max_hor_size, edid->max_ver_size);
+
+        self_info.screen_hor_size = edid->max_hor_size;
+        self_info.screen_ver_size = edid->max_ver_size;
+
+        self_info.prefer_res_x = (uint16_t)edid->det_timings[0].horz_active +
+            (uint16_t)((uint16_t)(edid->det_timings[0].horz_active_blank_msb &
+            0xF0) << 4);
+        self_info.prefer_res_y = (uint16_t)edid->det_timings[0].vert_active +
+            (uint16_t)((uint16_t)(edid->det_timings[0].vert_active_blank_msb &
+            0xF0) << 4);
+
         if (edid->dpms_flags & 0x02) {
             klogi("EDID: Preferred timing mode specified in DTD-1\n");
             klogi("EDID: %d * %d\n",
-                  (uint16_t)edid->det_timings[0].horz_active +
-                      (uint16_t)((uint16_t)(edid->det_timings[0].horz_active_blank_msb &
-                      0xF0) << 4),
-                  (uint16_t)edid->det_timings[0].vert_active +
-                      (uint16_t)((uint16_t)(edid->det_timings[0].vert_active_blank_msb &
-                      0xF0) << 4));
+                  self_info.prefer_res_x, self_info.prefer_res_y);
         }
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
@@ -231,7 +240,51 @@ void kmain(void)
     fb_debug();
 
     sched_add(kcursor, false);
+
+#if LAUNCHER_CLI
     term_clear(TERM_MODE_CLI);
+#endif
+
+    kprintf("HanOS based on HNK kernel version %s. Copyleft (2022) HNK.\n",
+            VERSION); 
+
+    char *cpu_model_name = cpu_get_model_name();
+    if (strlen(cpu_model_name) > 0) {
+        kprintf("\e[36mCPU        \e[0m: %s\n", cpu_model_name);
+    }
+
+    {
+        kprintf("\e[36mMemory     \e[0m: %11d MB\n", pmm_get_total_memory());
+    }
+
+    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
+        kprintf("\e[36mMonitor    \e[0m: %4d x %4d cm\n",
+                self_info.screen_hor_size, self_info.screen_ver_size);
+    }
+
+    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
+        kprintf("\e[36mPreferred  \e[0m: %4d x %4d Pixels\n",
+                self_info.prefer_res_x, self_info.prefer_res_y);
+        kprintf("\e[36mActual     \e[0m: %4d x %4d Pixels\n",
+                fb->width, fb->height);
+    }
+
+    /* Test case of tiny-regex-c module */
+    /* Standard int to hold length of match */
+    int match_length;
+
+    /* Standard null-terminated C-string to search: */
+    const char* string_to_search = "ahem.. 'hello world !' ..";
+
+    /* Compile a simple regular expression using character classes, meta-char and
+     * greedy + non-greedy quantifiers: */
+    re_t pattern = re_compile("[Hh]ello [Ww]orld\\s*[!]?");
+
+    /* Check if the regex matches the text: */
+    int match_idx = re_matchp(pattern, string_to_search, &match_length);
+    if (match_idx != -1) {
+        klogi("Regex: match at idx %d, %d chars long.\n", match_idx, match_length);
+    }
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {

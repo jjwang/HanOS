@@ -27,7 +27,7 @@ void kdisplay(char* s);     /* Implemented in entry C file */
 #define TERM_MODE_UNKNOWN   3
 
 #define FONT_WIDTH          8
-#define FONT_HEIGHT         16
+#define FONT_HEIGHT         17
 
 typedef enum {
     CURSOR_INVISIBLE = 0,

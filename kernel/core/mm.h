@@ -52,6 +52,7 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_free(uint64_t addr, uint64_t numpages);
 void pmm_dump_usage(void);
+uint64_t pmm_get_total_memory(void);
 
 #define VMM_FLAG_PRESENT        (1 << 0)
 #define VMM_FLAG_READWRITE      (1 << 1)
