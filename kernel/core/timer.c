@@ -38,12 +38,7 @@ static uint64_t base_freq = 0;
 static uint8_t divisor = 0;
 static uint8_t vector = 0;
 
-[[gnu::interrupt]] static void apic_timer_handler(void* v)
-{
-    (void)v;
-    klogw("APIC Timer: No handler registered\n");
-    apic_send_eoi();
-}
+[[gnu::interrupt]] void apic_timer_handler(void* v);
 
 void apic_timer_stop(void)
 {

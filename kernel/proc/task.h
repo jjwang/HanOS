@@ -39,7 +39,6 @@
 #include <core/smp.h>
 #include <core/mm.h>
 #include <fs/vfs.h>
-#include <proc/task.h>
 
 #define DEFAULT_KMODE_CODE      0b00001000 /* 0x08 */
 #define DEFAULT_KMODE_DATA      0b00010000 /* 0x10 */
@@ -129,9 +128,9 @@
  */
 #define DEFAULT_RFLAGS          0b0000001000000010 /* 0x0202 */
 
-#define TID_MAX                 UINT16_MAX
+#define TID_MAX                 UINT64_MAX
 
-typedef uint16_t task_id_t;
+typedef uint64_t task_id_t;
 typedef uint8_t task_priority_t;
 
 typedef struct [[gnu::packed]] {
@@ -179,27 +178,41 @@ typedef struct [[gnu::packed]] {
     uint64_t ss;
 } task_regs_t;
 
-typedef struct task_t {
-    void *tstack_top;
-    void *tstack_limit;
+typedef enum {
+    EVENT_UNDEFINED = 1,
+    EVENT_KEY_PRESSED
+} event_type_t;
 
-    void *kstack_top;
-    void *kstack_limit;
+typedef uint64_t event_para_t;
 
-    void *ustack_top;
-    void *ustack_limit;
-
+typedef struct {
     task_id_t tid;
+    event_type_t type;
+    event_para_t para;
+} event_t;
+
+typedef struct task_t {
+    void            *tstack_top;
+    void            *tstack_limit;
+
+    void            *kstack_top;
+    void            *kstack_limit;
+
+    void            *ustack_top;
+    void            *ustack_limit;
+
+    task_id_t       tid;
     task_priority_t priority;
-    uint64_t last_tick;
-    uint64_t wakeup_time;
-    task_status_t status;
-    task_mode_t mode;
+    uint64_t        last_tick;
+    uint64_t        wakeup_time;
+    event_t         wakeup_event;
+    task_status_t   status;
+    task_mode_t     mode;
 
-    struct task_t *next;
-    struct task_t *prev;
+    struct task_t   *next;
+    struct task_t   *prev;
 
-    addrspace_t *addrspace;
+    addrspace_t     *addrspace;
     vec_struct(addrspace_node_t*) aslist;
 } task_t;
 

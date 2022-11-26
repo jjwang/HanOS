@@ -23,11 +23,22 @@
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
+static lock_t klog_info_lock = {0};
 
 static uint64_t 
     klog_clear_times    = 0, 
     klog_refresh_times  = 0,
     klog_putchar_times  = 0;
+
+void klog_lock(void)
+{
+    lock_lock(&klog_info_lock);
+}
+
+void klog_unlock(void)
+{
+    lock_release(&klog_info_lock);
+}
 
 void klog_debug(void)
 {
@@ -148,11 +159,7 @@ static void klog_putint(int mode, int64_t n, int width, bool zero_filling)
 
 void klog_init()
 {
-    klog_info.lock = lock_new();
-    klog_cli.lock = lock_new();
-
-    lock_lock(&klog_info.lock);
-    lock_lock(&klog_cli.lock); 
+    lock_lock(&klog_info_lock);
 
     for(int i = 0; i < KLOG_BUFFER_SIZE; i++) {
         klog_info.buff[i] = 0;
@@ -165,13 +172,12 @@ void klog_init()
     klog_cli.start = 0;
     klog_cli.end = 0;
     
-    lock_release(&klog_cli.lock);
-    lock_release(&klog_info.lock);
+    lock_release(&klog_info_lock);
 }
 
 void klog_vprintf_core(int mode, const char* s, va_list args)
 {
-    for (int i = 0; s[i] != '\0'; i++) {
+    for (size_t i = 0; s[i] != '\0'; i++) {
         switch (s[i]) {
         case '%': {
             uint32_t arg_width = 0;
@@ -218,22 +224,10 @@ void klog_vprintf_wrapper(int mode, const char* s, ...)
     va_end(args);
 }
 
-void klog_lock(void)
-{
-    lock_lock(&(klog_info.lock));
-}
-
-void klog_unlock(void)
-{
-    lock_release(&(klog_info.lock));
-}
-
 void klog_vprintf(klog_level_t level, const char* s, ...)
 {
-    klog_info_t* k = &klog_info;
-
     cpu_t* cpu = smp_get_current_cpu(false);
-    if (level < KLOG_LEVEL_UNK) lock_lock(&(k->lock));
+    if (level < KLOG_LEVEL_UNK) lock_lock(&klog_info_lock);
 
     if (level < KLOG_LEVEL_UNK) {
         uint64_t now_sec = hpet_get_nanos() / 1000000000;
@@ -291,12 +285,12 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
     va_end(args);
 
     klog_refresh(TERM_MODE_INFO);
-    if (level < KLOG_LEVEL_UNK) lock_release(&(k->lock));
+    if (level < KLOG_LEVEL_UNK) lock_release(&klog_info_lock);
 }
 
 void kprintf(const char* s, ...)
 {
-    lock_lock(&(klog_cli.lock));
+    lock_lock(&klog_info_lock);
 
     va_list args;
     va_start(args, s);
@@ -304,6 +298,6 @@ void kprintf(const char* s, ...)
     va_end(args);
 
     klog_refresh(TERM_MODE_CLI);
-    lock_release(&(klog_cli.lock));
+    lock_release(&klog_info_lock);
 }
 

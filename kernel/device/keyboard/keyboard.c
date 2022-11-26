@@ -26,6 +26,7 @@
 #include <core/isr_base.h>
 #include <core/cpu.h>
 #include <core/idt.h>
+#include <proc/eventbus.h>
 
 #define KB_BUFFER_SIZE    128
 
@@ -96,6 +97,8 @@ static void keyboard_callback()
             }
             lock_release(&kb_lock);
         }
+
+        eb_publish(TID_MAX, EVENT_KEY_PRESSED, ch);
         break;
     }
 }
