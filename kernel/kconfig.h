@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define LAUNCHER_CLI        false
+#define LAUNCHER_CLI        true
 #define DEFAULT_SHELL_APP   "/bin/sh.elf"
 
 typedef struct {

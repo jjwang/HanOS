@@ -13,6 +13,7 @@ ASM_FLAGS = -f elf64 -I.
 
 INTERNALLDFLAGS :=  \
 	-flto           \
+    -std=gnu2x      \
 	-Wno-lto-type-mismatch \
 	-no-pie         \
 	-nostdlib       \
@@ -29,10 +30,6 @@ INTERNALCFLAGS :=       \
 	-fno-pic            \
 	-fno-omit-frame-pointer \
 	-mno-3dnow          \
-	-mno-80387          \
-	-mno-mmx            \
-	-mno-sse            \
-	-mno-sse2           \
 	-mno-red-zone       \
 	-Wno-cast-function-type \
 	-O2

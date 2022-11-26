@@ -21,6 +21,7 @@
 #include <lib/time.h>
 #include <lib/kmalloc.h>
 #include <proc/sched.h>
+#include <proc/eventbus.h>
 #include <core/smp.h>
 #include <core/timer.h>
 #include <core/apic.h>
@@ -68,12 +69,8 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
-    /* This is for writing test of user space memory. */
-    uint64_t* temp_val = (uint64_t*)0x20001000;
-    *temp_val = 0;
-
     while (true) {
-        asm volatile ("nop");
+        asm volatile ("hlt");
     }
 }
 
@@ -89,6 +86,9 @@ void do_context_switch(void* stack, int64_t force)
 
     /* Make sure that all CPUs initialization finished */
     if (smp_info->num_cpus != cpu_num)  return;
+
+    /* Firstly all events on event bus should be processed */
+    eb_dispatch();
 
     lock_lock(&sched_lock);
 
@@ -128,7 +128,8 @@ void do_context_switch(void* stack, int64_t force)
         }
         if (next->status == TASK_READY) break;
         if (next->status == TASK_SLEEPING) {
-            if (hpet_get_nanos() >= next->wakeup_time) {
+            if ((hpet_get_nanos() >= next->wakeup_time)
+                && (next->wakeup_time > 0)) {
                 break;
             }
         }
@@ -163,6 +164,24 @@ void do_context_switch(void* stack, int64_t force)
         next->addrspace == NULL ? 0 : (uint64_t)next->addrspace->PML4);
 }
 
+task_id_t sched_get_tid()
+{
+    cpu_t* cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        return TID_MAX;
+    }   
+ 
+    lock_lock(&sched_lock);
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t* curr = tasks_running[cpu_id];
+    task_id_t tid = curr->tid;
+
+    lock_release(&sched_lock);
+
+    return tid;
+}
+
 void sched_sleep(time_t millis)
 {
     cpu_t* cpu = smp_get_current_cpu(false);
@@ -170,19 +189,63 @@ void sched_sleep(time_t millis)
         hpet_sleep(millis);
         return;
     }
-   
+ 
     lock_lock(&sched_lock);
 
     uint16_t cpu_id = cpu->cpu_id;
-    task_t* curr = tasks_running[cpu_id];
+    task_t *curr = tasks_running[cpu_id];
     if (curr) {
         curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
+        curr->wakeup_event.type = EVENT_UNDEFINED;
         curr->status = TASK_SLEEPING;
     }
 
     lock_release(&sched_lock);
 
     force_context_switch();
+}
+
+void sched_resume_event(event_t event)
+{
+    lock_lock(&sched_lock);
+    for (size_t i = 0; i < vec_length(&tasks_active); i++) {
+        task_t *t = vec_at(&tasks_active, 0);
+        if (t) {
+            if (t->status == TASK_SLEEPING
+                && t->wakeup_event.type == event.type) {
+                t->status = TASK_READY;
+                t->wakeup_event.para = event.para;
+            }
+        }
+    }
+    lock_release(&sched_lock);
+}
+
+event_t sched_wait_event(event_t event)
+{
+    event_t e = {0};
+    cpu_t* cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        return e;
+    }   
+   
+    lock_lock(&sched_lock);
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t* curr = tasks_running[cpu_id];
+    curr->wakeup_time = 0;
+    curr->wakeup_event = event;
+    curr->status = TASK_SLEEPING;
+
+    lock_release(&sched_lock);
+
+    force_context_switch();
+
+    uint8_t c = curr->wakeup_event.para & 0xFF;
+    if (c == 0x0D || c == 0x0A) c = 0x20;
+    klogi("EB: tid 0x%x resumes EVENT_KEY_PRESSED (%c)\n", curr->tid, c);
+
+    return curr->wakeup_event;
 }
 
 task_t* sched_get_current_task()

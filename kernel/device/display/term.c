@@ -163,7 +163,8 @@ void term_refresh(int mode, bool forced)
             if (x >= term_act->width) {
                 x = 0;
                 y++;
-            }   
+            }
+ 
             if (y >= term_act->height) {
                 term_scroll(term_act);
                 y--;

@@ -9,7 +9,9 @@
 #include <lib/klog.h>
 #include <lib/memutils.h>
 #include <proc/task.h>
+#include <proc/sched.h>
 #include <proc/syscall.h>
+#include <proc/eventbus.h>
 #include <device/keyboard/keyboard.h>
 
 extern int64_t syscall_handler();
@@ -28,10 +30,13 @@ int64_t k_read(int fd, void* buf, size_t count)
             return 0;
         }
 
-        uint8_t keycode = keyboard_get_key();
-        if (keycode) {
-            ((uint8_t*)buf)[0] = keycode;
-            return 1;
+        event_para_t para = 0;
+        if (eb_subscribe(sched_get_tid(), EVENT_KEY_PRESSED, &para)) {
+            uint8_t keycode = para & 0xFF;
+            if (keycode) {
+                ((uint8_t*)buf)[0] = keycode;
+                return 1;
+            }
         }
 
         return 0;

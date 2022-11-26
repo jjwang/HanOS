@@ -1,8 +1,8 @@
 #pragma once
 
 #define major      0
-#define minor      01
-#define patch      00
+#define minor      1
+#define patch      0
 
 #define ver(arg)   #arg
 #define ver2(arg)  ver(arg)

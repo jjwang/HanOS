@@ -33,7 +33,9 @@ static int symbols_get_index(uint64_t addr)
 
 void dump_backtrace()
 {
-    term_switch(TERM_MODE_INFO);
+    if (term_get_mode() != TERM_MODE_INFO) {
+        term_switch(TERM_MODE_INFO);
+    }
 
     uint64_t* rbp_val = 0;
     asm volatile("movq %%rbp, %0" : "=rm"(rbp_val));
