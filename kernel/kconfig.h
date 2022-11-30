@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define LAUNCHER_CLI        true
-#define DEFAULT_SHELL_APP   "/bin/sh.elf"
+#define DEFAULT_SHELL_APP   "/bin/sh"
 
 typedef struct {
     uint64_t screen_hor_size;

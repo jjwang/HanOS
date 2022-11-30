@@ -155,13 +155,13 @@ void kmain(void)
     term_init(fb);
     klogi("Framebuffer address: 0x%x\n", fb->address);
 
+    gdt_init(NULL);
+    idt_init();
+
     pmm_init(mm_request.response);
     vmm_init(mm_request.response, kernel_addr_request.response);
 
     term_start();
-
-    gdt_init(NULL);
-    idt_init();
 
     /* Need to init after idt_init() because it will be used very often. */
     pit_init();
@@ -174,6 +174,7 @@ void kmain(void)
 
     vfs_init();
     smp_init();
+    vfs_init();
     syscall_init();
 
     struct limine_module_response *module_response = module_request.response;

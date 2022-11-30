@@ -39,7 +39,7 @@ COBJ   := $(CFILES:.c=.o)
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJ := $(ASM_FILES:.asm=.o)
 
-CELF   := sh.elf
+CELF   := sh
 
 .PHONY: all
 
@@ -54,7 +54,7 @@ $(ASM_OBJ): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
-$(CELF): %.elf: %.o
+$(CELF): %: %.o
 	$(LD) $(CFLAGS) $(INTERNALLDFLAGS) $(ASM_OBJ) $(LIBFILES) $< -o $@
 
 clean:

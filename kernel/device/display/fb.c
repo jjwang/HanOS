@@ -36,6 +36,9 @@
 
 static uint64_t fb_refresh_times = 0, fb_refresh_nanos = 0;
 
+extern font_psf1_t term_font_norm;
+extern font_psf1_t term_font_bold;
+
 bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 {
     if (img->bpp != 24) {
@@ -101,11 +104,11 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
-    uint32_t offset = ((uint32_t)ch) * 16;
+    uint32_t offset = ((uint32_t)ch) * term_font_norm.charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
     for (size_t i = 0; i < FONT_HEIGHT; i++) {
-        for (size_t k = 0; k < 8; k++) {
-            if (i < 16 && (asc16_font[offset + i] & masks[k])) {
+        for (size_t k = 0; k < FONT_WIDTH; k++) {
+            if (i < term_font_norm.charsize && (term_font_norm.data[offset + i] & masks[k])) {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
                 uint32_t bg_img_color = bgcolor;
@@ -127,9 +130,9 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
     uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
     uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
     for (size_t idx = 0; idx < len; idx++) {
-        uint32_t offset = ((uint32_t)logo[idx]) * 16; 
+        uint32_t offset = ((uint32_t)logo[idx]) * term_font_bold.charsize; 
         static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-        for(size_t i = 0; i < 16; i++) {
+        for(size_t i = 0; i < term_font_bold.charsize; i++) {
             for(size_t k = 0; k < 8; k++) {
                 for(size_t m = 1; m < LOGO_SCALE; m++) {
                     for(size_t n = 1; n < LOGO_SCALE; n++) {
@@ -137,7 +140,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
                         if (fb->bg != NULL) {
                             bg_img_color = ((uint32_t*)(fb->bg + fb->pitch * y + x * 4))[0];
                         } 
-                        uint32_t color = (asc16_font[offset + i] & masks[k])
+                        uint32_t color = (term_font_bold.data[offset + i] & masks[k])
                             ? fgcolor : bg_img_color;
                         fb_putpixel(fb, x + (idx * 8 + k) * LOGO_SCALE + m,
                                     y + i * LOGO_SCALE + n, color);

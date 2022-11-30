@@ -1,4 +1,4 @@
-LOAD_ADDRESS        equ 0x70000
+LOAD_ADDRESS        equ 0x1000
 AP_BOOT_COUNTER     equ 0xff0
 ARG_CPUINFO         equ 0xfe0
 ARG_CR3_VAL         equ 0xfd0
