@@ -12,28 +12,29 @@ AS_FLAGS = -I . -flto
 ASM_FLAGS = -f elf64 -I.
 
 INTERNALLDFLAGS :=  \
-	-flto           \
+    -flto           \
     -std=gnu2x      \
-	-Wno-lto-type-mismatch \
-	-no-pie         \
-	-nostdlib       \
-	-Tlinker.ld     \
-	-z max-page-size=0x2000 \
-	-I .    \
+    -Wno-lto-type-mismatch \
+    -no-pie         \
+    -nostdlib       \
+    -Tlinker.ld     \
+    -z max-page-size=0x2000 \
+    -I .    \
     -O2
 
-INTERNALCFLAGS :=       \
-	-I. -Wall -Wextra -mcmodel=kernel \
-	-std=gnu2x          \
-	-ffreestanding      \
-	-flto               \
-	-fno-pic            \
-	-fno-omit-frame-pointer \
-	-mno-3dnow          \
-	-mno-red-zone       \
-	-Wno-cast-function-type \
-	-O2
-
+INTERNALCFLAGS := \
+    -I. -Wall -Wextra -mcmodel=kernel \
+    -std=gnu2x          \
+    -ffreestanding      \
+    -flto               \
+    -fno-pic            \
+    -fno-omit-frame-pointer \
+    -mno-mmx            \
+    -mno-sse            \
+    -mno-sse2           \
+    -mno-red-zone       \
+    -Wno-cast-function-type \
+    -O2
 
 CFILES := $(shell find ./ -type f -name '*.c')
 COBJ   := $(CFILES:.c=.o)

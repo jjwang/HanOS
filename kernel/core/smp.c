@@ -8,6 +8,9 @@
   Symmetric Multiprocessing (or SMP) is one method of having multiple
   processors in one computer system.
 
+  - Nov 30, 2022: Need to check why AP cannot be launched when enabling SSE
+                  support. (Root Cause: ???)
+
  @endverbatim
   Ref: https://wiki.osdev.org/SMP
 

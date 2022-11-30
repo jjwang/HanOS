@@ -17,8 +17,15 @@ Progress update
 - [x] When HPET timer not available in Hyper-V VM, PIT is used instead
 - [x] Scheduling driven by APIC timer
 - [x] Keyboard/mouse driver and command line interface
-- [x] VFS and FAT32 file system 
+- [x] VFS, FAT32 and RAMFS file system. RAMFS is for loading and executing program from ELF file
 - [x] Tasks of kernel and user space
+- [x] Background image display for command line interface
+
+Fonts
+- Adopted 14px fonts from https://font.gohu.org/ and convert to psf1 using bdf2psf.  
+```
+bdf2psf gohufont-14.bdf /usr/share/bdf2psf/standard.equivalents /usr/share/bdf2psf/ascii.set 256 gohufont-14.psf
+```
 
 Screenshots
 - May 3, 2022: Live Demo

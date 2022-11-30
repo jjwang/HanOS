@@ -14,11 +14,6 @@ bool eb_publish(task_id_t tid, event_type_t type, event_para_t para)
         return false;
     }
 
-    uint8_t c = para & 0xFF;
-    if (c == 0x0D || c == 0x0A) c = 0x20;
-    klogi("EB: tid 0x%x publishes EVENT_KEY_PRESSEDi (%c)\n",
-          (uint64_t)tid, c);
-
     event_t e = {
         .tid = tid,
         .type = type,
@@ -37,8 +32,6 @@ bool eb_subscribe(task_id_t tid, event_type_t type, event_para_t *para)
     if (type != EVENT_KEY_PRESSED) {
         return false;
     }
-
-    klogi("EB: tid 0x%x subscribes EVENT_KEY_PRESSED\n", tid);
 
     event_t e = { 
         .tid = tid,

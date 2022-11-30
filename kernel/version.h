@@ -2,7 +2,7 @@
 
 #define major      0
 #define minor      1
-#define patch      0
+#define patch      1
 
 #define ver(arg)   #arg
 #define ver2(arg)  ver(arg)

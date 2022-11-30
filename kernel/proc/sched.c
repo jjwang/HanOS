@@ -241,10 +241,6 @@ event_t sched_wait_event(event_t event)
 
     force_context_switch();
 
-    uint8_t c = curr->wakeup_event.para & 0xFF;
-    if (c == 0x0D || c == 0x0A) c = 0x20;
-    klogi("EB: tid 0x%x resumes EVENT_KEY_PRESSED (%c)\n", curr->tid, c);
-
     return curr->wakeup_event;
 }
 
@@ -280,9 +276,7 @@ void sched_init(uint16_t cpu_id)
     apic_timer_set_handler(enter_context_switch);
     apic_timer_start();
 
-    lock_lock(&sched_lock);
     cpu_num++;
-    lock_release(&sched_lock);
 
     klogi("Scheduler initialization finished for CPU %d\n", cpu_id);
 }
