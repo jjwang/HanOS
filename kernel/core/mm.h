@@ -83,8 +83,10 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel);
 
-void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr, uint64_t np, uint64_t flags);
-void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np);
+void vmm_map(
+    addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
+    uint64_t np, uint64_t flags, bool us);
+void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us);
 
 addrspace_t *create_addrspace(void);
 void destory_addrspace(addrspace_t *addrspace);

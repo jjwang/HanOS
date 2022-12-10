@@ -30,7 +30,7 @@ INTERNALCFLAGS :=       \
  	-Wno-cast-function-type \
 	-O2
 
-LIBFILES := lib/string.o lib/memutils.o
+LIBFILES := ./lib/string.o ./lib/memutils.o
 
 CFILES := $(shell find ./ -type f,l -name '*.c')
 COBJ   := $(CFILES:.c=.o)
@@ -38,12 +38,12 @@ COBJ   := $(CFILES:.c=.o)
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJ := $(ASM_FILES:.asm=.o)
 
-CELF   := sh
+CELF   := tty
 
 .PHONY: all
 
 all: $(COBJ) $(ASM_OBJ) $(CELF)
-	cp $(CELF) ../initrd/bin
+	cp $(CELF) ../../initrd/driver
 
 $(COBJ): %.o: %.c
 	@echo Compiling $^ ...
@@ -58,4 +58,4 @@ $(CELF): %: %.o
 
 clean:
 	rm -rf $(COBJ) $(ASM_OBJ) $(CELF)
-	rm -rf ../initrd/bin/*
+	rm -rf ../initrd/driver/*

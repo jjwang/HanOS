@@ -121,9 +121,10 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
         for (size_t j = 0; j < page_count; j++) {
             uint64_t virt = BASE + (phdr[i].vaddr + (j * PAGE_SIZE));
             uint64_t phys = addr + (j * PAGE_SIZE);
-            vmm_map(task->addrspace, virt, phys, 1, pf);
-            memset((void*)virt, 0, PAGE_SIZE);
-            klogi("ELF: %d bytes, map 0x%11x to virt 0x%x\n", phdr[i].memsz, phys, virt);
+            vmm_map(task->addrspace, virt, phys, 1, pf, false);
+            memset((void*)PHYS_TO_VIRT(phys), 0x90, PAGE_SIZE);
+            klogi("ELF: %d bytes, #%d map 0x%11x to virt 0x%x\n",
+                phdr[i].memsz, j, phys, virt);
         }
 
         addrspace_node_t node;
@@ -134,7 +135,7 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 
         vec_push_back(&task->aslist, &node);
 
-        char *buf = (char *)(BASE + phdr[i].vaddr);
+        char *buf = (char*)PHYS_TO_VIRT(addr);
         memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
         klogi("ELF: %d hdr's task binary file size %d(%d) bytes\n",
               i, phdr[i].filesz, phdr[i].memsz);

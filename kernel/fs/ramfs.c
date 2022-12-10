@@ -71,7 +71,7 @@ void ramfs_init(void* address, uint64_t size)
     klogi("RAMFS: init from 0x%x with len %d\n", address, size);
 
     vmm_map(NULL, (uint64_t)address, VIRT_TO_PHYS(address), NUM_PAGES(size),
-        VMM_FLAGS_DEFAULT);
+        VMM_FLAGS_DEFAULT, true);
 
     unsigned char* ptr = (unsigned char*)address;
 
@@ -127,7 +127,7 @@ void ramfs_init(void* address, uint64_t size)
         ptr += (DIV_ROUNDUP(filesize, 512) + 1) * 512;
     }
 
-    vmm_unmap(NULL, (uint64_t)address, NUM_PAGES(size));
+    vmm_unmap(NULL, (uint64_t)address, NUM_PAGES(size), true);
 }
 
 vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)

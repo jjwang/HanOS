@@ -30,7 +30,7 @@ initrd:
 
 $(ISO_IMAGE): limine initrd kernel/hanos.elf
 	rm -rf iso_root initrd.tar
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin assets
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin driver assets
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/

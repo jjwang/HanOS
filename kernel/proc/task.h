@@ -186,9 +186,9 @@ typedef enum {
 typedef uint64_t event_para_t;
 
 typedef struct {
-    task_id_t tid;
-    event_type_t type;
-    event_para_t para;
+    task_id_t       tid;
+    event_type_t    type;
+    event_para_t    para;
 } event_t;
 
 typedef struct task_t {

@@ -71,7 +71,7 @@ void hpet_init()
     }
     hpet = (hpet_t *)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
     vmm_map(NULL, (uint64_t)hpet, (uint64_t)hpet_sdt->base_addr.address,
-            1, VMM_FLAGS_MMIO);
+            1, VMM_FLAGS_MMIO, true);
 
     uint64_t tmp = hpet->general_capabilities;
     /* Check that the HPET is valid or not */
