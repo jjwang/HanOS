@@ -46,4 +46,5 @@ clean:
 	rm -f $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar
 	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
+	$(MAKE) -C driver clean
 
