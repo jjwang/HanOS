@@ -31,6 +31,7 @@
 
 static mem_info_t kmem_info = {0};
 static addrspace_t kaddrspace = {0};
+static addrspace_t uaddrspace = {0};
 
 static void bitmap_markused(uint64_t addr, uint64_t numpages)
 {
@@ -271,15 +272,23 @@ done:
     return;
 }
 
-void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np) 
+void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us) 
 {
+    if (us) {
+        vmm_unmap(&uaddrspace, vaddr, np, false);
+    }
+
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
         unmap_page(addrspace, vaddr + i); 
 }
 
 void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-    uint64_t np, uint64_t flags)
+    uint64_t np, uint64_t flags, bool us)
 {
+    if (us && (addrspace == NULL)) {
+        vmm_map(&uaddrspace, vaddr, paddr, np, flags, false);
+    }
+
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
         map_page(addrspace, vaddr + i, paddr + i, flags);
 }
@@ -288,35 +297,42 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel)
 {
-    kaddrspace.PML4 = umalloc(PAGE_SIZE);
+    size_t i;
+
+    kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0,
-            NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+    uaddrspace.PML4 = kmalloc(PAGE_SIZE);
+    memset(uaddrspace.PML4, 0, PAGE_SIZE);
+
+    klogi("VMM: kernel 0x%x, user 0x%x\n", kaddrspace.PML4, uaddrspace.PML4);
+
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
+            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
     klogd("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
-    for (size_t i = 0; i < map->entry_count; i++) {
+    for (i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             uint64_t vaddr = kernel->virtual_base
                              + entry->base - kernel->physical_base;
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
             klogd("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE | VMM_FLAGS_USERMODE);
+                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
+                    | VMM_FLAGS_USERMODE, true);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         } else {
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
             klogd("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }
@@ -328,7 +344,9 @@ void vmm_init(
 
 addrspace_t *create_addrspace(void)
 {
-    addrspace_t *as = umalloc(sizeof(addrspace_t));
+    return &uaddrspace;
+#if 0
+    addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
     as->PML4 = (uint64_t*)pmm_get(1, 0x0);
@@ -340,6 +358,7 @@ addrspace_t *create_addrspace(void)
     memset(as->PML4, 0, PAGE_SIZE);
     as->lock = lock_new();
     return as;
+#endif
 }
 
 void destory_addrspace(addrspace_t *as)
@@ -370,6 +389,6 @@ void destory_addrspace(addrspace_t *as)
     }
 
     pmm_free(VIRT_TO_PHYS(as->PML4), 1);
-    umfree(as);
+    kmfree(as);
 }
 

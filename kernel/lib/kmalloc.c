@@ -23,20 +23,6 @@ typedef struct {
     size_t size;
 } metadata_t;
 
-void* umalloc(uint64_t size)
-{
-    metadata_t* alloc = (metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0));
-    alloc->numpages = NUM_PAGES(size);
-    alloc->size = size;
-    return ((uint8_t*)alloc) + PAGE_SIZE;
-}
-
-void umfree(void* addr)
-{
-    metadata_t* d = (metadata_t*)((uint8_t*)addr - PAGE_SIZE);
-    pmm_free(VIRT_TO_PHYS(d), d->numpages + 1); 
-}
-
 void* kmalloc(uint64_t size)
 {
     metadata_t* alloc = (metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0));

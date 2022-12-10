@@ -37,7 +37,7 @@ task_t* task_make(
     ntask->kstack_limit = kmalloc(STACK_SIZE);
     ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
 
-    ntask->ustack_limit = umalloc(STACK_SIZE);
+    ntask->ustack_limit = kmalloc(STACK_SIZE);
     ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
 
     klogi("TASK: %s 0x%11x kstack 0x%11x ustack 0x%11x\n",
@@ -52,6 +52,8 @@ task_t* task_make(
 
         ntask->tstack_top = ntask->kstack_top;
         ntask->tstack_limit = ntask->kstack_limit;
+
+        ntask->addrspace = NULL;
     } else {
         ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
 
@@ -60,6 +62,17 @@ task_t* task_make(
 
         ntask->tstack_top = ntask->ustack_top;
         ntask->tstack_limit = ntask->ustack_limit;
+
+        addrspace_t *as = create_addrspace();
+        vmm_map(as, (uint64_t)ntask->tstack_limit,
+                VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
+                NUM_PAGES(STACK_SIZE),
+                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, false);
+        klogd("TASK: map %d bytes memory 0x%x to 0x%x\n",
+                STACK_SIZE, VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
+                ntask->tstack_limit);
+
+        ntask->addrspace = as;
     }
 
     ntask_regs->rsp = (uint64_t)ntask->tstack_top;
@@ -72,8 +85,6 @@ task_t* task_make(
     ntask->priority = priority;
     ntask->last_tick = 0;
     ntask->status = TASK_READY;
-
-    /* ntask->addrspace = create_addrspace(); */
 
     klogi("TASK: Create tid %d in function %s\n", ntask->tid, name);
 

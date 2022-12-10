@@ -14,12 +14,12 @@ Progress update
 - [x] Start up all CPUs
 - [x] Set up APIC interrupt controller
 - [x] Read RTC time from CMOS and configure HPET timer
-- [x] When HPET timer not available in Hyper-V VM, PIT is used instead
 - [x] Scheduling driven by APIC timer
 - [x] Keyboard/mouse driver and command line interface
 - [x] VFS, FAT32 and RAMFS file system. RAMFS is for loading and executing program from ELF file
 - [x] Tasks of kernel and user space
 - [x] Background image display for command line interface
+- [ ] Add driver and server layer
 
 Fonts
 - Adopted 14px fonts from https://font.gohu.org/ and convert to psf1 using bdf2psf.  

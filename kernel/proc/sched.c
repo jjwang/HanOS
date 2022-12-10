@@ -150,7 +150,7 @@ void do_context_switch(void* stack, int64_t force)
     tasks_running[cpu_id] = next;
 
     /* Need to review TSS related settings */
-    cpu->tss.rsp0 = (uint64_t)(next->tstack_limit + STACK_SIZE);
+    cpu->tss.rsp0 = (uint64_t)(next->kstack_limit + STACK_SIZE);
 
     tasks_coordinate[cpu_id]++;
     
@@ -161,7 +161,8 @@ void do_context_switch(void* stack, int64_t force)
     lock_release(&sched_lock);
 
     exit_context_switch(next->tstack_top,
-        next->addrspace == NULL ? 0 : (uint64_t)next->addrspace->PML4);
+        (next->addrspace == NULL)
+            ? 0 : VIRT_TO_PHYS((uint64_t)next->addrspace->PML4));
 }
 
 task_id_t sched_get_tid()

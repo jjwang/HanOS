@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #include <lib/string.h>
-#include <syscall.h>
+#include <lib/syscall.h>
 
 #define MSG_WELCOME     "Welcome to HanOS world!"
 

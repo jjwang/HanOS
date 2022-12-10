@@ -218,13 +218,24 @@ void kmain(void)
     }   
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-    task_t *tshell = sched_add(NULL, true);
     auxval_t aux = {0};
+
+    task_t *tshell = sched_add(NULL, true);
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
     
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
     tshell_regs->rip = (uint64_t)aux.entry;
-    klogi("Shell: task stack 0x%x\n", tshell->tstack_top);
+    klogi("Shell: task stack 0x%x [code 0x%2x 0x%02x]\n",
+        tshell->tstack_top, ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
+
+#if 1
+    task_t *ttty = sched_add(NULL, true);
+    elf_load(ttty, DEFAULT_DRIVER_TTY, &aux);
+    
+    task_regs_t *ttty_regs = (task_regs_t*)ttty->tstack_top;
+    ttty_regs->rip = (uint64_t)aux.entry;
+    klogi("TTY: task stack 0x%x\n", ttty->tstack_top);
+#endif
 
     pci_init();
     ata_init();

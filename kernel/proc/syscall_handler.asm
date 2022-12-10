@@ -4,9 +4,9 @@ global syscall_handler
 
 syscall_handler:
     swapgs
-    
-    mov [gs:0x8], rsp       ; save process stack
-    mov rsp, [gs:0x0]       ; switch to syscall stack
+ 
+    mov r8, rsp             ; save process stack to r8 (5th param)
+    mov rsp, [gs:0x4]       ; switch to syscall stack
 
     ; push information (gs, cs, rip, rflags, rip...)
     push qword 0x1b         ; user data segment
@@ -24,7 +24,7 @@ syscall_handler:
 
     pop_all_syscall
 
-    mov rsp, [gs:0x8]       ; back to user stack
+    mov rsp, r8             ; back to user stack
     swapgs
     o64 sysret
 
