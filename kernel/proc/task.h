@@ -129,6 +129,7 @@
 #define DEFAULT_RFLAGS          0b0000001000000010 /* 0x0202 */
 
 #define TID_MAX                 UINT64_MAX
+#define TID_NONE                0
 
 typedef uint64_t task_id_t;
 typedef uint8_t task_priority_t;
@@ -186,9 +187,11 @@ typedef enum {
 typedef uint64_t event_para_t;
 
 typedef struct {
-    task_id_t       tid;
+    task_id_t       pub_tid;
+    task_id_t       sub_tid;
     event_type_t    type;
     event_para_t    para;
+    uint64_t        timestamp;
 } event_t;
 
 typedef struct task_t {

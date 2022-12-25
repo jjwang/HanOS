@@ -27,10 +27,11 @@ kernel/hanos.elf:
 
 initrd:
 	$(MAKE) -C userspace
+	$(MAKE) -C server
 
 $(ISO_IMAGE): limine initrd kernel/hanos.elf
 	rm -rf iso_root initrd.tar
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin driver assets
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
@@ -46,5 +47,5 @@ clean:
 	rm -f $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar
 	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
-	$(MAKE) -C driver clean
+	$(MAKE) -C server clean
 

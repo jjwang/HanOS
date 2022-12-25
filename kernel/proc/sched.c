@@ -206,20 +206,25 @@ void sched_sleep(time_t millis)
     force_context_switch();
 }
 
-void sched_resume_event(event_t event)
+bool sched_resume_event(event_t event)
 {
+    bool ret = false;
+
     lock_lock(&sched_lock);
     for (size_t i = 0; i < vec_length(&tasks_active); i++) {
-        task_t *t = vec_at(&tasks_active, 0);
+        task_t *t = vec_at(&tasks_active, i);
         if (t) {
             if (t->status == TASK_SLEEPING
                 && t->wakeup_event.type == event.type) {
                 t->status = TASK_READY;
                 t->wakeup_event.para = event.para;
+                ret = true;
             }
         }
     }
     lock_release(&sched_lock);
+
+    return ret;
 }
 
 event_t sched_wait_event(event_t event)

@@ -344,8 +344,6 @@ void vmm_init(
 
 addrspace_t *create_addrspace(void)
 {
-    return &uaddrspace;
-#if 0
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
@@ -355,10 +353,9 @@ addrspace_t *create_addrspace(void)
         return NULL;
     }
     as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
-    memset(as->PML4, 0, PAGE_SIZE);
+    memcpy(as->PML4, uaddrspace.PML4, PAGE_SIZE);
     as->lock = lock_new();
     return as;
-#endif
 }
 
 void destory_addrspace(addrspace_t *as)

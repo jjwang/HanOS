@@ -222,20 +222,22 @@ void kmain(void)
 
     task_t *tshell = sched_add(NULL, true);
     elf_load(tshell, DEFAULT_SHELL_APP, &aux);
-    
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
     tshell_regs->rip = (uint64_t)aux.entry;
-    klogi("Shell: task stack 0x%x [code 0x%2x 0x%02x]\n",
-        tshell->tstack_top, ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
+    klogi("Shell: task stack 0x%x, PML4 0x%x [code 0x%2x 0x%02x]\n",
+        tshell->tstack_top,
+        (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4,
+        ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
 
-#if 1
-    task_t *ttty = sched_add(NULL, true);
-    elf_load(ttty, DEFAULT_DRIVER_TTY, &aux);
+    task_t *tkbd = sched_add(NULL, true);
+    elf_load(tkbd, DEFAULT_INPUT_SVR, &aux);
     
-    task_regs_t *ttty_regs = (task_regs_t*)ttty->tstack_top;
-    ttty_regs->rip = (uint64_t)aux.entry;
-    klogi("TTY: task stack 0x%x\n", ttty->tstack_top);
-#endif
+    task_regs_t *tkbd_regs = (task_regs_t*)tkbd->tstack_top;
+    tkbd_regs->rip = (uint64_t)aux.entry;
+    klogi("Keyboard: task stack 0x%x, PML4 0x%x [code 0x%2x 0x%02x]\n",
+        tkbd->tstack_top,
+        (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4,
+        ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
 
     pci_init();
     ata_init();
@@ -286,11 +288,12 @@ void kmain(void)
     int match_length;
 
     /* Standard null-terminated C-string to search: */
-    const char* string_to_search = "ahem.. 'hello world !' ..";
+    //const char* string_to_search = "ahem.. 'hello world !' ..";
+    const char* string_to_search = "-- WHAT IS NAME????";
 
     /* Compile a simple regular expression using character classes, meta-char and
      * greedy + non-greedy quantifiers: */
-    re_t pattern = re_compile("[Hh]ello [Ww]orld\\s*[!]?");
+    re_t pattern = re_compile("WHAT\\s*IS\\s*NAME");
 
     /* Check if the regex matches the text: */
     int match_idx = re_matchp(pattern, string_to_search, &match_length);

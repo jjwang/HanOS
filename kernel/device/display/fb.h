@@ -39,7 +39,8 @@
 
 typedef struct {
     uint8_t  *addr;
-    uint8_t  *bg;
+    uint8_t  *bgbuffer;
+    uint8_t  *swapbuffer;
     uint32_t width;
     uint32_t height;
     uint32_t pitch;

@@ -8,9 +8,10 @@
 
 int main(void)
 {
+#if 0
     char message[128] = "\e[31mWelcome to HanOS world!\e[0m Type \"\e[36mhelp\e[0m\" for command list\n";
     syscall_entry(SYSCALL_WRITE, STDOUT, message, strlen(message));
-
+#endif
     char prompt[128] = "\e[36m$ \e[0m";
     syscall_entry(SYSCALL_WRITE, STDOUT, prompt, strlen(prompt));
 
