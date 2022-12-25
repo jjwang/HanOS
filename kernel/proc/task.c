@@ -20,7 +20,7 @@
 #include <lib/klog.h>
 #include <core/cpu.h>
 
-static task_id_t curr_tid = 0;
+static task_id_t curr_tid = 1;
 
 task_t* task_make(
     const char *name, void (*entry)(task_id_t), task_priority_t priority,
@@ -72,7 +72,8 @@ task_t* task_make(
                 STACK_SIZE, VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
                 ntask->tstack_limit);
 
-        ntask->addrspace = as;
+        /* Temporarily set to NULL to disable CR3 switch */
+        ntask->addrspace = NULL;
     }
 
     ntask_regs->rsp = (uint64_t)ntask->tstack_top;

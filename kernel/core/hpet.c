@@ -36,7 +36,6 @@
 static hpet_t* hpet = NULL;
 static uint64_t hpet_period = 0;
 
-/* get current time in nanoseconds */
 uint64_t hpet_get_nanos()
 {
     if(hpet == NULL) {
@@ -45,6 +44,11 @@ uint64_t hpet_get_nanos()
 
     uint64_t tf = hpet->main_counter_value * hpet_period;
     return tf;
+}
+
+uint64_t hpet_get_millis()
+{
+    return hpet_get_nanos() / MILLIS_TO_NANOS(1); 
 }
 
 void hpet_nanosleep(uint64_t nanos)

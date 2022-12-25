@@ -57,9 +57,6 @@ typedef struct [[gnu::packed]] {
  * stack for the syscall, an address to store the process stack temporarily.
  */
 typedef struct {
-//    uint64_t syscall_stack; /* the stack for the syscall */
-//    uint64_t saved_stack;   /* saving the current process stack */
-
     tss_t tss;
     uint16_t cpu_id;
     uint16_t lapic_id;

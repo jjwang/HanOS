@@ -38,12 +38,12 @@ COBJ   := $(CFILES:.c=.o)
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJ := $(ASM_FILES:.asm=.o)
 
-CELF   := tty
+CELF   := input 
 
 .PHONY: all
 
 all: $(COBJ) $(ASM_OBJ) $(CELF)
-	cp $(CELF) ../../initrd/driver
+	cp $(CELF) ../../initrd/server
 
 $(COBJ): %.o: %.c
 	@echo Compiling $^ ...
@@ -58,4 +58,4 @@ $(CELF): %: %.o
 
 clean:
 	rm -rf $(COBJ) $(ASM_OBJ) $(CELF)
-	rm -rf ../initrd/driver/*
+	rm -rf ../initrd/server/*

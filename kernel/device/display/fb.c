@@ -46,8 +46,11 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
     }
 
     memcpy(&(fb->img_bg), img, sizeof(image_t));
-    if (fb->bg == NULL) {
-        fb->bg = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+    if (fb->bgbuffer == NULL) {
+        fb->bgbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+    }
+    if (fb->swapbuffer == NULL) {
+        fb->swapbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
     }
 
     for (size_t y = 0; y < fb->height; y++) {
@@ -90,11 +93,9 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 
             uint32_t color;
             color = (uint32_t)b + ((uint32_t)g << 8) + ((uint32_t)r << 16);
-            ((uint32_t*)(fb->bg + (fb->pitch * y)))[x] = color;
+            ((uint32_t*)(fb->bgbuffer + (fb->pitch * y)))[x] = color;
         }
     }
-
-    memcpy(fb->backbuffer, fb->bg, fb->width * fb->height * 4); 
 
     return true;
 }
@@ -112,8 +113,8 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
                 uint32_t bg_img_color = bgcolor;
-                if (fb->bg != NULL) {
-                    bg_img_color = ((uint32_t*)(fb->bg + fb->pitch * y + x * 4))[0];
+                if (fb->bgbuffer != NULL) {
+                    bg_img_color = ((uint32_t*)(fb->bgbuffer + fb->pitch * y + x * 4))[0];
                 }
                 fb_putpixel(fb, x + k, y + i, bg_img_color);
             }
@@ -137,8 +138,8 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
                 for(size_t m = 1; m < LOGO_SCALE; m++) {
                     for(size_t n = 1; n < LOGO_SCALE; n++) {
                         uint32_t bg_img_color = bgcolor;
-                        if (fb->bg != NULL) {
-                            bg_img_color = ((uint32_t*)(fb->bg + fb->pitch * y + x * 4))[0];
+                        if (fb->bgbuffer != NULL) {
+                            bg_img_color = ((uint32_t*)(fb->bgbuffer + fb->pitch * y + x * 4))[0];
                         } 
                         uint32_t color = (term_font_bold.data[offset + i] & masks[k])
                             ? fgcolor : bg_img_color;
@@ -150,7 +151,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
         } /* End every character */
     }
 
-    char desc_str[64] = "- A Hobby OS Kernel for x64 v";
+    char desc_str[64] = "- A Hobby OS Kernel for x86-64 v";
     strcat(desc_str, VERSION);
     strcat(desc_str, " -");
     size_t desc_len = strlen(desc_str);   
@@ -197,7 +198,8 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
     }
 
     fb->addr = (uint8_t*)s->address;
-    fb->bg = NULL;
+    fb->bgbuffer = NULL;
+    fb->swapbuffer = NULL;
     fb->width = s->width;
     fb->height = s->height;
     fb->pitch = s->pitch;
@@ -231,12 +233,38 @@ void fb_refresh(fb_info_t *fb, bool forced)
             && !forced)
         {
             for (size_t i = fb->dirty_top; i <= fb->dirty_bottom; i++) {
-                memcpy(fb->addr + (fb->pitch * i),
-                       fb->backbuffer + (fb->pitch * i),
-                       (fb->dirty_right - fb->dirty_left + 1) * 4);
+                if (fb->bgbuffer == NULL) {
+                    memcpy(fb->addr + (fb->pitch * i),
+                           fb->backbuffer + (fb->pitch * i),
+                           (fb->dirty_right - fb->dirty_left + 1) * 4);
+                } else {
+                    memcpy(fb->swapbuffer + (fb->pitch * i), 
+                           fb->bgbuffer + (fb->pitch * i), 
+                           (fb->dirty_right - fb->dirty_left + 1) * 4);
+                    uint32_t *src = (uint32_t*)(fb->backbuffer + fb->pitch * i);
+                    uint32_t *dst = (uint32_t*)(fb->swapbuffer + fb->pitch *i);
+                    size_t pt_num = (fb->dirty_right - fb->dirty_left + 1);
+                    for (size_t i = 0; i < pt_num; i++) {
+                        if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
+                    }
+                    memcpy(fb->addr + (fb->pitch * i),
+                           fb->swapbuffer + (fb->pitch * i),  
+                           (fb->dirty_right - fb->dirty_left + 1) * 4);
+                }
             }
         } else {
-            memcpy(fb->addr, fb->backbuffer, len);
+            if (fb->bgbuffer == NULL) {
+                memcpy(fb->addr, fb->backbuffer, len);
+            } else {
+                memcpy(fb->swapbuffer, fb->bgbuffer, len);
+                uint32_t *src = (uint32_t*)fb->backbuffer;
+                uint32_t *dst = (uint32_t*)fb->swapbuffer;
+                size_t pt_num = len / 4;
+                for (size_t i = 0; i < pt_num; i++) {
+                    if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
+                }
+                memcpy(fb->addr, fb->swapbuffer, len);
+            }
         }
 
         fb->dirty_left = fb->width;

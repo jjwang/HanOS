@@ -10,7 +10,7 @@ syscall_handler:
 
     ; push information (gs, cs, rip, rflags, rip...)
     push qword 0x1b         ; user data segment
-    push qword [gs:0x8]     ; saved stack
+    push r8                 ; saved stack
     push r11                ; saved rflags
     push qword 0x23         ; user code segment 
     push rcx                ; current RIP

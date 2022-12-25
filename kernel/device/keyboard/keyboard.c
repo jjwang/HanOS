@@ -98,7 +98,7 @@ static void keyboard_callback()
             lock_release(&kb_lock);
         }
 
-        eb_publish(TID_MAX, EVENT_KEY_PRESSED, ch);
+        eb_publish(TID_NONE, EVENT_KEY_PRESSED, ch);
         break;
     }
 }

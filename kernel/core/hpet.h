@@ -60,4 +60,5 @@ typedef struct [[gnu::packed]] {
 
 void hpet_init();
 uint64_t hpet_get_nanos();
+uint64_t hpet_get_millis();
 void hpet_nanosleep(uint64_t nanos);
