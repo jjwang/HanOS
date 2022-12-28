@@ -13,7 +13,7 @@
  */
 #include <lib/string.h>
 
-int strlen(const char* s)
+int strlen(const char *s)
 {
     int len;
 
@@ -26,7 +26,7 @@ int strlen(const char* s)
 }
 
 
-int strcmp(const char* a, const char* b)
+int strcmp(const char *a, const char *b)
 {   
     for (size_t i = 0;; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
@@ -34,7 +34,7 @@ int strcmp(const char* a, const char* b)
     }
 }
 
-int strncmp(const char* a, const char* b, size_t len)
+int strncmp(const char *a, const char *b, size_t len)
 {
     for (size_t i = 0; i < len; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
@@ -43,7 +43,7 @@ int strncmp(const char* a, const char* b, size_t len)
     return 0;
 }
 
-int strcpy(char* dest, const char* src)
+int strcpy(char *dest, const char *src)
 {
     size_t i;
     for (i = 0;; i++) {
@@ -54,7 +54,7 @@ int strcpy(char* dest, const char* src)
     return i;
 }
 
-int strcat(char* dest, const char* src)
+int strcat(char *dest, const char *src)
 {
     size_t i, dest_len = strlen(dest);
     for (i = dest_len;; i++) {
@@ -65,7 +65,7 @@ int strcat(char* dest, const char* src)
     return i;
 }
 
-uint64_t strtol(char* s, num_sys_t type)
+uint64_t strtol(char *s, num_sys_t type)
 {
     size_t len = strlen(s);
     uint64_t val = 0;
@@ -91,3 +91,24 @@ char *strchrnul(const char *s, int c)
     return (char *)s;
 }
 
+char *strlwr(char *s)
+{
+    size_t len = strlen(s);
+    for (size_t i = 0; i < len; i++) {
+        if (s[i] >= 'A' && s[i] <= 'Z') {
+            s[i] = s[i] - 'A' + 'a';
+        }
+    }
+    return s;
+}
+
+char *strupr(char *s)
+{
+    size_t len = strlen(s);
+    for (size_t i = 0; i < len; i++) {
+        if (s[i] >= 'a' && s[i] <= 'z') {
+            s[i] = s[i] - 'a' + 'A';
+        }   
+    }
+    return s;
+}

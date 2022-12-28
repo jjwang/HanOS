@@ -207,15 +207,14 @@ void term_clear(int mode)
         return;
     }
 
-    if (term_act->fb.bgbuffer == NULL) {
-        for (size_t y = 0; y < term_act->fb.height; y++)
-            for (size_t x = 0; x < term_act->fb.width; x++)
-                fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
-    } else {
+    if (term_act->fb.bgbuffer != NULL) {
         memcpy(term_act->fb.addr, term_act->fb.bgbuffer,
                term_act->fb.width * term_act->fb.height * 4);
-
     }
+
+    for (size_t y = 0; y < term_act->fb.height; y++)
+        for (size_t x = 0; x < term_act->fb.width; x++)
+            fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
 
     term_act->cursor_x = 0;
     term_act->cursor_y = 0;

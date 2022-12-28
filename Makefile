@@ -16,7 +16,7 @@ run: $(ISO_IMAGE)
 	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
 
 test: $(HDD_IMAGE)
-	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -no-reboot -m 4G -smp 2 -rtc base=localtime
+	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -M q35 -no-reboot -m 1G -smp 2 -rtc base=localtime
 
 limine:
 	git clone https://github.com/limine-bootloader/limine.git --branch=v4.x-branch-binary --depth=1

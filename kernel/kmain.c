@@ -21,7 +21,6 @@
 #include <kconfig.h>
 #include <version.h>
 #include <3rd-party/boot/limine.h>
-#include <3rd-party/tiny-regex-c/re.h>
 #include <lib/time.h>
 #include <lib/image.h>
 #include <lib/klog.h>
@@ -215,7 +214,7 @@ void kmain(void)
             klogi("EDID: %d * %d\n",
                   self_info.prefer_res_x, self_info.prefer_res_y);
         }
-    }   
+    }
     klogi("Framebuffer address 0x%x\n", fb->address);
 
     auxval_t aux = {0};
@@ -281,24 +280,6 @@ void kmain(void)
                 self_info.prefer_res_x, self_info.prefer_res_y);
         kprintf("\e[36mActual     \e[0m: %4d x %4d Pixels\n",
                 fb->width, fb->height);
-    }
-
-    /* Test case of tiny-regex-c module */
-    /* Standard int to hold length of match */
-    int match_length;
-
-    /* Standard null-terminated C-string to search: */
-    //const char* string_to_search = "ahem.. 'hello world !' ..";
-    const char* string_to_search = "-- WHAT IS NAME????";
-
-    /* Compile a simple regular expression using character classes, meta-char and
-     * greedy + non-greedy quantifiers: */
-    re_t pattern = re_compile("WHAT\\s*IS\\s*NAME");
-
-    /* Check if the regex matches the text: */
-    int match_idx = re_matchp(pattern, string_to_search, &match_length);
-    if (match_idx != -1) {
-        klogi("Regex: match at idx %d, %d chars long.\n", match_idx, match_length);
     }
 
     cpu_t *cpu = smp_get_current_cpu(false);
