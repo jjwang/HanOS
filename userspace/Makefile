@@ -16,7 +16,7 @@ INTERNALLDFLAGS :=  \
 	-Tlinker.ld     \
 	-z max-page-size=0x2000 \
 	-I .            \
-	-O2
+	-O2 -mcmodel=large
 
 INTERNALCFLAGS :=       \
 	-std=gnu2x          \
@@ -28,9 +28,9 @@ INTERNALCFLAGS :=       \
  	-mno-3dnow          \
  	-mno-red-zone       \
  	-Wno-cast-function-type \
-	-O2
+	-O2 -mcmodel=large
 
-LIBFILES := lib/string.o lib/memutils.o
+LIBFILES := lib/string.o lib/memutils.o lib/re.o lib/ctype.o lib/command.o
 
 CFILES := $(shell find ./ -type f,l -name '*.c')
 COBJ   := $(CFILES:.c=.o)
@@ -40,7 +40,7 @@ ASM_OBJ := $(ASM_FILES:.asm=.o)
 
 CELF   := sh
 
-.PHONY: all
+.PHONY: clean all
 
 all: $(COBJ) $(ASM_OBJ) $(CELF)
 	cp $(CELF) ../initrd/bin
@@ -53,7 +53,7 @@ $(ASM_OBJ): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
-$(CELF): %: %.o
+$(CELF): %: %.o $(ASM_OBJ) $(COBJ)
 	$(LD) $(CFLAGS) $(INTERNALLDFLAGS) $(ASM_OBJ) $(LIBFILES) $< -o $@
 
 clean:

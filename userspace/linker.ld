@@ -1,3 +1,5 @@
+
+
 ENTRY(main)
 SECTIONS
 {
