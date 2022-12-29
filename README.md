@@ -27,6 +27,12 @@ Fonts
 bdf2psf gohufont-14.bdf /usr/share/bdf2psf/standard.equivalents /usr/share/bdf2psf/ascii.set 256 gohufont-14.psf
 ```
 
+How to Test
+- The disk image file - "hdd.img" in release folder can be used for test.
+```
+qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img
+```
+
 Screenshots
 - May 3, 2022: Live Demo
 
