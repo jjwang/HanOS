@@ -1,7 +1,6 @@
 ISO_IMAGE = cdrom.iso
 HDD_IMAGE = release/hdd.img
 TARGET_ROOT = $(shell pwd)/initrd
-QEMU_HDA_FLAGS = -drive id=handisk,file=$(HDD_IMAGE),if=ide,bus=0,unit=0
 
 .PHONY: clean all run initrd
 
@@ -13,10 +12,10 @@ all: $(ISO_IMAGE)
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -k en-us -cdrom $(ISO_IMAGE) -rtc base=localtime
+	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
 test: $(HDD_IMAGE)
-	qemu-system-x86_64 $(QEMU_HDA_FLAGS) -M q35 -no-reboot -m 1G -smp 2 -rtc base=localtime
+	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=$(HDD_IMAGE)
 
 limine:
 	git clone https://github.com/limine-bootloader/limine.git --branch=v4.x-branch-binary --depth=1

@@ -143,9 +143,9 @@ void pmm_init(struct limine_memmap_response* map)
     pmm_alloc(VIRT_TO_PHYS(kmem_info.bitmap), NUM_PAGES(bm_size));
 
     klogi("PMM initialization finished\n");   
-    klogi("Memory total: %d, phys limit: %d, free: %d, used: %d\n",
-          kmem_info.total_size, kmem_info.phys_limit, kmem_info.free_size,
-          kmem_info.total_size - kmem_info.free_size);
+    klogi("Memory total: %d, phys limit: %d (0x%x), free: %d, used: %d\n",
+          kmem_info.total_size, kmem_info.phys_limit, kmem_info.phys_limit,
+          kmem_info.free_size, kmem_info.total_size - kmem_info.free_size);
 }
 
 uint64_t pmm_get_total_memory(void)
@@ -305,10 +305,10 @@ void vmm_init(
     uaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(uaddrspace.PML4, 0, PAGE_SIZE);
 
-    klogi("VMM: kernel 0x%x, user 0x%x\n", kaddrspace.PML4, uaddrspace.PML4);
+    klogi("VMM: PML4 kernel 0x%x, user 0x%x\n", kaddrspace.PML4, uaddrspace.PML4);
 
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.total_size),
+            VMM_FLAGS_DEFAULT, true);
     klogd("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
