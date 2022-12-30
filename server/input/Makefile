@@ -43,6 +43,7 @@ CELF   := input
 .PHONY: all
 
 all: $(COBJ) $(ASM_OBJ) $(CELF)
+	mkdir -p ../../initrd/server
 	cp $(CELF) ../../initrd/server
 
 $(COBJ): %.o: %.c
