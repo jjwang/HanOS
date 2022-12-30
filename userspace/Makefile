@@ -43,6 +43,7 @@ CELF   := sh
 .PHONY: clean all
 
 all: $(COBJ) $(ASM_OBJ) $(CELF)
+	mkdir -p ../initrd/bin
 	cp $(CELF) ../initrd/bin
 
 $(COBJ): %.o: %.c
