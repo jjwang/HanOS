@@ -28,10 +28,19 @@
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/klib.h>
+#include <lib/vector.h>
 
 static mem_info_t kmem_info = {0};
 static addrspace_t kaddrspace = {0};
-static addrspace_t uaddrspace = {0};
+
+typedef struct {
+    uint64_t vaddr;
+    uint64_t paddr;
+    uint64_t flags;
+    uint64_t np;
+} mem_map_t;
+
+vec_new_static(mem_map_t, mmap_list);
 
 static void bitmap_markused(uint64_t addr, uint64_t numpages)
 {
@@ -96,10 +105,10 @@ void pmm_init(struct limine_memmap_response* map)
 
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
-        uint64_t new_limit = entry->base + entry->length;
 
-        if (new_limit > kmem_info.phys_limit) {
-            kmem_info.phys_limit = new_limit;
+        if (entry->type == LIMINE_MEMMAP_RESERVED) {
+            /* Skip this type of memory and maybe it will be corrupt */
+            continue;
         }
 
         if (entry->type == LIMINE_MEMMAP_USABLE
@@ -107,7 +116,15 @@ void pmm_init(struct limine_memmap_response* map)
             || entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE
             || entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             kmem_info.total_size += entry->length;
-        }   
+        }
+
+        uint64_t new_limit = entry->base + entry->length;
+
+        if (new_limit > kmem_info.phys_limit) {
+            kmem_info.phys_limit = new_limit;
+            klogd("PMM: entry base 0x%x, length %d, type %d\n",
+                  entry->base, entry->length, entry->type);
+        } 
     }
 
     /* look for a good place to keep our bitmap */
@@ -275,7 +292,15 @@ done:
 void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us) 
 {
     if (us) {
-        vmm_unmap(&uaddrspace, vaddr, np, false);
+        /* We must unmap the corresponding vaddr in vmm_map() function */
+        size_t len = vec_length(&mmap_list);
+        for (size_t i = 0; i < len; i++) {
+            mem_map_t m = vec_at(&mmap_list, i); 
+            if (m.vaddr != vaddr) {
+                vec_erase(&mmap_list, i); 
+                break;
+            }   
+        }   
     }
 
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
@@ -286,7 +311,13 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
     uint64_t np, uint64_t flags, bool us)
 {
     if (us && (addrspace == NULL)) {
-        vmm_map(&uaddrspace, vaddr, paddr, np, flags, false);
+        mem_map_t mm = {
+            .vaddr = vaddr,
+            .paddr = paddr,
+            .flags= flags,
+            .np = np
+        };
+        vec_push_back(&mmap_list, mm);
     }
 
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
@@ -302,12 +333,7 @@ void vmm_init(
     kaddrspace.PML4 = kmalloc(PAGE_SIZE);
     memset(kaddrspace.PML4, 0, PAGE_SIZE);
 
-    uaddrspace.PML4 = kmalloc(PAGE_SIZE);
-    memset(uaddrspace.PML4, 0, PAGE_SIZE);
-
-    klogi("VMM: PML4 kernel 0x%x, user 0x%x\n", kaddrspace.PML4, uaddrspace.PML4);
-
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.total_size),
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
             VMM_FLAGS_DEFAULT, true);
     klogd("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
@@ -353,8 +379,14 @@ addrspace_t *create_addrspace(void)
         return NULL;
     }
     as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
-    memcpy(as->PML4, uaddrspace.PML4, PAGE_SIZE);
     as->lock = lock_new();
+
+    size_t len = vec_length(&mmap_list);
+    for (size_t i = 0; i < len; i++) {
+        mem_map_t m = vec_at(&mmap_list, i);
+        vmm_map(as, m.vaddr, m.paddr, m.np, m.flags, false);
+    }
+
     return as;
 }
 

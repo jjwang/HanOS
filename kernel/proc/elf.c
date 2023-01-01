@@ -123,8 +123,8 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
             uint64_t phys = addr + (j * PAGE_SIZE);
             vmm_map(task->addrspace, virt, phys, 1, pf, false);
             memset((void*)PHYS_TO_VIRT(phys), 0x90, PAGE_SIZE);
-            klogi("ELF: %d bytes, #%d map 0x%11x to virt 0x%x, PML4 0x%x\n",
-                phdr[i].memsz, j, phys, virt,
+            klogi("ELF: as 0x%x - %d bytes, #%d map 0x%11x to virt 0x%x, PML4 0x%x\n",
+                task->addrspace, phdr[i].memsz, j, phys, virt,
                 task->addrspace == NULL ? NULL : task->addrspace->PML4);
         }
 
