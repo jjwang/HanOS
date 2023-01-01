@@ -228,6 +228,7 @@ void kmain(void)
         (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4,
         ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
 
+#if 1
     task_t *tkbd = sched_add(NULL, true);
     elf_load(tkbd, DEFAULT_INPUT_SVR, &aux);
     
@@ -237,6 +238,7 @@ void kmain(void)
         tkbd->tstack_top,
         (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4,
         ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
+#endif
 
     pci_init();
     ata_init();

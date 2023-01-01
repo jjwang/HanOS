@@ -19,7 +19,7 @@ INTERNALLDFLAGS :=  \
 	-O2 -mcmodel=large
 
 INTERNALCFLAGS :=       \
-	-std=gnu2x          \
+	-std=gnu11          \
 	-I.                 \
  	-ffreestanding      \
 	-flto               \
