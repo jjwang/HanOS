@@ -19,7 +19,7 @@ INTERNALLDFLAGS :=  \
 	-O2
 
 INTERNALCFLAGS :=       \
-	-std=gnu2x          \
+	-std=gnu11          \
 	-I.                 \
  	-ffreestanding      \
 	-flto               \
@@ -59,4 +59,4 @@ $(CELF): %: %.o
 
 clean:
 	rm -rf $(COBJ) $(ASM_OBJ) $(CELF)
-	rm -rf ../initrd/server/*
+	rm -rf ../../initrd/server/*

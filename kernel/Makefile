@@ -13,7 +13,7 @@ ASM_FLAGS = -f elf64 -I.
 
 INTERNALLDFLAGS :=  \
     -flto           \
-    -std=gnu2x      \
+    -std=gnu11      \
     -Wno-lto-type-mismatch \
     -no-pie         \
     -nostdlib       \
@@ -24,7 +24,7 @@ INTERNALLDFLAGS :=  \
 
 INTERNALCFLAGS := \
     -I. -Wall -Wextra -mcmodel=kernel \
-    -std=gnu2x          \
+    -std=gnu11          \
     -ffreestanding      \
     -flto               \
     -fno-pic            \

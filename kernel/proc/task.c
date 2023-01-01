@@ -73,7 +73,7 @@ task_t* task_make(
                 ntask->tstack_limit);
 
         /* Temporarily set to NULL to disable CR3 switch */
-        ntask->addrspace = NULL;
+        ntask->addrspace = as;
     }
 
     ntask_regs->rsp = (uint64_t)ntask->tstack_top;
