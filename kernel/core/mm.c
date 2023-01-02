@@ -1,23 +1,30 @@
 /**-----------------------------------------------------------------------------
+
  @file    mm.c
  @brief   Implementation of memory management functions
  @details
  @verbatim
+
   Memory management is a critical part of any operating system kernel.
   Providing a quick way for programs to allocate and free memory on a
   regular basis is a major responsibility of the kernel.
+
   High Half Kernel: To setup a higher half kernel, you have to map your
   kernel to the appropriate virtual address. Without a boot loader help,
   you'll need a small trampoline code which runs in lower half, sets up
   higher half paging and jumps.
+
   If page protection is not enabled, virtual address is equal with physical
   address. The highest bit of CR0 indicates whether paging is enabled or
   not: mov cr0,8000000 can enable paging.
+
   PMM: The method behind PMM is very simple. The memories with type -
   STIVALE2_MMAP_USABLE are devided into 4K-size pages. A bitmap array is
   used for indicated whether it is free or not. One bit for one page in
   bitmap array.
+
  @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
@@ -32,6 +39,7 @@
 
 static mem_info_t kmem_info = {0};
 static addrspace_t kaddrspace = {0};
+static bool debug_info = false;
 
 typedef struct {
     uint64_t vaddr;
@@ -207,22 +215,22 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
-        memset(pdpt, 0, PAGE_SIZE);
+        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        memset(pdpt, 0, PAGE_SIZE * 8);
         pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
     }   
 
     pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
-        memset(pd, 0, PAGE_SIZE);
+        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        memset(pd, 0, PAGE_SIZE * 8);
         pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
     }
 
     pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0xfff));
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(1, 0x0));
-        memset(pt, 0, PAGE_SIZE);
+        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        memset(pt, 0, PAGE_SIZE * 8);
         pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
     }
 
@@ -251,7 +259,6 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
         return;
 
-
     uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
     if (!(pd[pde] & VMM_FLAG_PRESENT))
         return;
@@ -267,23 +274,26 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
         asm volatile("invlpg (%0)" ::"r"(vaddr));
 
-    for (int i = 0; i < 512; i++)
+    for (int i = 0; i < 512 * 8; i++)
         if (pt[i] != 0)
             goto done;
-    pd[pde] = 0;
-    pmm_free(VIRT_TO_PHYS(pt), 1);
 
-    for (int i = 0; i < 512; i++)
+    pd[pde] = 0;
+    pmm_free(VIRT_TO_PHYS(pt), 8);
+
+    for (int i = 0; i < 512 * 8; i++)
         if (pd[i] != 0)
             goto done;
-    pdpt[pdpe] = 0;
-    pmm_free(VIRT_TO_PHYS(pd), 1);
 
-    for (int i = 0; i < 512; i++)
+    pdpt[pdpe] = 0;
+    pmm_free(VIRT_TO_PHYS(pd), 8);
+
+    for (int i = 0; i < 512 * 8; i++)
         if (pdpt[i] != 0)
             goto done;
+
     pml4[pml4e] = 0;
-    pmm_free(VIRT_TO_PHYS(pdpt), 1);
+    pmm_free(VIRT_TO_PHYS(pdpt), 8);
 
 done:
     return;
@@ -291,7 +301,7 @@ done:
 
 void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us) 
 {
-    if (us) {
+    if (us && (addrspace == NULL)) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
         size_t len = vec_length(&mmap_list);
         for (size_t i = 0; i < len; i++) {
@@ -320,8 +330,12 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
         vec_push_back(&mmap_list, mm);
     }
 
-    for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
+    if (debug_info) klogi("VMM: 0x%x map paddr 0x%x to vaddr 0x%x, np %d\n",
+                          addrspace, paddr, vaddr, np); 
+
+    for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(addrspace, vaddr + i, paddr + i, flags);
+    }
 }
 
 void vmm_init(
@@ -330,8 +344,8 @@ void vmm_init(
 {
     size_t i;
 
-    kaddrspace.PML4 = kmalloc(PAGE_SIZE);
-    memset(kaddrspace.PML4, 0, PAGE_SIZE);
+    kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
+    memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
     vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
             VMM_FLAGS_DEFAULT, true);
@@ -373,17 +387,21 @@ addrspace_t *create_addrspace(void)
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
-    as->PML4 = (uint64_t*)pmm_get(1, 0x0);
+    as->PML4 = (void *)PHYS_TO_VIRT(pmm_get(8, 0x0));
     if (!as->PML4) {
         kmfree(as);
         return NULL;
     }
-    as->PML4 = (void *)PHYS_TO_VIRT(as->PML4);
+    memset(as->PML4, 0, PAGE_SIZE * 8);
     as->lock = lock_new();
 
     size_t len = vec_length(&mmap_list);
     for (size_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&mmap_list, i);
+        if (debug_info) {
+            klogi("VMM: PML4 %d - 0x%x map 0x%x to 0x%x with %d pages\n",
+                  i, as->PML4, m.paddr, m.vaddr, m.np);
+        }
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags, false);
     }
 
@@ -405,19 +423,19 @@ void destory_addrspace(addrspace_t *as)
                             pt = (uint64_t *)PHYS_TO_VIRT(pd[k] & 0xfffffffffffff000);
                             for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
                                 if (pt[l] & 1)
-                                    pmm_free(VIRT_TO_PHYS(pt[l] & 0xfffffffffffff000), 1);
+                                    pmm_free(VIRT_TO_PHYS(pt[l] & 0xfffffffffffff000), 8);
                             }
-                            pmm_free(VIRT_TO_PHYS(pd[k] & 0xfffffffffffff000), 1);
+                            pmm_free(VIRT_TO_PHYS(pd[k] & 0xfffffffffffff000), 8);
                         }
                     }
-                    pmm_free(VIRT_TO_PHYS(pdpt[j] & 0xfffffffffffff000), 1);
+                    pmm_free(VIRT_TO_PHYS(pdpt[j] & 0xfffffffffffff000), 8);
                 }
             }
-            pmm_free(VIRT_TO_PHYS(as->PML4[i] & 0xfffffffffffff000), 1);
+            pmm_free(VIRT_TO_PHYS(as->PML4[i] & 0xfffffffffffff000), 8);
         }
     }
 
-    pmm_free(VIRT_TO_PHYS(as->PML4), 1);
+    pmm_free(VIRT_TO_PHYS(as->PML4), 8);
     kmfree(as);
 }
 
