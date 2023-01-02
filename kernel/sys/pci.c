@@ -18,9 +18,9 @@
  */
 #include <stdint.h>
 
-#include <core/pci.h>
-#include <core/cpu.h>
-#include <core/panic.h>
+#include <sys/pci.h>
+#include <sys/cpu.h>
+#include <sys/panic.h>
 #include <lib/klog.h>
 #include <lib/vector.h>
 

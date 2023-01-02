@@ -15,8 +15,9 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
-#include <core/cmos.h>
-#include <core/cpu.h>
+
+#include <sys/cmos.h>
+#include <sys/cpu.h>
 #include <lib/memutils.h>
 #include <lib/klog.h>
 

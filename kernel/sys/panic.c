@@ -17,8 +17,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <symbols.h>
-#include <core/panic.h>
-#include <core/smp.h>
+#include <sys/panic.h>
+#include <sys/smp.h>
 #include <lib/klog.h>
 #include <device/display/term.h>
 

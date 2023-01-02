@@ -22,8 +22,8 @@
  */
 #include <stddef.h>
 #include <version.h>
-#include <core/mm.h>
-#include <core/hpet.h>
+#include <sys/mm.h>
+#include <sys/hpet.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>

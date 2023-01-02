@@ -15,7 +15,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <core/smp.h>
+
+#include <sys/smp.h>
 
 #define AC_AC       0x1     /* access */
 #define AC_RW       0x2     /* readable for code & writeable for data selector */

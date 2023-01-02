@@ -2,8 +2,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
 #include <proc/task.h>
-#include <core/mm.h>
+#include <sys/mm.h>
 
 #define ELF_MAGIC       0x464C457FU /* "\x7FELF" in little endian */
 

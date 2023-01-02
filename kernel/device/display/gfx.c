@@ -1,9 +1,9 @@
 #include <3rd-party/boot/limine.h>
 #include <stdint.h>
-#include <core/cpu.h>
-#include <core/pci.h>
-#include <core/pit.h>
-#include <core/mm.h>
+#include <sys/cpu.h>
+#include <sys/pci.h>
+#include <sys/pit.h>
+#include <sys/mm.h>
 #include <lib/vector.h>
 #include <lib/klog.h>
 #include <device/display/gfx.h>

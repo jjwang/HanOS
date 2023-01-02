@@ -20,10 +20,10 @@
 
 #include <lib/klog.h>
 #include <lib/memutils.h>
-#include <core/isr_base.h>
-#include <core/idt.h>
-#include <core/cpu.h>
-#include <core/panic.h>
+#include <sys/isr_base.h>
+#include <sys/idt.h>
+#include <sys/cpu.h>
+#include <sys/panic.h>
 
 static idt_entry_t idt[IDT_ENTRIES];
 

@@ -27,10 +27,10 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <core/timer.h>
-#include <core/apic.h>
-#include <core/idt.h>
-#include <core/pit.h>
+#include <sys/timer.h>
+#include <sys/apic.h>
+#include <sys/idt.h>
+#include <sys/pit.h>
 #include <lib/klog.h>
 #include <lib/time.h>
 

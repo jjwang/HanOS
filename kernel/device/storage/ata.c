@@ -1,9 +1,9 @@
-#include <core/pci.h>
-#include <core/cpu.h>
-#include <core/isr_base.h>
+#include <sys/pci.h>
+#include <sys/cpu.h>
+#include <sys/isr_base.h>
+#include <sys/panic.h>
+#include <sys/pit.h>
 #include <device/storage/ata.h>
-#include <core/panic.h>
-#include <core/pit.h>
 #include <lib/lock.h>
 #include <lib/klog.h>
 #include <lib/string.h>

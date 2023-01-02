@@ -18,7 +18,7 @@
 #include <lib/klog.h>
 #include <lib/lock.h>
 #include <lib/memutils.h>
-#include <core/panic.h>
+#include <sys/panic.h>
 #include <3rd-party/boot/limine.h>
 
 static const uint32_t font_colors[9] = { 
