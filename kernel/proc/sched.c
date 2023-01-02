@@ -22,13 +22,13 @@
 #include <lib/kmalloc.h>
 #include <proc/sched.h>
 #include <proc/eventbus.h>
-#include <core/smp.h>
-#include <core/timer.h>
-#include <core/apic.h>
-#include <core/hpet.h>
-#include <core/pit.h>
-#include <core/isr_base.h>
-#include <core/panic.h>
+#include <sys/smp.h>
+#include <sys/timer.h>
+#include <sys/apic.h>
+#include <sys/hpet.h>
+#include <sys/pit.h>
+#include <sys/isr_base.h>
+#include <sys/panic.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 

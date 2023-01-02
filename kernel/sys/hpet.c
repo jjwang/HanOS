@@ -26,11 +26,11 @@
  */
 #include <lib/klog.h>
 #include <lib/time.h>
-#include <core/hpet.h>
-#include <core/acpi.h>
-#include <core/mm.h>
-#include <core/pit.h>
-#include <core/panic.h>
+#include <sys/hpet.h>
+#include <sys/acpi.h>
+#include <sys/mm.h>
+#include <sys/pit.h>
+#include <sys/panic.h>
 #include <proc/sched.h>
 
 static hpet_t* hpet = NULL;

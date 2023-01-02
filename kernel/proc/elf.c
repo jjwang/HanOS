@@ -5,8 +5,8 @@
 #include <lib/memutils.h>
 #include <lib/string.h>
 #include <fs/vfs.h>
-#include <core/mm.h>
-#include <core/panic.h>
+#include <sys/mm.h>
+#include <sys/panic.h>
 
 #define BASE        0 /* MEM_VIRT_OFFSET */
 

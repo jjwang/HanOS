@@ -16,10 +16,10 @@
 #include <lib/klog.h>
 #include <lib/time.h>
 #include <device/display/term.h>
-#include <core/hpet.h>
-#include <core/cmos.h>
-#include <core/smp.h>
-#include <core/serial.h>
+#include <sys/hpet.h>
+#include <sys/cmos.h>
+#include <sys/smp.h>
+#include <sys/serial.h>
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};

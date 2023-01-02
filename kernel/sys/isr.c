@@ -14,10 +14,11 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+
 #include <lib/klog.h>
-#include <core/isr_base.h>
-#include <core/panic.h>
-#include <core/cpu.h>
+#include <sys/isr_base.h>
+#include <sys/panic.h>
+#include <sys/cpu.h>
 
 static char* exceptions[] = {
     [0] = "Division by Zero",

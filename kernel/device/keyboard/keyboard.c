@@ -23,9 +23,9 @@
 #include <lib/lock.h>
 #include <lib/time.h>
 #include <lib/memutils.h>
-#include <core/isr_base.h>
-#include <core/cpu.h>
-#include <core/idt.h>
+#include <sys/isr_base.h>
+#include <sys/cpu.h>
+#include <sys/idt.h>
 #include <proc/eventbus.h>
 
 #define KB_BUFFER_SIZE    128

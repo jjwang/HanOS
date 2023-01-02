@@ -1,6 +1,6 @@
 KERNEL := hanos.elf
 BOOT_DIR := 3rd-party/boot
-TRAMPOLINEFILE = core/trampoline.nasm
+TRAMPOLINEFILE = sys/trampoline.nasm
 
 CC = x86_64-elf-gcc
 LD = $(CC)
@@ -46,7 +46,7 @@ ASM_FILES := $(shell find ./ -type f -name '*.asm')
 ASM_OBJ := $(ASM_FILES:.asm=.o)
 
 SYMBOLS = _symbols.o
-TRAMPOLINEBLOB = core/trampoline.bin
+TRAMPOLINEBLOB = sys/trampoline.bin
 
 .PHONY: all clean
 

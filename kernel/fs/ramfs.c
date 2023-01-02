@@ -5,10 +5,10 @@
 #include <lib/klog.h>
 #include <lib/klib.h>
 #include <lib/string.h>
-#include <core/panic.h>
-#include <core/hpet.h>
-#include <core/cmos.h>
-#include <core/mm.h>
+#include <sys/panic.h>
+#include <sys/hpet.h>
+#include <sys/cmos.h>
+#include <sys/mm.h>
 
 /* Filesystem information */
 vfs_fsinfo_t ramfs = {

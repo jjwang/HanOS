@@ -13,12 +13,13 @@
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
+
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/klog.h>
-#include <core/cpu.h>
+#include <sys/cpu.h>
 
 static task_id_t curr_tid = 1;
 

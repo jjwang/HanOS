@@ -16,11 +16,12 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
-#include <core/pit.h>
-#include <core/cpu.h>
-#include <core/idt.h>
-#include <core/cmos.h>
-#include <core/isr_base.h>
+
+#include <sys/pit.h>
+#include <sys/cpu.h>
+#include <sys/idt.h>
+#include <sys/cmos.h>
+#include <sys/isr_base.h>
 #include <lib/lock.h>
 #include <lib/klog.h>
 

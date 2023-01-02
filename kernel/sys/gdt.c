@@ -19,9 +19,9 @@
 #include <stdint.h>
 #include <lib/klog.h>
 #include <lib/memutils.h>
-#include <core/gdt.h>
-#include <core/panic.h>
-#include <core/smp.h>
+#include <sys/gdt.h>
+#include <sys/panic.h>
+#include <sys/smp.h>
 
 static gdt_table_t gdt_list[CPU_MAX] = {0};
 static size_t gdt_num = 0;

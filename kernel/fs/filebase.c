@@ -17,8 +17,8 @@
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/string.h>
-#include <core/hpet.h>
-#include <core/cmos.h>
+#include <sys/hpet.h>
+#include <sys/cmos.h>
 
 /* List of opened files */
 vec_extern(vfs_node_desc_t*, vfs_openfiles);

@@ -36,8 +36,8 @@
 #include <stdint.h>
 #include <lib/time.h>
 #include <lib/vector.h>
-#include <core/smp.h>
-#include <core/mm.h>
+#include <sys/smp.h>
+#include <sys/mm.h>
 #include <fs/vfs.h>
 
 #define DEFAULT_KMODE_CODE      0b00001000 /* 0x08 */
