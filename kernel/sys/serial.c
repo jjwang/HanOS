@@ -1,5 +1,5 @@
-#include <core/cpu.h>
-#include <core/serial.h>
+#include <sys/cpu.h>
+#include <sys/serial.h>
 
 int serial_init()
 {

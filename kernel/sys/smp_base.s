@@ -2,6 +2,6 @@
 .global smp_trampoline_blob_end
 
 smp_trampoline_blob_start:
-    .incbin "core/trampoline.bin"
+    .incbin "sys/trampoline.bin"
 smp_trampoline_blob_end:
 

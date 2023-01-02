@@ -19,7 +19,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <core/acpi.h>
+
+#include <sys/acpi.h>
 
 typedef struct [[gnu::packed]] {
     acpi_sdt_hdr_t hdr;

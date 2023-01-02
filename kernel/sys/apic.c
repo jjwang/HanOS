@@ -18,13 +18,13 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <core/acpi.h>
-#include <core/apic.h>
-#include <core/madt.h>
-#include <core/mm.h>
-#include <core/cpu.h>
-#include <core/idt.h>
-#include <core/panic.h>
+#include <sys/acpi.h>
+#include <sys/apic.h>
+#include <sys/madt.h>
+#include <sys/mm.h>
+#include <sys/cpu.h>
+#include <sys/idt.h>
+#include <sys/panic.h>
 #include <lib/klog.h>
 
 /* The local APIC registers are memory mapped to an address that can be found

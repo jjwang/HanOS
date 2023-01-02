@@ -16,7 +16,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <lib/memutils.h>
-#include <core/mm.h>
+#include <sys/mm.h>
 
 typedef struct {
     size_t numpages;

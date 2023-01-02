@@ -28,9 +28,10 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
-#include <core/cpu.h>
-#include <core/mm.h>
-#include <core/panic.h>
+
+#include <sys/cpu.h>
+#include <sys/mm.h>
+#include <sys/panic.h>
 #include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>

@@ -13,8 +13,9 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
+
 #include <device/storage/ata.h>
-#include <core/panic.h>
+#include <sys/panic.h>
 #include <fs/vfs.h>
 #include <fs/fat32.h>
 #include <fs/filebase.h>

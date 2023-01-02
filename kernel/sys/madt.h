@@ -16,7 +16,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <core/acpi.h>
+
+#include <sys/acpi.h>
 
 /* MADT Record Header */
 typedef struct [[gnu::packed]] {

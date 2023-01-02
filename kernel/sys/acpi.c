@@ -15,9 +15,9 @@
  */
 #include <stdbool.h>
 #include <stddef.h>
-#include <core/acpi.h>
-#include <core/madt.h>
-#include <core/mm.h>
+#include <sys/acpi.h>
+#include <sys/madt.h>
+#include <sys/mm.h>
 #include <lib/klog.h>
 #include <lib/memutils.h>
 #include <lib/string.h>

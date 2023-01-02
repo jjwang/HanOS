@@ -14,7 +14,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <core/cpu.h>
+
+#include <sys/cpu.h>
 
 #define KEY_COUNT                           128
 

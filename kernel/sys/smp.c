@@ -17,18 +17,19 @@
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
+
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/time.h>
-#include <core/mm.h>
-#include <core/cpu.h>
-#include <core/smp.h>
-#include <core/gdt.h>
-#include <core/hpet.h>
-#include <core/madt.h>
-#include <core/apic.h>
-#include <core/pit.h>
+#include <sys/mm.h>
+#include <sys/cpu.h>
+#include <sys/smp.h>
+#include <sys/gdt.h>
+#include <sys/hpet.h>
+#include <sys/madt.h>
+#include <sys/apic.h>
+#include <sys/pit.h>
 #include <proc/sched.h>
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;

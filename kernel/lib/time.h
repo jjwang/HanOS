@@ -14,8 +14,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <core/hpet.h>
-#include <core/cmos.h>
+#include <sys/hpet.h>
+#include <sys/cmos.h>
 
 #define hpet_sleep(x)       hpet_nanosleep(MILLIS_TO_NANOS(x))
 

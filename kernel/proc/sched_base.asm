@@ -1,4 +1,4 @@
-%include "core/cpu_macros.mac"
+%include "sys/cpu_macros.mac"
 
 global enter_context_switch
 global exit_context_switch

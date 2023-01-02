@@ -13,9 +13,9 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <core/madt.h>
-#include <core/panic.h>
-#include <core/smp.h>
+#include <sys/madt.h>
+#include <sys/panic.h>
+#include <sys/smp.h>
 #include <lib/klog.h>
 
 static madt_t* madt;

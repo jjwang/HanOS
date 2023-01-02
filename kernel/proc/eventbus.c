@@ -1,4 +1,4 @@
-#include <core/hpet.h>
+#include <sys/hpet.h>
 #include <lib/vector.h>
 #include <lib/lock.h>
 #include <proc/eventbus.h>
