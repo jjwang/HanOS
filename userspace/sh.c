@@ -1,5 +1,4 @@
 #include <stddef.h>
-#include <stdint.h>
 
 #include <lib/string.h>
 #include <lib/syscall.h>

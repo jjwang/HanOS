@@ -2,7 +2,7 @@ ISO_IMAGE = cdrom.iso
 HDD_IMAGE = release/hdd.img
 TARGET_ROOT = $(shell pwd)/initrd
 
-.PHONY: clean all initrd kernel
+.PHONY: clean all initrd kernel run test
 
 all: $(ISO_IMAGE)
 
