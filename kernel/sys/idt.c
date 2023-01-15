@@ -33,7 +33,7 @@ static uint8_t available_vector = 0x81;
 static idt_entry_t idt_make_entry(uint64_t offset)
 {
     return (idt_entry_t) {
-        .selector = 0x08,
+        .selector = 0x28,
         .offset_1 = offset & 0xFFFF,
         .offset_2 = (offset >> 16) & 0xFFFF,
         .offset_3 = (offset >> 32) & 0xFFFFFFFF,

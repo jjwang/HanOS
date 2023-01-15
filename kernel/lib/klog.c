@@ -75,6 +75,8 @@ void klog_refresh(int mode)
     klog_refresh_times++;
 }
 
+extern void screen_write(char c);
+
 static void klog_putch(int mode, uint8_t i)
 {
     klog_info_t* k = ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
@@ -92,6 +94,7 @@ static void klog_putch(int mode, uint8_t i)
     klog_putchar_times++;
 
     if (mode == TERM_MODE_INFO) {
+        screen_write(i);
         serial_write(i);
     }
 }

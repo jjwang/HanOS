@@ -11,7 +11,7 @@ all: $(ISO_IMAGE)
 # Option for debug information: -d in_asm,out_asm,int,op
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
-run:
+run: $(ISO_IMAGE)
 	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
 test:

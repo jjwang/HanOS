@@ -69,11 +69,11 @@ void init_tss(cpu_t* cpuinfo)
 /* AP's will run this code upon boot */
 _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
 {
-    klogi("SMP: continue to initialize core %d\n", cpuinfo->cpu_id);
-
     /* initialize cpu features */
     gdt_init(cpuinfo);
     cpu_init();
+
+    klogi("SMP: continue to initialize core %d\n", cpuinfo->cpu_id);
 
     /* initialze gdt and make a tss */
     init_tss(cpuinfo);
@@ -208,7 +208,9 @@ void smp_init()
     klogi("SMP: %d processors brought up\n", smp_info->num_cpus);
 
     /* identity mapping is no longer needed */
+#if LAUNCHER_GRAPHICS
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000), true);
+#endif
 
     smp_initialized = true;
 }

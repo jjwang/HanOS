@@ -89,6 +89,11 @@ typedef struct [[gnu::packed]] {
 
 typedef struct [[gnu::packed]] {
     gdt_entry_t null;
+
+    gdt_entry_t kcode16;
+    gdt_entry_t kdata16;
+    gdt_entry_t kcode32;
+    gdt_entry_t kdata32;
     gdt_entry_t kcode;
     gdt_entry_t kdata;
     gdt_entry_t udata;

@@ -52,19 +52,21 @@
 #include <test/test.h>
 #include <proc/elf.h>
 
+#if 1
 static volatile struct limine_framebuffer_request fb_request = { 
     .id = LIMINE_FRAMEBUFFER_REQUEST,
     .revision = 0 
 };
 
+static volatile struct limine_hhdm_request hhdm_request = { 
+    .id = LIMINE_HHDM_REQUEST,
+    .revision = 0 
+};
+#endif
+
 static volatile struct limine_memmap_request mm_request = { 
     .id = LIMINE_MEMMAP_REQUEST,
     .revision = 0 
-};
-
-static volatile struct limine_hhdm_request hhdm_request = {
-    .id = LIMINE_HHDM_REQUEST,
-    .revision = 0
 };
 
 static volatile struct limine_rsdp_request rsdp_request = { 
@@ -115,6 +117,25 @@ void done(void)
     }   
 }
 
+void screen_write(char c)
+{
+    (void)c;
+#if !(LAUNCHER_GRAPHICS)
+    char s[2] = {0};
+
+    s[0] = c;
+    s[1] = '\0';
+
+    if (terminal_request.response == NULL
+        || terminal_request.response->terminal_count < 1) {
+        done();
+    }   
+
+    struct limine_terminal *terminal = terminal_request.response->terminals[0];
+    terminal_request.response->write(terminal, s, 1);
+#endif
+}
+
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
@@ -132,6 +153,7 @@ void kmain(void)
     klog_init();
     klogi("HanOS version %s starting...\n", VERSION);
 
+#if LAUNCHER_GRAPHICS
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
              hhdm_request.response->offset, hhdm_request.response->revision);
@@ -141,7 +163,7 @@ void kmain(void)
         goto exit;
     } else if (fb_request.response->framebuffer_count < 1) {
         goto exit;  
-    }   
+    }
 
     struct limine_framebuffer *fb =
         fb_request.response->framebuffers[0];
@@ -152,7 +174,14 @@ void kmain(void)
     }
 
     term_init(fb);
+
     klogi("Framebuffer address: 0x%x\n", fb->address);
+#else
+    klogi("Terminal: rows %d, columns %d, framebuffer 0x%x (0x%x)\n",
+          terminal->rows, terminal->columns,
+          terminal->framebuffer, terminal->framebuffer->address);
+    term_init(NULL);
+#endif
 
     gdt_init(NULL);
     idt_init();
@@ -162,20 +191,37 @@ void kmain(void)
 
     term_start();
 
-    /* Need to init after idt_init() because it will be used very often. */
+    klogi("Init PIT...\n");
     pit_init();
+
+    klogi("Init keyboard...\n");
     keyboard_init();
 
+    klogi("Init ACPI...\n");
     acpi_init(rsdp_request.response);
+
+    klogi("Init HPET...\n");
     hpet_init();
-    cmos_init(); 
+
+    klogi("Init CMOS...\n");
+    cmos_init();
+
+    klogi("Init APIC...\n");
     apic_init();
 
+    klogi("Init VFS...\n");
     vfs_init();
+
+    klogi("Init SMP...\n");
     smp_init();
+
+    klogi("Init VFS...\n");
     vfs_init();
+
+    klogi("Init syscall...\n");
     syscall_init();
 
+    klogi("Init INITRD...\n");
     struct limine_module_response *module_response = module_request.response;
     if (module_response != NULL) {
         for (size_t i = 0; i < module_response->module_count; i++) {
@@ -194,6 +240,7 @@ void kmain(void)
     klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
 
+#if LAUNCHER_GRAPHICS
     if (fb->edid_size == sizeof(edid_info_t)) {
         edid_info_t* edid = (edid_info_t*)fb->edid;
         klogi("EDID: version %d.%d, screen size %dcm * %dcm\n", edid->edid_version, edid->edid_revision,
@@ -216,6 +263,7 @@ void kmain(void)
         }
     }
     klogi("Framebuffer address 0x%x\n", fb->address);
+#endif
 
     auxval_t aux = {0};
 
@@ -228,7 +276,6 @@ void kmain(void)
         (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4,
         ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
 
-#if 1
     task_t *tkbd = sched_add(NULL, true);
     elf_load(tkbd, DEFAULT_INPUT_SVR, &aux);
     
@@ -238,7 +285,6 @@ void kmain(void)
         tkbd->tstack_top,
         (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4,
         ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
-#endif
 
     pci_init();
     ata_init();
@@ -280,8 +326,10 @@ void kmain(void)
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
         kprintf("\e[36mPreferred  \e[0m: %4d x %4d Pixels\n",
                 self_info.prefer_res_x, self_info.prefer_res_y);
+#if LAUNCHER_GRAPHICS
         kprintf("\e[36mActual     \e[0m: %4d x %4d Pixels\n",
                 fb->width, fb->height);
+#endif
     }
 
     cpu_t *cpu = smp_get_current_cpu(false);

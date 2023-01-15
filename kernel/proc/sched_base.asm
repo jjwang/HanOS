@@ -37,10 +37,10 @@ force_context_switch:
 
     mov rax, rsp
 
-    push qword 0x10
+    push qword 0x30
     push rax
     push qword 0x202
-    push qword 0x08
+    push qword 0x28
     mov rax, .exit
     push rax
 
