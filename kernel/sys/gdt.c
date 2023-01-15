@@ -12,6 +12,9 @@
   used. Two ring-0 and two ring-3 segment descriptor are defined. The
   memory regions are from 0 to 4GB.
 
+  Jan 14, 2023: To make sure that we can call write() in limine bootloader, the
+                initializaton function is refined according to limine protocol.
+ 
  @endverbatim
 
  **-----------------------------------------------------------------------------
@@ -60,6 +63,24 @@ void gdt_init(cpu_t* cpuinfo)
 
     gdt_make_entry(&(gdt->null), 0, 0, 0);
 
+    gdt_make_entry(&(gdt->kcode16), 0, 0xFFFF,
+        AC_RW | AC_EX | AC_PR | AC_ST);
+    gdt->kcode16.granularity = 0;
+
+    gdt_make_entry(&(gdt->kdata16), 0, 0xFFFF,
+        AC_RW | AC_PR | AC_ST);
+    gdt->kdata16.granularity = 0;
+
+    gdt_make_entry(&(gdt->kcode32), 0, 0xFFFFFFFF,
+        AC_RW | AC_EX | AC_PR | AC_ST);
+    gdt->kcode32.granularity &= 0x0F;
+    gdt->kcode32.granularity |= (GDT_GR | GDT_SZ) << 4;
+
+    gdt_make_entry(&(gdt->kdata32), 0, 0xFFFFFFFF,
+        AC_RW | AC_PR | AC_ST);
+    gdt->kdata32.granularity &= 0x0F;
+    gdt->kdata32.granularity |= (GDT_GR | GDT_SZ) << 4;
+
     gdt_make_entry(&(gdt->kcode), 0, 0xFFFFFFFF,
         AC_RW | AC_EX | AC_DPL_KERN | AC_PR | AC_ST);
 
@@ -73,20 +94,22 @@ void gdt_init(cpu_t* cpuinfo)
         AC_RW | AC_DPL_USER | AC_PR | AC_ST);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
+
     asm volatile("lgdt %0;"
-                 "pushq $0x08;"
-                 "pushq $reload_sr;"
+                 "push $0x28;"
+                 "lea 1f(%%rip), %%rax;"
+                 "push %%rax;"
                  "lretq;"
-                 "reload_sr:"
-                 "movw $0x10, %%ax;"
-                 "movw %%ax, %%ds;"
-                 "movw %%ax, %%es;"
-                 "movw %%ax, %%ss;"
-                 "movw %%ax, %%fs;"
-                 "movw %%ax, %%gs;"
-                 :
+                 "1:"
+                 "mov $0x30, %%eax;"
+                 "mov %%eax, %%ds;"
+                 "mov %%eax, %%es;"
+                 "mov %%eax, %%ss;"
+                 "mov %%eax, %%fs;"
+                 "mov %%eax, %%gs;"
+                 :   
                  : "g"(g)
-                 :);
+                 :); 
 
     if (cpuinfo != NULL) {
         klogi("GDT: initialization finished for CPU %d\n", cpuinfo->cpu_id);
@@ -116,12 +139,12 @@ void gdt_install_tss(cpu_t* cpuinfo)
 
     klogv("GDT: load TSS with base address 0x%x\n", baseaddr);
 
-    /* Loading of TSS: The descriptor of the TSS in the GDT (e.g. 0x28 if
-     * the sixths entry in your GDT describes your TSS)
+    /* Loading of TSS: The descriptor of the TSS in the GDT (e.g. 0x48 if
+     * the tenths entry in your GDT describes your TSS)
      */
     asm volatile("ltr %%ax"
                  :
-                 : "a"(0x28));
+                 : "a"(0x48));
 
     if (cpuinfo != NULL) {
         klogi("GDT: finish loading TSS for CPU %d, base addr 0x%x\n",

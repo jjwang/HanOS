@@ -28,13 +28,10 @@
 #define PIT_FREQ_HZ     1000
 
 static volatile uint64_t pit_ticks = 0;
-static volatile uint64_t pit_start_time = 0;
-static volatile uint64_t pit_secs = 0;
 
 static void pit_callback()
 {
     pit_ticks++;
-    pit_secs = cmos_current_time() - pit_start_time;
 }
 
 uint64_t pit_get_ticks(void)
@@ -59,7 +56,6 @@ void pit_init(void)
 
     exc_register_handler(IRQ0, pit_callback);
 
-    pit_start_time = cmos_current_time();
     pit_ticks = 0;
 
     irq_clear_mask(0);
@@ -68,9 +64,6 @@ void pit_init(void)
 void pit_wait(uint64_t ms) 
 {
     volatile uint64_t target_ticks = pit_ticks + ms;
-    if(pit_secs > 0) {
-        target_ticks = pit_ticks + ms * pit_ticks / (pit_secs * 1000);
-    }
 
     while (true) {
         if (pit_ticks >= target_ticks) break;

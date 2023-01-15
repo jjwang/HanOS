@@ -9,10 +9,10 @@ syscall_handler:
     mov rsp, [gs:0x4]       ; switch to syscall stack
 
     ; push information (gs, cs, rip, rflags, rip...)
-    push qword 0x1b         ; user data segment
+    push qword 0x3b         ; user data segment
     push r8                 ; saved stack
     push r11                ; saved rflags
-    push qword 0x23         ; user code segment 
+    push qword 0x43         ; user code segment 
     push rcx                ; current RIP
 
     push_all
