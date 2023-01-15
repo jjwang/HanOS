@@ -3,32 +3,33 @@ LD   = $(CC)
 AS   = $(CC)
 NASM = nasm
 
-LC_FLAGS  =             \
-    -I. -Wall -Wextra -mcmodel=kernel \
-    -std=gnu11          \
-    -ffreestanding      \
-    -flto               \
-    -fno-pic            \
+LC_FLAGS  =                 \
+    -I. -Wall -Wextra       \
+    -mcmodel=kernel         \
+    -std=gnu11              \
+    -ffreestanding          \
+    -flto                   \
+    -fno-pic                \
     -fno-omit-frame-pointer \
-    -mno-mmx            \
-    -mno-sse            \
-    -mno-sse2           \
-    -mno-red-zone       \
+    -mno-mmx                \
+    -mno-sse                \
+    -mno-sse2               \
+    -mno-red-zone           \
     -Wno-cast-function-type \
     -O2
 
 AS_FLAGS  = -I . -flto
 ASM_FLAGS = -f elf64 -I.
 
-LD_FLAGS  =             \
-    -flto               \
-    -std=gnu11          \
-    -Wno-lto-type-mismatch \
-    -no-pie             \
-    -nostdlib           \
-    -Tlinker.ld         \
+LD_FLAGS  =                 \
+    -flto                   \
+    -std=gnu11              \
+    -Wno-lto-type-mismatch  \
+    -no-pie                 \
+    -nostdlib               \
+    -Tlinker.ld             \
     -z max-page-size=0x2000 \
-    -I .                \
+    -I .                    \
     -O2
 
 KERNELOBJ = hanos.elf
@@ -58,7 +59,17 @@ TRAMPOLINEBLOB = sys/trampoline.bin
 
 .PHONY: all clean
 
-all: $(SYMBOLFILE) $(KERNELOBJ)
+all: $(KERNELOBJ) $(SYMBOLFILE)
+
+# Below are used to generate symbol file for gdb debug
+# objcopy --only-keep-debug $@ hanos.sym
+# objcopy --strip-debug $@
+
+$(SYMBOLFILE): $(OBJS)
+	@echo ">>>>> Generating symbols..."
+	@./gensym $@
+	$(CC) $(LC_FLAGS) -x c -c $(SYMBOLFILE) -o $(SYMBOLOBJ)
+
 	@echo ">>>>> Linking symbols..."
 	$(LD) $(LD_FLAGS) $(OBJS) $(SYMBOLOBJ) -o $(KERNELOBJ)
 
@@ -69,15 +80,6 @@ all: $(SYMBOLFILE) $(KERNELOBJ)
 	@echo ">>>>> Re-linking symbols..."
 	$(LD) $(LD_FLAGS) $(OBJS) $(SYMBOL_OBJ) -o $(KERNELOBJ)
 
-# Below are used to generate symbol file for gdb debug
-# objcopy --only-keep-debug $@ hanos.sym
-# objcopy --strip-debug $@
-
-$(SYMBOLFILE):
-	@echo ">>>>> Generating symbols..."
-	@./gensym $@
-	$(CC) $(LC_FLAGS) -x c -c $(SYMBOLFILE) -o $(SYMBOLOBJ)
-
 $(KERNELOBJ): $(TRAMPOLINEBLOB) $(OBJS)
 	$(LD) $(LD_FLAGS) $(OBJS) -o $@
 
@@ -86,6 +88,7 @@ $(BOOT_DIR)/limine.h:
 	@if [ ! -e "$(BOOT_DIR)/limine.h" ]; then wget -P $(BOOT_DIR) https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h; fi
 
 -include $(C_DEPS)
+
 $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	@echo Compiling $< to $@ ...
 	$(CC) -MM -I. -MF $(patsubst %.o, %.d, $@) $<

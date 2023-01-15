@@ -40,8 +40,8 @@
 #include <sys/mm.h>
 #include <fs/vfs.h>
 
-#define DEFAULT_KMODE_CODE      0b00001000 /* 0x08 */
-#define DEFAULT_KMODE_DATA      0b00010000 /* 0x10 */
+#define DEFAULT_KMODE_CODE      0b00101000 /* 0x28 */
+#define DEFAULT_KMODE_DATA      0b00110000 /* 0x30 */
 
 /*
  * User Mode Refer:
@@ -87,8 +87,8 @@
  * our data segment selector will be (0x20 | 0x3 = 0x23).
  *
  */
-#define DEFAULT_UMODE_DATA      0b00011011 /* 0x1b */
-#define DEFAULT_UMODE_CODE      0b00100011 /* 0x23 */
+#define DEFAULT_UMODE_DATA      0b00111011 /* 0x3b */
+#define DEFAULT_UMODE_CODE      0b01000011 /* 0x43 */
 
 /* ----- EFLAGS Register -----
  * 0        CF  Carry flag
