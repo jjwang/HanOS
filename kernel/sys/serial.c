@@ -35,7 +35,8 @@ int serial_init()
 
 void serial_write(char a)
 {
-    while ((port_inb(SERIAL_PORT + 5) & 0x20) == 0) {
+    for (size_t i = 0; i < 3; i++) {
+        if (port_inb(SERIAL_PORT + 5) & 0x20) break;
     }
     port_outb(SERIAL_PORT, a);
 }
