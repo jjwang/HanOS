@@ -49,7 +49,7 @@ all: $(C_OBJS) $(ASM_OBJS) $(CELF)
 -include $(C_DEPS)
 $(C_OBJS): %.o: %.c
 	@echo Compiling $^ ...
-	$(CC) -MM -I. -MF $(patsubst %.o, %.d, $@) $<
+	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(ASM_OBJS): %.o: %.asm
