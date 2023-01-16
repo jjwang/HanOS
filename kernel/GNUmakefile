@@ -91,7 +91,7 @@ $(BOOT_DIR)/limine.h:
 
 $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -MF $(patsubst %.o, %.d, $@) $<
+	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(AS_OBJS): %.o: %.s
