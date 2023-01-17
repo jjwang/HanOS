@@ -89,15 +89,14 @@ typedef struct [[gnu::packed]] {
 
 typedef struct [[gnu::packed]] {
     gdt_entry_t null;
-
     gdt_entry_t kcode16;
     gdt_entry_t kdata16;
     gdt_entry_t kcode32;
     gdt_entry_t kdata32;
-    gdt_entry_t kcode;
-    gdt_entry_t kdata;
-    gdt_entry_t udata;
-    gdt_entry_t ucode;
+    gdt_entry_t kcode64;
+    gdt_entry_t kdata64;
+    gdt_entry_t udata64;
+    gdt_entry_t ucode64;
     sys_seg_desc_t tss;
 } gdt_table_t;
 
