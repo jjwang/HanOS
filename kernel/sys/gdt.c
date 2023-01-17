@@ -81,16 +81,16 @@ void gdt_init(cpu_t* cpuinfo)
     gdt->kdata32.granularity &= 0x0F;
     gdt->kdata32.granularity |= (GDT_GR | GDT_SZ) << 4;
 
-    gdt_make_entry(&(gdt->kcode), 0, 0xFFFFFFFF,
+    gdt_make_entry(&(gdt->kcode64), 0, 0xFFFFFFFF,
         AC_RW | AC_EX | AC_DPL_KERN | AC_PR | AC_ST);
 
-    gdt_make_entry(&(gdt->kdata), 0, 0xFFFFFFFF,
+    gdt_make_entry(&(gdt->kdata64), 0, 0xFFFFFFFF,
         AC_RW | AC_DPL_KERN | AC_PR | AC_ST);
 
-    gdt_make_entry(&(gdt->ucode), 0, 0xFFFFFFFF,
+    gdt_make_entry(&(gdt->ucode64), 0, 0xFFFFFFFF,
         AC_RW | AC_EX | AC_DPL_USER | AC_PR | AC_ST);
 
-    gdt_make_entry(&(gdt->udata), 0, 0xFFFFFFFF,
+    gdt_make_entry(&(gdt->udata64), 0, 0xFFFFFFFF,
         AC_RW | AC_DPL_USER | AC_PR | AC_ST);
 
     gdt_register_t g = { .offset = (uint64_t)gdt, .size = sizeof(gdt_table_t) - 1 };
