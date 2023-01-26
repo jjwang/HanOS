@@ -6,7 +6,7 @@
 #define LAUNCHER_CLI        true
 #define LAUNCHER_GRAPHICS   true
 
-#define DEFAULT_SHELL_APP   "/bin/sh"
+#define DEFAULT_SHELL_APP   "/bin/hansh"
 #define DEFAULT_INPUT_SVR   "/server/input"
 
 typedef struct {

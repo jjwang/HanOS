@@ -8,11 +8,11 @@
 #include <sys/mm.h>
 #include <sys/panic.h>
 
-#define BASE        0 /* MEM_VIRT_OFFSET */
+#define RTDL_ADDR       0x40000000
 
-#define IS_TEXT(p)  (p.flags & PF_X)
-#define IS_DATA(p)  (p.flags & PF_W)
-#define IS_BSS(p)   (p.filesz < p.memsz)
+#define IS_TEXT(p)      (p.flags & PF_X)
+#define IS_DATA(p)      (p.flags & PF_W)
+#define IS_BSS(p)       (p.filesz < p.memsz)
 
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {
@@ -40,11 +40,14 @@ void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
     return NULL;
 }
 
-/* Need to free aux->phdr, aux->phaddr, aux->shdr ... */
-int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
+/* Need to free aux->phaddr after calling elf_load()  ... */
+int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
     size_t elf_len = 0;
+
+    bool has_dynamic_linking = false;
+    auxval_t dynamic_aux = {0};
 
     elf_phdr_t *phdr = NULL;
     elf_shdr_t *shdr = NULL;
@@ -57,7 +60,8 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
         elf_buff = (uint8_t*)kmalloc(elf_len);
         if (elf_buff != NULL) {
             size_t readlen = vfs_read(f, elf_len, elf_buff);
-            klogi("ELF: read %d bytes from %s(%d)\n", readlen, fn, f); 
+            klogi("ELF(%s): read %d bytes from %s(%d)\n",
+                  path_name, readlen, fn, f); 
         }
         vfs_close(f);
     }
@@ -73,16 +77,18 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
     if (hdr.elf[EI_OSABI] != ABI_SYSV)  goto err_exit;
     if (hdr.machine != ARCH_X86_64)     goto err_exit;
 
-    aux->entry = BASE + hdr.entry;
+    aux->entry = hdr.entry;
+    if (hdr.type == ET_SHARED) aux->entry += RTDL_ADDR;
+    aux->phdr = 0;
     aux->phnum = hdr.phnum;
     aux->phentsize = hdr.phentsize;
 
-    klogi("ELF: entry address 0x%x\n", hdr.entry);
+    klogi("ELF(%s): entry address 0x%x, type %d, size %d (%d)\n",
+          path_name, hdr.entry, hdr.type, hdr.phentsize,
+          sizeof(elf_phdr_t));
 
     phdr = kmalloc(hdr.phnum * sizeof(elf_phdr_t));
     if (!phdr) goto err_exit;
-
-    aux->phdr = (uint64_t)phdr;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
 
     phaddr = (uint64_t*)kmalloc(hdr.phnum * sizeof(uint64_t));
@@ -92,16 +98,45 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
     for (size_t i = 0; i < hdr.phnum; i++) {
         phaddr[i] = (uint64_t)NULL;
 
-        if (phdr[i].type != PT_LOAD) {
+        if (phdr[i].type == PT_INTERP && phdr[i].filesz > 0
+            && !has_dynamic_linking)
+        {
+            char *rdtl_path = (char*)kmalloc(phdr[i].filesz + 1);
+            if (rdtl_path != NULL) {
+                memcpy(rdtl_path, &(elf_buff[phdr[i].offset]), phdr[i].filesz);
+                rdtl_path[phdr[i].filesz] = '\0';
+                klogi("ELF(%s): %d hdr has dynamic linking from %s\n",
+                      path_name, i, rdtl_path);
+                has_dynamic_linking = true;
+                elf_load(task, rdtl_path, NULL, &dynamic_aux);
+                kmfree(rdtl_path);
+            }
             continue;
         }
 
+        if (phdr[i].type == PT_PHDR) {
+            klogi("ELF(%s): %d hdr is entry for header table itself "
+                  "(paddr 0x%x, vaddr 0x%x)\n",
+                  path_name, i, phdr[i].paddr, phdr[i].vaddr);
+            aux->phdr = phdr[i].vaddr;
+            continue;
+        }
+
+        if (phdr[i].type != PT_LOAD) {
+            klogi("ELF(%s): %d hdr is not load header (type 0x%x)\n",
+                  path_name, i, phdr[i].type);
+            continue;
+        }
+
+        /* In the below part of this loop, only PT_LOAD will be processed. */
         if (IS_TEXT(phdr[i])) {
-            klogi("ELF: %d hdr is text program header\n", i);
+            klogi("ELF(%s): %d hdr is text program header <<<\n", path_name, i);
         } else if (IS_DATA(phdr[i])) {
-            klogi("ELF: %d hdr is data program header\n", i);
-        } if (IS_BSS(phdr[i])) {
-            klogi("ELF: %d hdr is bss program header\n", i);
+            klogi("ELF(%s): %d hdr is data program header <<<\n", path_name, i);
+        }
+
+        if (IS_BSS(phdr[i])) {
+            klogi("ELF(%s): %d hdr is bss program header <<<\n", path_name, i);
         }
 
         size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
@@ -109,7 +144,8 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 
         uint64_t addr = pmm_get(page_count, 0x0);
         if (!addr) {
-            kpanic("ELF: cannot alloc %d bytes memory", page_count * PAGE_SIZE);
+            kpanic("ELF(%s): cannot alloc %d bytes memory",
+                   path_name, page_count * PAGE_SIZE);
         }
         phaddr[i] = addr;
 
@@ -118,28 +154,30 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
             pf |= VMM_FLAG_READWRITE;
         }
 
-        for (size_t j = 0; j < page_count; j++) {
-            uint64_t virt = BASE + (phdr[i].vaddr + (j * PAGE_SIZE));
-            uint64_t phys = addr + (j * PAGE_SIZE);
-            vmm_map(task->addrspace, virt, phys, 1, pf, false);
-            memset((void*)PHYS_TO_VIRT(phys), 0x90, PAGE_SIZE);
-            klogi("ELF: as 0x%x - %d bytes, #%d map 0x%11x to virt 0x%x, PML4 0x%x\n",
-                task->addrspace, phdr[i].memsz, j, phys, virt,
-                task->addrspace == NULL ? NULL : task->addrspace->PML4);
-        }
+        uint64_t virt = phdr[i].vaddr - misalign;
+        if (hdr.type == ET_SHARED) virt += RTDL_ADDR;
+
+        vmm_map(task->addrspace, virt, addr, page_count, pf, false);
+        memset((void*)PHYS_TO_VIRT(addr), 0x90, PAGE_SIZE * page_count);
+
+        klogi("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
+              "PML4 0x%x, page count %d\n",
+              path_name, task->addrspace, phdr[i].memsz, addr, virt,
+              task->addrspace == NULL ? NULL : task->addrspace->PML4,
+              page_count);
 
         addrspace_node_t node;
-        node.virt_start = (void*)(BASE + phdr[i].vaddr);
+        node.virt_start = (void*)virt;
         node.phys_start = (void*)addr;
         node.size = page_count * PAGE_SIZE;
         node.page_flags = pf;
 
         vec_push_back(&task->aslist, &node);
 
-        char *buf = (char*)PHYS_TO_VIRT(addr);
-        memcpy(buf + misalign, elf_buff + phdr[i].offset, phdr[i].filesz);
-        klogi("ELF: %d hdr's task binary file size %d(%d) bytes\n",
-              i, phdr[i].filesz, phdr[i].memsz);
+        memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset, phdr[i].filesz);
+        klogi("ELF(%s): %d hdr's task binary file size %d "
+              "(mem size %d) bytes >>>\n",
+              path_name, i, phdr[i].filesz, phdr[i].memsz);
 
         /* Need to free in some other places */
     }
@@ -152,9 +190,9 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
     for (size_t k = 0; k < hdr.shnum; k++) {
-        klogi("%d 0x%x type %d \"%s\", offset %d, size %d\n", k,
-              shdr[k].addr, shdr[k].type, &header_strs[shdr[k].name],
-              shdr[k].offset, shdr[k].size);
+        klogi("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
+              path_name, k, shdr[k].addr, shdr[k].type,
+              &header_strs[shdr[k].name], shdr[k].offset, shdr[k].size);
     }
 
     int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
@@ -165,16 +203,27 @@ int64_t elf_load(task_t *task, char *path_name, auxval_t *aux)
         
     for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
         if (strcmp("main", strings + syms[i].name) == 0) {
-            klogi("ELF: Found entry function (main) with len %d, "
+            klogi("ELF(%s): Found entry function (main) with len %d, "
                   "session idx %d, value 0x%x\n",
-                  syms[i].size, syms[i].shndx, BASE + syms[i].value);
+                  path_name, syms[i].size, syms[i].shndx, syms[i].value);
         }   
     }   
 
     if (!elf_buff)  kmfree(elf_buff);
 
-    klogi("ELF: Read header with phnum %d, shnum %d, entry 0x%x\n",
-          hdr.phnum, hdr.shnum, hdr.entry);
+    if (has_dynamic_linking) {
+        if (entry != NULL) *entry = dynamic_aux.entry;
+    } else {
+        if (entry != NULL) *entry = aux->entry;
+    }
+
+    klogi("ELF(%s): Read header with phnum %d, shnum %d, entry 0x%x\n",
+          path_name, hdr.phnum, hdr.shnum, hdr.entry);
+
+    if (!phdr)      kmfree(phdr);
+    if (!shdr)      kmfree(shdr);
+    if (!elf_buff)  kmfree(elf_buff);
+
     return 0;
 
 err_exit:
