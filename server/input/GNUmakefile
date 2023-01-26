@@ -6,27 +6,27 @@ NASM = nasm
 AS_FLAGS  = -I . -flto
 ASM_FLAGS = -f elf64 -I.
 
-LC_FLAGS :=             \
-    -std=gnu11          \
-    -I.                 \
-    -ffreestanding      \
-    -flto               \
-    -fno-pic            \
+LC_FLAGS :=                 \
+    -std=gnu11              \
+    -I.                     \
+    -ffreestanding          \
+    -flto                   \
+    -fno-pic                \
     -fno-omit-frame-pointer \
-    -mno-3dnow          \
-    -mno-red-zone       \
+    -mno-3dnow              \
+    -mno-red-zone           \
     -Wno-cast-function-type \
     -O2
 
-LD_FLAGS :=  \
-	-flto           \
-	-Wno-lto-type-mismatch \
-	-no-pie         \
-	-fno-builtin    \
-	-nostdlib       \
-	-Tlinker.ld     \
+LD_FLAGS :=                 \
+	-flto                   \
+	-Wno-lto-type-mismatch  \
+	-no-pie                 \
+	-fno-builtin            \
+	-nostdlib               \
+	-Tlinker.ld             \
 	-z max-page-size=0x2000 \
-	-I .            \
+	-I .                    \
 	-O2
 
 LIB_FILES := ./lib/string.o ./lib/memutils.o

@@ -8,6 +8,12 @@
 
 #define ELF_MAGIC       0x464C457FU /* "\x7FELF" in little endian */
 
+#define ET_NONE         0
+#define ET_RELOC        1
+#define ET_EXEC         2
+#define ET_SHARED       3
+#define ET_CORE         4
+
 #define PT_LOAD         0x00000001  /* Loadable program segment */ 
 #define PT_INTERP       0x00000003  /* Program interpreter */
 #define PT_PHDR         0x00000006  /* Entry for header table itself */
@@ -110,5 +116,5 @@ typedef struct {
     uint64_t size;      /* Symbol size */
 } elf_sym_t;
 
-int64_t elf_load(task_t *task, char *path_name, auxval_t *aux);
+int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux);
 

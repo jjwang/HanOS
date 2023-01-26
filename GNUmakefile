@@ -14,8 +14,22 @@ all: $(ISO_IMAGE)
 run: $(ISO_IMAGE)
 	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
+# The below "test" is used for debuging bootable disk image
+.PHONY: test
 test:
 	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=$(HDD_IMAGE)
+
+# The below "debug" is used for gdb debug
+.PHONY: debug
+debug: $(ISO_IMAGE)
+	qemu-system-x86_64 -s -S -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
+
+# The below "distro" is for future distributable disk image build
+.PHONY: distro
+distro:
+	mkdir -p xbstrap-build
+	cd xbstrap-build && xbstrap init .. && xbstrap install -u --all
+	cp -rf xbstrap-build/system-root/* initrd
 
 limine:
 	git clone https://github.com/limine-bootloader/limine.git --branch=v4.x-branch-binary --depth=1
@@ -30,7 +44,8 @@ initrd:
 
 $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets
+	mkdir -p initrd/etc initrd/server initrd/usr
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets etc usr
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
@@ -43,7 +58,8 @@ $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root
 
 clean:
-	rm -f $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar release/hdd.img
+	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \
+        release/hdd.img initrd/etc initrd/server initrd/usr
 	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
 	$(MAKE) -C server clean

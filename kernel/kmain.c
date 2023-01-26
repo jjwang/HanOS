@@ -266,25 +266,64 @@ void kmain(void)
 #endif
 
     auxval_t aux = {0};
+    uint64_t entry = 0;
 
     task_t *tshell = sched_add(NULL, true);
-    elf_load(tshell, DEFAULT_SHELL_APP, &aux);
+    elf_load(tshell, DEFAULT_SHELL_APP, &entry, &aux);
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
-    tshell_regs->rip = (uint64_t)aux.entry;
-    klogi("Shell: task stack 0x%x, PML4 0x%x [code 0x%2x 0x%02x]\n",
-        tshell->tstack_top,
-        (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4,
-        ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
+
+    if (aux.entry != entry) {
+        /* Need to handle dynamic linker */
+        uint64_t *stack = (uint64_t*)tshell->tstack_top;
+        *(--stack) = 0;
+
+        /* Auxilary vector */
+        *(--stack) = 0;
+        *(--stack) = 0;
+
+        stack   -= 2;
+        stack[0] = 9;
+        stack[1] = aux.entry;
+
+        stack   -= 2;
+        stack[0] = 3;
+        stack[1] = aux.phdr;
+
+        stack   -= 2;
+        stack[0] = 4;
+        stack[1] = aux.phentsize;
+
+        stack   -= 2;
+        stack[0] = 5;
+        stack[1] = aux.phnum;
+
+        /* Environment variables */
+        *(--stack) = 0;
+
+        /* Arguments */
+        *(--stack) = 0;
+
+        *(--stack) = 0;
+
+        stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
+        tshell_regs->rsp = (uint64_t)tshell->tstack_top;
+        memcpy(stack, tshell_regs, sizeof(task_regs_t));
+
+        tshell->tstack_top = (void*)stack;
+        tshell_regs = (task_regs_t*)tshell->tstack_top;
+    }
+
+    tshell_regs->rip = (uint64_t)entry;
+    klogi("Shell: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tshell->tstack_top,
+        (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4, entry);
 
     task_t *tkbd = sched_add(NULL, true);
-    elf_load(tkbd, DEFAULT_INPUT_SVR, &aux);
+    elf_load(tkbd, DEFAULT_INPUT_SVR, &entry, &aux);
     
     task_regs_t *tkbd_regs = (task_regs_t*)tkbd->tstack_top;
-    tkbd_regs->rip = (uint64_t)aux.entry;
-    klogi("Keyboard: task stack 0x%x, PML4 0x%x [code 0x%2x 0x%02x]\n",
-        tkbd->tstack_top,
-        (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4,
-        ((uint8_t*)aux.entry)[0], ((uint8_t*)aux.entry)[1]);
+    tkbd_regs->rip = (uint64_t)entry;
+    klogi("Keyboard: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tkbd->tstack_top,
+        (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4, entry);
 
     pci_init();
     ata_init();

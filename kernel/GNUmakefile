@@ -61,10 +61,6 @@ TRAMPOLINEBLOB = sys/trampoline.bin
 
 all: $(KERNELOBJ) $(SYMBOLFILE)
 
-# Below are used to generate symbol file for gdb debug
-# objcopy --only-keep-debug $@ hanos.sym
-# objcopy --strip-debug $@
-
 $(SYMBOLFILE): $(OBJS)
 	@echo ">>>>> Generating symbols..."
 	@./gensym $@
@@ -79,6 +75,11 @@ $(SYMBOLFILE): $(OBJS)
 
 	@echo ">>>>> Re-linking symbols..."
 	$(LD) $(LD_FLAGS) $(OBJS) $(SYMBOL_OBJ) -o $(KERNELOBJ)
+
+# Below are used to generate symbol file for gdb debug
+# objcopy --only-keep-debug $(KERNELOBJ) hanos.sym
+# Remove debug information from target executable file
+# objcopy --strip-debug $(KERNELOBJ)
 
 $(KERNELOBJ): $(TRAMPOLINEBLOB) $(OBJS)
 	$(LD) $(LD_FLAGS) $(OBJS) -o $@

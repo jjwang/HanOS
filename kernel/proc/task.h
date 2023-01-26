@@ -215,6 +215,8 @@ typedef struct task_t {
     struct task_t   *next;
     struct task_t   *prev;
 
+    auxval_t        aux;
+
     addrspace_t     *addrspace;
     vec_struct(addrspace_node_t*) aslist;
 } task_t;
