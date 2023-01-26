@@ -74,6 +74,7 @@ void ramfs_init(void* address, uint64_t size)
         VMM_FLAGS_DEFAULT, true);
 
     unsigned char* ptr = (unsigned char*)address;
+    bool debug_info = false;
 
     while (memcmp(ptr + 257, "ustar", 5)) {
         int filesize = oct2bin(ptr + 0x7c, 11);
@@ -85,7 +86,9 @@ void ramfs_init(void* address, uint64_t size)
             if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
             vfs_path_to_node(dname, CREATE, VFS_NODE_FOLDER);
 
-            klogi("RAMFS: folder \"%s\"\n", file->name);
+            if (debug_info) {
+                klogi("RAMFS: folder \"%s\"\n", file->name);
+            }
             /* TODO: modify folder's datetime related attribute */
         } else if(ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE) {
             char dname[VFS_MAX_PATH_LEN] = "/";
@@ -121,8 +124,10 @@ void ramfs_init(void* address, uint64_t size)
             vfs_tnode_t *tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
             tnode->inode->size = filesize;
 
-            klogi("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
-                  file->name, filesize, file->last_modified);
+            if (debug_info) {
+                klogi("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
+                      file->name, filesize, file->last_modified);
+            }
         }
         ptr += (DIV_ROUNDUP(filesize, 512) + 1) * 512;
     }
