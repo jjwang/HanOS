@@ -194,7 +194,8 @@ int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
     lock_lock(&vfs_lock);
     vfs_inode_t* inode = fd->inode;
 
-    klogw("VFS: %s file size %d\n", fd->tnode->name, inode->size);
+    klogw("VFS: %s file size %d and offset %d\n",
+          fd->tnode->name, inode->size, fd->seek_pos);
 
     /* Truncate if asking for more data than available */
     if (fd->seek_pos + len > inode->size) {
@@ -321,12 +322,12 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     /* Return the handle */
     lock_release(&vfs_lock);
 
-    vfs_handle_t h = ((vfs_handle_t)(vfs_openfiles.len - 1));
+    vfs_handle_t h = ((vfs_handle_t)(vfs_openfiles.len - 1)) + VFS_MIN_HANDLE;
     klogv("VFS: Open %s and return handle %d\n", path, h);
     return h;
 fail:
     lock_release(&vfs_lock);
-    return -1;
+    return VFS_INVALID_HANDLE;
 }
 
 int64_t vfs_close(vfs_handle_t handle)

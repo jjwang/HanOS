@@ -14,6 +14,8 @@
 #define IS_DATA(p)      (p.flags & PF_W)
 #define IS_BSS(p)       (p.filesz < p.memsz)
 
+static bool debug_info = false;
+
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {
     for (size_t i = 0; i < hdr->shnum; i++) {
@@ -119,6 +121,7 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
                   "(paddr 0x%x, vaddr 0x%x)\n",
                   path_name, i, phdr[i].paddr, phdr[i].vaddr);
             aux->phdr = phdr[i].vaddr;
+            if (hdr.type == ET_SHARED) aux->phdr += RTDL_ADDR;
             continue;
         }
 
@@ -158,13 +161,20 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
         if (hdr.type == ET_SHARED) virt += RTDL_ADDR;
 
         vmm_map(task->addrspace, virt, addr, page_count, pf, false);
-        memset((void*)PHYS_TO_VIRT(addr), 0x90, PAGE_SIZE * page_count);
 
-        klogi("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
-              "PML4 0x%x, page count %d\n",
-              path_name, task->addrspace, phdr[i].memsz, addr, virt,
-              task->addrspace == NULL ? NULL : task->addrspace->PML4,
-              page_count);
+        /*
+         * It is better if we set initialized data to zero which is also a NULL
+         * pointer.
+         */
+        memset((void*)PHYS_TO_VIRT(addr), 0x00, PAGE_SIZE * page_count);
+
+        if (debug_info) {
+            klogi("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
+                  "PML4 0x%x, page count %d\n",
+                  path_name, task->addrspace, phdr[i].memsz, addr, virt,
+                  task->addrspace == NULL ? NULL : task->addrspace->PML4,
+                  page_count);
+        }
 
         addrspace_node_t node;
         node.virt_start = (void*)virt;
@@ -174,11 +184,14 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
 
         vec_push_back(&task->aslist, &node);
 
-        memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset, phdr[i].filesz);
-        klogi("ELF(%s): %d hdr's task binary file size %d "
-              "(mem size %d) bytes >>>\n",
-              path_name, i, phdr[i].filesz, phdr[i].memsz);
+        memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset,
+               phdr[i].filesz);
 
+        if (debug_info) {
+            klogi("ELF(%s): %d hdr's task binary file size %d "
+                  "(mem size %d) bytes >>>\n",
+                  path_name, i, phdr[i].filesz, phdr[i].memsz);
+        }
         /* Need to free in some other places */
     }
 
@@ -189,7 +202,7 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
     memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
-    for (size_t k = 0; k < hdr.shnum; k++) {
+    for (size_t k = 0; k < hdr.shnum && debug_info; k++) {
         klogi("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
               path_name, k, shdr[k].addr, shdr[k].type,
               &header_strs[shdr[k].name], shdr[k].offset, shdr[k].size);

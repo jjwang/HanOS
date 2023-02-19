@@ -80,15 +80,16 @@ uint64_t strtol(char *s, num_sys_t type)
     return val;
 }
 
-char *strchrnul(const char *s, int c)
+char *strchr(const char *s, int c)
 {
     while (*s) {
-        if ((*s++) == c) {
-            break;
+        if (*s == c) {
+            return (char*)s;
         }
+        s++;
     }
 
-    return (char *)s;
+    return (char *)NULL;
 }
 
 char *strlwr(char *s)

@@ -6,7 +6,7 @@ syscall_handler:
     swapgs
  
     mov r8, rsp             ; save process stack to r8 (5th param)
-    mov rsp, [gs:0x4]       ; switch to syscall stack
+    mov rsp, [gs:0xC]       ; switch to syscall stack
 
     ; push information (gs, cs, rip, rflags, rip...)
     push qword 0x3b         ; user data segment
@@ -23,6 +23,7 @@ syscall_handler:
     call [rax * 8 + syscall_funcs]
 
     pop_all_syscall
+    mov rdx, qword [gs:0x0] ; return errno in rdx
 
     mov rsp, r8             ; back to user stack
     swapgs

@@ -64,11 +64,13 @@ void vfs_free_nodes(vfs_tnode_t* tnode)
 /* Return the node descriptor for a handle */
 vfs_node_desc_t* vfs_handle_to_fd(vfs_handle_t handle)
 {
-    if ((size_t)handle >= vfs_openfiles.len || !(vfs_openfiles.data[handle])) {
+    if ((size_t)handle >= vfs_openfiles.len + VFS_MIN_HANDLE
+        || (size_t)handle < VFS_MIN_HANDLE
+        || !(vfs_openfiles.data[handle - VFS_MIN_HANDLE])) {
         kloge("Invalid file handle %d\n", handle);
         return NULL;
     }
-    return vfs_openfiles.data[handle];
+    return vfs_openfiles.data[handle - VFS_MIN_HANDLE];
 }
 
 /* Convert a path to a node, creates the node if required */

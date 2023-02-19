@@ -5,6 +5,7 @@ NASM = nasm
 
 LC_FLAGS  =                 \
     -I. -Wall -Wextra       \
+    -DKERNEL_BUILD          \
     -mcmodel=kernel         \
     -std=gnu11              \
     -ffreestanding          \

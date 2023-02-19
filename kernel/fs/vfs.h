@@ -24,6 +24,7 @@
 #define VFS_MAX_NAME_LEN    256
 
 #define VFS_INVALID_HANDLE  -1
+#define VFS_MIN_HANDLE      100
 
 typedef int vfs_handle_t;
 

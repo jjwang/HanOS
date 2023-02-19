@@ -34,10 +34,7 @@
 
 #define LOGO_SCALE      6
 
-static uint64_t fb_refresh_times = 0, fb_refresh_nanos = 0;
-
-extern font_psf1_t term_font_norm;
-extern font_psf1_t term_font_bold;
+extern font_psf1_t term_font_norm, term_font_bold;
 
 bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 {
@@ -224,9 +221,6 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
 void fb_refresh(fb_info_t *fb, bool forced)
 {
     if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
-        fb_refresh_times++;
-        uint64_t begin = hpet_get_nanos();
-
         uint64_t len = fb->backbuffer_len;
         if (fb->dirty_right >= fb->dirty_left
             && fb->dirty_bottom >= fb->dirty_top
@@ -271,14 +265,6 @@ void fb_refresh(fb_info_t *fb, bool forced)
         fb->dirty_top = fb->height;
         fb->dirty_right = 0;
         fb->dirty_bottom = 0;
-
-        uint64_t end = hpet_get_nanos();
-        fb_refresh_nanos += end - begin;
     }
 }
 
-void fb_debug(void)
-{
-    klogi("FB: refresh %d times, avg %d nanos\n", fb_refresh_times,
-          (fb_refresh_times > 0) ? (fb_refresh_nanos / fb_refresh_times) : 0);
-}

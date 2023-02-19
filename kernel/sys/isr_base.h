@@ -37,6 +37,9 @@
 #define IRQ11       43
 #define IRQ12       44
 
+/* Software interrupts */
+#define IRQ128      (128 + 32)
+
 typedef void (*exc_handler_t)();
 void exc_register_handler(uint64_t id, exc_handler_t handler);
 
@@ -84,3 +87,5 @@ void exc_register_handler(uint64_t id, exc_handler_t handler);
 [[gnu::interrupt]] void irq10(void* p);
 [[gnu::interrupt]] void irq11(void* p);
 [[gnu::interrupt]] void irq12(void* p);
+[[gnu::interrupt]] void irq128(void* p);
+

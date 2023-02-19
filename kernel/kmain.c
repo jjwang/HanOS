@@ -268,18 +268,18 @@ void kmain(void)
     auxval_t aux = {0};
     uint64_t entry = 0;
 
-    task_t *tshell = sched_add(NULL, true);
+    task_t *tshell = sched_new(NULL, true);
     elf_load(tshell, DEFAULT_SHELL_APP, &entry, &aux);
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
 
     if (aux.entry != entry) {
         /* Need to handle dynamic linker */
         uint64_t *stack = (uint64_t*)tshell->tstack_top;
-        *(--stack) = 0;
 
         /* Auxilary vector */
-        *(--stack) = 0;
-        *(--stack) = 0;
+        for (size_t i = 0; i < 3; i++) {
+            *(--stack) = 0;
+        }
 
         stack   -= 2;
         stack[0] = 9;
@@ -297,6 +297,10 @@ void kmain(void)
         stack[0] = 5;
         stack[1] = aux.phnum;
 
+        klogi("Shell: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
+              "phentsize %d, phnum %d\n", tshell->tid, stack, aux.entry, aux.phdr,
+              aux.phentsize, aux.phnum);
+
         /* Environment variables */
         *(--stack) = 0;
 
@@ -306,24 +310,26 @@ void kmain(void)
         *(--stack) = 0;
 
         stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
-        tshell_regs->rsp = (uint64_t)tshell->tstack_top;
         memcpy(stack, tshell_regs, sizeof(task_regs_t));
 
         tshell->tstack_top = (void*)stack;
         tshell_regs = (task_regs_t*)tshell->tstack_top;
+        tshell_regs->rsp = (uint64_t)tshell->tstack_top + sizeof(task_regs_t);
     }
 
     tshell_regs->rip = (uint64_t)entry;
     klogi("Shell: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tshell->tstack_top,
         (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4, entry);
 
-    task_t *tkbd = sched_add(NULL, true);
+#if 1 /* Should be commented when debuging mlibc */
+    task_t *tkbd = sched_new(NULL, true);
     elf_load(tkbd, DEFAULT_INPUT_SVR, &entry, &aux);
     
     task_regs_t *tkbd_regs = (task_regs_t*)tkbd->tstack_top;
     tkbd_regs->rip = (uint64_t)entry;
     klogi("Keyboard: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tkbd->tstack_top,
         (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4, entry);
+#endif
 
     pci_init();
     ata_init();
@@ -337,9 +343,13 @@ void kmain(void)
     }
 
     klog_debug();
-    fb_debug();
 
-    sched_add(kcursor, false);
+#if 1 /* Should be commented when debuging mlibc */
+    task_t *tcursor = sched_new(kcursor, false);
+
+    sched_add(tkbd);
+    sched_add(tcursor);
+#endif
 
 #if LAUNCHER_CLI
     term_clear(TERM_MODE_CLI);
@@ -371,6 +381,9 @@ void kmain(void)
 #endif
     }
 
+    /* Start all programs */
+    sched_add(tshell);
+
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {
         sched_init(cpu->cpu_id);
@@ -378,10 +391,10 @@ void kmain(void)
         kpanic("Can not get CPU info in shell process\n");
     }
 
-    goto exit;
     /* According to current implementation, the below codes will not be
      * executed.
      */
+    goto exit;
 exit:
     done();
 }
