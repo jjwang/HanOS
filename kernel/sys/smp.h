@@ -27,7 +27,7 @@
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
 #define CPU_MAX                         256
-#define STACK_SIZE                      PAGE_SIZE
+#define STACK_SIZE                      (PAGE_SIZE * 128)
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;
@@ -56,7 +56,8 @@ typedef struct [[gnu::packed]] {
  * gs register (other kernels can use fs). This structure contains a temporary
  * stack for the syscall, an address to store the process stack temporarily.
  */
-typedef struct {
+typedef struct [[gnu::packed]] {
+    int64_t errno;
     tss_t tss;
     uint16_t cpu_id;
     uint16_t lapic_id;
@@ -72,4 +73,5 @@ typedef struct {
 void smp_init(void);
 const smp_info_t* smp_get_info(void);
 cpu_t* smp_get_current_cpu(bool force_read);
-
+bool cpu_set_errno(int64_t val);
+void cpu_debug(void);

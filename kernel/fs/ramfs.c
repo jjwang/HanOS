@@ -10,6 +10,8 @@
 #include <sys/cmos.h>
 #include <sys/mm.h>
 
+static bool debug_info = false;
+
 /* Filesystem information */
 vfs_fsinfo_t ramfs = {
     .name = "ramfs",
@@ -74,7 +76,6 @@ void ramfs_init(void* address, uint64_t size)
         VMM_FLAGS_DEFAULT, true);
 
     unsigned char* ptr = (unsigned char*)address;
-    bool debug_info = false;
 
     while (memcmp(ptr + 257, "ustar", 5)) {
         int filesize = oct2bin(ptr + 0x7c, 11);
@@ -116,7 +117,7 @@ void ramfs_init(void* address, uint64_t size)
             strcpy(item->entry.name, &(dname[name_index]));
             item->entry.data = (void*)kmalloc(filesize);
             memcpy(item->entry.data, (void*)(ptr + 512), filesize);
-            item->entry.size = filesize;        
+            item->entry.size = filesize; 
             strcpy(item->name, &(dname[name_index]));
 
             vec_push_back(&ramfs.filelist, (void*)item);
@@ -176,14 +177,16 @@ exit:
 
 int64_t ramfs_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
 {
-    klogi("RAMFS: read from 0x%x with length %d offset %d\n",
-          this, len, offset);
-
     size_t retlen = len;
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
     if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) memcpy(buff, ((uint8_t*)id->data) + offset, len);
+
+    klogi("RAMFS: 0x%x read from addr 0x%x to addr 0x%x with "
+          "retlen %d, len %d, offset %d, data [0x%02x...], read [0x%02x...]\n",
+          this, id->data, buff, retlen, len, offset,
+          (((uint8_t*)id->data) + offset)[0], ((uint8_t*)buff)[0]);
 
     return retlen;
 }

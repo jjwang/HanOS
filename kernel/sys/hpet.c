@@ -73,11 +73,14 @@ void hpet_init()
         kpanic("HPET not found\n");
         return;
     }
-    hpet = (hpet_t *)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
-    vmm_map(NULL, (uint64_t)hpet, (uint64_t)hpet_sdt->base_addr.address,
+
+    vmm_map(NULL, PHYS_TO_VIRT(hpet_sdt->base_addr.address),
+            (uint64_t)hpet_sdt->base_addr.address,
             1, VMM_FLAGS_MMIO, true);
 
+    hpet = (hpet_t*)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
     uint64_t tmp = hpet->general_capabilities;
+
     /* Check that the HPET is valid or not */
     if (!(tmp & (1 << 15))) {
         kloge("HPET is not legacy replacement capable\n");

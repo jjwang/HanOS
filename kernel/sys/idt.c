@@ -155,6 +155,10 @@ void idt_init()
             .size = sizeof(idt_entry_t) * IDT_ENTRIES - 1,
             .offset = (uint64_t)idt };
     asm volatile ("lidt %0" : : "m"(idt_register));
+
+    /* Set soft interrupt handler of 0x80 for system call */
+    idt_set_handler(0x80, irq128);
+
     isr_enable_interrupts();
 
     klogi("IDT initialization finished\n");

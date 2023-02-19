@@ -1,12 +1,46 @@
 #pragma once
 
+#define SYSCALL_DEBUGLOG    0
+#define SYSCALL_MMAP        1
+#define SYSCALL_OPENAT      2
+#define SYSCALL_READ        3
+#define SYSCALL_WRITE       4
+#define SYSCALL_SEEK        5
+#define SYSCALL_CLOSE       6
+#define SYSCALL_SET_FS_BASE 7
+#define SYSCALL_IOCTL       8
+#define SYSCALL_GETPID      9
+#define SYSCALL_CHDIR       10
+#define SYSCALL_MKDIRAT     11
+#define SYSCALL_SOCKET      12
+#define SYSCALL_BIND        13
+#define SYSCALL_FORK        14
+#define SYSCALL_EXECVE      15
+#define SYSCALL_FACCESSAT   16
+#define SYSCALL_FSTATAT     17
+#define SYSCALL_FSTAT       18
+#define SYSCALL_GETPPID     19
+#define SYSCALL_FCNTL       20
+#define SYSCALL_DUP3        21
+#define SYSCALL_WAITPID     22
+#define SYSCALL_EXIT        23
+#define SYSCALL_READDIR     24
+#define SYSCALL_MUNMAP      25
+
 /* This should be defined in vfs.h */
 #define STDIN               0
 #define STDOUT              1
 #define STDERR              2
 
-#define SYSCALL_READ        1
-#define SYSCALL_WRITE       2
+#define PROT_NONE           0x00
+#define PROT_READ           0x01
+#define PROT_WRITE          0x02
+#define PROT_EXEC           0x04
+
+#define MAP_PRIVATE         0x01
+#define MAP_SHARED          0x02
+#define MAP_FIXED           0x04
+#define MAP_ANONYMOUS       0x08
 
 #define EPERM               1   /* Operation not permitted */
 #define ENOENT              2   /* No such file or directory */
@@ -60,6 +94,7 @@ void syscall_init(void);
  */
 extern int64_t syscall_entry(uint64_t id, ...);
 
-int64_t k_read(int fd, void* buf, size_t count);
-int64_t k_write(int fd, const void* buf, size_t count);
+int64_t k_debug_log(char *message);
+int64_t k_read(int64_t fd, void* buf, size_t count);
+int64_t k_write(int64_t fd, const void* buf, size_t count);
 

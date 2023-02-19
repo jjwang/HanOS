@@ -27,12 +27,13 @@ syscall_entry:
     ;    error, it is -errno.
     ; 6. Only values of class INTEGER or class MEMORY are passed to the kernel.
     ;
-    mov rax, rdi        ; syscall number
-    mov rdi, rsi        ; 1st arg
-    mov rsi, rdx        ; 2nd arg
-    mov rdx, rcx        ; 3rd arg
-    mov r10, r8         ; 4th arg
-    mov r8, r9          ; 5th arg
+    mov rax, rdi            ; syscall number
+    mov rdi, rsi            ; 1st arg
+    mov rsi, rdx            ; 2nd arg
+    mov rdx, rcx            ; 3rd arg
+    mov r10, r8             ; 4th arg
+    mov r8, r9              ; 5th arg
+    mov r9, [rsp + 0x18]    ; 6th arg
 
     syscall
 

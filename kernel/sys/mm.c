@@ -300,6 +300,34 @@ done:
     return;
 }
 
+uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr)
+{
+    addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
+
+    uint16_t pte = (vaddr >> 12) & 0x1ff;
+    uint16_t pde = (vaddr >> 21) & 0x1ff;
+    uint16_t pdpe = (vaddr >> 30) & 0x1ff;
+    uint16_t pml4e = (vaddr >> 39) & 0x1ff;
+
+    uint64_t* pml4 = as->PML4;
+    if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
+        return (uint64_t)NULL;
+
+    uint64_t* pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
+    if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
+        return (uint64_t)NULL;
+
+    uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
+    if (!(pd[pde] & VMM_FLAG_PRESENT))
+        return (uint64_t)NULL;
+
+    uint64_t* pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
+    if (!(pt[pte] & VMM_FLAG_PRESENT))
+        return (uint64_t)NULL;
+
+    return (pt[pte] & 0xFFFFFFFFFFFFF000);
+}
+                    
 void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us) 
 {
     if (us && (addrspace == NULL)) {
@@ -330,9 +358,6 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
         };
         vec_push_back(&mmap_list, mm);
     }
-
-    if (debug_info) klogi("VMM: 0x%x map paddr 0x%x to vaddr 0x%x, np %d\n",
-                          addrspace, paddr, vaddr, np); 
 
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(addrspace, vaddr + i, paddr + i, flags);
@@ -420,8 +445,8 @@ addrspace_t *create_addrspace(void)
     for (size_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&mmap_list, i);
         if (debug_info) {
-            klogi("VMM: PML4 %d - 0x%x map 0x%x to 0x%x with %d pages\n",
-                  i, as->PML4, m.paddr, m.vaddr, m.np);
+            klogi("VMM: PML4 0x%x - %d map 0x%x to 0x%x with %d pages\n",
+                  as->PML4, i, m.paddr, m.vaddr, m.np);
         }
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags, false);
     }

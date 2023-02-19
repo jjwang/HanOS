@@ -23,7 +23,7 @@
 
 static task_id_t curr_tid = 1;
 
-task_t* task_make(
+task_t *task_make(
     const char *name, void (*entry)(task_id_t), task_priority_t priority,
     task_mode_t mode)
 {
@@ -32,7 +32,7 @@ task_t* task_make(
         return NULL;
     }
 
-    task_t* ntask = kmalloc(sizeof(task_t));
+    task_t *ntask = kmalloc(sizeof(task_t));
     memset(ntask, 0, sizeof(task_t));
 
     ntask->kstack_limit = kmalloc(STACK_SIZE);
@@ -44,7 +44,7 @@ task_t* task_make(
     klogi("TASK: %s 0x%11x kstack 0x%11x ustack 0x%11x\n",
           name, ntask, ntask->kstack_top, ntask->ustack_top);
 
-    task_regs_t* ntask_regs = NULL;
+    task_regs_t *ntask_regs = NULL;
     if (mode == TASK_KERNEL_MODE) {
         ntask_regs = ntask->kstack_top - sizeof(task_regs_t);
 
@@ -88,7 +88,8 @@ task_t* task_make(
     ntask->last_tick = 0;
     ntask->status = TASK_READY;
 
-    klogi("TASK: Create tid %d in function %s\n", ntask->tid, name);
+    klogi("TASK: Create tid %d in function %s (task 0x%x)\n",
+          ntask->tid, name, ntask);
 
     curr_tid++;
     return ntask;

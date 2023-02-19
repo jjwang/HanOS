@@ -70,6 +70,12 @@ void exc_handler_proc(uint64_t errcode, uint64_t excno)
         return;
     }
 
+    /* IRQ128 is used for system call */
+    if (excno == IRQ128) {
+        klogi("IRQ: received software interrupt of 0x80 for system call.\n");
+        return;
+    }
+
     /* Process other exceptions and interrupts */
     exc_handler_t handler = handlers[excno];
 
