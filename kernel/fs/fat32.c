@@ -367,13 +367,13 @@ int64_t fat32_mknode(vfs_tnode_t* this)
 
 int fat32_compare_entry_and_path(fat32_entry_t *ent, const char *path)
 {
-    const char *ext = strchrnul(path, '.');
+    const char *ext = strchr(path, '.');
 
     char name[12];
     memset(name, 0, 12);
     memset(name, ' ', 11);
 
-    if (*(ext - 1) == '.') {
+    if (ext != NULL) {
         memcpy(name, path, MIN(ext - path - 1, 8));
         memcpy(name + 8, ext, MIN(strlen(ext), 3));
     } else {
@@ -451,8 +451,8 @@ fat32_entry_t fat32_parse_path(vfs_inode_t* this, const char *path)
         char sub_elem[VFS_MAX_PATH_LEN] = {0};
         int top_level = 0;
 
-        const char *slash = strchrnul(path, '/');
-        if (*slash == '\0') {
+        const char *slash = strchr(path, '/');
+        if (slash == NULL) {
             memcpy(sub_elem, path, strlen(path));
             top_level = 1;
         } else {

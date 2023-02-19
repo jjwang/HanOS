@@ -61,6 +61,5 @@ void fb_putch(fb_info_t* fb, uint32_t x, uint32_t y, uint32_t fgcolor, uint32_t 
 void fb_putlogo(fb_info_t* fb, uint32_t fgcolor, uint32_t bgcolor);
 uint32_t fb_getpixel(fb_info_t* fb, uint32_t x, uint32_t y);
 void fb_refresh(fb_info_t* fb, bool forced);
-void fb_debug(void);
 bool fb_set_bg_image(fb_info_t *fb, image_t *img);
 

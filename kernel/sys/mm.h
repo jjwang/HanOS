@@ -87,6 +87,7 @@ void vmm_map(
     addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
     uint64_t np, uint64_t flags, bool us);
 void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us);
+uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr);
 
 addrspace_t *create_addrspace(void);
 void destory_addrspace(addrspace_t *addrspace);

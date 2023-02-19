@@ -14,28 +14,28 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MSR_PAT         0x0277
+#define MSR_PAT             0x0277
 
 #define MSR_FS_BASE         0xC0000100
 #define MSR_GS_BASE         0xC0000101
 #define MSR_KERN_GS_BASE    0xC0000102
 
-#define MSR_EFER        0xC0000080
+#define MSR_EFER            0xC0000080
 
 /* @see https://wiki.osdev.org/SYSCALL#AMD:_SYSCALL.2FSYSRET */
 /* Ring 0 and Ring 3 Segment bases, as well as SYSCALL EIP.
  * Low 32 bits = SYSCALL EIP, bits 32-47 are kernel segment base, bits 48-63 are
  * user segment base.
  */
-#define MSR_STAR        0xC0000081
+#define MSR_STAR            0xC0000081
 /* The kernel's RIP SYSCALL entry for 64 bit software */
-#define MSR_LSTAR       0xC0000082
+#define MSR_LSTAR           0xC0000082
 /* The kernel's RIP for SYSCALL in compatibility mode */
-#define MSR_CSTAR       0xC0000083
+#define MSR_CSTAR           0xC0000083
 /* The low 32 bits are the SYSCALL flag mask. If a bit in this is set, the
  * corresponding bit in rFLAGS is cleared
  */
-#define MSR_SFMASK      0xC0000084
+#define MSR_SFMASK          0xC0000084
 
 /* NOTE: these instructions assume a flat segmented memory model (paging
  * allowed). They require that "the code-segment base, limit, and attributes

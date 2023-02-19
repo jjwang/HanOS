@@ -46,23 +46,45 @@ extern void enter_context_switch(void* v);
 extern void exit_context_switch(task_t* next, uint64_t cr3val);
 extern void force_context_switch();
 
-void task_debug(void)
+void task_debug(bool showlog)
 {
     lock_lock(&sched_lock);
 
     size_t task_num = vec_length(&tasks_active);
+
+    if (showlog )
+        klogd("SCHED: Totally %d active tasks\n", task_num);
+
     for (size_t i = 0; i < task_num; i++) {
         task_t *t  = vec_at(&tasks_active, i);
-        (void)t;
+        if (t->tid < 1)
+            kpanic("SCHED: task list corrupted (%d 0x%x)\n", showlog, t);
     }
+
     for (size_t k = 0; k < CPU_MAX; k++) {
         if (tasks_running[k] != NULL && tasks_running[k] != tasks_idle[k]) {
+            if (showlog) {
+                klogd("SCHED: CPU %d has running task "
+                      "(kernel 0x%x|0x%x user 0x%x|%x in tid %d)\n",
+                      k, tasks_running[k]->kstack_top, tasks_running[k]->kstack_limit,
+                      tasks_running[k]->ustack_top, tasks_running[k]->ustack_limit,
+                      tasks_running[k]->tid);
+            }
             task_num++;
+            if (tasks_running[k]->tid < 1) {
+                kpanic("SCHED: running task on CPU %d corrupted (%d 0x%x)\n",
+                       k, showlog, tasks_running[k]);
+            }
         }
-    }
-    lock_release(&sched_lock);
 
-    kprintf("Totally %d active tasks.\n", task_num);
+        if (tasks_idle[k]->tid < 1) {
+            kpanic("SCHED: idle task on CPU %d corrupted (%d 0x%x)\n",
+                k, showlog, tasks_idle[k]);
+        }
+
+    }
+
+    lock_release(&sched_lock);
 }
 
 _Noreturn static void task_idle_proc(task_id_t tid)
@@ -90,6 +112,8 @@ void do_context_switch(void* stack, int64_t force)
     /* Firstly all events on event bus should be processed */
     eb_dispatch();
 
+    task_debug(false);
+
     lock_lock(&sched_lock);
 
     cpu_t *cpu = smp_get_current_cpu(true);
@@ -101,8 +125,8 @@ void do_context_switch(void* stack, int64_t force)
     uint16_t cpu_id = cpu->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu_id];
 
-    task_t* curr = tasks_running[cpu_id];
-    task_t* next = NULL;
+    task_t *curr = tasks_running[cpu_id];
+    task_t *next = NULL;
 
     if (curr) {
         curr->tstack_top = stack;
@@ -116,6 +140,8 @@ void do_context_switch(void* stack, int64_t force)
         }
 
     }
+    tasks_running[cpu_id] = NULL;
+    curr = NULL;
 
     uint64_t loop_size = 0;
     while (true) {
@@ -149,7 +175,6 @@ void do_context_switch(void* stack, int64_t force)
     next->status = TASK_RUNNING;
     tasks_running[cpu_id] = next;
 
-    /* Need to review TSS related settings */
     cpu->tss.rsp0 = (uint64_t)(next->kstack_limit + STACK_SIZE);
 
     tasks_coordinate[cpu_id]++;
@@ -159,6 +184,14 @@ void do_context_switch(void* stack, int64_t force)
     }
 
     lock_release(&sched_lock);
+
+    if (!(cpu->tss.rsp0 & 0xFFFF000000000000) || next->tid < 1) {
+        task_debug(true);
+        kpanic("SCHED: CPU %d kernel stack 0x%x corrputed "
+               "(kernel 0x%x|0x%x user 0x%x|%x in task 0x%x tid %d, last tick %d)\n",
+               cpu->cpu_id, cpu->tss.rsp0, next->kstack_top, next->kstack_limit,
+               next->ustack_top, next->ustack_limit, next, next->tid, next->last_tick);
+    }
 
     exit_context_switch(next->tstack_top,
         (next->addrspace == NULL)
@@ -180,6 +213,8 @@ task_id_t sched_get_tid()
 
     lock_release(&sched_lock);
 
+    if (tid < 1) kpanic("SCHED: %s returns corrupted tid\n", __func__);
+
     return tid;
 }
 
@@ -199,6 +234,9 @@ void sched_sleep(time_t millis)
         curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
         curr->wakeup_event.type = EVENT_UNDEFINED;
         curr->status = TASK_SLEEPING;
+
+        if (curr->tid < 1)
+            kpanic("SCHED: %s meets corrupted tid\n", __func__);
     }
 
     lock_release(&sched_lock);
@@ -215,7 +253,8 @@ bool sched_resume_event(event_t event)
         task_t *t = vec_at(&tasks_active, i);
         if (t) {
             if (t->status == TASK_SLEEPING
-                && t->wakeup_event.type == event.type) {
+                && t->wakeup_event.type == event.type)
+            {
                 t->status = TASK_READY;
                 t->wakeup_event.para = event.para;
                 ret = true;
@@ -242,6 +281,9 @@ event_t sched_wait_event(event_t event)
     curr->wakeup_time = 0;
     curr->wakeup_event = event;
     curr->status = TASK_SLEEPING;
+
+    if (curr->tid < 1)
+        kpanic("SCHED: %s meets corrupted tid\n", __func__);
 
     lock_release(&sched_lock);
 
@@ -284,7 +326,8 @@ void sched_init(uint16_t cpu_id)
 
     cpu_num++;
 
-    klogi("Scheduler initialization finished for CPU %d\n", cpu_id);
+    klogi("Scheduler initialization finished for CPU %d with idle task %d\n",
+          cpu_id, tasks_idle[cpu_id]->tid);
 }
 
 uint16_t sched_get_cpu_num()
@@ -292,15 +335,15 @@ uint16_t sched_get_cpu_num()
     return cpu_num;
 }
 
-task_t *sched_add(void (*entry)(task_id_t), bool usermode)
+task_t *sched_new(void (*entry)(task_id_t), bool usermode)
 {
-    task_t* t = task_make(__func__, entry, 0,
-        usermode ? TASK_USER_MODE : TASK_KERNEL_MODE);
-
-    lock_lock(&sched_lock);
-    vec_push_back(&tasks_active, t);
-    lock_release(&sched_lock);
-
-    return t;
+    return task_make(
+        __func__, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE);
 }
 
+void sched_add(task_t *t)
+{
+    lock_lock(&sched_lock);
+    vec_push_back(&tasks_active, t); 
+    lock_release(&sched_lock);
+}

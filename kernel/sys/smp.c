@@ -61,6 +61,33 @@ cpu_t* smp_get_current_cpu(bool force_read)
     }
 }
 
+bool cpu_set_errno(int64_t val)
+{
+    if (smp_initialized) {
+        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        if (cpu != NULL) {
+            cpu->errno = val;
+            return true;
+        }
+    }
+    return false;
+}
+
+void cpu_debug(void)
+{
+    if (smp_initialized) {
+        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        if (cpu != NULL) {
+            klogd("CPU: total_num %d, current id %d, kernel stack 0x%x\n",
+                  smp_info->num_cpus, cpu->cpu_id, cpu->tss.rsp0);
+            return;
+        }   
+    }
+    klogd("CPU: uninitialized\n");
+}
+
 void init_tss(cpu_t* cpuinfo)
 {
     gdt_install_tss(cpuinfo);
