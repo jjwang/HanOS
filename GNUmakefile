@@ -44,7 +44,7 @@ initrd:
 
 $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
-	$(shell [ -d "xbstrap-build/system-root" ] || cp -rf xbstrap-build/system-root/* initrd 2>/dev/null)
+	@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
 	mkdir -p initrd/etc initrd/server initrd/usr
 	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets etc usr
 	mkdir -p iso_root
