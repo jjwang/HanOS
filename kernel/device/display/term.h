@@ -57,12 +57,19 @@ typedef struct {
     bool last_qu_char;
 } term_info_t;
 
+typedef struct [[gnu::packed]] {
+    uint16_t row;           /* rows, in character */
+    uint16_t col;           /* columns, in characters */
+    uint16_t xpixel;        /* horizontal size, pixels (unused) */
+    uint16_t ypixel;        /* vertical size, pixels (unused) */
+} winsize_t;
+
 extern term_cursor_visible_t cursor_visible;
 
 void term_init(struct limine_framebuffer* s);
 void term_putch(int mode, uint8_t c);
 void term_clear(int mode);
-void term_refresh(int mode, bool forced);
+void term_refresh(int mode);
 void term_start();
 void term_switch(int mode);
 int term_get_mode(void);
@@ -70,5 +77,6 @@ bool term_get_redraw(void);
 void term_set_redraw(bool val);
 void term_set_cursor(uint8_t c);
 bool term_set_bg_image(image_t *img);
-
+void term_get_winsize(winsize_t *ws);
+bool term_set_winsize(winsize_t *ws);
 

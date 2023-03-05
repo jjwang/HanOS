@@ -234,10 +234,35 @@ void sched_sleep(time_t millis)
         curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
         curr->wakeup_event.type = EVENT_UNDEFINED;
         curr->status = TASK_SLEEPING;
-
-        if (curr->tid < 1)
+        if (curr->tid < 1) {
             kpanic("SCHED: %s meets corrupted tid\n", __func__);
+        }
     }
+
+    lock_release(&sched_lock);
+
+    force_context_switch();
+}
+
+void sched_exit(int64_t status)
+{
+    (void)status;
+
+    cpu_t* cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        return;
+    }   
+ 
+    lock_lock(&sched_lock);
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t *curr = tasks_running[cpu_id];
+    if (curr) {
+        curr->status = TASK_DEAD;
+        if (curr->tid < 1) {
+            kpanic("SCHED: %s meets corrupted tid\n", __func__);
+        }
+    }   
 
     lock_release(&sched_lock);
 

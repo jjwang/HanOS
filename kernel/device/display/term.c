@@ -46,6 +46,34 @@ term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
 
+void term_get_winsize(winsize_t *ws)
+{
+    if (ws == NULL) return;
+
+    if (term_cli.state == STATE_IDLE) {
+        ws->col = term_cli.width;
+        ws->row = term_cli.height;
+        ws->xpixel = term_cli.fb.width;
+        ws->ypixel = term_cli.fb.height;
+    }
+}
+
+bool term_set_winsize(winsize_t *ws)
+{
+    if (ws == NULL) return false;
+
+    if (term_cli.state == STATE_IDLE) {
+        if (ws->col != term_cli.width || ws->row != term_cli.height
+            || ws->xpixel != term_cli.fb.width
+            || ws->ypixel != term_cli.fb.height)
+        {
+            kpanic("Can't support specified terminal window size");
+        }
+    }
+
+    return false; 
+}
+
 bool term_set_bg_image(image_t *img)
 {
     (void)img;
@@ -140,13 +168,21 @@ void term_scroll(term_info_t* term_act)
         return;
     }
 
-    for (size_t y = 0; y < (term_act->cursor_y - 1) * FONT_HEIGHT; y++)
-        for (size_t x = 0; x < term_act->fb.width; x++)
-            fb_putpixel(&(term_act->fb), x, y, fb_getpixel(&(term_act->fb), x, y + FONT_HEIGHT));
+    for (size_t y = 0; y < (term_act->cursor_y - 1) * FONT_HEIGHT; y++) {
+        for (size_t x = 0; x < term_act->fb.width; x++) {
+            uint32_t c = fb_getpixel(&(term_act->fb), x, y + FONT_HEIGHT);
+            fb_putpixel(&(term_act->fb), x, y, c);
+        }
+    }
 
-    for (size_t y = (term_act->cursor_y - 1) * FONT_HEIGHT; y < term_act->fb.height; y++)
-        for (size_t x = 0; x < term_act->fb.width; x++)
+    for (size_t y = (term_act->cursor_y - 1) * FONT_HEIGHT;
+         y < term_act->fb.height;
+         y++)
+    {
+        for (size_t x = 0; x < term_act->fb.width; x++) {
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+        }
+    }
 #endif
 }
 
@@ -167,10 +203,9 @@ int term_get_mode(void)
 #endif
 }
 
-void term_refresh(int mode, bool forced)
+void term_refresh(int mode)
 {
     (void)mode;
-    (void)forced;
 #if LAUNCHER_GRAPHICS
     term_info_t* term_act;
 
@@ -182,7 +217,7 @@ void term_refresh(int mode, bool forced)
         term_act = &term_cli;
         if( term_cursor != 0) {
             if (term_act->state != STATE_UNKNOWN && mode == term_active_mode) {
-                fb_refresh(&(term_act->fb), forced);
+                fb_refresh(&(term_act->fb));
             }
 
             uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
@@ -200,7 +235,7 @@ void term_refresh(int mode, bool forced)
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
                      term_act->fgcolor, term_act->bgcolor, term_cursor);
             if (mode == term_active_mode) {
-                fb_refresh(&(term_act->fb), false);
+                fb_refresh(&(term_act->fb));
             }
             lock_release(&term_lock);
             return;
@@ -213,7 +248,7 @@ void term_refresh(int mode, bool forced)
     }
 
     if (mode == term_active_mode) {
-        fb_refresh(&(term_act->fb), forced);
+        fb_refresh(&(term_act->fb));
     }
 
     lock_release(&term_lock);
@@ -398,7 +433,7 @@ void term_init(struct limine_framebuffer* s)
         term_act->lastch = 0;
 
         term_clear((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
-        term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI, false);
+        term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
 
         klogi("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n", 
                 i, (uint64_t)term_act, term_act->fb.width,
@@ -421,7 +456,7 @@ void term_start()
 
     term_clear(term_active_mode);
     fb_putlogo(&(term_cli.fb), COLOR_CYAN, DEFAULT_BGCOLOR);
-    term_refresh(TERM_MODE_CLI, true);
+    term_refresh(TERM_MODE_CLI);
 #else
     term_active_mode = TERM_MODE_INFO;
 #endif

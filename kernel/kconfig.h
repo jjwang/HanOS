@@ -6,6 +6,7 @@
 #define LAUNCHER_CLI        true
 #define LAUNCHER_GRAPHICS   true
 
+#undef  ENABLE_BASH
 #ifndef ENABLE_BASH
 #define DEFAULT_SHELL_APP   "/bin/hansh"
 #else
