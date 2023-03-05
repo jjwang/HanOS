@@ -71,7 +71,7 @@ void klog_refresh(int mode)
         term_set_redraw(false);
     }
 
-    term_refresh(mode, false);
+    term_refresh(mode);
     klog_refresh_times++;
 }
 

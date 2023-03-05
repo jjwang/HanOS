@@ -49,6 +49,7 @@
 #include <proc/syscall.h>
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
+#include <fs/ttyfs.h>
 #include <test/test.h>
 #include <proc/elf.h>
 
@@ -95,6 +96,7 @@ _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
         sched_sleep(500);
+
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
             cursor_visible = CURSOR_VISIBLE;
@@ -104,7 +106,8 @@ _Noreturn void kcursor(task_id_t tid)
         } else {
             term_set_cursor(' ');
         }
-        term_refresh(TERM_MODE_CLI, false);
+
+        term_refresh(TERM_MODE_CLI);
     }   
 
     (void)tid;
@@ -235,7 +238,9 @@ void kmain(void)
         }
     } else {
         kpanic("Cannot find INITRD module\n");
-    } 
+    }
+
+    ttyfs_init(); 
 
     klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
@@ -282,19 +287,19 @@ void kmain(void)
         }
 
         stack   -= 2;
-        stack[0] = 9;
+        stack[0] = 10;
         stack[1] = aux.entry;
 
         stack   -= 2;
-        stack[0] = 3;
+        stack[0] = 20;
         stack[1] = aux.phdr;
 
         stack   -= 2;
-        stack[0] = 4;
+        stack[0] = 21;
         stack[1] = aux.phentsize;
 
         stack   -= 2;
-        stack[0] = 5;
+        stack[0] = 22;
         stack[1] = aux.phnum;
 
         klogi("Shell: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
@@ -321,7 +326,7 @@ void kmain(void)
     klogi("Shell: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tshell->tstack_top,
         (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4, entry);
 
-#if 1 /* Should be commented when debuging mlibc */
+#if 0 /* Should be commented when debuging mlibc */
     task_t *tkbd = sched_new(NULL, true);
     elf_load(tkbd, DEFAULT_INPUT_SVR, &entry, &aux);
     
@@ -344,11 +349,11 @@ void kmain(void)
 
     klog_debug();
 
-#if 1 /* Should be commented when debuging mlibc */
+#if 0 /* Should be commented when debuging mlibc */
     task_t *tcursor = sched_new(kcursor, false);
+    sched_add(tcursor);
 
     sched_add(tkbd);
-    sched_add(tcursor);
 #endif
 
 #if LAUNCHER_CLI

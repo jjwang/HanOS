@@ -18,6 +18,7 @@
 #include <proc/sched.h>
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
+#include <lib/string.h>
 #include <lib/klog.h>
 #include <sys/cpu.h>
 
@@ -87,6 +88,8 @@ task_t *task_make(
     ntask->priority = priority;
     ntask->last_tick = 0;
     ntask->status = TASK_READY;
+
+    strcpy(ntask->cwd, "/");
 
     klogi("TASK: Create tid %d in function %s (task 0x%x)\n",
           ntask->tid, name, ntask);

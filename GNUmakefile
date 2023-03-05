@@ -12,7 +12,7 @@ all: $(ISO_IMAGE)
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
+	qemu-system-x86_64 -serial stdio -M q35,smm=off -m 2G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
 # The below "test" is used for debuging bootable disk image
 .PHONY: test
@@ -45,8 +45,8 @@ initrd:
 $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
 	@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
-	mkdir -p initrd/etc initrd/server initrd/usr
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets etc usr
+	mkdir -p initrd/etc initrd/server initrd/usr initrd/root
+	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets etc usr root
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/

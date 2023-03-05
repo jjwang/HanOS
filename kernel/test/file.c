@@ -85,9 +85,9 @@ void file_test(void)
         }
         buff_write[m] = 'B';
 
-        vfs_seek(f21, 10);
+        vfs_seek(f21, 10, SEEK_SET);
         vfs_write(f21, strlen(buff_write), buff_write);
-        vfs_seek(f21, 0);
+        vfs_seek(f21, 0, SEEK_SET);
         size_t readlen = vfs_read(f21, sizeof(buff_read) - 1, buff_read);
         klogi("Read %d bytes from %s(%d)\n%s\n", readlen, fn2, f21, buff_read);
         vfs_close(f21);

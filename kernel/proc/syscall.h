@@ -27,21 +27,41 @@
 #define SYSCALL_READDIR     24
 #define SYSCALL_MUNMAP      25
 
-/* This should be defined in vfs.h */
+/* Standard I/O devices */
 #define STDIN               0
 #define STDOUT              1
 #define STDERR              2
 
-#define PROT_NONE           0x00
-#define PROT_READ           0x01
-#define PROT_WRITE          0x02
-#define PROT_EXEC           0x04
-
+/* Used in memory map of syscall */
 #define MAP_PRIVATE         0x01
 #define MAP_SHARED          0x02
 #define MAP_FIXED           0x04
 #define MAP_ANONYMOUS       0x08
 
+/* Reserve 3 bits for the access mode */
+#define O_ACCMODE           0x0007
+#define O_EXEC              1
+#define O_RDONLY            2
+#define O_RDWR              3
+#define O_SEARCH            4
+#define O_WRONLY            5
+
+/* All remaining flags get their own bit */
+#define O_APPEND            0x0008
+#define O_CREAT             0x0010
+#define O_DIRECTORY         0x0020
+#define O_EXCL              0x0040
+#define O_NOCTTY            0x0080
+#define O_NOFOLLOW          0x0100
+#define O_TRUNC             0x0200
+#define O_NONBLOCK          0x0400
+#define O_DSYNC             0x0800
+#define O_RSYNC             0x1000
+#define O_SYNC              0x2000
+#define O_CLOEXEC           0x4000
+#define O_PATH              0x8000
+
+/* Error code */
 #define EPERM               1   /* Operation not permitted */
 #define ENOENT              2   /* No such file or directory */
 #define EBADF               9   /* Bad file descriptor */
@@ -54,9 +74,7 @@
 #define ESOCKTNOSUPPORT     94  /* Socket type not supported */
 #define EAFNOSUPPORT        97  /* Address family not supported */
 
-/*
- * EFLAGS bits
- */
+/* EFLAGS bits */
 #define X86_EFLAGS_CF   0x00000001 /* Carry Flag */
 #define X86_EFLAGS_PF   0x00000004 /* Parity Flag */
 #define X86_EFLAGS_AF   0x00000010 /* Auxillary carry Flag */
@@ -93,8 +111,4 @@ void syscall_init(void);
  * on the stack.
  */
 extern int64_t syscall_entry(uint64_t id, ...);
-
-int64_t k_debug_log(char *message);
-int64_t k_read(int64_t fd, void* buf, size_t count);
-int64_t k_write(int64_t fd, const void* buf, size_t count);
 
