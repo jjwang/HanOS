@@ -21,7 +21,8 @@ static uint32_t cpu_family = 0;
 static char cpu_model_name[60] = {0}; /* Should no less than 48 */
 static char cpu_manufacturer[60] = {0};
 
-void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx)
+void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx,
+           uint32_t* ecx, uint32_t* edx)
 {   
     asm volatile("mov %[func], %%eax;"
                  "mov %[param], %%ecx;"
@@ -30,7 +31,8 @@ void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx, uint32_t
                  "mov %%ebx, %[iebx];"
                  "mov %%ecx, %[iecx];"
                  "mov %%edx, %[iedx];"
-                 : [ieax] "=g"(*eax), [iebx] "=g"(*ebx), [iecx] "=g"(*ecx), [iedx] "=g"(*edx)
+                 : [ieax] "=g"(*eax), [iebx] "=g"(*ebx),
+                   [iecx] "=g"(*ecx), [iedx] "=g"(*edx)
                  : [func] "g"(func), [param] "g"(param)
                  : "%eax", "%ebx", "%ecx", "%edx", "memory");
 }
@@ -58,8 +60,9 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     }
 
     /* is the feature supported? */
-    cpuid(feature.func, feature.param, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
-        &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
+    cpuid(feature.func, feature.param, &regs[CPUID_REG_EAX],
+          &regs[CPUID_REG_EBX], &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
+
     if (regs[feature.reg] & feature.mask)
         return true;
 

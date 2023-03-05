@@ -219,6 +219,8 @@ typedef struct task_t {
 
     addrspace_t     *addrspace;
     vec_struct(addrspace_node_t*) aslist;
+
+    char            cwd[VFS_MAX_PATH_LEN];
 } task_t;
 
 task_t* task_make(const char *name, void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);

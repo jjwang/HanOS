@@ -31,8 +31,6 @@ int main(void)
         read_str[1] = '\0';
 
         if (read_str[0] == 0x0A) {
-            syscall_entry(SYSCALL_WRITE, STDOUT, read_str, 1); 
-
             if (cmd_end > 0) {
                 strupr(cmd_buff);
 
@@ -48,8 +46,6 @@ int main(void)
 
             syscall_entry(SYSCALL_WRITE, STDOUT, prompt, strlen(prompt));
         } else if (read_str[0] == '\b') {
-            syscall_entry(SYSCALL_WRITE, STDOUT, read_str, 1);
-
             if (cmd_end > 0) {
                 cmd_buff[--cmd_end] = '\0';
             }
@@ -58,7 +54,6 @@ int main(void)
                 cmd_buff[cmd_end++] = read_str[0];
                 cmd_buff[cmd_end] = '\0';
             }
-            syscall_entry(SYSCALL_WRITE, STDOUT, read_str, 1);
         }
     }
 

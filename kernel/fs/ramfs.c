@@ -138,8 +138,6 @@ void ramfs_init(void* address, uint64_t size)
 
 vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
 {
-    klogi("RAMFS: Open 0x%x with path %s\n", this, path);
-
     int idx = 0;
     size_t pathlen = strlen(path);
     for (idx = pathlen - 1; idx >= 0; idx--) {
@@ -165,8 +163,6 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
             }
             id->alloc_size = item->entry.size;
             memcpy(id->data, item->entry.data, item->entry.size);
-            klogi("RAMFS:\tGet #%d file %s, len %d\n", i, item->name,
-                  item->entry.size);
             break;
         }   
     }
@@ -183,19 +179,11 @@ int64_t ramfs_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) memcpy(buff, ((uint8_t*)id->data) + offset, len);
 
-    klogi("RAMFS: 0x%x read from addr 0x%x to addr 0x%x with "
-          "retlen %d, len %d, offset %d, data [0x%02x...], read [0x%02x...]\n",
-          this, id->data, buff, retlen, len, offset,
-          (((uint8_t*)id->data) + offset)[0], ((uint8_t*)buff)[0]);
-
     return retlen;
 }
 
 int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff)
 {
-    klogi("RAMFS: write to 0x%x with length %d offset %d\n",
-          this, len, offset);
-
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
     memcpy(((uint8_t*)id->data) + offset, buff, len);
     return 0;
@@ -205,7 +193,6 @@ int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* bu
 int64_t ramfs_sync(vfs_inode_t* this)
 {
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
-    klogi("RAMFS: sync 0x%x from %d to %d\n", this, id->alloc_size, this->size);
 
     if (this->size > id->alloc_size) {
         id->alloc_size = this->size;
@@ -216,8 +203,6 @@ int64_t ramfs_sync(vfs_inode_t* this)
 
 int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
 {
-    klogi("RAMFS: setlink to 0x%x\n", this);
-
     (void)inode;
 
     if (this->inode->refcount == 0) {
@@ -232,14 +217,13 @@ int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
 
 int64_t ramfs_refresh(vfs_inode_t* this)
 {
-    klogi("RAMFS: refresh 0x%x\n", this);
+    (void)this;
+
     return 0;
 }
 
 int64_t ramfs_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
 {
-    klogi("RAMFS: getdent 0x%x\n", this);
-
     size_t num = 0;
     for (size_t i = 0; i < vec_length(&ramfs.filelist); i++) {
         ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i);
@@ -250,8 +234,6 @@ int64_t ramfs_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
             dirent->type = VFS_NODE_FILE;
             dirent->size = item->entry.size;
 
-            klogi("RAMFS:\tGet #%d file %s, len %d\n", i, item->name,
-                  item->entry.size);
             return 0;
         }   
         num++;
@@ -269,6 +251,7 @@ int64_t ramfs_mknode(vfs_tnode_t* this)
 vfs_inode_t* ramfs_mount(vfs_inode_t* at)
 {
     (void)at;
+
     klogi("RAMFS: mount to 0x%x and load all files from system assets\n", at);
     vfs_inode_t* ret = vfs_alloc_inode(
         VFS_NODE_MOUNTPOINT, 0777, 0, &ramfs, NULL);

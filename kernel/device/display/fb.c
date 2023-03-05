@@ -106,14 +106,12 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
     for (size_t i = 0; i < FONT_HEIGHT; i++) {
         for (size_t k = 0; k < FONT_WIDTH; k++) {
-            if (i < term_font_norm.charsize && (term_font_norm.data[offset + i] & masks[k])) {
+            if (i < term_font_norm.charsize
+                && (term_font_norm.data[offset + i] & masks[k]))
+            {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
-                uint32_t bg_img_color = bgcolor;
-                if (fb->bgbuffer != NULL) {
-                    bg_img_color = ((uint32_t*)(fb->bgbuffer + fb->pitch * y + x * 4))[0];
-                }
-                fb_putpixel(fb, x + k, y + i, bg_img_color);
+                fb_putpixel(fb, x + k, y + i, bgcolor);
             }
         }
     }
@@ -148,7 +146,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
         } /* End every character */
     }
 
-    char desc_str[64] = "- A Hobby OS Kernel for x86-64 v";
+    char desc_str[64] = "- Unix-like OS Kernel for x86-64 v";
     strcat(desc_str, VERSION);
     strcat(desc_str, " -");
     size_t desc_len = strlen(desc_str);   
@@ -166,11 +164,6 @@ void fb_putpixel(fb_info_t *fb, uint32_t x, uint32_t y, uint32_t color)
     if(fb->pitch * y + x * 4 < fb->backbuffer_len) {
         ((uint32_t*)(fb->backbuffer + (fb->pitch * y)))[x] = color;
     }
-
-    fb->dirty_left = MIN(fb->dirty_left, x);
-    fb->dirty_top  = MIN(fb->dirty_top, y);
-    fb->dirty_right = MAX(fb->dirty_right, x);
-    fb->dirty_bottom = MAX(fb->dirty_bottom, y);
 }
 
 uint32_t fb_getpixel(fb_info_t *fb, uint32_t x, uint32_t y)
@@ -204,10 +197,6 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
     fb->backbuffer_len = fb->height * fb->pitch;
     fb->backbuffer = fb->addr;
 
-    fb->dirty_left = fb->width;
-    fb->dirty_top = fb->height;
-    fb->dirty_right = 0;
-    fb->dirty_bottom = 0;
     memset(&(fb->img_bg), sizeof(image_t), 0);;
 
     for(uint32_t x = 0; x < fb->width; x++) {
@@ -215,56 +204,25 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
             fb_putpixel(fb, x, y, DEFAULT_BGCOLOR);
         }
     }
-    fb_refresh(fb, false);
+    fb_refresh(fb);
 }
 
-void fb_refresh(fb_info_t *fb, bool forced)
+void fb_refresh(fb_info_t *fb)
 {
     if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
         uint64_t len = fb->backbuffer_len;
-        if (fb->dirty_right >= fb->dirty_left
-            && fb->dirty_bottom >= fb->dirty_top
-            && !forced)
-        {
-            for (size_t i = fb->dirty_top; i <= fb->dirty_bottom; i++) {
-                if (fb->bgbuffer == NULL) {
-                    memcpy(fb->addr + (fb->pitch * i),
-                           fb->backbuffer + (fb->pitch * i),
-                           (fb->dirty_right - fb->dirty_left + 1) * 4);
-                } else {
-                    memcpy(fb->swapbuffer + (fb->pitch * i), 
-                           fb->bgbuffer + (fb->pitch * i), 
-                           (fb->dirty_right - fb->dirty_left + 1) * 4);
-                    uint32_t *src = (uint32_t*)(fb->backbuffer + fb->pitch * i);
-                    uint32_t *dst = (uint32_t*)(fb->swapbuffer + fb->pitch *i);
-                    size_t pt_num = (fb->dirty_right - fb->dirty_left + 1);
-                    for (size_t i = 0; i < pt_num; i++) {
-                        if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
-                    }
-                    memcpy(fb->addr + (fb->pitch * i),
-                           fb->swapbuffer + (fb->pitch * i),  
-                           (fb->dirty_right - fb->dirty_left + 1) * 4);
-                }
-            }
+        if (fb->bgbuffer == NULL) {
+            memcpy(fb->addr, fb->backbuffer, len);
         } else {
-            if (fb->bgbuffer == NULL) {
-                memcpy(fb->addr, fb->backbuffer, len);
-            } else {
-                memcpy(fb->swapbuffer, fb->bgbuffer, len);
-                uint32_t *src = (uint32_t*)fb->backbuffer;
-                uint32_t *dst = (uint32_t*)fb->swapbuffer;
-                size_t pt_num = len / 4;
-                for (size_t i = 0; i < pt_num; i++) {
-                    if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
-                }
-                memcpy(fb->addr, fb->swapbuffer, len);
+            memcpy(fb->swapbuffer, fb->bgbuffer, len);
+            uint32_t *src = (uint32_t*)fb->backbuffer;
+            uint32_t *dst = (uint32_t*)fb->swapbuffer;
+            size_t pt_num = len / 4;
+            for (size_t i = 0; i < pt_num; i++) {
+                if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
             }
+            memcpy(fb->addr, fb->swapbuffer, len);
         }
-
-        fb->dirty_left = fb->width;
-        fb->dirty_top = fb->height;
-        fb->dirty_right = 0;
-        fb->dirty_bottom = 0;
     }
 }
 

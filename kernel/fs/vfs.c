@@ -15,6 +15,7 @@
 #include <fs/filebase.h>
 #include <fs/fat32.h>
 #include <fs/ramfs.h>
+#include <fs/ttyfs.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/lock.h>
@@ -75,10 +76,13 @@ void vfs_init()
     /* Register all file systems which will be used */
     vfs_register_fs(&fat32);
     vfs_register_fs(&ramfs);
+    vfs_register_fs(&ttyfs);
 
     char* fn = "/";
+
     /* Mount RAMFS without device name (NULL) */
     vfs_mount(NULL, fn, "ramfs");
+
     /* Call vsf_refrsh() to load all RAMFS files */
     vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
     if (f != VFS_INVALID_HANDLE) {
@@ -87,8 +91,12 @@ void vfs_init()
     }
 
     /* Create directory for mounting devices in the future */
-    vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
     vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
+
+    /* Mount TTYFS with device name "/dev/tty" */
+    vfs_path_to_node("/dev/tty", CREATE, VFS_NODE_FOLDER);
+    vfs_mount("tty", "/dev/tty", "ttyfs");
+    ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
 
     klogi("VFS initialization finished\n");
 }
@@ -192,13 +200,16 @@ int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
     }
 
     lock_lock(&vfs_lock);
+
     vfs_inode_t* inode = fd->inode;
 
-    klogw("VFS: %s file size %d and offset %d\n",
-          fd->tnode->name, inode->size, fd->seek_pos);
-
-    /* Truncate if asking for more data than available */
-    if (fd->seek_pos + len > inode->size) {
+    /*
+     * 1. Truncate if asking for more data than available
+     * 2. Return directly if remaining length is zero except tty device
+     */
+    if (fd->seek_pos + len > inode->size
+        && handle != ttyfh)
+    {
         len = inode->size - fd->seek_pos;
         if (len == 0)
             goto end;
@@ -208,6 +219,7 @@ int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
     if (status == -1)
         len = 0;
 
+    fd->seek_pos += len;
 end:
     lock_release(&vfs_lock);
     return (int64_t)len;
@@ -244,11 +256,13 @@ int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
 }
 
 /* Seek to specified position in file */
-int64_t vfs_seek(vfs_handle_t handle, size_t pos)
+int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
     if (!fd)
         return -1;
+
+    lock_lock(&vfs_lock);
 
     /* Seek position is out of bounds and mode is read only */
     if (pos >= fd->inode->size && fd->mode == VFS_MODE_READ) {
@@ -256,8 +270,27 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos)
         return -1;
     }
 
-    fd->seek_pos = pos;
-    return 0;
+    int64_t offset = -1;
+    switch (whence) {
+    case SEEK_SET:
+        offset = pos;
+        break;
+    case SEEK_CUR:
+        offset = fd->seek_pos + pos;
+        break;
+    case SEEK_END:
+        offset = fd->inode->size - pos;
+        break;
+    }
+
+    int64_t ret = -1;
+    if (offset >= 0 && offset < (int64_t)fd->inode->size) {
+        fd->seek_pos = offset;
+        ret = 0;
+    }
+
+    lock_release(&vfs_lock);
+    return ret;
 }
 
 void vfs_get_parent_dir(const char* path, char* parent)
@@ -310,6 +343,8 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 
     /* Create node descriptor */
     vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+    memset(nd, 0, sizeof(vfs_node_desc_t));
+
     strcpy(nd->path, path);
     nd->tnode = req;
     nd->inode = req->inode;
@@ -317,14 +352,15 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     nd->mode = mode;
 
     /* Add to current task */
+    /* TODO: Loop for NULL pointer position in open file list */
     vec_push_back(&(vfs_openfiles), nd);
 
     /* Return the handle */
     lock_release(&vfs_lock);
 
-    vfs_handle_t h = ((vfs_handle_t)(vfs_openfiles.len - 1)) + VFS_MIN_HANDLE;
-    klogv("VFS: Open %s and return handle %d\n", path, h);
-    return h;
+    vfs_handle_t fh = ((vfs_handle_t)(vfs_openfiles.len - 1)) + VFS_MIN_HANDLE;
+    klogv("VFS: Open %s and return handle %d\n", path, fh);
+    return fh;
 fail:
     lock_release(&vfs_lock);
     return VFS_INVALID_HANDLE;

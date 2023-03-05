@@ -24,7 +24,8 @@
 vec_extern(vfs_node_desc_t*, vfs_openfiles);
 
 /* Allocate a tnode in memory */
-vfs_tnode_t* vfs_alloc_tnode(const char* name, vfs_inode_t* inode, vfs_inode_t* parent)
+vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
+                             vfs_inode_t* parent)
 {
     vfs_tnode_t* tnode = (vfs_tnode_t*)kmalloc(sizeof(vfs_tnode_t));
     memset(tnode, 0, sizeof(vfs_tnode_t));
@@ -35,8 +36,9 @@ vfs_tnode_t* vfs_alloc_tnode(const char* name, vfs_inode_t* inode, vfs_inode_t* 
 }
 
 /* Allocate an inode in memory */
-vfs_inode_t* vfs_alloc_inode(vfs_node_type_t type, uint32_t perms, uint32_t uid,
-    vfs_fsinfo_t* fs, vfs_tnode_t* mountpoint)
+vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
+                             uint32_t uid, vfs_fsinfo_t* fs,
+                             vfs_tnode_t* mountpoint)
 {
     vfs_inode_t* inode = (vfs_inode_t*)kmalloc(sizeof(vfs_inode_t));
     memset(inode, 0, sizeof(vfs_inode_t));
@@ -47,7 +49,8 @@ vfs_inode_t* vfs_alloc_inode(vfs_node_type_t type, uint32_t perms, uint32_t uid,
         .fs = fs,
         .ident = NULL,
         .mountpoint = mountpoint,
-        .refcount = 0
+        .refcount = 0,
+        .size = 0
     };
     return inode;
 }
