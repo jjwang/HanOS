@@ -19,6 +19,7 @@
 #include <sys/isr_base.h>
 #include <sys/panic.h>
 #include <sys/cpu.h>
+#include <proc/sched.h>
 
 static char* exceptions[] = {
     [0] = "Division by Zero",
@@ -94,8 +95,12 @@ void exc_handler_proc(uint64_t errcode, uint64_t excno)
         return;
     }   
 
-    kpanic("Unhandled Exception: %s (%d). Error Code: %d (0x%x).\n",
-                 exceptions[excno], excno, errcode, errcode);
+    task_t *t = sched_get_current_task();
+    task_id_t tid = ((t == NULL) ? 0 : t->tid);
+
+    kpanic("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
+           tid, exceptions[excno], excno, errcode, errcode);
+
     while (true)
         ;
 }

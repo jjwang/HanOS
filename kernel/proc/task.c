@@ -54,8 +54,6 @@ task_t *task_make(
 
         ntask->tstack_top = ntask->kstack_top;
         ntask->tstack_limit = ntask->kstack_limit;
-
-        ntask->addrspace = NULL;
     } else {
         ntask_regs = ntask->ustack_top - sizeof(task_regs_t);
 
@@ -64,19 +62,19 @@ task_t *task_make(
 
         ntask->tstack_top = ntask->ustack_top;
         ntask->tstack_limit = ntask->ustack_limit;
-
-        addrspace_t *as = create_addrspace();
-        vmm_map(as, (uint64_t)ntask->tstack_limit,
-                VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
-                NUM_PAGES(STACK_SIZE),
-                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, false);
-        klogd("TASK: map %d bytes memory 0x%x to 0x%x\n",
-                STACK_SIZE, VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
-                ntask->tstack_limit);
-
-        /* Temporarily set to NULL to disable CR3 switch */
-        ntask->addrspace = as;
     }
+
+    addrspace_t *as = create_addrspace();
+    vmm_map(as, (uint64_t)ntask->tstack_limit,
+            VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
+            NUM_PAGES(STACK_SIZE),
+            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, false);
+    klogd("TASK: map %d bytes memory 0x%x to 0x%x\n",
+          STACK_SIZE, VIRT_TO_PHYS((uint64_t)ntask->tstack_limit),
+          ntask->tstack_limit);
+
+    /* If temporarily set to NULL, CR3 switch will be disabled */
+    ntask->addrspace = as;
 
     ntask_regs->rsp = (uint64_t)ntask->tstack_top;
     ntask_regs->rflags = DEFAULT_RFLAGS;
