@@ -14,7 +14,7 @@
 #define IS_DATA(p)      (p.flags & PF_W)
 #define IS_BSS(p)       (p.filesz < p.memsz)
 
-static bool debug_info = false;
+static bool debug_info = true;
 
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {

@@ -111,25 +111,35 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot, uint64_t flags
         as = t->addrspace;
     }
 
-    size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAG_USER | VMM_FLAG_READWRITE;
+    size_t pf = VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_READWRITE;
     uint64_t ptr;
     if (flags & MAP_FIXED) {
         ptr = (uint64_t)hint;
+
         uint64_t phys_ptr = pmm_get(NUM_PAGES(length) + 1, 0x0);
-        vmm_map(NULL, ptr, phys_ptr, NUM_PAGES(length) + 1, pf, false);
-        vmm_map(as, ptr, phys_ptr, NUM_PAGES(length) + 1, pf, false);
+        /* TODO: How to handle the first information page???  */
+        if (as != NULL) {
+            vmm_map(as, ptr, phys_ptr + PAGE_SIZE, NUM_PAGES(length), pf, false);
+        }
+
+        memory_metadata_t *alloc = (memory_metadata_t*)PHYS_TO_VIRT(phys_ptr);
+        alloc->numpages = NUM_PAGES(length);
+        alloc->size = length;
+
+        return ptr;
     } else {
         ptr = pmm_get(NUM_PAGES(length) + 1, 0x0);
         vmm_map(NULL, ptr, ptr, NUM_PAGES(length) + 1, pf, false);
-        vmm_map(as, ptr, ptr, NUM_PAGES(length) + 1, pf, false);
+        if (as != NULL) {
+            vmm_map(as, ptr, ptr, NUM_PAGES(length) + 1, pf, false);
+        }
+
+        memory_metadata_t *alloc = (memory_metadata_t*)ptr;
+        alloc->numpages = NUM_PAGES(length);
+        alloc->size = length;
+
+        return (uint64_t)alloc + PAGE_SIZE;
     }
-
-    memory_metadata_t *alloc = (memory_metadata_t*)ptr;
-
-    alloc->numpages = NUM_PAGES(length);
-    alloc->size = length;
-
-    return (uint64_t)alloc + PAGE_SIZE;
 }
 
 static void get_full_path(int64_t dirfd, const char *path, char *full_path)
@@ -266,14 +276,14 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
     if (request == TIOCGWINSZ) {        /* 0x5413 */
         winsize_t *ws = (winsize_t*)arg;
         term_get_winsize(ws);
-        klogd("k_ioctl: return row %d, col %d, x-pixel %d, y-pixel %d\n",
-              ws->row, ws->col, ws->xpixel, ws->ypixel);
+        klogd("k_ioctl: return row %d, col %d, x-pixel %d, y-pixel %d "
+              "in 0x%x\n", ws->row, ws->col, ws->xpixel, ws->ypixel, arg);
         cpu_set_errno(0);
         return 0;
     } else if (request == TIOCSWINSZ) { /* 0x5413 */
         winsize_t *ws = (winsize_t*)arg;
-        klogd("k_ioctl: set row %d, col %d, x-pixel %d, y-pixel %d\n",
-              ws->row, ws->col, ws->xpixel, ws->ypixel);
+        klogd("k_ioctl: set row %d, col %d, x-pixel %d, y-pixel %d in 0x%x\n",
+              ws->row, ws->col, ws->xpixel, ws->ypixel, arg);
         if (term_set_winsize(ws)) {
             cpu_set_errno(0);
             return 0;
