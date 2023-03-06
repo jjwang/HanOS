@@ -115,7 +115,18 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     for (int64_t i = 0; i < rlen; i++) {
         int64_t index = (id->icursor + i) % TTY_BUFFER_SIZE;
         ((char*)buff)[i] = id->ibuff[index];
+
+        if (id->ibuff[index] == 0x0A) {
+            cursor_visible = CURSOR_HIDE;
+            term_set_cursor(' ');
+            term_refresh(TERM_MODE_CLI);
+        }
+
         kprintf("%c", id->ibuff[index]);
+
+        if (id->ibuff[index] == 0x0A) {
+            cursor_visible = CURSOR_INVISIBLE;
+        }
     }
 
     /* Update start and size of input buffer */
