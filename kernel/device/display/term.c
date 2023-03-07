@@ -318,7 +318,8 @@ void term_print(int mode, uint8_t c)
         term_act->cursor_y++;
         break;
     case '\t':
-        term_act->cursor_x += (term_act->cursor_x % 4 == 0) ? 0 : (4 - term_act->cursor_x % 4);
+        term_act->cursor_x += (term_act->cursor_x % 8 == 0)
+            ? 8 : (8 - term_act->cursor_x % 8);
         if (term_act->cursor_x > term_act->width) {
             term_act->cursor_x -= term_act->width;
             term_act->cursor_y++;
