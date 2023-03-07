@@ -116,7 +116,7 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
         int64_t index = (id->icursor + i) % TTY_BUFFER_SIZE;
         ((char*)buff)[i] = id->ibuff[index];
 
-        if (id->ibuff[index] == 0x0A) {
+        if (id->ibuff[index] == '\n') {
             cursor_visible = CURSOR_HIDE;
             term_set_cursor(' ');
             term_refresh(TERM_MODE_CLI);
@@ -124,7 +124,7 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
 
         kprintf("%c", id->ibuff[index]);
 
-        if (id->ibuff[index] == 0x0A) {
+        if (id->ibuff[index] == '\n') {
             cursor_visible = CURSOR_INVISIBLE;
         }
     }

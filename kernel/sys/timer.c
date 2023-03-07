@@ -101,7 +101,12 @@ void apic_timer_init(void)
     divisor = 4;
 
     apic_write_reg(APIC_REG_TIMER_ICR, UINT32_MAX);
-    hpet_sleep(10);
+
+    /* If we do not sleep enough time, the whole system will halt when
+     * running in QEMU-KVM mode.
+     */
+    hpet_sleep(50);
+
     base_freq = ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
     klogi("APIC timer base frequency: %d Hz. Divisor: 4. IRQ %d.\n",

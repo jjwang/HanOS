@@ -73,7 +73,7 @@ void apic_init()
 
     lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
     vmm_map(NULL, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
-        VMM_FLAGS_MMIO, true);
+            VMM_FLAGS_MMIO, true);
 
     apic_enable();
 
