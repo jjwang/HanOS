@@ -362,6 +362,11 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(addrspace, vaddr + i, paddr + i, flags);
     }
+
+    if (debug_info) {
+        klogd("VMM: addrspace 0x%x mapped phys 0x%x to virt 0x%x (%d pages)\n",
+              addrspace, paddr, vaddr, np);
+    }
 }
 
 void vmm_init(
