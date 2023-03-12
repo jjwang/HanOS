@@ -9,6 +9,7 @@
 #include <lib/klog.h>
 #include <lib/memutils.h>
 #include <lib/string.h>
+#include <lib/errno.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
@@ -18,58 +19,6 @@
 #include <fs/ttyfs.h>
 #include <device/keyboard/keyboard.h>
 #include <device/display/term.h>
-
-/* This is a linux extension */
-#define TCGETS          0x5401
-#define TCSETS          0x5402
-#define TIOCGPGRP       0x540F
-#define TIOCSPGRP       0x5410
-#define TIOCGWINSZ      0x5413
-#define TIOCSWINSZ      0x5414
-#define TIOCGSID        0x5429
-
-/* Bitwise constants for c_lflag in struct termios_t */
-#define ECHO            0x0001
-#define ECHOE           0x0002
-#define ECHOK           0x0004
-#define ECHONL          0x0008
-#define ICANON          0x0010
-#define IEXTEN          0x0020
-#define ISIG            0x0040
-#define NOFLSH          0x0080
-#define TOSTOP          0x0100
-
-/* Indices for the c_cc array in struct termios_t */
-#define NCCS            11
-#define VEOF            0
-#define VEOL            1
-#define VERASE          2
-#define VINTR           3
-#define VKILL           4
-#define VMIN            5
-#define VQUIT           6
-#define VSTART          7
-#define VSTOP           8
-#define VSUSP           9
-#define VTIME           10
-
-#define NCCS            11
-
-typedef uint32_t cc_t;
-typedef uint32_t speed_t;
-typedef uint32_t tcflag_t;
-
-typedef struct {
-    tcflag_t c_iflag;
-    tcflag_t c_oflag;
-    tcflag_t c_cflag;
-    tcflag_t c_lflag;
-    cc_t     c_cc[NCCS];
-    speed_t  ibaud;
-    speed_t  obaud;
-} termios_t;
-
-static termios_t termios = {0};
 
 extern int64_t syscall_handler();
 
@@ -94,8 +43,8 @@ int64_t k_debug_log(char *message)
     return strlen(message);
 }
 
-uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot, uint64_t flags,
-    uint64_t fd, uint64_t offset)
+uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
+                  uint64_t flags, uint64_t fd, uint64_t offset)
 {
     /* TODO: review the parameters and implement the missing parts */
     (void)prot;
@@ -183,6 +132,7 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 {
     /* "mode" is always zero */
     (void)mode;
+    cpu_set_errno(0);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
     get_full_path(dirfd, path, full_path);
@@ -201,15 +151,7 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
         break;
     }
 
-    int64_t fd = vfs_open(full_path, openmode);
-
-    if (fd == VFS_INVALID_HANDLE) {
-        cpu_set_errno(-1);        
-    } else {
-        cpu_set_errno(0);
-    }
-
-    return fd;
+    return vfs_open(full_path, openmode);
 }
 
 int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
@@ -273,40 +215,19 @@ void k_set_fs_base(uint64_t val)
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
-    if (request == TIOCGWINSZ) {        /* 0x5413 */
-        winsize_t *ws = (winsize_t*)arg;
-        term_get_winsize(ws);
-        klogd("k_ioctl: return row %d, col %d, x-pixel %d, y-pixel %d "
-              "in 0x%x\n", ws->row, ws->col, ws->xpixel, ws->ypixel, arg);
-        cpu_set_errno(0);
-        return 0;
-    } else if (request == TIOCSWINSZ) { /* 0x5413 */
-        winsize_t *ws = (winsize_t*)arg;
-        klogd("k_ioctl: set row %d, col %d, x-pixel %d, y-pixel %d in 0x%x\n",
-              ws->row, ws->col, ws->xpixel, ws->ypixel, arg);
-        if (term_set_winsize(ws)) {
-            cpu_set_errno(0);
-            return 0;
-        } else {
-            cpu_set_errno(-1);
-            return -1;
-        }
-    } else if (request == TIOCGPGRP) {  /* 0x540F */
-        /* Get current process group */
-        /* Do nothing */
-    } else if (request == TCGETS) {     /* 0x5401 */
-        termios_t *t = (termios_t*)arg;
-        *t = termios;
-        klogd("k_ioctl: get termios for fd %d\n", fd);
-    } else if (request == TCSETS) {     /* 0x5402 */
-        termios_t *t = (termios_t*)arg;
-        termios = *t;
-        klogd("k_ioctl: set termios for fd %d\n", fd);
-    }   
+    cpu_set_errno(0);
 
-    klogd("k_ioctl: fd 0x%x, request 0x%x, arg 0x%x\n", fd, request, arg);
+    if (fd == STDIN || fd == STDOUT || fd == STDERR) {
+        if (ttyfh != VFS_INVALID_HANDLE) {
+            return vfs_ioctl(ttyfh, request, arg);
+        }   
+    }
 
-    cpu_set_errno(-1);
+    /* This can return error code for bash's error message: cannot set
+     * terminal process group
+     * TODO: Need to consider how to support this?
+     */
+    cpu_set_errno(EINVAL);
     return -1;
 }
 
@@ -326,7 +247,7 @@ int64_t k_fstatat(
         cpu_set_errno(0); 
         return 0;
     } else {
-        cpu_set_errno(-1);
+        cpu_set_errno(EINVAL);
         return -1;
     }
 }
@@ -334,14 +255,14 @@ int64_t k_fstatat(
 int64_t k_fstat(int64_t handle, int64_t statbuf)
 {
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
+    cpu_set_errno(0);
 
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         *st = fd->tnode->st;
-        cpu_set_errno(0);
         return 0;
     } else {
-        cpu_set_errno(-1);
+        cpu_set_errno(EINVAL);
         return -1;
     }
 }
@@ -349,17 +270,20 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
 int64_t k_getpid()
 {
     task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
 
     if (t != NULL) {
         if (t->tid >= 1) return t->tid;
     }
 
+    cpu_set_errno(EINVAL);
     return -1;
 }
 
 int64_t k_chdir(char *dir)
 {
     task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
 
     if (t != NULL) {
         if (t->tid >= 1 && dir != NULL) {
@@ -369,11 +293,13 @@ int64_t k_chdir(char *dir)
         }
     }   
 
+    cpu_set_errno(EINVAL);
     return -1; 
 }
 
 int64_t k_getppid()
 {
+    cpu_set_errno(EINVAL);
     return -1; 
 }
 
@@ -441,9 +367,6 @@ void syscall_init(void)
     write_msr(MSR_LSTAR, (uint64_t)&syscall_handler);
     write_msr(MSR_SFMASK, X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF
         | X86_EFLAGS_IOPL | X86_EFLAGS_AC | X86_EFLAGS_NT);
-
-    termios.c_lflag = (ISIG | ICANON | ECHO);
-    termios.c_cc[VINTR] = 0x03;
 
     klogi("SYSCALL: MSR_EFER=0x%016x MSR_STAR=0x%016x MSR_LSTAR=0x%016x\n",
           read_msr(MSR_EFER),

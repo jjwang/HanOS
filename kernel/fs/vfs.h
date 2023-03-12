@@ -110,7 +110,7 @@ typedef struct vfs_fsinfo_t {
     int64_t (*sync)(vfs_inode_t *this);
     int64_t (*refresh)(vfs_inode_t *this);
     int64_t (*getdent)(vfs_inode_t *this, size_t pos, vfs_dirent_t *dirent);
-    int64_t (*ioctl)(vfs_inode_t *this, int64_t param, void *data);
+    int64_t (*ioctl)(vfs_inode_t *this, int64_t request, int64_t arg);
 } vfs_fsinfo_t;
 
 struct vfs_tnode_t {
@@ -158,3 +158,4 @@ int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms);
 int64_t vfs_refresh(vfs_handle_t handle);
 int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent);
 int64_t vfs_mount(char* device, char* path, char* fsname);
+int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg);

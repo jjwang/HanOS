@@ -25,6 +25,7 @@ vfs_fsinfo_t ramfs = {
     .read = ramfs_read,
     .getdent = ramfs_getdent,
     .write = ramfs_write,
+    .ioctl = NULL
 };
 
 /* Identifying information for a node */

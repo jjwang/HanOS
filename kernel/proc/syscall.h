@@ -61,19 +61,6 @@
 #define O_CLOEXEC           0x4000
 #define O_PATH              0x8000
 
-/* Error code */
-#define EPERM               1   /* Operation not permitted */
-#define ENOENT              2   /* No such file or directory */
-#define EBADF               9   /* Bad file descriptor */
-#define EINVAL              22  /* Invalid argument */
-#define ENFILE              23  /* File table overflow */
-#define EMFILE              24  /* Too many open files */
-#define ENOSYS              38  /* Function not implemented */
-#define ENOTSOCK            88  /* Argument is not a socket */
-#define EPROTONOSUPPORT     93  /* Protocol not supported */
-#define ESOCKTNOSUPPORT     94  /* Socket type not supported */
-#define EAFNOSUPPORT        97  /* Address family not supported */
-
 /* EFLAGS bits */
 #define X86_EFLAGS_CF   0x00000001 /* Carry Flag */
 #define X86_EFLAGS_PF   0x00000004 /* Parity Flag */

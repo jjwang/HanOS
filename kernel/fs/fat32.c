@@ -42,6 +42,7 @@ vfs_fsinfo_t fat32 = {
     .read = fat32_read,
     .getdent = fat32_getdent,
     .write = fat32_write,
+    .ioctl = NULL
 };
 
 static fat32_ident_t* create_ident()
