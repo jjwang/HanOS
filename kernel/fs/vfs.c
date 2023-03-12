@@ -134,6 +134,19 @@ int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
     return 0;
 }
 
+int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
+{
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    if (!fd)
+        return -1; 
+
+    if (fd->inode->fs->ioctl != NULL) {
+        return fd->inode->fs->ioctl(fd->inode, request, arg);
+    }
+
+    return -1;
+}
+
 /* Mounts a block device with specified filesystem at a path */
 int64_t vfs_mount(char* device, char* path, char* fsname)
 {

@@ -17,6 +17,7 @@
 #include <lib/kmalloc.h>
 #include <lib/memutils.h>
 #include <lib/string.h>
+#include <lib/errno.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 
@@ -146,6 +147,7 @@ vfs_tnode_t* vfs_path_to_node(
             return new_tnode;
         } else {
             klogw("\"%s\" doesn't exist\n", path);
+            cpu_set_errno(ENOENT);
             return NULL;
         }
     }

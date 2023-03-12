@@ -280,10 +280,42 @@ void kmain(void)
         /* Need to handle dynamic linker */
         uint64_t *stack = (uint64_t*)tshell->tstack_top;
 
-        /* Auxilary vector */
-        for (size_t i = 0; i < 3; i++) {
-            *(--stack) = 0;
+#ifdef ENABLE_BASH
+        uint8_t *sa = (uint8_t*)stack;
+
+        const char *argv[] = { "/usr/bin/bash", "--login", NULL };
+        const char *envp[] = { 
+            "HOME=/root",
+            "PATH=/usr/local/bin:/usr/bin:/bin",
+            "TERM=linux",
+            NULL
+        };
+
+        size_t nenv = 0;
+        for (const char **e = envp; *e; e++) {
+            stack = (void*)stack - (strlen(*e) + 1);
+            strcpy((char*)stack, *e);
+            nenv++;
         }
+        size_t nargs = 0;
+        for (const char **e = argv; *e; e++) {
+            stack = (void*)stack - (strlen(*e) + 1);
+            strcpy((char*)stack, *e);
+            nargs++;
+        }
+
+        /* Align stack address to 16-byte */
+        stack = (void*)stack - ((uintptr_t)stack & 0xf);
+
+        if ((nargs + nenv + 1) & 1)
+            stack--;
+#else
+        *(--stack) = 0;
+#endif
+
+        /* Auxilary vector */
+        *(--stack) = 0;
+        *(--stack) = 0;
 
         stack   -= 2;
         stack[0] = 10;
@@ -306,12 +338,27 @@ void kmain(void)
               aux.phentsize, aux.phnum);
 
         /* Environment variables */
-        *(--stack) = 0;
+        *(--stack) = 0;     /* End of environment */
+#ifdef ENABLE_BASH
+        stack -= nenv;
+        for (size_t i = 0; i < nenv; i++) {
+            sa -= strlen(envp[i]) + 1;
+            stack[i] = (uint64_t)sa; 
+        }  
+#endif
 
         /* Arguments */
+        *(--stack) = 0;     /* End of arguments */
+#ifdef ENABLE_BASH
+        stack -= nargs;
+        for (size_t i = 0; i < nargs; i++) {
+            sa -= strlen(argv[i]) + 1;
+            stack[i] = (uint64_t)sa;
+        }
+        *(--stack) = nargs; /* argc */
+#else
         *(--stack) = 0;
-
-        *(--stack) = 0;
+#endif
 
         stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
         memcpy(stack, tshell_regs, sizeof(task_regs_t));
