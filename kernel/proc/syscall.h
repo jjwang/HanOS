@@ -26,6 +26,7 @@
 #define SYSCALL_EXIT        23
 #define SYSCALL_READDIR     24
 #define SYSCALL_MUNMAP      25
+#define SYSCALL_GETCWD      26
 
 /* Standard I/O devices */
 #define STDIN               0

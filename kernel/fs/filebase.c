@@ -29,10 +29,15 @@ vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
                              vfs_inode_t* parent)
 {
     vfs_tnode_t* tnode = (vfs_tnode_t*)kmalloc(sizeof(vfs_tnode_t));
+
     memset(tnode, 0, sizeof(vfs_tnode_t));
     memcpy(tnode->name, name, sizeof(tnode->name));
+
     tnode->inode = inode;
     tnode->parent = parent;
+    tnode->st.st_dev = vfs_new_dev_id();
+    tnode->st.st_ino = vfs_new_ino_id();
+
     return tnode;
 }
 

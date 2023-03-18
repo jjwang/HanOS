@@ -79,4 +79,3 @@ void term_set_cursor(uint8_t c);
 bool term_set_bg_image(image_t *img);
 void term_get_winsize(winsize_t *ws);
 bool term_set_winsize(winsize_t *ws);
-

@@ -32,13 +32,45 @@
 #define SEEK_END            2
 #define SEEK_SET            3
 
+/* Syscall related data structures */
+typedef int64_t dev_t;
+typedef uint64_t ino_t;
+typedef int64_t off_t;
+typedef int32_t mode_t;
+typedef int32_t nlink_t;
+typedef int64_t blksize_t;
+typedef int64_t blkcnt_t;
+
+typedef int32_t pid_t;
+typedef int32_t tid_t;
+typedef int32_t uid_t;
+typedef int32_t gid_t;
+
+#define DT_UNKNOWN  0
+#define DT_FIFO     1
+#define DT_CHR      2
+#define DT_DIR      4
+#define DT_BLK      6
+#define DT_REG      8
+#define DT_LNK      10
+#define DT_SOCK     12
+#define DT_WHT      14
+
+typedef struct {
+    ino_t d_ino;
+    off_t d_off;
+    uint16_t d_reclen;
+    uint8_t d_type;
+    char d_name[1024];
+} dirent_t;
+
+/* VFS data structure definitions */
 typedef int vfs_handle_t;
 
 /* Forward declaration */
 typedef struct vfs_inode_t vfs_inode_t;
 typedef struct vfs_tnode_t vfs_tnode_t;
 
-/* Stores type of node */
 typedef enum {
     VFS_NODE_FILE,
     VFS_NODE_FOLDER,
@@ -53,20 +85,6 @@ typedef enum {
     VFS_MODE_WRITE,
     VFS_MODE_READWRITE
 } vfs_openmode_t;
-
-typedef int64_t off_t;
-
-typedef uint64_t dev_t;
-typedef uint64_t ino_t;
-typedef int32_t mode_t;
-typedef int32_t nlink_t;
-typedef int64_t blksize_t;
-typedef int64_t blkcnt_t;
-
-typedef int32_t pid_t;
-typedef int32_t tid_t;
-typedef int32_t uid_t;
-typedef int32_t gid_t;
 
 typedef struct {
     int64_t tv_sec;
@@ -115,10 +133,9 @@ typedef struct vfs_fsinfo_t {
 
 struct vfs_tnode_t {
     char name[VFS_MAX_NAME_LEN];
-    vfs_stat_t   st;
+    vfs_stat_t st;
     vfs_inode_t *inode;
     vfs_inode_t *parent;
-    vfs_tnode_t *sibling;
 };
 
 struct vfs_inode_t {
@@ -140,22 +157,29 @@ typedef struct {
     vfs_inode_t *inode;
     vfs_openmode_t mode;
     size_t seek_pos;
+    vfs_tnode_t *curr_dir_ent;
+    size_t curr_dir_idx;
 } vfs_node_desc_t;
 
+int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
+
 void vfs_init();
-void vfs_register_fs(vfs_fsinfo_t* fs);
-vfs_fsinfo_t* vfs_get_fs(char* name);
+void vfs_register_fs(vfs_fsinfo_t *fs);
+vfs_fsinfo_t* vfs_get_fs(char *name);
 void vfs_debug();
 
-vfs_handle_t vfs_open(char* path, vfs_openmode_t mode);
-int64_t vfs_create(char* path, vfs_node_type_t type);
+vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
+int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
 int64_t vfs_tell(vfs_handle_t handle);
 int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence);
-int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff);
+int64_t vfs_read(vfs_handle_t handle, size_t len, void *buff);
 int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff);
 int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms);
 int64_t vfs_refresh(vfs_handle_t handle);
-int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent);
-int64_t vfs_mount(char* device, char* path, char* fsname);
+int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent);
+int64_t vfs_mount(char *device, char *path, char *fsname);
 int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg);
+
+dev_t vfs_new_dev_id(void);
+ino_t vfs_new_ino_id(void);
