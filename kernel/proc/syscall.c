@@ -91,41 +91,100 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     }
 }
 
-static void get_full_path(int64_t dirfd, const char *path, char *full_path)
+static int get_full_path(int64_t dirfd, const char *path, char *full_path)
 {
+    /* Clean the full path buffer */
+    full_path[0] = '\0';
+
     if ((int32_t)dirfd == (int32_t)VFS_FDCWD) {
         /* Get the parent path name from TCB (task control block) */
         task_t *t = sched_get_current_task();
-        if (t != NULL) strcat(full_path, t->cwd);
+        if (t != NULL) {
+            if (path[0] == '.') strcpy(full_path, t->cwd);
+        } else {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
     } else if ((int32_t)dirfd >= (int32_t)0) {
         /* Get the parent path name from dirfd */
         vfs_node_desc_t *tnode = vfs_handle_to_fd((vfs_handle_t)dirfd);
         if (tnode != NULL) {
-            strcpy(full_path, tnode->path);
-        }
-    }
-
-    if (!strcmp(path, ".")) {
-        return;
-    }
-
-    if (path[0] != '/') {
-        /* Make sure the parent path name ends with '/' */
-        size_t fpl = strlen(full_path);
-        if (fpl > 0) {
-            if (full_path[fpl - 1] != '/') strcat(full_path, "/");
+            if (path[0] == '.') strcpy(full_path, tnode->path);
         } else {
-            strcpy(full_path, "/");
-        }
-    } else {
-        /* Make sure the parent path name does not end with '/' */
-        size_t fpl = strlen(full_path);
-        if (fpl > 0) {
-            full_path[fpl - 1] = '\0';
+            cpu_set_errno(EINVAL);
+            return -1;
         }
     }
 
-    strcat(full_path, path);
+    if (strcmp(path, ".") == 0) {
+        return 0;
+    }
+
+    if (path[0] == '/') {
+        strcpy(full_path, "/");
+    }
+
+    /* Extracted folder name one by one */
+    char temp_path[VFS_MAX_PATH_LEN] = {0};
+    char *curr = NULL, *child = NULL;
+
+    strcpy(temp_path, path);
+    curr = temp_path;
+
+    while (true) {
+        child = strchr(curr, '/');
+        if (child != NULL) {
+            *child = '\0';
+            child++;
+        }
+        if (strcmp(curr, "..") == 0) {
+            /* Change full path to parent folder */
+            bool succ = false;
+            if (strlen(full_path) > 0) {
+                size_t fpl = strlen(full_path);
+                if (fpl > 0 && full_path[fpl - 1] == '/') {
+                    full_path[fpl - 1] = '\0';
+                }
+                fpl = strlen(full_path);
+                if (fpl > 0) {
+                    for (size_t i = fpl - 1; ; i--) {
+                        if (full_path[i] == '/') {
+                            full_path[(i > 0) ? i : (i + 1)] = '\0';
+                            succ = true;
+                            break;
+                        }
+                        if (i == 0) break;
+                    }
+                }
+            }
+            if (!succ) {
+                cpu_set_errno(EINVAL);
+                return -1;
+            }
+        } else if (strcmp(curr, ".") == 0) {
+            /* Do nothing */
+        } else if (strlen(curr) == 0) {
+            /* Do nothing */
+        } else {
+            /* Make sure the parent path name ends with '/' */
+            size_t fpl = strlen(full_path);
+            if (fpl > 0) {
+                if (full_path[fpl - 1] != '/') strcat(full_path, "/");
+            } else {
+                strcpy(full_path, "/");
+            }
+            strcat(full_path, curr);
+        }
+
+        /* Move to next folder */
+        if (child != NULL) {
+            curr = child;
+        } else {
+            break;
+        }
+    }
+
+    return 0;
 }
 
 int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
@@ -135,7 +194,9 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
     cpu_set_errno(0);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    get_full_path(dirfd, path, full_path);
+    if (get_full_path(dirfd, path, full_path) < 0) {
+        return -1;
+    }
 
     vfs_openmode_t openmode = VFS_MODE_READWRITE;
     switch(flags & 0x7) {
@@ -231,23 +292,24 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
     return -1;
 }
 
-int64_t k_fstatat(
-    int32_t dirfd, const char *path, int64_t statbuf, int64_t flags)
+int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf, int64_t flags)
 {
     (void)flags;
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    get_full_path(dirfd, path, full_path);
+    if (get_full_path(dirfd, path, full_path) < 0) {
+        return -1;
+    }
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
     if (node != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
-        *st = node->st;
+        memcpy(st, &(node->st), sizeof(vfs_stat_t));
         cpu_set_errno(0); 
         return 0;
     } else {
-        cpu_set_errno(EINVAL);
+        cpu_set_errno(ENOENT);
         return -1;
     }
 }
@@ -259,7 +321,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
 
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
-        *st = fd->tnode->st;
+        memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
         return 0;
     } else {
         cpu_set_errno(EINVAL);
@@ -285,15 +347,107 @@ int64_t k_chdir(char *dir)
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
-    if (t != NULL) {
-        if (t->tid >= 1 && dir != NULL) {
-            klogd("SYSCALL: chdir %s\n", dir);
-            strcpy(t->cwd, dir);
-            return 0;
-        }
-    }   
+    if (dir == NULL) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
+    }
 
-    cpu_set_errno(EINVAL);
+    if (strlen(dir) == 0) {
+        cpu_set_errno(ENOENT);
+        goto err_exit;
+    }
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }
+
+    if (t->tid < 1) {
+        cpu_set_errno(ESRCH);
+        goto err_exit;
+    }
+
+    char cwd[VFS_MAX_PATH_LEN] = {0};
+    char parent[VFS_MAX_PATH_LEN] = {0};
+    char currdir[VFS_MAX_PATH_LEN] = {0};
+
+    int64_t ret = vfs_get_parent_dir(dir, parent, currdir);
+
+    if (ret < 0) {
+        strcpy(cwd, dir);
+    } else {
+        if (strcmp(currdir, ".") == 0) {
+            strcpy(cwd, parent);
+        } else if (strcmp(currdir, "..") == 0) {
+            char top_path[VFS_MAX_PATH_LEN] = {0};
+            ret = vfs_get_parent_dir(parent, top_path, currdir);
+            if (ret < 0) {
+                strcpy(cwd, "/");
+            } else {
+                strcpy(cwd, top_path);
+            }
+        } else {
+            strcpy(cwd, dir);
+        }
+    }
+
+    if (vfs_path_to_node(cwd, NO_CREATE, 0) == NULL) {
+        cpu_set_errno(ENOENT);
+        goto err_exit;
+    }
+
+    strcpy(t->cwd, cwd);
+    return 0;
+err_exit:
+    return -1; 
+}
+
+int64_t k_readdir(int64_t handle, uint64_t buff)
+{
+    dirent_t *de = (dirent_t*)buff;
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
+    int64_t errno = 0;
+
+    cpu_set_errno(errno);
+
+    if (fd == NULL) {
+        errno = EINVAL;
+        goto err_exit; 
+    }
+
+    if (!(fd->inode->type == VFS_NODE_FOLDER
+        || fd->inode->type == VFS_NODE_MOUNTPOINT)) {
+        errno = ENOTDIR;
+        goto err_exit;
+    }
+
+    if (fd->curr_dir_ent == NULL) {
+        if (vec_length(&fd->inode->child) == 0) {
+            /* End of dir */
+            goto err_exit;
+        }
+        fd->curr_dir_ent = vec_at(&fd->inode->child, 0);
+        fd->curr_dir_idx = 0;
+    } else {
+        if (fd->curr_dir_idx >= vec_length(&fd->inode->child) - 1) {
+            /* End of dir */
+            fd->curr_dir_ent = NULL;
+            goto err_exit;
+        }
+        fd->curr_dir_ent = vec_at(&fd->inode->child, fd->curr_dir_idx + 1); 
+        fd->curr_dir_idx++;
+    }
+
+    strcpy(de->d_name, fd->curr_dir_ent->name);
+   
+    de->d_ino = fd->curr_dir_ent->st.st_ino;
+    de->d_off = 0;
+    de->d_reclen = sizeof(dirent_t);
+    de->d_type = DT_UNKNOWN;
+ 
+    return 0;
+err_exit:
+    cpu_set_errno(errno);
     return -1; 
 }
 
@@ -314,6 +468,40 @@ void k_exit(int64_t status)
 {
     klogd("k_exit: exit with status %d\n", status);
     sched_exit(status);
+}
+
+int k_getcwd(char *buffer, size_t size)
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (buffer == NULL || size <= 0) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
+    }   
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }
+
+    if (t->tid < 1) {
+        cpu_set_errno(ESRCH);
+        goto err_exit;
+    }
+
+    size_t len = strlen(t->cwd);
+    if (len < size - 1) {
+        strcpy(buffer, t->cwd);
+    } else {
+        cpu_set_errno(ENAMETOOLONG);
+        goto err_exit;
+    }
+
+    return 0;
+
+err_exit:
+    return -1;
 }
 
 syscall_ptr_t syscall_funcs[] = {
@@ -341,9 +529,9 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     [SYSCALL_EXIT]          = (syscall_ptr_t)k_exit,
-    (syscall_ptr_t)k_not_implemented,
-    (syscall_ptr_t)k_not_implemented,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_READDIR]       = (syscall_ptr_t)k_readdir,
+    (syscall_ptr_t)k_not_implemented,                           /* 25 */
+    [SYSCALL_GETCWD]        = (syscall_ptr_t)k_getcwd,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

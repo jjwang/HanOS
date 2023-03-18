@@ -96,6 +96,7 @@ _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
         sched_sleep(500);
+
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
             cursor_visible = CURSOR_VISIBLE;
@@ -216,9 +217,6 @@ void kmain(void)
 
     klogi("Init SMP...\n");
     smp_init();
-
-    klogi("Init VFS...\n");
-    vfs_init();
 
     klogi("Init syscall...\n");
     syscall_init();

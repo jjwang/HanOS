@@ -23,17 +23,51 @@
 #include <lib/memutils.h>
 #include <lib/vector.h>
 
+static bool vfs_initialized = false;
+
 /* VFS wide lock */
-lock_t vfs_lock;
+lock_t vfs_lock = {0};
+
+/* Stat structure related definitions */
+lock_t dev_lock = {0};
+lock_t ino_lock = {0};
+
+static dev_t next_new_dev_id = 1;
+static ino_t next_new_ino_id = 1;
 
 /* Root node */
-vfs_tnode_t vfs_root;
+vfs_tnode_t vfs_root = {0};
 
 /* List of installed filesystems */
 vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 
 /* List of opened files */
 vec_new(vfs_node_desc_t*, vfs_openfiles);
+
+/* Stat structure related function implementations */
+dev_t vfs_new_dev_id(void)
+{
+    dev_t dev_id;
+
+    lock_lock(&dev_lock);
+    dev_id = next_new_dev_id;
+    next_new_dev_id++;
+    lock_release(&dev_lock);
+
+    return dev_id;    
+}
+
+ino_t vfs_new_ino_id(void)
+{
+    ino_t ino_id;
+
+    lock_lock(&ino_lock);
+    ino_id = next_new_ino_id;
+    next_new_ino_id++;
+    lock_release(&ino_lock);
+
+    return ino_id; 
+}
 
 static void dumpnodes_helper(vfs_tnode_t* from, int lvl)
 {
@@ -70,8 +104,13 @@ vfs_fsinfo_t* vfs_get_fs(char* name)
 
 void vfs_init()
 {
+    if (vfs_initialized) return;
+    vfs_initialized = true;
+
     /* Initialize the root folder */
     vfs_root.inode = vfs_alloc_inode(VFS_NODE_FOLDER, 0777, 0, NULL, NULL);
+    vfs_root.st.st_dev = vfs_new_dev_id();
+    vfs_root.st.st_ino = vfs_new_ino_id();
 
     /* Register all file systems which will be used */
     vfs_register_fs(&fat32);
@@ -92,6 +131,7 @@ void vfs_init()
 
     /* Create directory for mounting devices in the future */
     vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
+    vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
 
     /* Mount TTYFS with device name "/dev/tty" */
     vfs_path_to_node("/dev/tty", CREATE, VFS_NODE_FOLDER);
@@ -306,22 +346,44 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
     return ret;
 }
 
-void vfs_get_parent_dir(const char* path, char* parent)
+int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 {
+    if (path == NULL || parent == NULL) {
+        return -1;
+    }
+
     strcpy(parent, path);
 
-    uint64_t idx = strlen(parent) - 1;
-    if (idx > 0) {
-        if (parent[idx] == '/') idx--;
-    }   
+    int64_t idx = strlen(parent) - 1;
+    while (idx >= 0) {
+        if (parent[idx] == '/') {
+            parent[idx] = '\0';
+            idx--;
+        }
+        if (parent[idx] != '/') break;
+    }
 
-    while(idx > 0) {
+    /* Do not have parent directory */
+    if (idx <= 0) {
+        parent[0] = '\0';
+        return -1;
+    }
+
+    /* Have parent directory */
+    while(idx >= 0) {
         if (parent[idx] == '/') {
             parent[idx] = '\0';
             break;
         }   
         idx--;
-    }   
+    }
+
+    if (currdir != NULL && idx >= 0) {
+        strcpy(currdir, &(parent[idx + 1]));
+    }
+    if (strlen(parent) == 0) strcpy(parent, "/");
+
+    return 0;
 }
 
 vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
@@ -335,7 +397,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
         char curpath[VFS_MAX_PATH_LEN] = {0}, parent[VFS_MAX_PATH_LEN] = {0};
         strcpy(curpath, path);
         while (true) {
-            vfs_get_parent_dir(curpath, parent);
+            vfs_get_parent_dir(curpath, parent, NULL);
             if (strcmp(curpath, parent) == 0) break;
             pn = vfs_path_to_node(parent, NO_CREATE, 0);
             if (pn) break;

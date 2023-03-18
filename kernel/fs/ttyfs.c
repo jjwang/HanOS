@@ -206,6 +206,7 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
         term_refresh(TERM_MODE_CLI);
 
         kprintf("%c", id->ibuff[index]);
+
         cursor_visible = CURSOR_INVISIBLE;
     }
 
@@ -246,6 +247,7 @@ int64_t ttyfs_write(vfs_inode_t* this, size_t offset, size_t len,
         term_refresh(TERM_MODE_CLI);
 
         kprintf("%s", msg);
+
         cursor_visible = CURSOR_INVISIBLE;
 
         kmfree(msg);
