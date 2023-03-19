@@ -105,7 +105,7 @@ void apic_timer_init(void)
     /* If we do not sleep enough time, the whole system will halt when
      * running in QEMU-KVM mode.
      */
-    hpet_sleep(50);
+    hpet_sleep(100);
 
     base_freq = ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 

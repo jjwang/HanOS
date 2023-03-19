@@ -40,6 +40,7 @@ typedef struct {
 
     uint32_t fgcolor;
     uint32_t bgcolor;
+    bool     bold;
     uint32_t width;
     uint32_t height;
     uint32_t cursor_x;

@@ -12,15 +12,15 @@
 #define MAX_COMMAND_LEN 1024
 
 #define MSG_WELCOME     "Welcome to HanOS world!"
-#define MSG_PROMPT      "\e[36m$ \e[0m"
+#define MSG_PROMPT      "\033[36m$ \033[0m"
 
 #define print(x)        syscall_entry(SYSCALL_WRITE, STDOUT, x, strlen(x))
 #define readkey(x)      syscall_entry(SYSCALL_READ, STDIN, x, 1)
 
 int main(void)
 {
-    print("\n\e[31mWelcome to HanOS world!\e[0m "
-          "Type \"\e[36mhelp\e[0m\" for command list\n");
+    print("\n\033[31mWelcome to HanOS world!\033[0m "
+          "Type \"\033[36mhelp\033[0m\" for command list\n");
 
     /* Run command loop */
     while (1) {
