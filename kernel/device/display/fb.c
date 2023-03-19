@@ -98,16 +98,17 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 }
 
 void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y, 
-              uint32_t fgcolor, uint32_t bgcolor, uint8_t ch)
+              uint32_t fgcolor, uint32_t bgcolor, uint8_t ch, bool bold)
 {
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
-    uint32_t offset = ((uint32_t)ch) * term_font_norm.charsize;
+    font_psf1_t *term_font = bold ? &term_font_bold : &term_font_norm;
+    uint32_t offset = ((uint32_t)ch) * term_font->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
     for (size_t i = 0; i < FONT_HEIGHT; i++) {
         for (size_t k = 0; k < FONT_WIDTH; k++) {
-            if (i < term_font_norm.charsize
-                && (term_font_norm.data[offset + i] & masks[k]))
+            if (i < term_font->charsize
+                && (term_font->data[offset + i] & masks[k]))
             {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
@@ -153,7 +154,7 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
     x = (fb->width - 8 * desc_len) / 2;
     for (size_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
         fb_putch(fb, x + 8 * desc_idx, (fb->height + 16 * LOGO_SCALE) / 2,
-            COLOR_GREY, bgcolor, desc_str[desc_idx]);
+            COLOR_GREY, bgcolor, desc_str[desc_idx], false);
     }
 }
 
