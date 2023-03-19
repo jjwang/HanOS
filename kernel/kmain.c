@@ -239,7 +239,7 @@ void kmain(void)
 
     ttyfs_init(); 
 
-    klogi("Press \"\e[37m%s\e[0m\" (left) to shell and \"\e[37m%s\e[0m\" back\n",
+    klogi("Press \"\033[37m%s\033[0m\" (left) to shell and \"\033[37m%s\033[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
 
 #if LAUNCHER_GRAPHICS
@@ -409,23 +409,23 @@ void kmain(void)
 
     char *cpu_model_name = cpu_get_model_name();
     if (strlen(cpu_model_name) > 0) {
-        kprintf("\e[36mCPU        \e[0m: %s\n", cpu_model_name);
+        kprintf("\033[36mCPU        \033[0m: %s\n", cpu_model_name);
     }
 
     {
-        kprintf("\e[36mMemory     \e[0m: %11d MB\n", pmm_get_total_memory());
+        kprintf("\033[36mMemory     \033[0m: %11d MB\n", pmm_get_total_memory());
     }
 
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\e[36mMonitor    \e[0m: %4d x %4d cm\n",
+        kprintf("\033[36mMonitor    \033[0m: %4d x %4d cm\n",
                 self_info.screen_hor_size, self_info.screen_ver_size);
     }
 
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\e[36mPreferred  \e[0m: %4d x %4d Pixels\n",
+        kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
                 self_info.prefer_res_x, self_info.prefer_res_y);
 #if LAUNCHER_GRAPHICS
-        kprintf("\e[36mActual     \e[0m: %4d x %4d Pixels\n",
+        kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
                 fb->width, fb->height);
 #endif
     }

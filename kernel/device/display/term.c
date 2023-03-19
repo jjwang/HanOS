@@ -101,7 +101,7 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
     }
 
     if (term_act->state == STATE_IDLE) {
-        char *s = "\e";
+        char *s = "\033";
         if (byte == s[0]) {
             if (!term_act->last_qu_char) {
                 term_act->state = STATE_CMD;
@@ -124,13 +124,23 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
         if (byte == ';') {
             term_act->cparams[term_act->cparamcount++] = 0;
         } else if (byte == 'm') {
-            if (term_act->cparams[0] == 0) {
+            if (term_act->cparamcount > 1) {
+                term_act->bold = term_act->cparams[0];
+            } else {
+                term_act->bold = false;
+            }
+
+            size_t idx = 0;
+            if (term_act->cparamcount > 0) idx = term_act->cparamcount - 1;
+            if (term_act->cparams[term_act->cparamcount - 1] == 0) {
                 term_act->fgcolor = DEFAULT_FGCOLOR;
                 term_act->bgcolor = DEFAULT_BGCOLOR;
-            } else if (term_act->cparams[0] >= 30 && term_act->cparams[0] <= 37) {
-                term_act->fgcolor = font_colors[term_act->cparams[0] - 30];
-            } else if (term_act->cparams[0] >= 40 && term_act->cparams[0] <= 47) {
-                term_act->bgcolor = font_colors[term_act->cparams[0] - 40];
+            } else if (term_act->cparams[idx] >= 30
+                       && term_act->cparams[idx] <= 37) {
+                term_act->fgcolor = font_colors[term_act->cparams[idx] - 30];
+            } else if (term_act->cparams[idx] >= 40
+                       && term_act->cparams[idx] <= 47) {
+                term_act->bgcolor = font_colors[term_act->cparams[idx] - 40];
             }
             goto succ;
         } else if (byte >= '0' && byte <= '9') {
@@ -233,7 +243,8 @@ void term_refresh(int mode)
             }
 
             fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, term_cursor);
+                     term_act->fgcolor, term_act->bgcolor, term_cursor,
+                     term_act->bold);
             if (mode == term_active_mode) {
                 fb_refresh(&(term_act->fb));
             }
@@ -335,8 +346,9 @@ void term_print(int mode, uint8_t c)
                 term_scroll(term_act);
                 term_act->cursor_y--;
             }
-            fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, c);
+            fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH,
+                     term_act->cursor_y * FONT_HEIGHT,
+                     term_act->fgcolor, term_act->bgcolor, c, term_act->bold);
             term_act->cursor_x++;
         } else {
             if (term_act->cursor_x >= term_act->width - 1) {
@@ -353,9 +365,9 @@ void term_print(int mode, uint8_t c)
 
             term_act->lastch = 0;
             fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, '?');
+                     term_act->fgcolor, term_act->bgcolor, '?', false);
             fb_putch(&(term_act->fb), (term_act->cursor_x + 1) * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, '?');
+                     term_act->fgcolor, term_act->bgcolor, '?', false);
             term_act->cursor_x += 2;
         }
     }
@@ -392,8 +404,8 @@ void term_putch(int mode, uint8_t c)
     if (term_act->last_qu_char && c != '[') {
         term_act->state = STATE_IDLE;
 
-        /* Resend the '\e' character */
-        char *s = "\e";
+        /* Resend the '\033' character */
+        char *s = "\033";
         term_print(mode, s[0]);
         term_act->last_qu_char = false;
 
