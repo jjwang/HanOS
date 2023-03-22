@@ -279,6 +279,8 @@ void kmain(void)
         uint64_t *stack = (uint64_t*)tshell->tstack_top;
 
 #ifdef ENABLE_BASH
+        strcpy(tshell->cwd, "/root");
+
         uint8_t *sa = (uint8_t*)stack;
 
         const char *argv[] = { "/usr/bin/bash", "--login", NULL };
