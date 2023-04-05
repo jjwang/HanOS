@@ -3,6 +3,7 @@
 global enter_context_switch
 global exit_context_switch
 global force_context_switch
+global fork_context_switch
 
 extern do_context_switch
 extern lock_release
@@ -57,3 +58,27 @@ force_context_switch:
 .exit:
     ret
 
+fork_context_switch:
+    cli 
+
+    mov rax, rsp 
+
+    push qword 0x30
+    push rax 
+    push qword 0x202
+    push qword 0x28
+    mov rax, .exit
+    push rax 
+
+    push_all
+
+    mov rdi, rsp 
+    mov rsi, 2
+  
+    call do_context_switch
+
+    add rsp, 120 
+    iretq
+
+.exit:
+    ret

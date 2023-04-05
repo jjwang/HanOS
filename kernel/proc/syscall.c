@@ -65,29 +65,41 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     if (flags & MAP_FIXED) {
         ptr = (uint64_t)hint;
 
-        uint64_t phys_ptr = pmm_get(NUM_PAGES(length) + 1, 0x0);
+        uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(NUM_PAGES(length) * PAGE_SIZE));
         /* TODO: How to handle the first information page???  */
         if (as != NULL) {
-            vmm_map(as, ptr, phys_ptr + PAGE_SIZE, NUM_PAGES(length), pf, false);
+            vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
+        } else {
+            kpanic("k_vm_map: address space manager does not exist\n");
         }
 
-        memory_metadata_t *alloc = (memory_metadata_t*)PHYS_TO_VIRT(phys_ptr);
-        alloc->numpages = NUM_PAGES(length);
-        alloc->size = length;
+        mem_map_t m;
+        m.vaddr = ptr;
+        m.paddr = phys_ptr;
+        m.np = NUM_PAGES(length);
+        m.flags = pf; 
+
+        vec_push_back(&t->mmap_list, m); 
 
         return ptr;
     } else {
-        ptr = pmm_get(NUM_PAGES(length) + 1, 0x0);
-        vmm_map(NULL, ptr, ptr, NUM_PAGES(length) + 1, pf, false);
+        ptr = VIRT_TO_PHYS(kmalloc(NUM_PAGES(length) * PAGE_SIZE));
+        vmm_map(NULL, ptr, ptr, NUM_PAGES(length), pf, false);
         if (as != NULL) {
-            vmm_map(as, ptr, ptr, NUM_PAGES(length) + 1, pf, false);
+            vmm_map(as, ptr, ptr, NUM_PAGES(length), pf, false);
+        } else {
+            kpanic("k_vm_map: address space manager does not exist\n");
         }
 
-        memory_metadata_t *alloc = (memory_metadata_t*)ptr;
-        alloc->numpages = NUM_PAGES(length);
-        alloc->size = length;
+        mem_map_t m;
+        m.vaddr = ptr;
+        m.paddr = ptr;
+        m.np = NUM_PAGES(length);
+        m.flags = pf; 
 
-        return (uint64_t)alloc + PAGE_SIZE;
+        vec_push_back(&t->mmap_list, m); 
+
+        return (uint64_t)ptr;
     }
 }
 
@@ -451,17 +463,65 @@ err_exit:
     return -1; 
 }
 
+int64_t k_fork()
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }   
+
+    if (t->tid < 1) {
+        cpu_set_errno(ESRCH);
+        goto err_exit;
+    }   
+
+    task_id_t new_tid = sched_fork();
+
+    klogd("k_fork: parent task id 0x%4x, current task id 0x%4x, "
+          "sched_fork() returns 0x%4x\n",
+          t->tid, sched_get_tid(), new_tid);
+
+    if (new_tid == TID_MAX) {
+        cpu_set_errno(ECHILD);
+        return -1;
+    } else if (new_tid == sched_get_tid()) {
+        return new_tid;
+    } else {
+        return 0;
+    }
+err_exit:
+    return -1;
+}
+
 int64_t k_getppid()
 {
-    cpu_set_errno(EINVAL);
+    cpu_set_errno(ENOSYS);
     return -1; 
 }
 
 int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 {
     klogd("k_fcntl: fd 0x%x, request 0x%x, arg 0x%x\n", fd, request, arg);
-    cpu_set_errno(-1);
+    cpu_set_errno(ENOSYS);
     return -1; 
+}
+
+int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
+{
+    (void)pid;
+    (void)status;
+    (void)flags;
+
+#if 0
+    klogd("k_waitpid: tid %d pid 0x%x status 0x%x flags 0x%x\n",
+          sched_get_tid(), pid, status, flags);
+#endif
+
+    cpu_set_errno(ENOSYS);
+    return -1;
 }
 
 void k_exit(int64_t status)
@@ -504,6 +564,15 @@ err_exit:
     return -1;
 }
 
+int k_getrusage(int64_t who, uint64_t usage) {
+    rusage_t *u = (rusage_t*)usage;
+
+    klogi("SYSCALL: get %d rusage\n", who);
+    memset(u, sizeof(rusage_t), 0);
+
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG]      = (syscall_ptr_t)k_debug_log,
     [SYSCALL_MMAP]          = (syscall_ptr_t)k_vm_map,
@@ -519,7 +588,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_FORK]          = (syscall_ptr_t)k_fork,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,                           /* 16 */
     [SYSCALL_FSTATAT]       = (syscall_ptr_t)k_fstatat,
@@ -527,12 +596,12 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_GETPPID]       = (syscall_ptr_t)k_getppid,
     [SYSCALL_FCNTL]         = (syscall_ptr_t)k_fcntl,
     (syscall_ptr_t)k_not_implemented,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_WAITPID]       = (syscall_ptr_t)k_waitpid,
     [SYSCALL_EXIT]          = (syscall_ptr_t)k_exit,
     [SYSCALL_READDIR]       = (syscall_ptr_t)k_readdir,
     (syscall_ptr_t)k_not_implemented,                           /* 25 */
     [SYSCALL_GETCWD]        = (syscall_ptr_t)k_getcwd,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_GETRUSAGE]     = (syscall_ptr_t)k_getrusage,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

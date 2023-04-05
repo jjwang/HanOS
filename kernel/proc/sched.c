@@ -44,7 +44,8 @@ vec_new_static(task_t*, tasks_active);
 
 extern void enter_context_switch(void* v);
 extern void exit_context_switch(task_t* next, uint64_t cr3val);
-extern void force_context_switch();
+extern void force_context_switch(void);
+extern void fork_context_switch(void);
 
 void task_debug(bool showlog)
 {
@@ -52,7 +53,7 @@ void task_debug(bool showlog)
 
     size_t task_num = vec_length(&tasks_active);
 
-    if (showlog )
+    if (showlog)
         klogd("SCHED: Totally %d active tasks\n", task_num);
 
     for (size_t i = 0; i < task_num; i++) {
@@ -97,11 +98,13 @@ _Noreturn static void task_idle_proc(task_id_t tid)
 }
 
 /*
- * force parameter will be set to true when called from
- * enter_force_context_switch()
+ * Context switch has 3 situations which are determined by parameter "mode":
+ * [0]: triggered by timer cycle.
+ * [1]: triggered by task itself which needs to fall in sleep.
+ * [2]: triggered by fork which needs to create a clone.
  *
  */
-void do_context_switch(void* stack, int64_t force)
+void do_context_switch(void* stack, int64_t mode)
 {
     const smp_info_t* smp_info = smp_get_info();
     if (smp_info == NULL)               return;
@@ -111,8 +114,6 @@ void do_context_switch(void* stack, int64_t force)
 
     /* Firstly all events on event bus should be processed */
     eb_dispatch();
-
-    task_debug(false);
 
     lock_lock(&sched_lock);
 
@@ -136,6 +137,10 @@ void do_context_switch(void* stack, int64_t force)
             curr->status = TASK_READY;
 
         if ((uint64_t)curr != (uint64_t)tasks_idle[cpu_id]) {
+            if (mode == 2) {
+                task_t *curr_fork = task_fork(curr);
+                vec_push_back(&tasks_active, curr_fork);
+            }
             vec_push_back(&tasks_active, curr);
         }
 
@@ -179,7 +184,7 @@ void do_context_switch(void* stack, int64_t force)
 
     tasks_coordinate[cpu_id]++;
     
-    if (!force) {
+    if (mode == 0) {
         apic_send_eoi();
     }
 
@@ -215,6 +220,31 @@ task_id_t sched_get_tid()
 
     if (tid < 1) kpanic("SCHED: %s returns corrupted tid\n", __func__);
 
+    return tid;
+}
+
+task_id_t sched_fork(void)
+{
+    cpu_t* cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        return TID_MAX;
+    }   
+ 
+    lock_lock(&sched_lock);
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t *curr = tasks_running[cpu_id];
+    task_id_t tid = TID_MAX;
+    if (curr) {
+        if (curr->tid < 1) {
+            kpanic("SCHED: %s meets corrupted tid\n", __func__);
+        }
+        tid = curr->tid;
+    }
+
+    lock_release(&sched_lock);
+
+    fork_context_switch();
     return tid;
 }
 
@@ -341,7 +371,9 @@ uint64_t sched_get_ticks()
 
 void sched_init(uint16_t cpu_id)
 {
+    lock_lock(&sched_lock);
     tasks_idle[cpu_id] = task_make(__func__, task_idle_proc, 255, TASK_KERNEL_MODE);
+    lock_release(&sched_lock);
 
     apic_timer_init(); 
     apic_timer_set_period(TIMESLICE_DEFAULT);
@@ -362,8 +394,12 @@ uint16_t sched_get_cpu_num()
 
 task_t *sched_new(void (*entry)(task_id_t), bool usermode)
 {
-    return task_make(
+    lock_lock(&sched_lock);
+    task_t *t = task_make(
         __func__, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE);
+    lock_release(&sched_lock);
+
+    return t;
 }
 
 void sched_add(task_t *t)
@@ -372,3 +408,4 @@ void sched_add(task_t *t)
     vec_push_back(&tasks_active, t); 
     lock_release(&sched_lock);
 }
+

@@ -47,6 +47,13 @@ typedef struct {
     uint8_t *bitmap;
 } mem_info_t;
 
+typedef struct {
+    uint64_t vaddr;
+    uint64_t paddr;
+    uint64_t flags;
+    uint64_t np; 
+} mem_map_t;
+
 void pmm_init(struct limine_memmap_response* map);
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
@@ -72,13 +79,6 @@ typedef struct {
     lock_t    lock;
 } addrspace_t;
 
-typedef struct addrspace_node {
-    void  *virt_start;
-    void  *phys_start;
-    size_t size;
-    int    page_flags;
-} __attribute__((packed)) addrspace_node_t;
-
 void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel);
@@ -90,5 +90,4 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us);
 uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr);
 
 addrspace_t *create_addrspace(void);
-void destory_addrspace(addrspace_t *addrspace);
 

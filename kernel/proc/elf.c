@@ -176,13 +176,13 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
                   page_count);
         }
 
-        addrspace_node_t node;
-        node.virt_start = (void*)virt;
-        node.phys_start = (void*)addr;
-        node.size = page_count * PAGE_SIZE;
-        node.page_flags = pf;
+        mem_map_t m;
+        m.vaddr = virt;
+        m.paddr = addr;
+        m.np = page_count;
+        m.flags = pf;
 
-        vec_push_back(&task->aslist, &node);
+        vec_push_back(&task->mmap_list, m);
 
         memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset,
                phdr[i].filesz);

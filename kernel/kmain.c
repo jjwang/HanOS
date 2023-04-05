@@ -273,10 +273,16 @@ void kmain(void)
     task_t *tshell = sched_new(NULL, true);
     elf_load(tshell, DEFAULT_SHELL_APP, &entry, &aux);
     task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
+    if (tshell->mode == TASK_USER_MODE) {
+        tshell_regs = (task_regs_t*)PHYS_TO_VIRT(tshell_regs);
+    }
 
     if (aux.entry != entry) {
         /* Need to handle dynamic linker */
         uint64_t *stack = (uint64_t*)tshell->tstack_top;
+        if (tshell->mode == TASK_USER_MODE) {
+            stack = (uint64_t*)PHYS_TO_VIRT(stack);
+        }
 
 #ifdef ENABLE_BASH
         strcpy(tshell->cwd, "/root");
@@ -297,6 +303,7 @@ void kmain(void)
             strcpy((char*)stack, *e);
             nenv++;
         }
+
         size_t nargs = 0;
         for (const char **e = argv; *e; e++) {
             stack = (void*)stack - (strlen(*e) + 1);
@@ -363,8 +370,8 @@ void kmain(void)
         stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
         memcpy(stack, tshell_regs, sizeof(task_regs_t));
 
-        tshell->tstack_top = (void*)stack;
-        tshell_regs = (task_regs_t*)tshell->tstack_top;
+        tshell->tstack_top = (void*)VIRT_TO_PHYS(stack);
+        tshell_regs = (task_regs_t*)stack;
         tshell_regs->rsp = (uint64_t)tshell->tstack_top + sizeof(task_regs_t);
     }
 
@@ -384,7 +391,10 @@ void kmain(void)
 
     pci_init();
     ata_init();
+
+#if 0
     pci_get_gfx_device(kernel_addr_request.response);
+#endif
 
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
