@@ -151,7 +151,7 @@ void smp_init()
     memset(smp_info, 0, sizeof(smp_info_t));
 
     /* identity map first mb for the trampoline */
-    vmm_map(NULL, 0, 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT, true);
+    vmm_map(NULL, 0, 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT, false);
 
     prepare_trampoline();
     smp_info->num_cpus = 0;

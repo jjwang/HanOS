@@ -42,13 +42,6 @@ static mem_info_t kmem_info = {0};
 static addrspace_t kaddrspace = {0};
 static bool debug_info = false;
 
-typedef struct {
-    uint64_t vaddr;
-    uint64_t paddr;
-    uint64_t flags;
-    uint64_t np;
-} mem_map_t;
-
 vec_new_static(mem_map_t, mmap_list);
 
 static void bitmap_markused(uint64_t addr, uint64_t numpages)
@@ -406,7 +399,7 @@ void vmm_init(
             vmm_map(NULL, entry->base, entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
-                    | VMM_FLAGS_USERMODE, true);
+                    | VMM_FLAGS_USERMODE, false);
             klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, entry->base, entry->length);
 #endif
@@ -416,7 +409,7 @@ void vmm_init(
             vmm_map(NULL, entry->base, entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
-                    | VMM_FLAGS_USERMODE, true);
+                    | VMM_FLAGS_USERMODE, false);
             klogd("Mapped bootloader reclaimable 0x%9x to 0x%x (len: %d)\n",
                   entry->base, entry->base, entry->length);
 #endif
@@ -442,51 +435,16 @@ addrspace_t *create_addrspace(void)
     if (!as->PML4) {
         kmfree(as);
         return NULL;
-    }
-    memset(as->PML4, 0, PAGE_SIZE * 8);
+    }   
+    memset(as->PML4, 0, PAGE_SIZE * 8); 
     as->lock = lock_new();
 
     size_t len = vec_length(&mmap_list);
     for (size_t i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&mmap_list, i);
-        if (debug_info) {
-            klogi("VMM: PML4 0x%x - %d map 0x%x to 0x%x with %d pages\n",
-                  as->PML4, i, m.paddr, m.vaddr, m.np);
-        }
+        mem_map_t m = vec_at(&mmap_list, i); 
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags, false);
-    }
+    }   
 
-    return as;
-}
-
-void destory_addrspace(addrspace_t *as)
-{
-    uint64_t *pdpt, *pd, *pt;
-
-    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
-        if (as->PML4[i] & 1) {
-            pdpt = (uint64_t *)PHYS_TO_VIRT(as->PML4[i] & 0xfffffffffffff000);
-            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-                if (pdpt[j] & 1) {
-                    pd = (uint64_t *)PHYS_TO_VIRT(pdpt[j] & 0xfffffffffffff000);
-                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                        if (pd[k] & 1) {
-                            pt = (uint64_t *)PHYS_TO_VIRT(pd[k] & 0xfffffffffffff000);
-                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                                if (pt[l] & 1)
-                                    pmm_free(VIRT_TO_PHYS(pt[l] & 0xfffffffffffff000), 8);
-                            }
-                            pmm_free(VIRT_TO_PHYS(pd[k] & 0xfffffffffffff000), 8);
-                        }
-                    }
-                    pmm_free(VIRT_TO_PHYS(pdpt[j] & 0xfffffffffffff000), 8);
-                }
-            }
-            pmm_free(VIRT_TO_PHYS(as->PML4[i] & 0xfffffffffffff000), 8);
-        }
-    }
-
-    pmm_free(VIRT_TO_PHYS(as->PML4), 8);
-    kmfree(as);
+    return as; 
 }
 
