@@ -205,6 +205,7 @@ typedef struct task_t {
     void            *ustack_limit;
 
     task_id_t       tid;
+    task_id_t       ptid;
     task_priority_t priority;
     uint64_t        last_tick;
     uint64_t        wakeup_time;
@@ -212,16 +213,14 @@ typedef struct task_t {
     task_status_t   status;
     task_mode_t     mode;
 
-    struct task_t   *next;
-    struct task_t   *prev;
-
     auxval_t        aux;
 
     addrspace_t     *addrspace;
-    vec_struct(addrspace_node_t*) aslist;
+    vec_struct(mem_map_t) core_mmap_list;
+    vec_struct(mem_map_t) mmap_list;
 
     char            cwd[VFS_MAX_PATH_LEN];
 } task_t;
 
 task_t* task_make(const char *name, void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);
-
+task_t *task_fork(task_t *tp);

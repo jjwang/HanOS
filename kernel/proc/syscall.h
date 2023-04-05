@@ -27,6 +27,7 @@
 #define SYSCALL_READDIR     24
 #define SYSCALL_MUNMAP      25
 #define SYSCALL_GETCWD      26
+#define SYSCALL_GETRUSAGE   27
 
 /* Standard I/O devices */
 #define STDIN               0
@@ -80,6 +81,30 @@
 #define X86_EFLAGS_VIF  0x00080000 /* Virtual Interrupt Flag */
 #define X86_EFLAGS_VIP  0x00100000 /* Virtual Interrupt Pending */
 #define X86_EFLAGS_ID   0x00200000 /* CPUID detection flag */
+
+typedef struct {
+    uint64_t tv_sec;
+    uint64_t tv_usec;
+} timeval_t;
+
+typedef struct {
+    timeval_t ru_utime;     /* user CPU time used */
+    timeval_t ru_stime;     /* system CPU time used */
+    int64_t ru_maxrss;      /* maximum resident set size */
+    int64_t ru_ixrss;       /* integral shared memory size */
+    int64_t ru_idrss;       /* integral unshared data size */
+    int64_t ru_isrss;       /* integral unshared stack size */
+    int64_t ru_minflt;      /* page reclaims (soft page faults) */
+    int64_t ru_majflt;      /* page faults (hard page faults) */
+    int64_t ru_nswap;       /* swaps */
+    int64_t ru_inblock;     /* block input operations */
+    int64_t ru_oublock;     /* block output operations */
+    int64_t ru_msgsnd;      /* IPC messages sent */
+    int64_t ru_msgrcv;      /* IPC messages received */
+    int64_t ru_nsignals;    /* signals received */
+    int64_t ru_nvcsw;       /* voluntary context switches */
+    int64_t ru_nivcsw;      /* involuntary context switches */
+} rusage_t;
 
 /*
  * System Calls are used to call a kernel service from user land. The goal is to
