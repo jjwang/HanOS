@@ -43,7 +43,8 @@ void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
 }
 
 /* Need to free aux->phaddr after calling elf_load()  ... */
-int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
+int64_t elf_load(
+    task_t *task, const char *path_name, uint64_t *entry, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
     size_t elf_len = 0;
@@ -55,8 +56,9 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
     elf_shdr_t *shdr = NULL;
     uint64_t *phaddr = NULL;
 
-    char* fn = path_name;
-    vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
+    const char* fn = path_name;
+    /* TODO: Need to review const description */
+    vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READWRITE);
     if (f != VFS_INVALID_HANDLE) {
         elf_len = vfs_tell(f);
         elf_buff = (uint8_t*)kmalloc(elf_len);
@@ -152,7 +154,7 @@ int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux)
         }
         phaddr[i] = addr;
 
-        size_t pf = VMM_FLAG_PRESENT | VMM_FLAG_USER;
+        size_t pf = VMM_FLAG_PRESENT | VMM_FLAGS_USERMODE;
         if(phdr[i].flags & PF_W) {
             pf |= VMM_FLAG_READWRITE;
         }

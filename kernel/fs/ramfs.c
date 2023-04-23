@@ -74,7 +74,7 @@ void ramfs_init(void* address, uint64_t size)
     klogi("RAMFS: init from 0x%x with len %d\n", address, size);
 
     vmm_map(NULL, (uint64_t)address, VIRT_TO_PHYS(address), NUM_PAGES(size),
-        VMM_FLAGS_DEFAULT, true);
+        VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
 
     unsigned char* ptr = (unsigned char*)address;
 

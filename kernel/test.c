@@ -5,7 +5,7 @@
  @details
  @verbatim
 
-  The file test functions in this file can be called in kmain() file.. 
+  The file test functions in this file can be called in kmain() function.
 
  @endverbatim
 
@@ -14,7 +14,8 @@
 #include <fs/vfs.h>
 #include <fs/fat32.h>
 #include <lib/klog.h>
-#include <test/test.h>
+
+#include <test.h>
 
 void file_test(void);
 
