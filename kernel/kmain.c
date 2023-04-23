@@ -50,7 +50,6 @@
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
-#include <test/test.h>
 #include <proc/elf.h>
 
 #if 1
@@ -267,118 +266,6 @@ void kmain(void)
     klogi("Framebuffer address 0x%x\n", fb->address);
 #endif
 
-    auxval_t aux = {0};
-    uint64_t entry = 0;
-
-    task_t *tshell = sched_new(NULL, true);
-    elf_load(tshell, DEFAULT_SHELL_APP, &entry, &aux);
-    task_regs_t *tshell_regs = (task_regs_t*)tshell->tstack_top;
-    if (tshell->mode == TASK_USER_MODE) {
-        tshell_regs = (task_regs_t*)PHYS_TO_VIRT(tshell_regs);
-    }
-
-    if (aux.entry != entry) {
-        /* Need to handle dynamic linker */
-        uint64_t *stack = (uint64_t*)tshell->tstack_top;
-        if (tshell->mode == TASK_USER_MODE) {
-            stack = (uint64_t*)PHYS_TO_VIRT(stack);
-        }
-
-#ifdef ENABLE_BASH
-        strcpy(tshell->cwd, "/root");
-
-        uint8_t *sa = (uint8_t*)stack;
-
-        const char *argv[] = { "/usr/bin/bash", "--login", NULL };
-        const char *envp[] = { 
-            "HOME=/root",
-            "PATH=/usr/local/bin:/usr/bin:/bin",
-            "TERM=linux",
-            NULL
-        };
-
-        size_t nenv = 0;
-        for (const char **e = envp; *e; e++) {
-            stack = (void*)stack - (strlen(*e) + 1);
-            strcpy((char*)stack, *e);
-            nenv++;
-        }
-
-        size_t nargs = 0;
-        for (const char **e = argv; *e; e++) {
-            stack = (void*)stack - (strlen(*e) + 1);
-            strcpy((char*)stack, *e);
-            nargs++;
-        }
-
-        /* Align stack address to 16-byte */
-        stack = (void*)stack - ((uintptr_t)stack & 0xf);
-
-        if ((nargs + nenv + 1) & 1)
-            stack--;
-#else
-        *(--stack) = 0;
-#endif
-
-        /* Auxilary vector */
-        *(--stack) = 0;
-        *(--stack) = 0;
-
-        stack   -= 2;
-        stack[0] = 10;
-        stack[1] = aux.entry;
-
-        stack   -= 2;
-        stack[0] = 20;
-        stack[1] = aux.phdr;
-
-        stack   -= 2;
-        stack[0] = 21;
-        stack[1] = aux.phentsize;
-
-        stack   -= 2;
-        stack[0] = 22;
-        stack[1] = aux.phnum;
-
-        klogi("Shell: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
-              "phentsize %d, phnum %d\n", tshell->tid, stack, aux.entry, aux.phdr,
-              aux.phentsize, aux.phnum);
-
-        /* Environment variables */
-        *(--stack) = 0;     /* End of environment */
-#ifdef ENABLE_BASH
-        stack -= nenv;
-        for (size_t i = 0; i < nenv; i++) {
-            sa -= strlen(envp[i]) + 1;
-            stack[i] = (uint64_t)sa; 
-        }  
-#endif
-
-        /* Arguments */
-        *(--stack) = 0;     /* End of arguments */
-#ifdef ENABLE_BASH
-        stack -= nargs;
-        for (size_t i = 0; i < nargs; i++) {
-            sa -= strlen(argv[i]) + 1;
-            stack[i] = (uint64_t)sa;
-        }
-        *(--stack) = nargs; /* argc */
-#else
-        *(--stack) = 0;
-#endif
-
-        stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
-        memcpy(stack, tshell_regs, sizeof(task_regs_t));
-
-        tshell->tstack_top = (void*)VIRT_TO_PHYS(stack);
-        tshell_regs = (task_regs_t*)stack;
-        tshell_regs->rsp = (uint64_t)tshell->tstack_top + sizeof(task_regs_t);
-    }
-
-    tshell_regs->rip = (uint64_t)entry;
-    klogi("Shell: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tshell->tstack_top,
-        (tshell->addrspace == NULL) ? NULL : tshell->addrspace->PML4, entry);
-
 #if 0 /* Should be commented when debuging mlibc */
     task_t *tkbd = sched_new(NULL, true);
     elf_load(tkbd, DEFAULT_INPUT_SVR, &entry, &aux);
@@ -443,7 +330,19 @@ void kmain(void)
     }
 
     /* Start all programs */
-    sched_add(tshell);
+#ifdef ENABLE_BASH
+    const char *argv[] = { "/usr/bin/bash", "--login", NULL };
+    const char *envp[] = { 
+        "HOME=/root",
+        "PATH=/usr/local/bin:/usr/bin:/bin",
+        "TERM=linux",
+        NULL
+    };
+
+    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root"); 
+#else 
+    sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
+#endif
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {

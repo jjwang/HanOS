@@ -19,8 +19,10 @@
 #include <lib/klog.h>
 #include <lib/lock.h>
 #include <lib/time.h>
+#include <lib/string.h>
 #include <lib/kmalloc.h>
 #include <proc/sched.h>
+#include <proc/elf.h>
 #include <proc/eventbus.h>
 #include <sys/smp.h>
 #include <sys/timer.h>
@@ -29,6 +31,7 @@
 #include <sys/pit.h>
 #include <sys/isr_base.h>
 #include <sys/panic.h>
+#include <sys/cpu.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
@@ -47,7 +50,7 @@ extern void exit_context_switch(task_t* next, uint64_t cr3val);
 extern void force_context_switch(void);
 extern void fork_context_switch(void);
 
-void task_debug(bool showlog)
+void sched_debug(bool showlog)
 {
     lock_lock(&sched_lock);
 
@@ -132,6 +135,7 @@ void do_context_switch(void* stack, int64_t mode)
     if (curr) {
         curr->tstack_top = stack;
         curr->last_tick = ticks;
+        curr->errno = cpu->errno;
 
         if (curr->status == TASK_RUNNING)
             curr->status = TASK_READY;
@@ -180,6 +184,7 @@ void do_context_switch(void* stack, int64_t mode)
     next->status = TASK_RUNNING;
     tasks_running[cpu_id] = next;
 
+    cpu->errno = next->errno;
     cpu->tss.rsp0 = (uint64_t)(next->kstack_limit + STACK_SIZE);
 
     tasks_coordinate[cpu_id]++;
@@ -191,11 +196,21 @@ void do_context_switch(void* stack, int64_t mode)
     lock_release(&sched_lock);
 
     if (!(cpu->tss.rsp0 & 0xFFFF000000000000) || next->tid < 1) {
-        task_debug(true);
+        sched_debug(true);
         kpanic("SCHED: CPU %d kernel stack 0x%x corrputed "
                "(kernel 0x%x|0x%x user 0x%x|%x in task 0x%x tid %d, last tick %d)\n",
                cpu->cpu_id, cpu->tss.rsp0, next->kstack_top, next->kstack_limit,
                next->ustack_top, next->ustack_limit, next, next->tid, next->last_tick);
+    }
+
+    if (next->fs_base != 0
+        && read_msr(MSR_FS_BASE) != next->fs_base)
+    {
+        /*
+         * Here we must set to the corresponding correct FS_BASE, else it will
+         * bring Page Fault exception.
+         */
+        write_msr(MSR_FS_BASE, next->fs_base);
     }
 
     exit_context_switch(next->tstack_top,
@@ -245,6 +260,7 @@ task_id_t sched_fork(void)
     lock_release(&sched_lock);
 
     fork_context_switch();
+
     return tid;
 }
 
@@ -272,6 +288,55 @@ void sched_sleep(time_t millis)
     lock_release(&sched_lock);
 
     force_context_switch();
+}
+
+task_status_t sched_get_task_status(task_id_t tid)
+{
+    task_t *ntask = NULL;
+    task_status_t status = TASK_UNKNOWN;
+    bool has_child = false; 
+
+    lock_lock(&sched_lock);
+    size_t i;
+    for (i = 0; i < vec_length(&tasks_active); i++) {
+        task_t *t = vec_at(&tasks_active, i); 
+        if (t) {
+            if (t->tid == tid) {
+                status = t->status;
+                ntask = t;
+            }
+            if (t->ptid == tid && t->status != TASK_DEAD
+                && t->status != TASK_UNKNOWN)
+            {
+                has_child = true;
+            }
+        }   
+    }
+    for (i = 0; i < CPU_MAX; i++) {
+        task_t *t = tasks_running[i];
+        if (t) {
+            if (t->tid == tid) {
+                status = t->status;
+                ntask = t;
+            }
+            if (t->ptid == tid && t->status != TASK_DEAD
+                && t->status != TASK_UNKNOWN)
+            {   
+                has_child = true;
+            } 
+        }   
+    }
+    lock_release(&sched_lock);
+
+    if (!has_child) {
+        if (ntask != NULL) {
+            if (ntask->status == TASK_DEAD) ntask->status = TASK_UNKNOWN;
+        }
+    } else {
+        status = TASK_RUNNING;
+    }
+
+    return status;
 }
 
 void sched_exit(int64_t status)
@@ -372,7 +437,8 @@ uint64_t sched_get_ticks()
 void sched_init(uint16_t cpu_id)
 {
     lock_lock(&sched_lock);
-    tasks_idle[cpu_id] = task_make(__func__, task_idle_proc, 255, TASK_KERNEL_MODE);
+    tasks_idle[cpu_id] = task_make(__func__, task_idle_proc, 255,
+                                   TASK_KERNEL_MODE, NULL);
     lock_release(&sched_lock);
 
     apic_timer_init(); 
@@ -396,7 +462,8 @@ task_t *sched_new(void (*entry)(task_id_t), bool usermode)
 {
     lock_lock(&sched_lock);
     task_t *t = task_make(
-        __func__, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE);
+        __func__, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE,
+        NULL);
     lock_release(&sched_lock);
 
     return t;
@@ -409,3 +476,132 @@ void sched_add(task_t *t)
     lock_release(&sched_lock);
 }
 
+task_t *sched_execve(
+    const char *path, const char *argv[], const char *envp[], const char *cwd)
+{
+    klogi("SCHED: execute \"%s\" in \"%s\" directory\n", path, cwd);
+
+    auxval_t aux = {0};
+    uint64_t entry = 0;
+
+    task_t *tp = sched_get_current_task();
+    task_t *tc = NULL;
+
+    lock_lock(&sched_lock);
+    tc = task_make(__func__, NULL, 0, TASK_USER_MODE,
+                   tp == NULL ? NULL : tp->addrspace);
+    lock_release(&sched_lock);
+
+    if (elf_load(tc, path, &entry, &aux)) {
+        return NULL;
+    }
+
+    task_regs_t *tc_regs = (task_regs_t*)PHYS_TO_VIRT(tc->tstack_top);
+
+    klogd("SCHED: execve with regs 0x%x and stack top 0x%x\n",
+          tc_regs, tc->tstack_top); 
+
+    if (aux.entry != entry) {
+        uint64_t *stack = (uint64_t*)PHYS_TO_VIRT(tc->tstack_top);
+
+        if (cwd != NULL) strcpy(tc->cwd, cwd);
+
+        uint8_t *sa = (uint8_t*)stack;
+        size_t nenv = 0, nargs = 0;
+
+        if (argv != NULL && envp != NULL) {
+            for (const char **e = envp; *e; e++) {
+                stack = (void*)stack - (strlen(*e) + 1);
+                strcpy((char*)stack, *e);
+                nenv++;
+            }
+
+            for (const char **e = argv; *e; e++) {
+                stack = (void*)stack - (strlen(*e) + 1);
+                strcpy((char*)stack, *e);
+                nargs++;
+            }
+
+            /* Align stack address to 16-byte */
+            stack = (void*)stack - ((uintptr_t)stack & 0xf);
+
+            if ((nargs + nenv + 1) & 1)
+                stack--;
+        } else {
+            *(--stack) = 0;
+        }
+
+        /* Auxilary vector */
+        *(--stack) = 0;
+        *(--stack) = 0;
+
+        stack   -= 2;
+        stack[0] = 10;
+        stack[1] = aux.entry;
+
+        stack   -= 2;
+        stack[0] = 20;
+        stack[1] = aux.phdr;
+
+        stack   -= 2;
+        stack[0] = 21;
+        stack[1] = aux.phentsize;
+
+        stack   -= 2;
+        stack[0] = 22;
+        stack[1] = aux.phnum;
+
+        klogi("SCHED: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
+              "phentsize %d, phnum %d\n", tc->tid, stack, aux.entry,
+              aux.phdr, aux.phentsize, aux.phnum);
+
+        /* Environment variables */
+        *(--stack) = 0;     /* End of environment */
+
+        if (argv != NULL && envp != NULL) {
+            stack -= nenv;
+            for (size_t i = 0; i < nenv; i++) {
+                sa -= strlen(envp[i]) + 1;
+                stack[i] = (uint64_t)sa;
+            }
+        }
+
+        /* Arguments */
+        *(--stack) = 0;     /* End of arguments */
+
+        if (argv != NULL && envp != NULL) {
+            stack -= nargs;
+            for (size_t i = 0; i < nargs; i++) {
+                sa -= strlen(argv[i]) + 1;
+                stack[i] = (uint64_t)sa;
+            }
+            *(--stack) = nargs; /* argc */
+        } else {
+            *(--stack) = 0;
+        }
+
+        stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
+        memcpy(stack, tc_regs, sizeof(task_regs_t));
+
+        tc->tstack_top = (void*)VIRT_TO_PHYS(stack);
+        tc_regs = (task_regs_t*)stack;
+        tc_regs->rsp = (uint64_t)tc->tstack_top + sizeof(task_regs_t);
+    }
+
+    tc_regs->rip = (uint64_t)entry;
+
+    klogd("SCHED: finished initialization with entry 0x%x\n", entry);
+
+    lock_lock(&sched_lock);
+    if (tp != NULL) {
+        vec_push_back(&tp->child_list, tc->tid);
+        tc->ptid = tp->tid;
+    }
+    lock_release(&sched_lock);
+
+    task_debug(tc, true);
+
+    sched_add(tc);
+
+    return tc;
+}

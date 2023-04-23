@@ -16,7 +16,7 @@
 #include <proc/task.h>
 #include <lib/time.h>
 
-void task_debug(bool showlog);
+void sched_debug(bool showlog);
 
 void sched_init(uint16_t cpu_id);
 task_t *sched_new(void (*entry)(task_id_t), bool usermode);
@@ -30,4 +30,7 @@ task_t *sched_get_current_task(void);
 uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);
 task_id_t sched_get_tid(void);
+task_status_t sched_get_task_status(task_id_t tid);
 
+task_t *sched_execve(
+    const char *path, const char *argv[], const char *envp[], const char *cwd);

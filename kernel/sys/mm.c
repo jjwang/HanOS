@@ -337,6 +337,12 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us)
 
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
         unmap_page(addrspace, vaddr + i); 
+
+    if (debug_info) {
+        klogd("VMM: PML4 0x%x un-mapped virt 0x%x (%d pages)\n",
+              (addrspace == NULL ? kaddrspace.PML4 : addrspace->PML4),
+              vaddr, np);
+    }
 }
 
 void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
@@ -357,8 +363,9 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
     }
 
     if (debug_info) {
-        klogd("VMM: addrspace 0x%x mapped phys 0x%x to virt 0x%x (%d pages)\n",
-              addrspace, paddr, vaddr, np);
+        klogd("VMM: PML4 0x%x mapped phys 0x%x to virt 0x%x (%d pages)\n",
+              (addrspace == NULL ? kaddrspace.PML4 : addrspace->PML4),
+              paddr, vaddr, np);
     }
 }
 
@@ -371,8 +378,12 @@ void vmm_init(
     kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
+    /*
+     * Since we share the same virtual memory manager with user mode, here
+     * we must set flags with USERMODE.
+     */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT, true);
+            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
     klogd("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
@@ -431,7 +442,7 @@ addrspace_t *create_addrspace(void)
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
-    as->PML4 = (void *)PHYS_TO_VIRT(pmm_get(8, 0x0));
+    as->PML4 = kmalloc(PAGE_SIZE * 8);
     if (!as->PML4) {
         kmfree(as);
         return NULL;

@@ -16,11 +16,22 @@
 
 #define print(x)        syscall_entry(SYSCALL_WRITE, STDOUT, x, strlen(x))
 #define readkey(x)      syscall_entry(SYSCALL_READ, STDIN, x, 1)
+#define fork()          syscall_entry(SYSCALL_FORK)
 
 int main(void)
 {
     print("\n\033[31mWelcome to HanOS world!\033[0m "
           "Type \"\033[36mhelp\033[0m\" for command list\n");
+
+    uint64_t ret = fork();
+
+    if (ret == 0) {
+        while (1) { asm volatile ("nop"); }
+    } else if (ret < 0) {
+        while (1) { asm volatile ("nop"); }
+    } else {
+        /* Do nothing */
+    }
 
     /* Run command loop */
     while (1) {

@@ -20,6 +20,7 @@
 #include <sys/panic.h>
 #include <sys/cpu.h>
 #include <proc/sched.h>
+#include <proc/task.h>
 
 static char* exceptions[] = {
     [0] = "Division by Zero",
@@ -64,7 +65,7 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
     handlers[id] = handler;
 }
 
-void exc_handler_proc(uint64_t errcode, uint64_t excno)
+void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
 {
     /* IRQ7 should be skipped */
     if (excno == IRQ7) {
@@ -97,6 +98,22 @@ void exc_handler_proc(uint64_t errcode, uint64_t excno)
 
     task_t *t = sched_get_current_task();
     task_id_t tid = ((t == NULL) ? 0 : t->tid);
+
+    uint64_t cr2val;
+    read_cr("cr2", &cr2val);
+
+    klogd("Dump registers for exception: \n"
+          "RIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
+          "RSP   : 0x%x\nSS    : 0x%x\n"
+          "RAX 0x%x  RBX 0x%x  RCX 0x%x  RDX 0x%x\n"
+          "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
+          "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
+          "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n"
+          "CR2 0x%x\n",
+          tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
+          tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
+          tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
+          tr->r15, cr2val);
 
     kpanic("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
            tid, exceptions[excno], excno, errcode, errcode);
