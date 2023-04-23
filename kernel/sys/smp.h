@@ -27,7 +27,7 @@
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
 #define CPU_MAX                         256
-#define STACK_SIZE                      (PAGE_SIZE * 128)
+#define STACK_SIZE                      (PAGE_SIZE * 32)
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;
@@ -62,7 +62,7 @@ typedef struct [[gnu::packed]] {
     uint16_t cpu_id;
     uint16_t lapic_id;
     bool is_bsp;
-    uint8_t reserved[3];
+    uint8_t reserved_1[3];
 } cpu_t;
 
 typedef struct {

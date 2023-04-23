@@ -24,6 +24,12 @@ extern int64_t syscall_handler();
 
 typedef int64_t (*syscall_ptr_t)(void);
 
+int64_t k_print_log()
+{
+    klogd("SYSCALL: useless log is just for debug purpose\n");
+    return -1; 
+}
+
 int64_t k_not_implemented()
 {
     kpanic("SYSCALL: unimplemented\n");
@@ -60,7 +66,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         as = t->addrspace;
     }
 
-    size_t pf = VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_READWRITE;
+    size_t pf = VMM_FLAG_PRESENT | VMM_FLAGS_USERMODE | VMM_FLAG_READWRITE;
     uint64_t ptr;
     if (flags & MAP_FIXED) {
         ptr = (uint64_t)hint;
@@ -69,6 +75,8 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         /* TODO: How to handle the first information page???  */
         if (as != NULL) {
             vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
+            klogd("k_vm_map: 0x%x map 0x%x to 0x%x with %d pages\n",
+                  as, phys_ptr, ptr, NUM_PAGES(length)); 
         } else {
             kpanic("k_vm_map: address space manager does not exist\n");
         }
@@ -84,9 +92,10 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         return ptr;
     } else {
         ptr = VIRT_TO_PHYS(kmalloc(NUM_PAGES(length) * PAGE_SIZE));
-        vmm_map(NULL, ptr, ptr, NUM_PAGES(length), pf, false);
         if (as != NULL) {
             vmm_map(as, ptr, ptr, NUM_PAGES(length), pf, false);
+            klogd("k_vm_map: 0x%x map 0x%x to 0x%x with %d pages\n",
+                  as, ptr, ptr, NUM_PAGES(length)); 
         } else {
             kpanic("k_vm_map: address space manager does not exist\n");
         }
@@ -258,7 +267,7 @@ int64_t k_read(int64_t fd, void* buf, size_t count)
         int64_t len = vfs_read(fd, count, buf);
         return len;
     } else {
-        cpu_set_errno(-EBADF);
+        cpu_set_errno(EBADF);
         return -1;
     }
 }
@@ -283,7 +292,11 @@ int64_t k_write(int64_t fd, const void* buf, size_t count)
 
 void k_set_fs_base(uint64_t val)
 {
+    task_t *t = sched_get_current_task();
+    klogd("k_set_fs_base: task #%d set to 0x%x\n",
+          t == NULL ? 0 : t->tid, val);
     write_msr(MSR_FS_BASE, val);
+    if (t != NULL) t->fs_base = val;
 }
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
@@ -347,6 +360,7 @@ int64_t k_getpid()
     cpu_set_errno(0);
 
     if (t != NULL) {
+        klogd("k_getpid: task #%d\n", t->tid);
         if (t->tid >= 1) return t->tid;
     }
 
@@ -478,18 +492,24 @@ int64_t k_fork()
         goto err_exit;
     }   
 
-    task_id_t new_tid = sched_fork();
+    task_id_t tid_child = sched_fork();
+    task_t *curr_task = sched_get_current_task();
 
-    klogd("k_fork: parent task id 0x%4x, current task id 0x%4x, "
-          "sched_fork() returns 0x%4x\n",
-          t->tid, sched_get_tid(), new_tid);
+    klogd("k_fork: parent task id #%d, current task id #%d, PML4 0x%x, "
+          "sched_fork() returns #%d\n",
+          t->tid, sched_get_tid(), curr_task->addrspace->PML4, tid_child);
 
-    if (new_tid == TID_MAX) {
+    if (tid_child == TID_MAX) {
         cpu_set_errno(ECHILD);
         return -1;
-    } else if (new_tid == sched_get_tid()) {
-        return new_tid;
+    } else if (t->tid == sched_get_tid()) {
+        /*
+         * This should be parent process and returns child task id, but
+         * currently it returns parent task id
+         */
+        return tid_child;
     } else {
+        /* This should be child process and returns 0 */
         return 0;
     }
 err_exit:
@@ -511,22 +531,53 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 
 int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
 {
-    (void)pid;
-    (void)status;
-    (void)flags;
+    task_t *t = sched_get_current_task();
+    if ((int32_t)pid == (int32_t)(-1) && t != NULL) {
+        klogd("k_waitpid: tid %d waits pid 0x%x status 0x%x flags 0x%x\n",
+              t->tid, pid, status, flags);
 
-#if 0
-    klogd("k_waitpid: tid %d pid 0x%x status 0x%x flags 0x%x\n",
-          sched_get_tid(), pid, status, flags);
-#endif
+        cpu_set_errno(0);
 
-    cpu_set_errno(ENOSYS);
-    return -1;
+        bool all_dead = true;
+        size_t len = vec_length(&(t->child_list));
+
+        for (size_t i = 0; i < len; i++) {
+            task_id_t tid_child = vec_at(&(t->child_list), i);
+            if (sched_get_task_status(tid_child) == TASK_DEAD) {
+                klogd("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
+                if (status != NULL) *status = (int64_t)NULL;
+                return tid_child;
+            }
+            if (sched_get_task_status(tid_child) != TASK_UNKNOWN) {
+                all_dead = false;
+                klogd("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
+            }
+        }
+  
+        if (!all_dead) {
+            sched_sleep(200);
+            klogd("k_waitpid: tid %d waiting pid 0x%x returns with "
+                  "active children\n", t->tid, pid);
+            return 0;
+        } else {
+            klogd("k_waitpid: tid %d waiting pid 0x%x returns without "
+                  "children\n", t->tid, pid);
+            cpu_set_errno(ECHILD);
+            return -1;
+        }
+    } else {
+        klogd("k_waitpid: waiting pid 0x%x with invalid parameters\n", pid);
+        cpu_set_errno(ECHILD);
+        return -1;
+    }
 }
 
 void k_exit(int64_t status)
 {
-    klogd("k_exit: exit with status %d\n", status);
+    task_t *t = sched_get_current_task();
+    if (t != NULL) {
+        klogd("k_exit: task %d exit with status %d\n", t->tid, status);
+    }
     sched_exit(status);
 }
 
@@ -573,6 +624,22 @@ int k_getrusage(int64_t who, uint64_t usage) {
     return 0;
 }
 
+int64_t k_execve(const char *path, const char *argv[], const char *envp[])
+{
+    char *cwd = NULL;
+    task_t *t = sched_get_current_task();
+    if (t != NULL) cwd = t->cwd;
+
+    if (sched_execve(path, argv, envp, cwd) != NULL) {
+        sched_exit(0);
+        cpu_set_errno(0);
+        return 0;
+    } else {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG]      = (syscall_ptr_t)k_debug_log,
     [SYSCALL_MMAP]          = (syscall_ptr_t)k_vm_map,
@@ -589,7 +656,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     [SYSCALL_FORK]          = (syscall_ptr_t)k_fork,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_EXECVE]        = (syscall_ptr_t)k_execve,
     (syscall_ptr_t)k_not_implemented,                           /* 16 */
     [SYSCALL_FSTATAT]       = (syscall_ptr_t)k_fstatat,
     [SYSCALL_FSTAT]         = (syscall_ptr_t)k_fstat,

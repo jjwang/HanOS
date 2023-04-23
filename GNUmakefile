@@ -17,7 +17,7 @@ run: $(ISO_IMAGE)
 # The below "test" is used for debuging bootable disk image
 .PHONY: test
 test:
-	qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=$(HDD_IMAGE)
+	qemu-system-x86_64 -d in_asm,int -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=$(HDD_IMAGE)
 
 # The below "debug" is used for gdb debug
 .PHONY: debug

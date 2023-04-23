@@ -34,39 +34,41 @@ static int symbols_get_index(uint64_t addr)
 void dump_backtrace()
 {
     if (term_get_mode() != TERM_MODE_INFO) {
-        term_switch(TERM_MODE_INFO);
+//        term_switch(TERM_MODE_INFO);
     }
 
     uint64_t* rbp_val = 0;
-    asm volatile("movq %%rbp, %0" : "=rm"(rbp_val));
+    asm volatile ("mov %%rbp, %0" : "=g"(rbp_val) :: "memory");
 
     klog_lock();
+
     klogu("\nStacktrace:\n");
-    uint64_t prev_func_addr = 0;
     for (size_t i = 0; ; i++) {
         uint64_t func_addr = *(rbp_val + 1);
-        if (func_addr == 0x0 || func_addr == prev_func_addr) {
+        rbp_val = (uint64_t*)*rbp_val;
+        if (func_addr == (uint64_t)NULL || rbp_val == NULL 
+            || (uintptr_t)func_addr < 0xffffffff80000000)
+        {
             break;
         }
-        prev_func_addr = func_addr;
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
-            break;
         } else { 
             klogu(" \t[%02d] \t%x (%s+%04x)\n",
                     i, func_addr,
                     _kernel_symtab[idx].name,
                     func_addr - _kernel_symtab[idx].addr);
         }
-        rbp_val = (uint64_t*)*rbp_val;
     }
+
     cpu_t* cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
         klogu("End of trace. CPU %d System halted.\n \n \n", cpu->cpu_id);
     } else {
         klogu("End of trace. System halted.\n \n \n");
     }
+
     klog_unlock();
 }
 

@@ -4,28 +4,58 @@
 
 .extern exc_handler_proc
 
-.macro exc_noerrcode excno
-.global exc\excno
-exc\excno:
-
-    push %rbp
-    mov %rsp, %rbp
-
+.macro pusham
+    cld
     push %rax
-    push %rdi
-    push %rsi
-    push %rdx
+    push %rbx
     push %rcx
+    push %rdx
+    push %rsi
+    push %rdi
+    push %rbp
     push %r8
     push %r9
     push %r10
     push %r11
+    push %r12
+    push %r13
+    push %r14
+    push %r15
+.endm
 
-    /* pass dummy error code */
-    mov $0, %rdi
+.macro popam
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rbp
+    pop %rdi
+    pop %rsi
+    pop %rdx
+    pop %rcx
+    pop %rbx
+    pop %rax
+.endm
 
-    /* pass exception number */
-    mov $\excno, %rsi
+.macro exc_noerrcode excno
+.global exc\excno
+exc\excno:
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+
+    pusham
+
+    mov $\excno, %rdi
+    mov %rsp, %rsi
+    /* Pass dummy error code */
+    movq $0, %rdx
 
     call exc_handler_proc
     jmp .exc_end
@@ -34,45 +64,25 @@ exc\excno:
 .macro exc_errcode excno
 .global exc\excno
 exc\excno:
-    /* pop the error code */
-    popq %r12
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
+    pushq (5 * 8)(%rsp)
 
-    push %rbp
-    mov %rsp, %rbp
+    pusham
 
-    push %rax
-    push %rdi
-
-    /* pass the error code */
-    movq %r12, %rdi
-
-    push %rsi
-    push %rdx
-    push %rcx
-    push %r8
-    push %r9
-    push %r10
-    push %r11
-
-    /* pass exception number */
-    mov $\excno, %rsi
+    mov $\excno, %rdi
+    mov %rsp, %rsi
+    movq (20 * 8)(%rsp), %rdx
 
     call exc_handler_proc
     jmp .exc_end
 .endm
 
 .exc_end:
-    pop %r11
-    pop %r10
-    pop %r9
-    pop %r8
-    pop %rcx
-    pop %rdx
-    pop %rsi
-    pop %rdi
-    pop %rax
-
-    pop %rbp
+    popam
+    addq $40, %rsp
     iretq
 
 exc_noerrcode   0
@@ -99,24 +109,18 @@ exc_errcode     30
 .macro irq_noerrcode irqno
 .global irq\irqno
 irq\irqno:
-    push %rbp
-    mov %rsp, %rbp
+    pushq (6 * 8)(%rsp)
+    pushq (6 * 8)(%rsp)
+    pushq (6 * 8)(%rsp)
+    pushq (6 * 8)(%rsp)
+    pushq (6 * 8)(%rsp)
 
-    push %rax
-    push %rdi
-    push %rsi
-    push %rdx
-    push %rcx
-    push %r8 
-    push %r9 
-    push %r10
-    push %r11
+    pusham
 
-    /* pass dummy error code */
-    mov $0, %rdi
-
-    /* pass exception number */
-    mov $\irqno + 32, %rsi
+    mov $\irqno + 32, %rdi
+    mov %rsp, %rsi
+    /* Pass dummy error code */
+    movq $0, %rdx
 
     call exc_handler_proc
     jmp .exc_end

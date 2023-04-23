@@ -16,7 +16,7 @@ LC_FLAGS :=                 \
     -mno-3dnow              \
     -mno-red-zone           \
     -Wno-cast-function-type \
-    -O2 -mcmodel=large
+    -O2 -mcmodel=large -g
 
 LD_FLAGS :=                 \
 	-flto                   \
@@ -27,7 +27,7 @@ LD_FLAGS :=                 \
 	-Tlinker.ld             \
 	-z max-page-size=0x2000 \
 	-I .                    \
-	-O2 -mcmodel=large
+	-O2 -mcmodel=large -g
 
 LIB_FILES := lib/string.o lib/memutils.o lib/re.o lib/ctype.o lib/command.o
 
@@ -44,6 +44,8 @@ CELF      := hansh
 
 all: $(C_OBJ) $(ASM_OBJ) $(CELF)
 	mkdir -p ../initrd/bin
+	# objcopy --only-keep-debug $(CELF) hansh.sym
+	objcopy --strip-debug $(CELF)
 	cp $(CELF) ../initrd/bin
 
 -include $(C_DEPS)
@@ -60,5 +62,5 @@ $(CELF): %: %.o $(ASM_OBJ) $(C_OBJ)
 	$(LD) $(LD_FLAGS) $(ASM_OBJ) $(LIB_FILES) $< -o $@
 
 clean:
-	rm -rf $(C_OBJ) $(C_DEPS) $(ASM_OBJ) $(CELF)
+	rm -rf $(C_OBJ) $(C_DEPS) $(ASM_OBJ) $(CELF) hansh.sym
 	rm -rf ../initrd/bin/*

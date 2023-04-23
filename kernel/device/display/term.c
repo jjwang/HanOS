@@ -325,6 +325,9 @@ void term_print(int mode, uint8_t c)
     case '\0':
         return;
     case '\n':
+        term_cursor = ' ';
+        term_refresh(mode);
+
         term_act->cursor_x = 0;
         term_act->cursor_y++;
         break;

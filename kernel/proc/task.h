@@ -153,7 +153,8 @@ typedef enum {
     TASK_READY,
     TASK_RUNNING,
     TASK_SLEEPING,
-    TASK_DEAD
+    TASK_DEAD,
+    TASK_UNKNOWN
 } task_status_t;
 
 typedef struct [[gnu::packed]] {
@@ -214,13 +215,20 @@ typedef struct task_t {
     task_mode_t     mode;
 
     auxval_t        aux;
+    vec_struct(task_id_t) child_list;
+
+    int64_t         errno;
 
     addrspace_t     *addrspace;
-    vec_struct(mem_map_t) core_mmap_list;
     vec_struct(mem_map_t) mmap_list;
+    uint64_t        fs_base;
 
     char            cwd[VFS_MAX_PATH_LEN];
 } task_t;
 
-task_t* task_make(const char *name, void (*entry)(task_id_t), task_priority_t priority, task_mode_t mode);
+task_t* task_make(
+    const char *name, void (*entry)(task_id_t), task_priority_t priority,
+    task_mode_t mode, addrspace_t *pas);
+
 task_t *task_fork(task_t *tp);
+void task_debug(task_t *t, bool force);

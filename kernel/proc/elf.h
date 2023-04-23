@@ -116,5 +116,6 @@ typedef struct {
     uint64_t size;      /* Symbol size */
 } elf_sym_t;
 
-int64_t elf_load(task_t *task, char *path_name, uint64_t *entry, auxval_t *aux);
+int64_t elf_load(
+    task_t *task, const char *path_name, uint64_t *entry, auxval_t *aux);
 
