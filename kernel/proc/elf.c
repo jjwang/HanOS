@@ -224,8 +224,6 @@ int64_t elf_load(
         }   
     }   
 
-    if (!elf_buff)  kmfree(elf_buff);
-
     if (has_dynamic_linking) {
         if (entry != NULL) *entry = dynamic_aux.entry;
     } else {
@@ -235,17 +233,22 @@ int64_t elf_load(
     klogi("ELF(%s): Read header with phnum %d, shnum %d, entry 0x%x\n",
           path_name, hdr.phnum, hdr.shnum, hdr.entry);
 
-    if (!phdr)      kmfree(phdr);
-    if (!shdr)      kmfree(shdr);
-    if (!elf_buff)  kmfree(elf_buff);
+    /* TODO: Need to consider when to free phdr, phaddr, shdr and elf_buff */
+#if 0
+    if (phdr)       kmfree(phdr);
+    if (shdr)       kmfree(shdr);
+    if (elf_buff)   kmfree(elf_buff);
+#endif
 
     return 0;
 
 err_exit:
-    if (!phdr)      kmfree(phdr);
-    if (!phaddr)    kmfree(phaddr);
-    if (!shdr)      kmfree(shdr);
-    if (!elf_buff)  kmfree(elf_buff);
+    kloge("ELF(%s): File header error\n", path_name);
+
+    if (phdr)       kmfree(phdr);
+    if (phaddr)     kmfree(phaddr);
+    if (shdr)       kmfree(shdr);
+    if (elf_buff)   kmfree(elf_buff);
 
     return -1;
 }

@@ -334,7 +334,7 @@ void kmain(void)
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = { 
         "HOME=/root",
-        "PATH=/usr/local/bin:/usr/bin:/bin",
+        "PATH=/usr/bin:/bin",
         "TERM=linux",
         NULL
     };
