@@ -149,9 +149,14 @@ vfs_tnode_t* vfs_path_to_node(
 
             vec_push_back(&(curr->inode->child), new_tnode);
             if (curr->inode->fs != NULL) curr->inode->fs->mknode(new_tnode);
+            if (strncmp(path, "usr/local", 9) == 0
+                || strncmp(path, "/usr/bin", 8) == 0)
+            {
+                klogw("VFS: Create \"%s\" node\n", path);
+            }
             return new_tnode;
         } else {
-            klogw("\"%s\" doesn't exist\n", path);
+            klogw("VFS: \"%s\" doesn't exist\n", path);
             cpu_set_errno(ENOENT);
             return NULL;
         }

@@ -5,7 +5,9 @@
  @details
  @verbatim
 
-  All VFS data structures and interfaces are defined in this file. 
+  Like all Unix-like system, inode is the fundmental data structure of VFS which
+  stores file index information. All children node pointers will be stored in
+  inode. tnode is used to store tree information, e.g., parent node.
 
  @endverbatim
 
@@ -73,6 +75,7 @@ typedef struct vfs_tnode_t vfs_tnode_t;
 
 typedef enum {
     VFS_NODE_FILE,
+    VFS_NODE_SYMLINK,
     VFS_NODE_FOLDER,
     VFS_NODE_BLOCK_DEVICE,
     VFS_NODE_CHAR_DEVICE,
@@ -116,8 +119,8 @@ typedef struct {
 
 /* Details about fs format */
 typedef struct vfs_fsinfo_t {
-    char name[16];
-    bool istemp;
+    char name[16];  /* File system name */
+    bool istemp;    /* For ramfs, it is true; for fat32 etc., it is false */
     vec_struct(void*) filelist;
 
     vfs_inode_t* (*mount)(vfs_inode_t *device);
@@ -139,11 +142,11 @@ struct vfs_tnode_t {
 };
 
 struct vfs_inode_t {
-    vfs_node_type_t type;
-    size_t size;
-    uint32_t perms;
-    uint32_t uid;
-    uint32_t refcount;
+    vfs_node_type_t type;   /* File type */
+    size_t size;            /* File size */
+    uint32_t perms;         /* File permission, modified by chmod */
+    uint32_t uid;           /* User id */
+    uint32_t refcount;      /* Reference count, used by symlink */
     tm_t tm;
     vfs_fsinfo_t* fs;
     void* ident;
