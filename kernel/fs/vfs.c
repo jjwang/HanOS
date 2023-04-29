@@ -414,6 +414,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
             req = req->inode->fs->open(req->inode, path);
         }
     }
+
     req->inode->refcount++;
 
     /* Create node descriptor */
@@ -426,9 +427,13 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     nd->seek_pos = 0;
     nd->mode = mode;
 
+    /* If this is a symlink, we should set the real file size */
+    /* TODO: Need to consider in the future */
+    nd->tnode->st.st_size = req->inode->size;
+
     /* Add to current task */
     /* TODO: Loop for NULL pointer position in open file list */
-    vec_push_back(&(vfs_openfiles), nd);
+    vec_push_back(&vfs_openfiles, nd);
 
     /* Return the handle */
     lock_release(&vfs_lock);

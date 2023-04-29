@@ -29,8 +29,10 @@ typedef struct {
 
 typedef struct {
     ramfs_file_t entry;
+    vfs_node_type_t type;
     tm_t tm; 
     char name[VFS_MAX_NAME_LEN];
+    char path[VFS_MAX_NAME_LEN];
     vfs_inode_t* parent;
 } ramfs_ident_item_t;
 
