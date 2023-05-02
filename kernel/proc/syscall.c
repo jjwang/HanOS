@@ -121,7 +121,7 @@ static int get_full_path(int64_t dirfd, const char *path, char *full_path)
         /* Get the parent path name from TCB (task control block) */
         task_t *t = sched_get_current_task();
         if (t != NULL) {
-            if (path[0] == '.') strcpy(full_path, t->cwd);
+            if (path[0] != '/' ) strcpy(full_path, t->cwd);
         } else {
             cpu_set_errno(EINVAL);
             return -1;
@@ -325,6 +325,8 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf, int64_t flag
     if (get_full_path(dirfd, path, full_path) < 0) {
         return -1;
     }
+
+    klogd("k_fstatat: dirfd 0x%x and path %s(%s)\n", dirfd, full_path, path);
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 

@@ -317,12 +317,6 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
 
     lock_lock(&vfs_lock);
 
-    /* Seek position is out of bounds and mode is read only */
-    if (pos >= fd->inode->size && fd->mode == VFS_MODE_READ) {
-        klogw("Seek position out of bounds\n");
-        return -1;
-    }
-
     int64_t offset = -1;
     switch (whence) {
     case SEEK_SET:
@@ -334,6 +328,14 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
     case SEEK_END:
         offset = fd->inode->size - pos;
         break;
+    }
+
+    /* Seek position is out of bounds */
+    if (offset >= fd->inode->size || offset < 0)
+    {
+        klogw("Seek position out of bounds (%d:%d in len %d with offset %d)\n",
+              pos, whence, fd->inode->size, fd->seek_pos);
+        return -1; 
     }
 
     int64_t ret = -1;
