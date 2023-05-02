@@ -19,7 +19,7 @@
 - [x] VFS, FAT32 and RAMFS file system. RAMFS is for loading and executing program from ELF file
 - [x] Tasks of kernel and user space
 - [x] Background image display for command line interface
-- [ ] Add driver and server layer
+- [x] Implement syscalls for bash and other system tools
 
 ## Fonts
 - Adopted 14px fonts from https://font.gohu.org/ and convert to psf1 using bdf2psf.
