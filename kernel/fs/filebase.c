@@ -136,7 +136,7 @@ vfs_tnode_t* vfs_path_to_node(
          */
         if (mode & CREATE && curr_index > pathlen && IS_TRAVERSABLE(curr->inode)) {
             vfs_inode_t* new_inode = vfs_alloc_inode(
-                create_type, 0777, 0, curr->inode->fs, curr->inode->mountpoint);
+                create_type, 0/*777*/, 0, curr->inode->fs, curr->inode->mountpoint);
 
             uint64_t now_sec = hpet_get_nanos() / 1000000000;
 
@@ -154,6 +154,20 @@ vfs_tnode_t* vfs_path_to_node(
             {
                 klogw("VFS: Create \"%s\" node\n", path);
             }
+
+            /* Set the file mode and type */
+            switch(create_type) {
+            case VFS_NODE_FOLDER:
+                new_tnode->st.st_mode |= S_IFDIR;
+                break;
+            case VFS_NODE_FILE:
+                new_tnode->st.st_mode |= S_IFREG;
+                break;
+            case VFS_NODE_SYMLINK:
+                new_tnode->st.st_mode |= S_IFLNK;
+                break;
+            }
+
             return new_tnode;
         } else {
             klogw("VFS: \"%s\" doesn't exist\n", path);
