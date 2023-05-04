@@ -28,6 +28,7 @@
 #define SYSCALL_MUNMAP      25
 #define SYSCALL_GETCWD      26
 #define SYSCALL_GETRUSAGE   27
+#define SYSCALL_GETCLOCK    28
 
 /* Standard I/O devices */
 #define STDIN               0
@@ -81,6 +82,15 @@
 #define X86_EFLAGS_VIF  0x00080000 /* Virtual Interrupt Flag */
 #define X86_EFLAGS_VIP  0x00100000 /* Virtual Interrupt Pending */
 #define X86_EFLAGS_ID   0x00200000 /* CPUID detection flag */
+
+#define CLOCK_REALTIME              0
+#define CLOCK_MONOTONIC             1
+#define CLOCK_PROCESS_CPUTIME_ID    2
+#define CLOCK_THREAD_CPUTIME_ID     3
+#define CLOCK_MONOTONIC_RAW         4
+#define CLOCK_REALTIME_COARSE       5
+#define CLOCK_MONOTONIC_COARSE      6
+#define CLOCK_BOOTTIME              7
 
 typedef struct {
     uint64_t tv_sec;

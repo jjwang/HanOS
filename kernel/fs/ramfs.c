@@ -88,7 +88,24 @@ void ramfs_init(void* address, uint64_t size)
             strcat(dname, file->name);
             size_t dlen = strlen(dname);
             if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
-            vfs_path_to_node(dname, CREATE, VFS_NODE_FOLDER);
+
+            vfs_tnode_t *tnode = vfs_path_to_node
+                (dname, CREATE, VFS_NODE_FOLDER);
+
+            /* Set the file type and mode */
+            tnode->inode->perms = oct2bin((unsigned char*)&file->mode, 7)
+                & (S_IRWXU | S_IRWXG | S_IRWXO);
+            tnode->st.st_mode |= tnode->inode->perms;
+
+            time_t file_time = strtol((char*)file->last_modified, OCT);
+
+            tnode->st.st_atim.tv_sec = file_time;
+            tnode->st.st_mtim.tv_sec = file_time;
+            tnode->st.st_ctim.tv_sec = file_time;
+
+            tnode->st.st_atim.tv_nsec = 0;
+            tnode->st.st_mtim.tv_nsec = 0;
+            tnode->st.st_ctim.tv_nsec = 0;
 
             if (debug_info) {
                 klogi("RAMFS: folder \"%s\"\n", file->name);
@@ -137,7 +154,6 @@ void ramfs_init(void* address, uint64_t size)
 
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_SYMLINK);
                 if (tnode != NULL) tnode->inode->size = item->entry.size;
-
             } else {
                 if (filesize > 0) {
                     item->entry.data = (void*)kmalloc(filesize);
@@ -149,6 +165,19 @@ void ramfs_init(void* address, uint64_t size)
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
                 if (tnode != NULL) tnode->inode->size = item->entry.size;
             }
+
+            /* Set the file type and mode */
+            tnode->inode->perms = oct2bin((unsigned char*)&file->mode, 7)
+                & (S_IRWXU | S_IRWXG | S_IRWXO);
+            tnode->st.st_mode |= tnode->inode->perms;
+
+            tnode->st.st_atim.tv_sec = file_time;
+            tnode->st.st_mtim.tv_sec = file_time;
+            tnode->st.st_ctim.tv_sec = file_time;
+
+            tnode->st.st_atim.tv_nsec = 0;
+            tnode->st.st_mtim.tv_nsec = 0;
+            tnode->st.st_ctim.tv_nsec = 0;
 
             vec_push_back(&ramfs.filelist, (void*)item);
 

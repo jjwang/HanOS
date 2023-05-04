@@ -8,7 +8,7 @@ typedef struct {
     uint64_t size;
 } ramfs_file_t;
 
-typedef struct {
+typedef struct [[gnu::packed]] {
     char     name[100];
     uint64_t mode;
     uint64_t owner_id;
@@ -25,7 +25,7 @@ typedef struct {
     uint64_t dev_major_number;
     uint64_t dev_minor_number;
     uint8_t  filename_prefix[155];
-} __attribute__((packed)) ustar_file_t;
+} ustar_file_t;
 
 typedef struct {
     ramfs_file_t entry;
