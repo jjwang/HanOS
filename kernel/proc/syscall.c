@@ -326,16 +326,18 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf, int64_t flag
         return -1;
     }
 
-    klogd("k_fstatat: dirfd 0x%x and path %s(%s)\n", dirfd, full_path, path);
-
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
     if (node != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(node->st), sizeof(vfs_stat_t));
+        klogd("k_fstatat: success with dirfd 0x%x amd path %s(%s)\n",
+              dirfd, full_path, path);
         cpu_set_errno(0); 
         return 0;
     } else {
+        klogd("k_fstatat: fail with dirfd 0x%x and path %s(%s)\n",
+               dirfd, full_path, path);
         cpu_set_errno(ENOENT);
         return -1;
     }
@@ -354,6 +356,14 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
         cpu_set_errno(EINVAL);
         return -1;
     }
+}
+
+int64_t k_faccessat(int64_t fd)
+{
+    klogd("k_faccessat: fd 0x%x\n", fd);
+
+    cpu_set_errno(EBADF);
+    return -1; 
 }
 
 int64_t k_getpid()
@@ -642,6 +652,45 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     }
 }
 
+int k_getclock(void *_, int64_t which, vfs_timespec_t *out) {
+    (void)_;
+
+    int64_t ret = -1; 
+    cpu_set_errno(0);
+
+    uint64_t now_sec = hpet_get_nanos() / 1000000000;
+    uint64_t now_ns = hpet_get_nanos();
+
+    time_t boot_time = cmos_boot_time();
+
+    switch (which) {
+        case CLOCK_REALTIME:
+        case CLOCK_REALTIME_COARSE:
+            *out = (vfs_timespec_t)
+                        {.tv_sec = now_sec + boot_time,
+                         .tv_nsec = now_ns + boot_time * 1000000000};
+            ret = 0;
+            goto cleanup;
+        case CLOCK_BOOTTIME:
+        case CLOCK_MONOTONIC:
+        case CLOCK_MONOTONIC_RAW:
+        case CLOCK_MONOTONIC_COARSE:
+            *out = (vfs_timespec_t){.tv_sec = now_sec, .tv_nsec = now_ns};
+            ret = 0;
+            goto cleanup;
+        case CLOCK_PROCESS_CPUTIME_ID:
+        case CLOCK_THREAD_CPUTIME_ID:
+            *out = (vfs_timespec_t){.tv_sec = 0, .tv_nsec = 0}; 
+            ret = 0;
+            goto cleanup;
+    }
+
+    cpu_set_errno(EINVAL);
+
+cleanup:
+    return ret;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG]      = (syscall_ptr_t)k_debug_log,
     [SYSCALL_MMAP]          = (syscall_ptr_t)k_vm_map,
@@ -659,7 +708,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     [SYSCALL_FORK]          = (syscall_ptr_t)k_fork,
     [SYSCALL_EXECVE]        = (syscall_ptr_t)k_execve,
-    (syscall_ptr_t)k_not_implemented,                           /* 16 */
+    [SYSCALL_FACCESSAT]     = (syscall_ptr_t)k_faccessat,       /* 16 */
     [SYSCALL_FSTATAT]       = (syscall_ptr_t)k_fstatat,
     [SYSCALL_FSTAT]         = (syscall_ptr_t)k_fstat,
     [SYSCALL_GETPPID]       = (syscall_ptr_t)k_getppid,
@@ -671,6 +720,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,                           /* 25 */
     [SYSCALL_GETCWD]        = (syscall_ptr_t)k_getcwd,
     [SYSCALL_GETRUSAGE]     = (syscall_ptr_t)k_getrusage,
+    [SYSCALL_GETCLOCK]      = (syscall_ptr_t)k_getclock,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

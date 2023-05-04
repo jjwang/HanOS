@@ -319,19 +319,19 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
 
     int64_t offset = -1;
     switch (whence) {
-    case SEEK_SET:
+    case SEEK_SET: /* 3 */
         offset = pos;
         break;
-    case SEEK_CUR:
+    case SEEK_CUR: /* 1 */
         offset = fd->seek_pos + pos;
         break;
-    case SEEK_END:
+    case SEEK_END: /* 2 */
         offset = fd->inode->size - pos;
         break;
     }
 
     /* Seek position is out of bounds */
-    if (offset >= fd->inode->size || offset < 0)
+    if (offset > (int64_t)fd->inode->size || offset < 0)
     {
         klogw("Seek position out of bounds (%d:%d in len %d with offset %d)\n",
               pos, whence, fd->inode->size, fd->seek_pos);

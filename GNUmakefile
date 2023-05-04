@@ -39,14 +39,16 @@ kernel:
 	$(MAKE) -C kernel
 
 initrd:
+	mkdir -p initrd
+	cp -rf sysroot/* initrd
 	$(MAKE) -C userspace
-	$(MAKE) -C server
 
 $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
 	@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
-	mkdir -p initrd/etc initrd/server initrd/usr initrd/root
-	tar -cvf initrd.tar -C $(TARGET_ROOT) bin server assets etc usr root
+	mkdir -p initrd/etc initrd/usr initrd/root
+	cp -rf sysroot/* initrd
+	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
@@ -60,8 +62,8 @@ $(ISO_IMAGE): limine initrd kernel
 
 clean:
 	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \
-        release/hdd.img initrd/etc initrd/server initrd/usr
+        release/hdd.img initrd/etc initrd/usr
+	rm -rf initrd
 	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
-	$(MAKE) -C server clean
 
