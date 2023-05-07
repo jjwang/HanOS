@@ -180,11 +180,12 @@ struct vfs_tnode_t {
 };
 
 struct vfs_inode_t {
-    vfs_node_type_t type;   /* File type */
-    size_t size;            /* File size */
-    uint32_t perms;         /* File permission, modified by chmod */
-    uint32_t uid;           /* User id */
-    uint32_t refcount;      /* Reference count, used by symlink */
+    vfs_node_type_t type;           /* File type */
+    char link[VFS_MAX_NAME_LEN];    /* Target file if file is symlink */
+    size_t size;                    /* File size */
+    uint32_t perms;                 /* File permission, modified by chmod */
+    uint32_t uid;                   /* User id */
+    uint32_t refcount;              /* Reference count, used by symlink */
     tm_t tm;
     vfs_fsinfo_t* fs;
     void* ident;

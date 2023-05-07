@@ -29,6 +29,7 @@
 #define SYSCALL_GETCWD      26
 #define SYSCALL_GETRUSAGE   27
 #define SYSCALL_GETCLOCK    28
+#define SYSCALL_READLINK    29
 
 /* Standard I/O devices */
 #define STDIN               0

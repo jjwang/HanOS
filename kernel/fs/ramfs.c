@@ -153,7 +153,12 @@ void ramfs_init(void* address, uint64_t size)
                 }
 
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_SYMLINK);
-                if (tnode != NULL) tnode->inode->size = item->entry.size;
+                if (tnode->inode->size <= sizeof(tnode->inode->link))
+                {
+                    tnode->inode->size = item->entry.size;
+                    memcpy(tnode->inode->link, file->linked_file_name,
+                           tnode->inode->size);
+                }
             } else {
                 if (filesize > 0) {
                     item->entry.data = (void*)kmalloc(filesize);
@@ -163,7 +168,7 @@ void ramfs_init(void* address, uint64_t size)
                 }
             
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
-                if (tnode != NULL) tnode->inode->size = item->entry.size;
+                tnode->inode->size = item->entry.size;
             }
 
             /* Set the file type and mode */
@@ -179,14 +184,22 @@ void ramfs_init(void* address, uint64_t size)
             tnode->st.st_mtim.tv_nsec = 0;
             tnode->st.st_ctim.tv_nsec = 0;
 
+            /* Set the file size visible in userspace */
+            if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE) {
+                tnode->st.st_size = tnode->inode->size;
+            } else {
+                tnode->st.st_size = 0;
+            }
+
             vec_push_back(&ramfs.filelist, (void*)item);
 
             /* Here we need to set the right parent node */
             strcpy(item->path, dname);
             if (name_index > 0) dname[name_index] = '\0';
-            tnode = vfs_path_to_node(dname, NO_CREATE, 0);
-            if (tnode != NULL) {
-                item->parent = tnode->inode;
+            vfs_tnode_t *parent_tnode = vfs_path_to_node(dname, NO_CREATE, 0);
+            if (parent_tnode != NULL) {
+                item->parent = parent_tnode->inode;
+                tnode->parent = parent_tnode->inode;
             } else {
                 kloge("RAMFS: %s cannot find parent node\n", file->name);
             }
