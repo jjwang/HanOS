@@ -331,7 +331,7 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf, int64_t flag
     if (node != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(node->st), sizeof(vfs_stat_t));
-        klogd("k_fstatat: success with dirfd 0x%x amd path %s(%s)\n",
+        klogd("k_fstatat: success with dirfd 0x%x and path %s(%s)\n",
               dirfd, full_path, path);
         cpu_set_errno(0); 
         return 0;
@@ -691,6 +691,29 @@ cleanup:
     return ret;
 }
 
+int64_t k_readlink(int64_t dirfd, const char *path, void *buffer, size_t max_size)
+{
+    char full_path[VFS_MAX_PATH_LEN] = {0};
+    get_full_path(dirfd, path, full_path);
+
+    vfs_tnode_t* tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
+
+    if (tnode == NULL)                          goto err_exit;
+    if (tnode->inode->type != VFS_NODE_SYMLINK) goto err_exit;
+
+    if ((size_t)strlen(tnode->inode->link) < max_size) {
+        klogd("k_readlink: %s -> %s\n", full_path, tnode->inode->link);
+        strcpy(buffer, tnode->inode->link);
+    } else {
+        goto err_exit;
+    }
+    return strlen(buffer);
+
+err_exit:
+    cpu_set_errno(EINVAL);
+    return -1;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG]      = (syscall_ptr_t)k_debug_log,
     [SYSCALL_MMAP]          = (syscall_ptr_t)k_vm_map,
@@ -721,6 +744,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_GETCWD]        = (syscall_ptr_t)k_getcwd,
     [SYSCALL_GETRUSAGE]     = (syscall_ptr_t)k_getrusage,
     [SYSCALL_GETCLOCK]      = (syscall_ptr_t)k_getclock,
+    [SYSCALL_READLINK]      = (syscall_ptr_t)k_readlink,        /* 29 */
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
