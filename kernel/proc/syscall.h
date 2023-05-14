@@ -30,6 +30,7 @@
 #define SYSCALL_GETRUSAGE   27
 #define SYSCALL_GETCLOCK    28
 #define SYSCALL_READLINK    29
+#define SYSCALL_UNAME       30
 
 /* Standard I/O devices */
 #define STDIN               0

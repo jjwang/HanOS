@@ -3,17 +3,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define LAUNCHER_CLI        true
-#define LAUNCHER_GRAPHICS   true
+#define LAUNCHER_CLI            true
+#define LAUNCHER_GRAPHICS       true
 
 #undef  ENABLE_BASH
 #ifndef ENABLE_BASH
-#define DEFAULT_SHELL_APP   "/bin/hansh"
+#define DEFAULT_SHELL_APP       "/bin/hansh"
 #else
-#define DEFAULT_SHELL_APP   "/usr/bin/bash"
+#define DEFAULT_SHELL_APP       "/usr/bin/bash"
 #endif
 
-#define DEFAULT_INPUT_SVR   "/server/input"
+#define DEFAULT_INPUT_SVR       "/server/input"
+
+#define DEFAULT_TZ_SEC_SHIFT   (8 * 60 * 60)
 
 typedef struct {
     uint64_t screen_hor_size;
