@@ -56,6 +56,7 @@ typedef struct {
     int cparamcount;
     uint8_t lastch;
     bool last_qu_char;
+    int skip_left;
 } term_info_t;
 
 typedef struct [[gnu::packed]] {

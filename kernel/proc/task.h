@@ -195,6 +195,11 @@ typedef struct {
     uint64_t        timestamp;
 } event_t;
 
+typedef struct {
+    vfs_handle_t    fh;
+    vfs_handle_t    newfh;
+} file_dup_t;
+ 
 typedef struct task_t {
     void            *tstack_top;
     void            *tstack_limit;
@@ -215,7 +220,8 @@ typedef struct task_t {
     task_mode_t     mode;
 
     auxval_t        aux;
-    vec_struct(task_id_t) child_list;
+    vec_struct(task_id_t)  child_list;
+    vec_struct(file_dup_t) dup_list;
 
     int64_t         errno;
 

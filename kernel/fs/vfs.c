@@ -147,9 +147,24 @@ int64_t vfs_create(char* path, vfs_node_type_t type)
     int64_t status = 0;
     lock_lock(&vfs_lock);
 
-    vfs_tnode_t* node = vfs_path_to_node(path, CREATE | ERR_ON_EXIST, type);
-    if (!node)
+    vfs_tnode_t* tnode = vfs_path_to_node(path, CREATE | ERR_ON_EXIST, type);
+    if (tnode == NULL) {
         status = -1;
+    } else {
+        /* Set the file time */
+        uint64_t now_sec = hpet_get_nanos() / 1000000000;
+        time_t boot_time = cmos_boot_time();
+
+        time_t file_time = now_sec + boot_time;
+
+        tnode->st.st_atim.tv_sec = file_time;
+        tnode->st.st_mtim.tv_sec = file_time;
+        tnode->st.st_ctim.tv_sec = file_time;
+
+        tnode->st.st_atim.tv_nsec = 0;
+        tnode->st.st_mtim.tv_nsec = 0;
+        tnode->st.st_ctim.tv_nsec = 0;
+    }
 
     lock_release(&vfs_lock);
     return status;
@@ -169,7 +184,8 @@ int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
     }
 
     /* Set new permissions and sync */
-    fd->inode->perms = newperms;
+    fd->inode->perms = newperms & (S_IRWXU | S_IRWXG | S_IRWXO);
+    fd->tnode->st.st_mode |= fd->inode->perms;
     fd->inode->fs->sync(fd->inode);
     return 0;
 }
@@ -304,6 +320,9 @@ int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
     if (status == -1)
         len = 0;
 
+    /* Set file size to stat data structure */
+    fd->tnode->st.st_size = fd->inode->size;
+
     lock_release(&vfs_lock);
     return (int64_t)len;
 }
@@ -333,15 +352,16 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
     /* Seek position is out of bounds */
     if (offset > (int64_t)fd->inode->size || offset < 0)
     {
-        klogw("Seek position out of bounds (%d:%d in len %d with offset %d)\n",
-              pos, whence, fd->inode->size, fd->seek_pos);
+        klogw("Seek position out of bounds: %d(0x%x):%d in len %d with "
+              "offset %d\n",
+              pos, pos, whence, fd->inode->size, fd->seek_pos);
         return -1; 
     }
 
     int64_t ret = -1;
-    if (offset >= 0 && offset < (int64_t)fd->inode->size) {
+    if (offset >= 0 && offset <= (int64_t)fd->inode->size) {
         fd->seek_pos = offset;
-        ret = 0;
+        ret = offset;
     }
 
     lock_release(&vfs_lock);

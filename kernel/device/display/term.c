@@ -404,7 +404,26 @@ void term_putch(int mode, uint8_t c)
         return;
     }   
 
-    if (term_act->last_qu_char && c != '[') {
+    if ((c & 0b10000000) && term_act->skip_left == 0
+        && term_act->state == STATE_IDLE)
+    {
+        /* TODO: currently we do not display utf-8 string. But in the future
+         * we should support utf-8 string.
+         */
+        if (c & 0b11110000) {
+            term_act->skip_left = 2;
+        } else if (c & 0b11100000) {
+            term_act->skip_left = 1;
+        } else if (c & 0b11000000) {
+            term_act->skip_left = 0;
+        } else if (c & 0b11000000) {
+            term_act->skip_left = 0;
+        }
+        return;
+    } else if (term_act->skip_left != 0) {
+        term_act->skip_left--;
+        return;
+    } else if (term_act->last_qu_char && c != '[') {
         term_act->state = STATE_IDLE;
 
         /* Resend the '\033' character */
