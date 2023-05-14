@@ -10,6 +10,8 @@
 #include <sys/cmos.h>
 #include <sys/mm.h>
 
+#include <kconfig.h>
+
 static bool debug_info = false;
 
 /* Filesystem information */
@@ -99,6 +101,9 @@ void ramfs_init(void* address, uint64_t size)
 
             time_t file_time = strtol((char*)file->last_modified, OCT);
 
+            /* Adjust for current time zone */
+            file_time += DEFAULT_TZ_SEC_SHIFT;
+
             tnode->st.st_atim.tv_sec = file_time;
             tnode->st.st_mtim.tv_sec = file_time;
             tnode->st.st_ctim.tv_sec = file_time;
@@ -126,6 +131,10 @@ void ramfs_init(void* address, uint64_t size)
             }
 
             time_t file_time = strtol((char*)file->last_modified, OCT);
+
+            /* Adjust for current time zone */
+            file_time += DEFAULT_TZ_SEC_SHIFT;
+
             ramfs_ident_item_t *item =
                 (ramfs_ident_item_t*)kmalloc(sizeof(ramfs_ident_item_t));
             if (item == NULL) continue;

@@ -112,6 +112,13 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     }
 }
 
+int64_t k_vm_unmap(void *pointer, size_t size)
+{
+    /* Need to implement memory free */
+    cpu_set_errno(0);
+    return 0;
+}
+
 static int get_full_path(int64_t dirfd, const char *path, char *full_path)
 {
     /* Clean the full path buffer */
@@ -220,17 +227,35 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
     }
 
     vfs_openmode_t openmode = VFS_MODE_READWRITE;
+    int32_t perms = 0;
     switch(flags & 0x7) {
     case O_RDONLY:
         openmode = VFS_MODE_READ;
+        perms = S_IRUSR;
         break;
     case O_WRONLY:
         openmode = VFS_MODE_WRITE;
+        perms = S_IWUSR;
         break;
     case O_RDWR:
     default:
         openmode = VFS_MODE_READWRITE;
+        perms = S_IRUSR | S_IWUSR;
         break;
+    }
+
+    if (flags & O_CREAT) {
+        int64_t ret = vfs_create(full_path, VFS_NODE_FILE);
+        if (ret < 0) {
+            cpu_set_errno(EEXIST);
+            return ret;
+        } else {
+            vfs_handle_t fh = vfs_open(full_path, VFS_MODE_WRITE);
+            if (fh != VFS_INVALID_HANDLE) {
+                vfs_chmod(fh, perms | S_IRUSR);
+                vfs_close(fh);
+            }
+        }   
     }
 
     return vfs_open(full_path, openmode);
@@ -238,15 +263,24 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 
 int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
 {
+    cpu_set_errno(0);
+
     if (fd == STDIN || fd == STDOUT || fd == STDERR) {
         return 0;
     }
 
-    return vfs_seek(fd, offset, whence);
+    int64_t ret = vfs_seek(fd, offset, whence);
+
+    klogd("k_seek: fd %d(0x%x), offset %d, whence %d and return %d\n",
+          fd, fd, offset, whence, ret);
+    if (ret < 0) cpu_set_errno(EINVAL);
+    return ret;
 }
 
 int64_t k_close(int64_t fd)
 {
+    klogd("k_close: close file handle %d\n", fd);
+
     if (fd == STDIN || fd == STDOUT || fd == STDERR) {
         return 0;
     }
@@ -254,17 +288,37 @@ int64_t k_close(int64_t fd)
     return vfs_close(fd);
 }
 
-int64_t k_read(int64_t fd, void* buf, size_t count)
+int64_t k_read(int64_t fh, void* buf, size_t count)
 {
+    task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
-    if (fd == STDIN) {
-        if (ttyfh != VFS_INVALID_HANDLE) {
+    if (fh == STDIN) {
+        bool found = false;
+        vfs_handle_t oldfh = -1; 
+        if (t != NULL) {
+            /* Check whether it is redirected from some file */
+            for (size_t i; i < vec_length(&t->dup_list); i++) {
+                file_dup_t dup = vec_at(&t->dup_list, i);
+                if (dup.newfh == fh) {
+                    oldfh = dup.fh;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (found) {
+            int64_t ret = vfs_read(oldfh, count, buf);
+            klogd("k_read: read %d/%d from oldfh %d <- fh %d\n",
+                  ret, count, oldfh, fh);
+            return ret;
+        } else if (ttyfh != VFS_INVALID_HANDLE) {
             return vfs_read(ttyfh, count, buf);
         }
+        cpu_set_errno(EINVAL);
         return -1;
-    } else if (fd >= VFS_MIN_HANDLE) {
-        int64_t len = vfs_read(fd, count, buf);
+    } else if (fh >= VFS_MIN_HANDLE) {
+        int64_t len = vfs_read(fh, count, buf);
         return len;
     } else {
         cpu_set_errno(EBADF);
@@ -272,9 +326,11 @@ int64_t k_read(int64_t fd, void* buf, size_t count)
     }
 }
 
-int64_t k_write(int64_t fd, const void* buf, size_t count)
+int64_t k_write(int64_t fh, const void* buf, size_t count)
 {
-    if (fd == STDOUT || fd == STDERR) {
+    cpu_set_errno(0);
+
+    if (fh == STDOUT || fh == STDERR) {
         if (ttyfh != VFS_INVALID_HANDLE) {
             return vfs_write(ttyfh, count, buf);
         } else {
@@ -282,12 +338,13 @@ int64_t k_write(int64_t fd, const void* buf, size_t count)
         }
     }
 
-    if (fd < 3) {
-        klogd("k_write: invalid file descriptor fd=%d\n", fd);
-        return -EPERM;
+    if (fh < 3) {
+        klogd("k_write: invalid file handler fh=%d\n", fh);
+        cpu_set_errno(EPERM);
+        return -1;
     }
 
-    return -EBADF;
+    return vfs_write(fh, count, buf);
 }
 
 void k_set_fs_base(uint64_t val)
@@ -345,14 +402,20 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf, int64_t flag
 
 int64_t k_fstat(int64_t handle, int64_t statbuf)
 {
+    if (handle == STDIN || handle == STDOUT || handle == STDERR) {
+        return 0;
+    }
+ 
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
     cpu_set_errno(0);
 
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
+        klogd("k_fstat: success with file handle 0x%x\n", handle);
         return 0;
     } else {
+        kloge("k_fstat: fail with file handle 0x%x\n", handle);
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -693,6 +756,8 @@ cleanup:
 
 int64_t k_readlink(int64_t dirfd, const char *path, void *buffer, size_t max_size)
 {
+    cpu_set_errno(0);
+
     char full_path[VFS_MAX_PATH_LEN] = {0};
     get_full_path(dirfd, path, full_path);
 
@@ -712,6 +777,28 @@ int64_t k_readlink(int64_t dirfd, const char *path, void *buffer, size_t max_siz
 err_exit:
     cpu_set_errno(EINVAL);
     return -1;
+}
+
+void k_uname(void)
+{
+}
+
+int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
+{
+    klogd("k_dup3: fh %d <- newfh %d, flags 0x%x\n", fh, newfh, flags);
+
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    file_dup_t dup = {.fh = fh, .newfh = newfh};
+    vec_push_back(&t->dup_list, dup);
+
+    return 0;
 }
 
 syscall_ptr_t syscall_funcs[] = {
@@ -735,17 +822,17 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_FSTATAT]       = (syscall_ptr_t)k_fstatat,
     [SYSCALL_FSTAT]         = (syscall_ptr_t)k_fstat,
     [SYSCALL_GETPPID]       = (syscall_ptr_t)k_getppid,
-    [SYSCALL_FCNTL]         = (syscall_ptr_t)k_fcntl,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_FCNTL]         = (syscall_ptr_t)k_fcntl,           /* 20 */
+    [SYSCALL_DUP3]          = (syscall_ptr_t)k_dup3,
     [SYSCALL_WAITPID]       = (syscall_ptr_t)k_waitpid,
     [SYSCALL_EXIT]          = (syscall_ptr_t)k_exit,
     [SYSCALL_READDIR]       = (syscall_ptr_t)k_readdir,
-    (syscall_ptr_t)k_not_implemented,                           /* 25 */
+    [SYSCALL_MUNMAP]        = (syscall_ptr_t)k_vm_unmap,        /* 25 */
     [SYSCALL_GETCWD]        = (syscall_ptr_t)k_getcwd,
     [SYSCALL_GETRUSAGE]     = (syscall_ptr_t)k_getrusage,
     [SYSCALL_GETCLOCK]      = (syscall_ptr_t)k_getclock,
     [SYSCALL_READLINK]      = (syscall_ptr_t)k_readlink,        /* 29 */
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_UNAME]         = (syscall_ptr_t)k_uname,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

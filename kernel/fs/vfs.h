@@ -68,7 +68,7 @@ typedef struct {
 } dirent_t;
 
 /* VFS data structure definitions */
-typedef int vfs_handle_t;
+typedef int64_t vfs_handle_t;
 
 /* Forward declaration */
 typedef struct vfs_inode_t vfs_inode_t;
