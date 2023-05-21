@@ -27,10 +27,13 @@
 #define SYSCALL_READDIR     24
 #define SYSCALL_MUNMAP      25
 #define SYSCALL_GETCWD      26
-#define SYSCALL_GETRUSAGE   27
-#define SYSCALL_GETCLOCK    28
-#define SYSCALL_READLINK    29
-#define SYSCALL_UNAME       30
+#define SYSCALL_GETCLOCK    27
+#define SYSCALL_READLINK    28
+#define SYSCALL_GETRUSAGE   29
+#define SYSCALL_GETRLIMIT   30
+#define SYSCALL_UNAME       31
+#define SYSCALL_FUTEX_WAIT  32
+#define SYSCALL_FUTEX_WAKE  33
 
 /* Standard I/O devices */
 #define STDIN               0
@@ -93,6 +96,15 @@
 #define CLOCK_REALTIME_COARSE       5
 #define CLOCK_MONOTONIC_COARSE      6
 #define CLOCK_BOOTTIME              7
+
+/* Mode and flags definitions for access() */
+#define R_OK            4           /* Test mode for read permission */
+#define W_OK            2           /* Test mode for write permission */
+#define X_OK            1           /* Test mode for execute permission */
+#define F_OK            0           /* Test mode for existence */
+
+#define AT_SYMLINK_FOLLOW           2
+#define AT_EACCESS                  4
 
 typedef struct {
     uint64_t tv_sec;
