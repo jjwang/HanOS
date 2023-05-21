@@ -125,6 +125,8 @@ int64_t ttyfs_ioctl(vfs_inode_t *this, int64_t request, int64_t arg)
     if (request == TIOCGWINSZ) {        /* 0x5413 */
         winsize_t *ws = (winsize_t*)arg;
         term_get_winsize(ws);
+        klogi("ttyfs_ioctl: TIOCGWINSZ returns row %d col %d\n",
+              ws->row, ws->col);
         ret = 0;
     } else if (request == TIOCSWINSZ) { /* 0x5413 */
         winsize_t *ws = (winsize_t*)arg;
@@ -137,11 +139,11 @@ int64_t ttyfs_ioctl(vfs_inode_t *this, int64_t request, int64_t arg)
     } else if (request == TCGETS) {     /* 0x5401 */
         termios_t *t = (termios_t*)arg;
         *t = id->termios;
-        klogd("TTYFS: get termios\n");
+        klogd("ttyfs_ioctl: TCGETS returns termios\n");
     } else if (request == TCSETS) {     /* 0x5402 */
         termios_t *t = (termios_t*)arg;
         id->termios = *t;
-        klogd("TTYFS: set termios\n");
+        klogd("ttyfs_ioctl: TCSETS sets termios\n");
     }
 
     lock_release(&tty_lock);

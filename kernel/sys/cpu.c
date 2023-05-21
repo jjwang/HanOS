@@ -4,7 +4,11 @@
  @brief   Implementation of CPU related functions
  @details
  @verbatim
-   e.g., CPU initialization...
+
+   Important CPU initializations are:
+   * Write Combining : Write this bit to speed up framebuffer read/write speed.
+   * SSE & SSE2      : We should enable them for SIMD operations.
+
  @endverbatim
 
  **-----------------------------------------------------------------------------
