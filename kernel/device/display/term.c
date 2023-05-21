@@ -123,6 +123,54 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
     } else if (term_act->state == STATE_PARAM) {
         if (byte == ';') {
             term_act->cparams[term_act->cparamcount++] = 0;
+        } else if (byte == 'H') {
+            /* \033[H | CUP | move the cursor to the top left corner of screen */
+            term_act->cursor_x = 0;
+            term_act->cursor_y = 0;
+            goto succ;
+        } else if (byte == 'J') {
+            /* \033[J or \033[0J | ED | clear the screen from cursor to the end
+             * \033[1J           | ED | clear the screen from beginning to the
+             *                   |    | cursor
+             * \033[2J           | ED | clear the entire screen
+             */
+            if (term_act->cparamcount != 1) {
+                goto err;
+            }
+            if (term_act->cparams[0] == 0) {
+                for (size_t y = 0; y < term_act->fb.height; y++) {
+                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                        if (y >= term_act->cursor_y * FONT_HEIGHT
+                            && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
+                        {
+                            if (x < term_act->cursor_x * FONT_WIDTH) continue;
+                        } else if (y < term_act->cursor_y * FONT_HEIGHT) {
+                            continue;
+                        }
+                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+                    }
+                }
+            } else if (term_act->cparams[0] == 1) {
+                for (size_t y = 0; y < term_act->fb.height; y++) {
+                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                        if (y >= term_act->cursor_y * FONT_HEIGHT
+                            && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
+                        {   
+                            if (x >= term_act->cursor_x * FONT_WIDTH) continue;
+                        } else if (y >= (term_act->cursor_y + 1) * FONT_HEIGHT) {
+                            continue;
+                        }   
+                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+                    }   
+                }   
+            } else if (term_act->cparams[0] == 2) {
+                for (size_t y = 0; y < term_act->fb.height; y++) {   
+                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+                    }   
+                }   
+            }
+            goto succ;
         } else if (byte == 'm') {
             if (term_act->cparamcount > 1) {
                 term_act->bold = term_act->cparams[0];
