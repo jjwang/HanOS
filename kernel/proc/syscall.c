@@ -20,6 +20,8 @@
 #include <device/keyboard/keyboard.h>
 #include <device/display/term.h>
 
+#define MMAP_ANON_BASE      0x80000000000
+
 extern int64_t syscall_handler();
 
 typedef int64_t (*syscall_ptr_t)(void);
@@ -54,11 +56,7 @@ int64_t k_debug_log(char *message)
 uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
                   uint64_t flags, uint64_t fd, uint64_t offset)
 {
-    /* TODO: review the parameters and implement the missing parts */
-    (void)prot;
-    (void)flags;
-    (void)fd;
-    (void)offset;
+    cpu_set_errno(0);
 
     task_t *t = sched_get_current_task();
     addrspace_t *as = NULL;
@@ -68,50 +66,60 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         as = t->addrspace;
     }
 
-    size_t pf = VMM_FLAG_PRESENT | VMM_FLAGS_USERMODE | VMM_FLAG_READWRITE;
-    uint64_t ptr;
-    if (flags & MAP_FIXED) {
-        ptr = (uint64_t)hint;
-
-        uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(NUM_PAGES(length) * PAGE_SIZE));
-        /* TODO: How to handle the first information page???  */
-        if (as != NULL) {
-            vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
-            klogd("k_vm_map: 0x%x map 0x%x to 0x%x with %d pages\n",
-                  as, phys_ptr, ptr, NUM_PAGES(length)); 
-        } else {
-            kpanic("k_vm_map: address space manager does not exist\n");
-        }
-
-        mem_map_t m;
-        m.vaddr = ptr;
-        m.paddr = phys_ptr;
-        m.np = NUM_PAGES(length);
-        m.flags = pf; 
-
-        vec_push_back(&t->mmap_list, m); 
-
-        return ptr;
-    } else {
-        ptr = VIRT_TO_PHYS(kmalloc(NUM_PAGES(length) * PAGE_SIZE));
-        if (as != NULL) {
-            vmm_map(as, ptr, ptr, NUM_PAGES(length), pf, false);
-            klogd("k_vm_map: 0x%x map 0x%x to 0x%x with %d pages\n",
-                  as, ptr, ptr, NUM_PAGES(length)); 
-        } else {
-            kpanic("k_vm_map: address space manager does not exist\n");
-        }
-
-        mem_map_t m;
-        m.vaddr = ptr;
-        m.paddr = ptr;
-        m.np = NUM_PAGES(length);
-        m.flags = pf; 
-
-        vec_push_back(&t->mmap_list, m); 
-
-        return (uint64_t)ptr;
+    if (length == 0) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
     }
+
+    if ((flags & MAP_ANONYMOUS) == 0) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }
+
+    if (as == NULL) {
+        cpu_set_errno(EINVAL);
+        kpanic("k_vm_map: address space manager does not exist\n");
+        goto err_exit;
+    }
+
+    size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+    uint64_t ptr = (uint64_t)hint;
+    uint64_t np = NUM_PAGES(length);
+
+    /* TODO: How to handle the first information page???  */
+
+    /* Unmap before mapping to a new malloc-ed memory block */
+    vmm_unmap(as, ptr, np, false);
+
+    uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(np * PAGE_SIZE));
+
+    /* On QEMU, the memory will be set to zero. But on real hardaware,
+     * maybe they will not be set to zero. Need to do this!
+     */
+    memset(PHYS_TO_VIRT(phys_ptr), 0, np * PAGE_SIZE);
+
+    if (!(flags & MAP_FIXED)) {
+        ptr = phys_ptr + MMAP_ANON_BASE;
+    }
+
+    vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
+
+    klogd("k_vm_map: 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d pages, prot "
+          "0x%x, flags 0x%x\n", as, as->PML4, phys_ptr, ptr, np, prot, flags);
+
+    mem_map_t m = {0};
+
+    m.vaddr = ptr;
+    m.paddr = phys_ptr;
+    m.np = NUM_PAGES(length);
+    m.flags = pf;
+
+    vec_push_back(&t->mmap_list, m); 
+
+    return ptr;
+
+err_exit:
+    return (uint64_t)NULL;
 }
 
 int64_t k_vm_unmap(void *pointer, size_t size)

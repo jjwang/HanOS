@@ -536,19 +536,19 @@ task_t *sched_execve(
         *(--stack) = 0;
 
         stack   -= 2;
-        stack[0] = 10;
+        stack[0] = 10;  /* AT_ENTRY */
         stack[1] = aux.entry;
 
         stack   -= 2;
-        stack[0] = 20;
+        stack[0] = 20;  /* AT_PHDR */
         stack[1] = aux.phdr;
 
         stack   -= 2;
-        stack[0] = 21;
+        stack[0] = 21;  /* AT_PHENT */
         stack[1] = aux.phentsize;
 
         stack   -= 2;
-        stack[0] = 22;
+        stack[0] = 22;  /* AT_PHNUM */
         stack[1] = aux.phnum;
 
         klogi("SCHED: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
