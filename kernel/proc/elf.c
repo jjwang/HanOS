@@ -162,14 +162,14 @@ int64_t elf_load(
         size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
         size_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
-        uint64_t addr = pmm_get(page_count, 0x0);
+        uint64_t addr = VIRT_TO_PHYS(kmalloc(page_count * PAGE_SIZE));
         if (!addr) {
             kpanic("ELF(%s): cannot alloc %d bytes memory",
                    path_name, page_count * PAGE_SIZE);
         }
         phaddr[i] = addr;
 
-        size_t pf = VMM_FLAG_PRESENT | VMM_FLAGS_USERMODE;
+        size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
         if(phdr[i].flags & PF_W) {
             pf |= VMM_FLAG_READWRITE;
         }
@@ -183,7 +183,7 @@ int64_t elf_load(
          * It is better if we set initialized data to zero which is also a NULL
          * pointer.
          */
-        memset((void*)PHYS_TO_VIRT(addr), 0x00, PAGE_SIZE * page_count);
+        memset((void*)PHYS_TO_VIRT(addr), 0, PAGE_SIZE * page_count);
 
         if (debug_info) {
             klogi("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
