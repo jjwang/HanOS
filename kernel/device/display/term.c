@@ -21,7 +21,7 @@
 #include <sys/panic.h>
 #include <3rd-party/boot/limine.h>
 
-#if LAUNCHER_GRAPHICS
+#ifdef LAUNCHER_GRAPHICS
 static const uint32_t font_colors[9] = { 
     COLOR_BLACK,
     COLOR_RED,
@@ -35,12 +35,13 @@ static const uint32_t font_colors[9] = {
 };
 
 static term_info_t term_info = {0};
-static term_info_t term_cli = {0};
 static int term_active_mode = TERM_MODE_UNKNOWN; 
 static uint8_t term_cursor = 0;
 static lock_t term_lock = {0};
 static bool term_need_redraw = false;
 #endif
+
+static term_info_t term_cli = {0};
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 

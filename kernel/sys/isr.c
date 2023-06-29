@@ -102,6 +102,10 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
     uint64_t cr2val;
     read_cr("cr2", &cr2val);
 
+    uint64_t cr3val;
+    read_cr("cr3", &cr3val);
+
+
     klogd("Dump registers for exception: \n"
           "RIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
           "RSP   : 0x%x\nSS    : 0x%x\n"
@@ -109,11 +113,11 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
           "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
           "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
           "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n"
-          "CR2 0x%x\n",
+          "CR2 0x%x  CR3 0x%x\n",
           tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
           tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
           tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
-          tr->r15, cr2val);
+          tr->r15, cr2val, cr3val);
 
     kpanic("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
            tid, exceptions[excno], excno, errcode, errcode);
