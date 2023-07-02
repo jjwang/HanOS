@@ -466,8 +466,8 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf, int64_t flag
     if (node != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(node->st), sizeof(vfs_stat_t));
-        klogd("k_fstatat: success with dirfh 0x%x and path %s(%s)\n",
-              dirfh, full_path, path);
+        klogd("k_fstatat: success with dirfh 0x%x and path %s(%s), size %d\n",
+              dirfh, full_path, path, st->st_size);
         cpu_set_errno(0); 
         return 0;
     } else {
@@ -481,6 +481,13 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf, int64_t flag
 int64_t k_fstat(int64_t handle, int64_t statbuf)
 {
     if (handle == STDIN || handle == STDOUT || handle == STDERR) {
+        /*
+         * Set the file stat buffer to zero. If we do nothing here, maybe it
+         * will cause crash in some apps, e.g., cat in coreutils.
+         */
+        vfs_stat_t *st = (vfs_stat_t*)statbuf;
+        memset(st, 0, sizeof(vfs_stat_t));
+        kloge("k_fstat: success with file handle 0x%x\n", handle);
         return 0;
     }
  
@@ -490,7 +497,8 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
-        klogd("k_fstat: success with file handle 0x%x\n", handle);
+        klogd("k_fstat: success with file handle 0x%x and size %d\n",
+              handle, st->st_size);
         return 0;
     } else {
         kloge("k_fstat: fail with file handle 0x%x\n", handle);
