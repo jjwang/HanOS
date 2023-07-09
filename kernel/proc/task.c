@@ -166,6 +166,7 @@ task_t *task_fork(task_t *tp)
     if (tc == NULL) goto norm_exit;
 
     memcpy(tc, tp, sizeof(task_t));
+    memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
 
     tc->addrspace = create_addrspace();
 
@@ -185,6 +186,9 @@ task_t *task_fork(task_t *tp)
                   "with top 0x%x\n", ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags, false);
+
+        m.paddr = ptr;
+        vec_push_back(&tc->mmap_list, m);
     }
 
     tc->tid = curr_tid;
