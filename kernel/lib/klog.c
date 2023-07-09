@@ -13,6 +13,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
+#include <kconfig.h>
 #include <lib/klog.h>
 #include <lib/time.h>
 #include <device/display/term.h>
@@ -230,7 +231,11 @@ void klog_vprintf_wrapper(int mode, const char* s, ...)
 void klog_vprintf(klog_level_t level, const char* s, ...)
 {
     cpu_t* cpu = smp_get_current_cpu(false);
-    if (level < KLOG_LEVEL_UNK) lock_lock(&klog_info_lock);
+
+#ifndef ENABLE_KLOG_DEBUG
+    if (level <= KLOG_LEVEL_DEBUG) return;
+#endif
+    if (level < KLOG_LEVEL_UNK)    lock_lock(&klog_info_lock);
 
     if (level < KLOG_LEVEL_UNK) {
         uint64_t now_sec = hpet_get_nanos() / 1000000000;

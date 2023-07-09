@@ -1,12 +1,12 @@
 /**-----------------------------------------------------------------------------
 
  @file    vector.h
- @brief   Definition of vector related data structures and functions
+ @brief   vector - fundamental data structure, variable length array
  @details
  @verbatim
 
-  This file provides the implementation of a variable length array. All the
-  functions are defined in macros.
+  Implementation of variable length array. All the functions are defined in
+  macros.
 
  @endverbatim
 
@@ -51,6 +51,14 @@
         memcpy(&((vec)->data[index]), &((vec)->data[index + 1]),    \
                sizeof((vec)->data[0]) * (vec)->len - index - 1);    \
         (vec)->len--;                                               \
+    }
+
+#define vec_erase_all(vec)                                          \
+    {                                                               \
+        (vec)->len = 0;                                             \
+        (vec)->capacity = 0;                                        \
+        if ((vec)->data != NULL) kmfree((vec)->data);               \
+        (vec)->data = NULL;                                         \
     }
 
 #define vec_erase_val(vec, val)                                     \

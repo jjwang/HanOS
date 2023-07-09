@@ -21,6 +21,7 @@
 #include <lib/time.h>
 #include <lib/string.h>
 #include <lib/kmalloc.h>
+#include <lib/vector.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
 #include <proc/eventbus.h>
@@ -35,7 +36,7 @@
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
-static lock_t sched_lock = lock_new();
+lock_t sched_lock = lock_new();
 
 static task_t* tasks_running[CPU_MAX] = {0};
 static task_t* tasks_idle[CPU_MAX] = {0};
@@ -96,6 +97,48 @@ _Noreturn static void task_idle_proc(task_id_t tid)
     (void)tid;
 
     while (true) {
+        /* 1. Free resouces of dead tasks in idle task */
+        task_t *t = NULL;
+
+        /* Step 1.1: Find a dead task */
+        lock_lock(&sched_lock);
+        size_t task_num = vec_length(&tasks_active);
+        if (task_num > 0) {
+            for (size_t i = 0; i < task_num; i++) {
+                t = vec_at(&tasks_active, i);
+                if (t->status == TASK_DEAD) {
+                    vec_erase(&tasks_active, i);
+                    break;
+                } else {
+                    t = NULL;
+                }
+            }
+        }
+        lock_release(&sched_lock);
+
+        if (t != NULL) {
+            /* Step 1.2: Free all resources of this dead task */
+            size_t mmap_num = vec_length(&t->mmap_list);
+            for (size_t i = 0; i < mmap_num; i++) {
+                mem_map_t m = vec_at(&t->mmap_list, i); 
+                vmm_unmap(t->addrspace, m.vaddr, m.np, false);
+                kmfree((void*)PHYS_TO_VIRT(m.paddr));
+            }   
+            vec_erase_all(&t->mmap_list);
+
+            klogi("task_idle: dead task tid %d free mmap number %d\n",
+                  t->tid, mmap_num);
+
+            /* 2. Free memory when creating a new task */
+            if (t->mode == TASK_USER_MODE) {
+                /* Notes that ustack memory is already free in mmap_list */
+            }
+            kmfree((void*)t->kstack_limit);
+            kmfree((void*)t->addrspace->PML4);
+            kmfree((void*)t->addrspace);
+            kmfree(t);
+        }
+
         asm volatile ("hlt");
     }
 }
