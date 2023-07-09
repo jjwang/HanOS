@@ -1,11 +1,11 @@
 /**-----------------------------------------------------------------------------
 
  @file    kmalloc.c
- @brief   Implementation of memory allocation related functions
+ @brief   Implementation of kernel memory allocation functions
  @details
  @verbatim
 
-  e.g., malloc, free and realloc.
+  Kernel memory allocation function includes malloc, free and realloc.
 
  @endverbatim
  @todo    Memory allocation should be improved for better efficiency.

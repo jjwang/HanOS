@@ -27,6 +27,7 @@ extern int64_t syscall_handler();
 typedef int64_t (*syscall_ptr_t)(void);
 
 extern lock_t vfs_lock;
+extern lock_t sched_lock;
 
 int64_t k_print_log()
 {
@@ -53,9 +54,16 @@ int64_t k_debug_log(char *message)
     return strlen(message);
 }
 
+/*
+ * Need to use prot parameter - PROT_READ (0x01), PROT_WRITE (0x02),
+ * PROT_EXEC (0x04).
+ */
 uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
                   uint64_t flags, uint64_t fd, uint64_t offset)
 {
+    (void)fd;
+    (void)offset;
+
     cpu_set_errno(0);
 
     task_t *t = sched_get_current_task();
@@ -96,7 +104,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     /* On QEMU, the memory will be set to zero. But on real hardaware,
      * maybe they will not be set to zero. Need to do this!
      */
-    memset(PHYS_TO_VIRT(phys_ptr), 0, np * PAGE_SIZE);
+    memset((void*)PHYS_TO_VIRT(phys_ptr), 0, np * PAGE_SIZE);
 
     if (!(flags & MAP_FIXED)) {
         ptr = phys_ptr + MMAP_ANON_BASE;
@@ -104,8 +112,9 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
 
     vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
 
-    klogd("k_vm_map: 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d pages, prot "
-          "0x%x, flags 0x%x\n", as, as->PML4, phys_ptr, ptr, np, prot, flags);
+    klogi("k_vm_map: tid %d #%d 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d pages,"
+          "prot 0x%x, flags 0x%x\n", t->tid, vec_length(&t->mmap_list),
+          as, as->PML4, phys_ptr, ptr, np, prot, flags);
 
     mem_map_t m = {0};
 
@@ -114,7 +123,9 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     m.np = NUM_PAGES(length);
     m.flags = pf;
 
-    vec_push_back(&t->mmap_list, m); 
+    lock_lock(&sched_lock);
+    vec_push_back(&t->mmap_list, m);
+    lock_release(&sched_lock);
 
     return ptr;
 
@@ -126,7 +137,29 @@ int64_t k_vm_unmap(void *pointer, size_t size)
 {
     /* Need to implement memory free */
     cpu_set_errno(0);
+
+    task_t *t = sched_get_current_task();
+    addrspace_t *as = NULL;
+
+    if (t != NULL) {
+        if (t->tid < 1) kpanic("SYSCALL: %s meets corrupted tid\n", __func__);
+        as = t->addrspace;
+    }
+
+    if (size == 0) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
+    }
+
+    uint64_t np = NUM_PAGES(size);
+    klogi("k_vm_unmap: 0x%x(PML4 0x%x) unmap 0x%x with %d pages\n",
+          as, as->PML4, pointer, np);
+
     return 0;
+
+err_exit:
+    cpu_set_errno(EINVAL);
+    return -1;
 }
 
 static int get_full_path(int64_t dirfh, const char *path, char *full_path)
@@ -231,8 +264,6 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     (void)mode;
     cpu_set_errno(0);
 
-    klogi("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
-
     char full_path[VFS_MAX_PATH_LEN] = {0};
     if (get_full_path(dirfh, path, full_path) < 0) {
         cpu_set_errno(EINVAL);
@@ -253,7 +284,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         if (strlen(full_path) > 0) {
             vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
             if (tnode == NULL) {
-                kloge("k_openat: directory \"%s\" doesn't exist\n", full_path);
+                klogd("k_openat: directory \"%s\" doesn't exist\n", full_path);
                 cpu_set_errno(ENOENT);
                 return -1;
             }
@@ -296,6 +327,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         }   
     }
 
+    klogi("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
     return vfs_open(full_path, openmode);
 }
 
@@ -487,7 +519,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
          */
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memset(st, 0, sizeof(vfs_stat_t));
-        kloge("k_fstat: success with file handle 0x%x\n", handle);
+        klogd("k_fstat: success with file handle 0x%x\n", handle);
         return 0;
     }
  

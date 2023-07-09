@@ -152,7 +152,7 @@ vfs_tnode_t* vfs_path_to_node(
             if (strncmp(path, "usr/local", 9) == 0
                 || strncmp(path, "/usr/bin", 8) == 0)
             {
-                klogw("VFS: Create \"%s\" node\n", path);
+                klogd("VFS: Create \"%s\" node\n", path);
             }
 
             /* Set the file mode and type */
@@ -166,11 +166,13 @@ vfs_tnode_t* vfs_path_to_node(
             case VFS_NODE_SYMLINK:
                 new_tnode->st.st_mode |= S_IFLNK;
                 break;
+            default:
+                break;
             }
 
             return new_tnode;
         } else {
-            klogw("VFS: \"%s\" doesn't exist\n", path);
+            klogd("VFS: \"%s\" doesn't exist\n", path);
             cpu_set_errno(ENOENT);
             return NULL;
         }

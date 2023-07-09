@@ -352,7 +352,7 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
     /* Seek position is out of bounds */
     if (offset > (int64_t)fd->inode->size || offset < 0)
     {
-        klogw("Seek position out of bounds: %d(0x%x):%d in len %d with "
+        klogd("Seek position out of bounds: %d(0x%x):%d in len %d with "
               "offset %d\n",
               pos, pos, whence, fd->inode->size, fd->seek_pos);
         return -1; 
@@ -426,13 +426,13 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
             strcpy(curpath, parent);
         }
         if (pn != NULL && pn->inode->fs != NULL) {
-            klogw("VFS: Can not open %s, visit back to %s\n", path, parent);
+            klogd("VFS: Can not open %s, visit back to %s\n", path, parent);
             req = pn->inode->fs->open(pn->inode, path);
         }
         if (!req) goto fail;
     } else {
         if (req->inode->fs != NULL) {
-            klogw("VFS: inode for %s already exists\n", path);
+            klogd("VFS: inode for %s already exists\n", path);
             req = req->inode->fs->open(req->inode, path);
         }
     }
