@@ -29,6 +29,8 @@ typedef int64_t (*syscall_ptr_t)(void);
 extern lock_t vfs_lock;
 extern lock_t sched_lock;
 
+static bool debug_info = false;
+
 int64_t k_print_log()
 {
     klogd("SYSCALL: useless log is just for debug purpose\n");
@@ -112,9 +114,12 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
 
     vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
 
-    klogi("k_vm_map: tid %d #%d 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d pages,"
-          "prot 0x%x, flags 0x%x\n", t->tid, vec_length(&t->mmap_list),
-          as, as->PML4, phys_ptr, ptr, np, prot, flags);
+    if (debug_info) {
+        klogi("k_vm_map: tid %d #%d 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d "
+              "pages, prot 0x%x, flags 0x%x\n",
+              t->tid, vec_length(&t->mmap_list), as, as->PML4, phys_ptr, ptr,
+              np, prot, flags);
+    }
 
     mem_map_t m = {0};
 

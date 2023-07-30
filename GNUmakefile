@@ -12,7 +12,7 @@ all: $(ISO_IMAGE)
 # Option for UEFI: -bios ./bios64.bin
 # Option for debug: -d int
 run: $(ISO_IMAGE)
-	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 4 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
 # The below "test" is used for debuging bootable disk image
 .PHONY: test

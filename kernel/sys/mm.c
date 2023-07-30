@@ -65,7 +65,8 @@ static bool bitmap_isfree(uint64_t addr, uint64_t numpages)
     return free;
 }
 
-void pmm_free(uint64_t addr, uint64_t numpages)
+void pmm_free(uint64_t addr, uint64_t numpages,
+    const char *func, size_t line)
 {
     for (uint64_t i = addr; i < addr + (numpages * PAGE_SIZE); i += PAGE_SIZE) {
         if (!bitmap_isfree(i, 1))
@@ -73,6 +74,11 @@ void pmm_free(uint64_t addr, uint64_t numpages)
         
         kmem_info.bitmap[i / (PAGE_SIZE * BMP_PAGES_PER_BYTE)]
             |= 1 << ((i / PAGE_SIZE) % BMP_PAGES_PER_BYTE);
+    }
+    /* The below log is for debugging memory leaks */
+    if (numpages > 8 && debug_info) {
+        klogi("pmm_free: %s(%d) free 0x%11x %d pages and available memory are "
+              "%d bytes\n", func, line, addr, numpages, kmem_info.free_size);
     }
 }
 
@@ -86,11 +92,17 @@ bool pmm_alloc(uint64_t addr, uint64_t numpages)
     return true;
 }
 
-uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr)
+uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr, 
+    const char *func, size_t line)
 {
     for (uint64_t i = baseaddr; i < kmem_info.phys_limit; i += PAGE_SIZE) {
-        if (pmm_alloc(i, numpages))
+        if (pmm_alloc(i, numpages)) {
+            if (numpages > 8 && debug_info) {
+                klogi("pmm_get: %s(%d) gets 0x%11x with %d pages from memory "
+                      "%d bytes\n", func, line, i, numpages, kmem_info.free_size);
+            }
             return i;
+        }
     }
 
     kpanic("Out of Physical Memory");
@@ -155,7 +167,7 @@ void pmm_init(struct limine_memmap_response* map)
             continue;
 
         if (entry->type == LIMINE_MEMMAP_USABLE)
-            pmm_free(entry->base, NUM_PAGES(entry->length));
+            pmm_free(entry->base, NUM_PAGES(entry->length), __func__, __LINE__);
     }
 
     /* mark the bitmap as used */
@@ -209,23 +221,26 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
         memset(pdpt, 0, PAGE_SIZE * 8);
         pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
+        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pdpt));
     }   
 
     pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
         memset(pd, 0, PAGE_SIZE * 8);
         pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
+        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pd));
     }
 
     pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0xfff));
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0));
+        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
         memset(pt, 0, PAGE_SIZE * 8);
         pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
+        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pt));
     }
 
     pt[pte] = MAKE_TABLE_ENTRY(paddr & ~(0xfff), flags);
@@ -273,21 +288,21 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
             goto done;
 
     pd[pde] = 0;
-    pmm_free(VIRT_TO_PHYS(pt), 8);
+    pmm_free(VIRT_TO_PHYS(pt), 8, __func__, __LINE__);
 
     for (int i = 0; i < 512 * 8; i++)
         if (pd[i] != 0)
             goto done;
 
     pdpt[pdpe] = 0;
-    pmm_free(VIRT_TO_PHYS(pd), 8);
+    pmm_free(VIRT_TO_PHYS(pd), 8, __func__, __LINE__);
 
     for (int i = 0; i < 512 * 8; i++)
         if (pdpt[i] != 0)
             goto done;
 
     pml4[pml4e] = 0;
-    pmm_free(VIRT_TO_PHYS(pdpt), 8);
+    pmm_free(VIRT_TO_PHYS(pdpt), 8, __func__, __LINE__);
 
 done:
     return;
@@ -442,11 +457,12 @@ addrspace_t *create_addrspace(void)
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as)
         return NULL;
+    memset(as, 0, sizeof(addrspace_t));
     as->PML4 = kmalloc(PAGE_SIZE * 8);
     if (!as->PML4) {
         kmfree(as);
         return NULL;
-    }   
+    } 
     memset(as->PML4, 0, PAGE_SIZE * 8); 
     as->lock = lock_new();
 
