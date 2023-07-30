@@ -16,6 +16,8 @@
 
 static bool debug_info = false;
 
+extern lock_t sched_lock;
+
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {
     for (size_t i = 0; i < hdr->shnum; i++) {
@@ -56,6 +58,9 @@ int64_t elf_load(
     elf_shdr_t *shdr = NULL;
     uint64_t *phaddr = NULL;
 
+    mem_map_t m;
+    m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+
     const char* fn = path_name;
     /* TODO: Need to review const description */
     vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READWRITE);
@@ -67,7 +72,13 @@ int64_t elf_load(
             if (debug_info) {
                 klogd("ELF(%s): read %d bytes from %s(%d)\n",
                       path_name, readlen, fn, f);
-            } 
+            }
+
+            m.vaddr = (uint64_t)elf_buff;
+            m.paddr = VIRT_TO_PHYS(elf_buff);
+            m.np = NUM_PAGES(elf_len);
+
+            vec_push_back(&task->mmap_list, m); 
         }
         vfs_close(f);
     }
@@ -99,9 +110,21 @@ int64_t elf_load(
     if (!phdr) goto err_exit;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
 
+    m.vaddr = (uint64_t)phdr;
+    m.paddr = VIRT_TO_PHYS(phdr);
+    m.np = NUM_PAGES(hdr.phnum * sizeof(elf_phdr_t));
+
+    vec_push_back(&task->mmap_list, m); 
+
     phaddr = (uint64_t*)kmalloc(hdr.phnum * sizeof(uint64_t));
     if (phaddr == NULL)                 goto err_exit;
     aux->phaddr = (uint64_t)phaddr;
+
+    m.vaddr = (uint64_t)phaddr;
+    m.paddr = VIRT_TO_PHYS(phaddr);
+    m.np = NUM_PAGES(hdr.phnum * sizeof(uint64_t));
+
+    vec_push_back(&task->mmap_list, m); 
 
     for (size_t i = 0; i < hdr.phnum; i++) {
         phaddr[i] = (uint64_t)NULL;
@@ -193,13 +216,13 @@ int64_t elf_load(
                   page_count);
         }
 
-        mem_map_t m;
-        m.vaddr = virt;
-        m.paddr = addr;
-        m.np = page_count;
-        m.flags = pf;
+        mem_map_t m1;
+        m1.vaddr = virt;
+        m1.paddr = addr;
+        m1.np = page_count;
+        m1.flags = pf;
 
-        vec_push_back(&task->mmap_list, m);
+        vec_push_back(&task->mmap_list, m1);
 
         memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset,
                phdr[i].filesz);
@@ -214,6 +237,12 @@ int64_t elf_load(
 
     shdr = kmalloc(hdr.shnum * sizeof(elf_shdr_t));
     if (!shdr) goto err_exit;
+
+    m.vaddr = (uint64_t)shdr;
+    m.paddr = VIRT_TO_PHYS(shdr);
+    m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
+
+    vec_push_back(&task->mmap_list, m); 
 
     aux->shdr = (uint64_t)shdr;
     memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));
@@ -250,13 +279,7 @@ int64_t elf_load(
     klogd("ELF(%s): Read header with phnum %d, shnum %d, entry 0x%x\n",
           path_name, hdr.phnum, hdr.shnum, hdr.entry);
 
-    /* TODO: Need to consider when to free phdr, phaddr, shdr and elf_buff */
-#if 0
-    if (phdr)       kmfree(phdr);
-    if (shdr)       kmfree(shdr);
-    if (elf_buff)   kmfree(elf_buff);
-#endif
-
+    /* It is time to free phdr, phaddr, shdr and elf_buff when task is dead. */
     return 0;
 
 err_exit:

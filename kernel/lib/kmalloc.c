@@ -18,10 +18,10 @@
 #include <lib/memutils.h>
 #include <sys/mm.h>
 
-void *kmalloc(uint64_t size)
+void *kmalloc_core(uint64_t size, const char *func, size_t line)
 {
-    memory_metadata_t *alloc =
-        (memory_metadata_t*)PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0));
+    memory_metadata_t *alloc = (memory_metadata_t*)
+        PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0, func, line));
 
     alloc->numpages = NUM_PAGES(size);
     alloc->size = size;
@@ -29,18 +29,20 @@ void *kmalloc(uint64_t size)
     return ((uint8_t*)alloc) + PAGE_SIZE;
 }
 
-void kmfree(void *addr)
+void kmfree_core(void *addr, const char *func, size_t line)
 {
+    (void)func;
+
     memory_metadata_t *d =
         (memory_metadata_t*)((uint8_t*)addr - PAGE_SIZE);
 
-    pmm_free(VIRT_TO_PHYS(d), d->numpages + 1);
+    pmm_free(VIRT_TO_PHYS(d), d->numpages + 1, func, line);
 }
 
-void* kmrealloc(void *addr, size_t newsize)
+void* kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
 {
     if (!addr)
-        return kmalloc(newsize);
+        return kmalloc_core(newsize, func, line);
 
     memory_metadata_t *d =
         (memory_metadata_t*)((uint8_t*)addr - PAGE_SIZE);
@@ -51,13 +53,13 @@ void* kmrealloc(void *addr, size_t newsize)
         return addr;
     }
 
-    void *new = kmalloc(newsize);
+    void *new = kmalloc_core(newsize, func, line);
     if (d->size > newsize)
         memcpy(new, addr, newsize);
     else
         memcpy(new, addr, d->size);
 
-    kmfree(addr);
+    kmfree_core(addr, func, line);
     return new;
 }
 
