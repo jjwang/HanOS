@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <3rd-party/boot/limine.h>
 #include <lib/lock.h>
+#include <lib/vector.h>
 
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
@@ -55,9 +56,11 @@ typedef struct {
 } mem_map_t;
 
 void pmm_init(struct limine_memmap_response* map);
-uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr);
+uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
+    const char *func, size_t line);
+void pmm_free(uint64_t addr, uint64_t numpages,
+    const char *func, size_t line);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
-void pmm_free(uint64_t addr, uint64_t numpages);
 void pmm_dump_usage(void);
 uint64_t pmm_get_total_memory(void);
 
@@ -76,6 +79,7 @@ uint64_t pmm_get_total_memory(void);
 
 typedef struct {
     uint64_t *PML4;
+    vec_struct(uint64_t) mem_list;
     lock_t    lock;
 } addrspace_t;
 

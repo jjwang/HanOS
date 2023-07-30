@@ -10,6 +10,9 @@
 
  @endverbatim
 
+ @attention If memories are randomly initialized, random "data" will cause #PF.
+ @attention Pls make sure memories are initially set to zero.
+
  **-----------------------------------------------------------------------------
  */
 #pragma once
