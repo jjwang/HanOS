@@ -138,7 +138,7 @@ err_exit:
     return (uint64_t)NULL;
 }
 
-int64_t k_vm_unmap(void *pointer, size_t size)
+int64_t k_vm_unmap(void *ptr, size_t size)
 {
     /* Need to implement memory free */
     cpu_set_errno(0);
@@ -157,8 +157,12 @@ int64_t k_vm_unmap(void *pointer, size_t size)
     }
 
     uint64_t np = NUM_PAGES(size);
-    klogi("k_vm_unmap: 0x%x(PML4 0x%x) unmap 0x%x with %d pages\n",
-          as, as->PML4, pointer, np);
+    vmm_unmap(as, (uint64_t)ptr, np, false);
+
+    if (debug_info) {
+        klogi("k_vm_unmap: 0x%x(PML4 0x%x) unmap 0x%x with %d pages\n",
+              as, as->PML4, ptr, np);
+    }
 
     return 0;
 
