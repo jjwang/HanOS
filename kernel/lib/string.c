@@ -54,6 +54,20 @@ int strcpy(char *dest, const char *src)
     return i;
 }
 
+int strncpy(char *dest, const char *src, size_t len)
+{
+    size_t i;
+    for (i = 0;; i++) {
+        dest[i] = src[i];
+        if (src[i] == '\0')
+            break;
+        if (i == len - 1) {
+            dest[len] = '\0';
+            break;
+        }
+    }   
+}
+
 int strcat(char *dest, const char *src)
 {
     size_t i, dest_len = strlen(dest);

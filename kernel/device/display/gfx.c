@@ -56,7 +56,7 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev,
     klogi("\tGTTMMADR: 0x%11x (%d MB)\n", bar.u.address, bar.size / MB);
 
     vmm_map(NULL, (uint64_t)pci->mmio_bar, (uint64_t)bar.u.address,
-            NUM_PAGES(bar.size), VMM_FLAGS_MMIO, false);
+            NUM_PAGES(bar.size), VMM_FLAGS_MMIO);
 
     /* BAR2: GMADR - Address range allocated via the Device 2 (integrated
      * graphics device) GMADR register. The processor and other peer (DMI)
@@ -70,7 +70,7 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev,
     klogi("\tGMADR:    0x%11x (%d MB)\n", bar.u.address, bar.size / MB);
 
     vmm_map(NULL, (uint64_t)pci->aperture_bar, (uint64_t)bar.u.address,
-            NUM_PAGES(bar.size), VMM_FLAGS_MMIO, false);
+            NUM_PAGES(bar.size), VMM_FLAGS_MMIO);
 
     /* BAR4: IOBASE - This register provides the Base offset of the IO
      * registers within Device #2. */

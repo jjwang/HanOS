@@ -99,7 +99,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     /* TODO: How to handle the first information page???  */
 
     /* Unmap before mapping to a new malloc-ed memory block */
-    vmm_unmap(as, ptr, np, false);
+    vmm_unmap(as, ptr, np);
 
     uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(np * PAGE_SIZE));
 
@@ -112,7 +112,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         ptr = phys_ptr + MMAP_ANON_BASE;
     }
 
-    vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf, false);
+    vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf);
 
     if (debug_info) {
         klogi("k_vm_map: tid %d #%d 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d "
@@ -157,7 +157,7 @@ int64_t k_vm_unmap(void *ptr, size_t size)
     }
 
     uint64_t np = NUM_PAGES(size);
-    vmm_unmap(as, (uint64_t)ptr, np, false);
+    vmm_unmap(as, (uint64_t)ptr, np);
 
     if (debug_info) {
         klogi("k_vm_unmap: 0x%x(PML4 0x%x) unmap 0x%x with %d pages\n",

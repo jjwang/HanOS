@@ -33,8 +33,10 @@
 #include <sys/panic.h>
 #include <proc/sched.h>
 
-static hpet_t* hpet = NULL;
+hpet_t* hpet = NULL;
+
 static uint64_t hpet_period = 0;
+static bool debug_info = false;
 
 uint64_t hpet_get_nanos()
 {
@@ -42,7 +44,14 @@ uint64_t hpet_get_nanos()
         return pit_get_ticks();
     }
 
+    task_t *t = sched_get_current_task();
+    if (t != NULL && debug_info) {
+        /* If we use klogi() here, maybe we can not get screen outputs. */
+        kprintf("HPET: tid %d tries to get nanos from 0x%x\n", t->tid, hpet);
+    }
+
     uint64_t tf = hpet->main_counter_value * hpet_period;
+
     return tf;
 }
 
@@ -53,6 +62,11 @@ uint64_t hpet_get_millis()
 
 void hpet_nanosleep(uint64_t nanos)
 {
+    task_t *t = sched_get_current_task();
+    if (t != NULL && debug_info) {
+        kprintf("HPET: tid %d will sleep for %d nanos\n", t->tid, nanos);
+    }
+
     uint64_t stt = hpet_get_nanos();
     uint64_t tgt = hpet_get_nanos() + nanos;
     while (true) {
@@ -74,9 +88,10 @@ void hpet_init()
         return;
     }
 
+    /* MEMMAP: hpet should be visible for all kernel tasks */
     vmm_map(NULL, PHYS_TO_VIRT(hpet_sdt->base_addr.address),
             (uint64_t)hpet_sdt->base_addr.address,
-            1, VMM_FLAGS_MMIO, true);
+            1, VMM_FLAGS_MMIO);
 
     hpet = (hpet_t*)PHYS_TO_VIRT(hpet_sdt->base_addr.address);
     uint64_t tmp = hpet->general_capabilities;

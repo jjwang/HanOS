@@ -59,6 +59,8 @@ typedef struct [[gnu::packed]] {
     hpet_timer_t timers[];
 } hpet_t;
 
+extern hpet_t *hpet;
+
 void hpet_init();
 uint64_t hpet_get_nanos();
 uint64_t hpet_get_millis();

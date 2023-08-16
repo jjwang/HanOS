@@ -30,7 +30,7 @@
 /* The local APIC registers are memory mapped to an address that can be found
  * in the MP/MADT tables.
  */
-static void* lapic_base = NULL;
+void* lapic_base = NULL;
 
 uint32_t apic_read_reg(uint16_t offset)
 {
@@ -72,8 +72,10 @@ void apic_init()
     }
 
     lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
+
+    /* MEMMAP: lapic_base should be visible for all kernel tasks */
     vmm_map(NULL, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
-            VMM_FLAGS_MMIO, true);
+            VMM_FLAGS_MMIO);
 
     apic_enable();
 
