@@ -23,6 +23,8 @@
 #include <lib/string.h>
 #include <lib/klog.h>
 #include <sys/cpu.h>
+#include <sys/hpet.h>
+#include <sys/apic.h>
 
 static task_id_t curr_tid = 1;
 
@@ -60,12 +62,12 @@ task_t *task_make(
         vmm_map(pas, (uint64_t)ntask->ustack_limit,
                 (uint64_t)ntask->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
-                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, false);
+                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
         vmm_map(as, (uint64_t)ntask->ustack_limit,
                 (uint64_t)ntask->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
-                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, false);
+                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
         mem_map_t m;
 
@@ -115,16 +117,24 @@ task_t *task_make(
     ntask->status = TASK_READY;
 
     strcpy(ntask->cwd, "/");
+    strncpy(ntask->name, name, sizeof(ntask->name));
 
-    klogi("TASK: Create tid %d in function %s (task 0x%x)\n",
+    klogi("TASK: Create tid %d with name \"%s\" (task 0x%x)\n",
           ntask->tid, name, ntask);
 
     curr_tid++;
 
     if (mode == TASK_USER_MODE) {
-        vmm_unmap(pas, (uint64_t)ntask->ustack_limit, NUM_PAGES(STACK_SIZE),
-                  false);
+        vmm_unmap(pas, (uint64_t)ntask->ustack_limit, NUM_PAGES(STACK_SIZE));
     }
+
+    /* MEMMAP: hpet should be visible for all kernel tasks */
+    vmm_map(ntask->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
+            1, VMM_FLAGS_MMIO);
+
+    /* MEMMAP: lapic_base should be visible for all kernel tasks */
+    vmm_map(ntask->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
+            VMM_FLAGS_MMIO);
 
     return ntask;
 }
@@ -185,7 +195,7 @@ task_t *task_fork(task_t *tp)
             klogd("task_fork: new kern stack 0x%x and map to 0x%x "
                   "with top 0x%x\n", ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
-        vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags, false);
+        vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
 
         m.paddr = ptr;
         vec_push_back(&tc->mmap_list, m);
@@ -218,6 +228,14 @@ task_t *task_fork(task_t *tp)
     }
 
     task_debug(tc, false);
+
+    /* MEMMAP: hpet should be visible for all kernel tasks */
+    vmm_map(tc->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
+            1, VMM_FLAGS_MMIO);
+
+    /* MEMMAP: lapic_base should be visible for all kernel tasks */
+    vmm_map(tc->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
+            VMM_FLAGS_MMIO);
 
     vec_push_back(&tp->child_list, tc->tid);
 

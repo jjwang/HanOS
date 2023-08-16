@@ -230,6 +230,7 @@ typedef struct task_t {
     uint64_t        fs_base;
 
     char            cwd[VFS_MAX_PATH_LEN];
+    char            name[64];
 } task_t;
 
 task_t* task_make(

@@ -266,22 +266,10 @@ void kmain(void)
     klogi("Framebuffer address 0x%x\n", fb->address);
 #endif
 
-#if 0 /* Should be commented when debuging mlibc */
-    task_t *tkbd = sched_new(NULL, true);
-    elf_load(tkbd, DEFAULT_INPUT_SVR, &entry, &aux);
-    
-    task_regs_t *tkbd_regs = (task_regs_t*)tkbd->tstack_top;
-    tkbd_regs->rip = (uint64_t)entry;
-    klogi("Keyboard: task stack 0x%x, PML4 0x%x, entry 0x%x\n", tkbd->tstack_top,
-        (tkbd->addrspace == NULL) ? NULL : tkbd->addrspace->PML4, entry);
-#endif
-
     pci_init();
     ata_init();
 
-#if 0
     pci_get_gfx_device(kernel_addr_request.response);
-#endif
 
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
@@ -292,12 +280,8 @@ void kmain(void)
 
     klog_debug();
 
-    task_t *tcursor = sched_new(kcursor, false);
+    task_t *tcursor = sched_new("kcursor", kcursor, false);
     sched_add(tcursor);
-
-#if 0 /* Should be commented when debuging mlibc */
-    sched_add(tkbd);
-#endif
 
 #if LAUNCHER_CLI
     term_clear(TERM_MODE_CLI);
@@ -347,7 +331,7 @@ void kmain(void)
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {
-        sched_init(cpu->cpu_id);
+        sched_init("init", cpu->cpu_id);
     } else {
         kpanic("Can not get CPU info in shell process\n");
     }

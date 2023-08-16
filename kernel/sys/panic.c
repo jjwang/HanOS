@@ -46,8 +46,7 @@ void dump_backtrace()
     for (size_t i = 0; ; i++) {
         uint64_t func_addr = *(rbp_val + 1);
         rbp_val = (uint64_t*)*rbp_val;
-        if (func_addr == (uint64_t)NULL || rbp_val == NULL 
-            || (uintptr_t)func_addr < 0xffffffff80000000)
+        if (func_addr == (uint64_t)NULL || rbp_val == NULL) 
         {
             break;
         }

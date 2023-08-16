@@ -336,14 +336,14 @@ uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr)
     return (pt[pte] & 0xFFFFFFFFFFFFF000);
 }
                     
-void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us) 
+void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np) 
 {
-    if (us && (addrspace == NULL)) {
+    if (addrspace == NULL) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
         size_t len = vec_length(&mmap_list);
         for (size_t i = 0; i < len; i++) {
             mem_map_t m = vec_at(&mmap_list, i); 
-            if (m.vaddr != vaddr) {
+            if (m.vaddr == vaddr) {
                 vec_erase(&mmap_list, i); 
                 break;
             }   
@@ -361,9 +361,9 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np, bool us)
 }
 
 void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-    uint64_t np, uint64_t flags, bool us)
+    uint64_t np, uint64_t flags)
 {
-    if (us && (addrspace == NULL)) {
+    if (addrspace == NULL) {
         mem_map_t mm = {
             .vaddr = vaddr,
             .paddr = paddr,
@@ -398,8 +398,8 @@ void vmm_init(
      * we must set flags with USERMODE.
      */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
-    klogd("Mapped %d bytes memory to 0x%x\n",
+            VMM_FLAGS_DEFAULT);
+    klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
     for (i = 0; i < map->entry_count; i++) {
@@ -408,25 +408,27 @@ void vmm_init(
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             uint64_t vaddr = kernel->virtual_base
                              + entry->base - kernel->physical_base;
+            /* vmm_map: this should share for all tasks */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
-            klogd("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
+                    VMM_FLAGS_DEFAULT);
+            klogi("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
                   entry->base, vaddr, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
+            /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
-                    | VMM_FLAGS_USERMODE, true);
-            klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
+                    VMM_FLAGS_DEFAULT
+                    | VMM_FLAG_WRITECOMBINE);
+            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
 
 #if !LAUNCHER_GRAPHICS
             /* This is for Limine terminal usage */
             vmm_map(NULL, entry->base, entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
-                    | VMM_FLAGS_USERMODE, false);
-            klogd("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
+                    VMM_FLAGS_DEFAULT
+                    | VMM_FLAG_WRITECOMBINE);
+            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, entry->base, entry->length);
 #endif
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
@@ -434,16 +436,18 @@ void vmm_init(
             /* This is for Limine terminal usage */
             vmm_map(NULL, entry->base, entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE
-                    | VMM_FLAGS_USERMODE, false);
-            klogd("Mapped bootloader reclaimable 0x%9x to 0x%x (len: %d)\n",
+                    VMM_FLAGS_DEFAULT
+                    | VMM_FLAG_WRITECOMBINE);
+            klogi("Mapped bootloader reclaimable 0x%9x to 0x%x (len: %d)\n",
                   entry->base, entry->base, entry->length);
 #endif
-        } else {
+        } else if (entry->type != LIMINE_MEMMAP_RESERVED) {
+            /* Maybe the reserved memory is corrupt */
+            /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE, true);
-            klogd("Mapped 0x%9x to 0x%x(len: %d)\n",
+                    VMM_FLAGS_DEFAULT/* | VMM_FLAG_USER*/);
+            klogi("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }
     }
@@ -469,7 +473,7 @@ addrspace_t *create_addrspace(void)
     size_t len = vec_length(&mmap_list);
     for (size_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&mmap_list, i); 
-        vmm_map(as, m.vaddr, m.paddr, m.np, m.flags, false);
+        vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
     }   
 
     return as; 

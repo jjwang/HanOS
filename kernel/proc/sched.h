@@ -18,8 +18,8 @@
 
 void sched_debug(bool showlog);
 
-void sched_init(uint16_t cpu_id);
-task_t *sched_new(void (*entry)(task_id_t), bool usermode);
+void sched_init(const char *name, uint16_t cpu_id);
+task_t *sched_new(const char *name, void (*entry)(task_id_t), bool usermode);
 void sched_add(task_t *t);
 void sched_sleep(time_t ms);
 task_id_t sched_fork(void);
