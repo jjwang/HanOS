@@ -116,7 +116,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     hpet_sleep(10);
 
     /* initialize and wait for scheduler */
-    sched_init(cpuinfo->cpu_id);
+    sched_init("init", cpuinfo->cpu_id);
 
     asm volatile("sti");
     while (true)
@@ -151,7 +151,7 @@ void smp_init()
     memset(smp_info, 0, sizeof(smp_info_t));
 
     /* identity map first mb for the trampoline */
-    vmm_map(NULL, 0, 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT, false);
+    vmm_map(NULL, 0, 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT);
 
     prepare_trampoline();
     smp_info->num_cpus = 0;
@@ -236,7 +236,7 @@ void smp_init()
 
     /* identity mapping is no longer needed */
 #if LAUNCHER_GRAPHICS
-    vmm_unmap(NULL, 0, NUM_PAGES(0x100000), true);
+    vmm_unmap(NULL, 0, NUM_PAGES(0x100000));
 #endif
 
     smp_initialized = true;

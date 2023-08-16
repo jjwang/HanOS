@@ -32,6 +32,8 @@
 #define APIC_IPI_TYPE_INIT      0b101
 #define APIC_IPI_TYPE_STARTUP   0b110
 
+extern void* lapic_base;
+
 void apic_init(void);
 void apic_enable(void);
 uint32_t apic_read_reg(uint16_t offset);

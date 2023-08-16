@@ -200,7 +200,7 @@ int64_t elf_load(
         uint64_t virt = phdr[i].vaddr - misalign;
         if (hdr.type == ET_SHARED) virt += RTDL_ADDR;
 
-        vmm_map(task->addrspace, virt, addr, page_count, pf, false);
+        vmm_map(task->addrspace, virt, addr, page_count, pf);
 
         /*
          * It is better if we set initialized data to zero which is also a NULL

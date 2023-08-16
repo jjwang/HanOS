@@ -123,7 +123,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
             size_t mmap_num = vec_length(&t->mmap_list);
             for (size_t i = 0; i < mmap_num; i++) {
                 mem_map_t m = vec_at(&t->mmap_list, i); 
-                vmm_unmap(t->addrspace, m.vaddr, m.np, false);
+                vmm_unmap(t->addrspace, m.vaddr, m.np);
                 kmfree((void*)PHYS_TO_VIRT(m.paddr));
             }  
             vec_erase_all(&t->mmap_list);
@@ -492,10 +492,10 @@ uint64_t sched_get_ticks()
     return tasks_coordinate[cpu->cpu_id];
 }
 
-void sched_init(uint16_t cpu_id)
+void sched_init(const char *name, uint16_t cpu_id)
 {
     lock_lock(&sched_lock);
-    tasks_idle[cpu_id] = task_make(__func__, task_idle_proc, 255,
+    tasks_idle[cpu_id] = task_make(name, task_idle_proc, 255,
                                    TASK_KERNEL_MODE, NULL);
     lock_release(&sched_lock);
 
@@ -516,11 +516,11 @@ uint16_t sched_get_cpu_num()
     return cpu_num;
 }
 
-task_t *sched_new(void (*entry)(task_id_t), bool usermode)
+task_t *sched_new(const char *name, void (*entry)(task_id_t), bool usermode)
 {
     lock_lock(&sched_lock);
     task_t *t = task_make(
-        __func__, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE,
+        name, entry, 0, usermode ? TASK_USER_MODE : TASK_KERNEL_MODE,
         NULL);
     lock_release(&sched_lock);
 
@@ -545,8 +545,16 @@ task_t *sched_execve(
     task_t *tp = sched_get_current_task();
     task_t *tc = NULL;
 
+    char *tname = (char*)path;
+    for (int64_t i = strlen(path) - 1; i >= 0; i--) {
+        if (path[i] == '/') {
+            tname = (char*)&(path[i + 1]);
+            break;
+        }
+    }
+
     lock_lock(&sched_lock);
-    tc = task_make(__func__, NULL, 0, TASK_USER_MODE,
+    tc = task_make(tname, NULL, 0, TASK_USER_MODE,
                    tp == NULL ? NULL : tp->addrspace);
     lock_release(&sched_lock);
 
@@ -564,7 +572,7 @@ task_t *sched_execve(
 
         if (cwd != NULL) strcpy(tc->cwd, cwd);
 
-        uint8_t *sa = (uint8_t*)stack;
+        uint8_t *sa = (uint8_t*)tc->tstack_top;
         size_t nenv = 0, nargs = 0;
 
         if (argv != NULL && envp != NULL) {
