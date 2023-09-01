@@ -4,26 +4,24 @@
  */
 #include <stddef.h>
 
-#include <lib/string.h>
-#include <lib/syscall.h>
-#include <lib/re.h>
-#include <lib/command.h>
+#include <libc/string.h>
+
+#include <sysfunc.h>
 
 #define MAX_COMMAND_LEN 1024
 
 #define MSG_WELCOME     "Welcome to HanOS world!"
 #define MSG_PROMPT      "\033[36m$ \033[0m"
 
-#define print(x)        syscall_entry(SYSCALL_WRITE, STDOUT, x, strlen(x))
-#define readkey(x)      syscall_entry(SYSCALL_READ, STDIN, x, 1)
-#define fork()          syscall_entry(SYSCALL_FORK)
+#define print(x)        sys_write(STDOUT, x, strlen(x), NULL)
+#define readkey(x)      sys_read(STDIN, x, 1, NULL)
 
 int main(void)
 {
     print("\n\033[31mWelcome to HanOS world!\033[0m "
           "Type \"\033[36mhelp\033[0m\" for command list\n");
 
-    uint64_t ret = fork();
+    int64_t ret = sys_fork();
 
     if (ret == 0) {
         while (1) { asm volatile ("nop"); }
@@ -56,14 +54,7 @@ int main(void)
             if (read_str[0] == '\n') {
                 if (cmd_end > 0) {
                     strupr(cmd_buff);
-
-                    char *answer = command_execute(cmd_buff);
-                    if (answer != NULL) {
-                        print(answer);
-                        print("\n");
-                    } else {
-                        print("Sorry, I cannot understand.\n");
-                    }
+                    print("Sorry, I cannot understand.\n");
                 }
 
                 cmd_buff[0] = '\0';

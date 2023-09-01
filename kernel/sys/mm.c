@@ -29,10 +29,11 @@
  */
 #include <stdint.h>
 
+#include <libc/string.h>
+
 #include <sys/cpu.h>
 #include <sys/mm.h>
 #include <sys/panic.h>
-#include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/klib.h>

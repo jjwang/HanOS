@@ -20,8 +20,10 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
+
+#include <libc/string.h>
+
 #include <lib/klog.h>
-#include <lib/memutils.h>
 #include <sys/gdt.h>
 #include <sys/panic.h>
 #include <sys/smp.h>

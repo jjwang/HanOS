@@ -3,6 +3,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define KB  ((uint64_t)1024)
+#define MB  (((uint64_t)1024 * KB))
+#define GB  (((uint64_t)1024 * MB))
+#define TB  (((uint64_t)1024 * GB))
+
 int isalnum(int c);
 int isalpha(int c);
 int isblank(int c);

@@ -1,14 +1,14 @@
 /* Ref: Page 2994 in Intel® 64 and IA-32 Architectures Software Developer’s
  * Manual Combined Volumes: 1, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 4
  */
+#include <libc/string.h>
+
 #include <sys/cpu.h>
 #include <sys/idt.h>
 #include <sys/apic.h>
 #include <sys/panic.h>
 #include <sys/isr_base.h>
 #include <lib/klog.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 #include <lib/errno.h>
 #include <proc/task.h>
 #include <proc/sched.h>

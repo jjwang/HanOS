@@ -1,3 +1,5 @@
+#include <libc/string.h>
+
 #include <sys/pci.h>
 #include <sys/cpu.h>
 #include <sys/isr_base.h>
@@ -6,8 +8,6 @@
 #include <device/storage/ata.h>
 #include <lib/lock.h>
 #include <lib/klog.h>
-#include <lib/string.h>
-#include <lib/memutils.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>

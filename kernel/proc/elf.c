@@ -1,9 +1,9 @@
+#include <libc/string.h>
+
 #include <proc/elf.h>
 #include <proc/task.h>
 #include <lib/klib.h>
 #include <lib/klog.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 #include <fs/vfs.h>
 #include <sys/mm.h>
 #include <sys/panic.h>
