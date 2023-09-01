@@ -14,13 +14,14 @@
  */
 #include <stdint.h>
 
+#include <libc/string.h>
+
 #include <device/storage/ata.h>
 #include <sys/panic.h>
 #include <fs/vfs.h>
 #include <fs/fat32.h>
 #include <fs/filebase.h>
 #include <lib/kmalloc.h>
-#include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
 #include <lib/vector.h>

@@ -14,10 +14,12 @@
  */
 #include <stddef.h>
 #include <kconfig.h>
+
+#include <libc/string.h>
+
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <lib/lock.h>
-#include <lib/memutils.h>
 #include <sys/panic.h>
 #include <3rd-party/boot/limine.h>
 

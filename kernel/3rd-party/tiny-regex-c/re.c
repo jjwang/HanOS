@@ -30,7 +30,7 @@
 
 #include "re.h"
 #include <stddef.h>
-#include <lib/ctype.h>
+#include <libc/ctype.h>
 
 /* Definitions: */
 

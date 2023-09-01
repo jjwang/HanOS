@@ -18,8 +18,9 @@
  */
 #include <stdint.h>
 
+#include <libc/string.h>
+
 #include <lib/klog.h>
-#include <lib/memutils.h>
 #include <sys/isr_base.h>
 #include <sys/idt.h>
 #include <sys/cpu.h>

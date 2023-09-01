@@ -1,7 +1,8 @@
+#include <libc/string.h>
+
 #include <fs/vfs.h>
 #include <lib/klib.h>
 #include <lib/image.h>
-#include <lib/memutils.h>
 
 typedef struct [[gnu::packed]] {
     uint16_t bf_signature;

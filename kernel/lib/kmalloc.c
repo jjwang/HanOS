@@ -13,9 +13,11 @@
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
+
+#include <libc/string.h>
+
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
-#include <lib/memutils.h>
 #include <sys/mm.h>
 
 void *kmalloc_core(uint64_t size, const char *func, size_t line)

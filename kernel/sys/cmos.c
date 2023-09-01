@@ -16,9 +16,10 @@
  */
 #include <stdbool.h>
 
+#include <libc/string.h>
+
 #include <sys/cmos.h>
 #include <sys/cpu.h>
-#include <lib/memutils.h>
 #include <lib/klog.h>
 
 #define CURRENT_YEAR    2022    /* Change this each year! */

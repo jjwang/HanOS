@@ -13,10 +13,10 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <libc/string.h>
+
 #include <sys/cpu.h>
 #include <lib/klog.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 
 static bool cpu_initialized = false;
 

@@ -19,9 +19,9 @@
  */
 #pragma once
 
+#include <libc/string.h>
+
 #include <fs/vfs.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 #include <lib/lock.h>
 #include <lib/time.h>
 #include <device/storage/ata.h>
