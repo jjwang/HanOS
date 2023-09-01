@@ -1,10 +1,10 @@
+#include <libc/string.h>
+
 #include <fs/ramfs.h>
 #include <fs/filebase.h>
 #include <lib/kmalloc.h>
-#include <lib/memutils.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
-#include <lib/string.h>
 #include <sys/panic.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>

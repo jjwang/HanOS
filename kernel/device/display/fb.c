@@ -22,15 +22,16 @@
  */
 #include <stddef.h>
 #include <version.h>
+
+#include <libc/string.h>
+
 #include <sys/mm.h>
 #include <sys/hpet.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
-#include <lib/memutils.h>
 #include <lib/lock.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
-#include <lib/string.h>
 
 #define LOGO_SCALE      6
 

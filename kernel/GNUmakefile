@@ -4,7 +4,7 @@ AS   = $(CC)
 NASM = nasm
 
 LC_FLAGS  =                 \
-    -I. -Wall -Wextra       \
+    -I. -I.. -Wall -Wextra  \
     -DKERNEL_BUILD          \
     -mcmodel=kernel         \
     -std=gnu11              \
@@ -36,11 +36,13 @@ LD_FLAGS  =                 \
 KERNELOBJ = hanos.elf
 BOOT_DIR  = 3rd-party/boot
 
-H_FILES   = $(shell find ./ -type f,l -name '*.h')
-
 C_FILES   = $(shell find ./ -type f,l -name '*.c')
 C_OBJS    = $(C_FILES:.c=.o)
 C_DEPS    = $(C_FILES:.c=.d)
+
+LIBC_FILES= $(shell find ../libc -type f,l -name '*.c')
+LIBC_OBJS = $(patsubst %.c, %.k.o, ${LIBC_FILES})
+LIBC_DEPS = $(patsubst %.c, %.k.d, ${LIBC_FILES})
 
 AS_FILES  = $(shell find ./ -type f,l -name '*.s')
 AS_OBJS   = $(AS_FILES:.s=.o)
@@ -50,7 +52,7 @@ MAC_FILES = $(shell find ./ -type f,l -name '*.mac')
 ASM_FILES = $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS  = $(ASM_FILES:.asm=.o)
 
-OBJS      = $(C_OBJS) $(AS_OBJS) $(ASM_OBJS)
+OBJS      = $(C_OBJS) $(LIBC_OBJS) $(AS_OBJS) $(ASM_OBJS)
 
 SYMBOLFILE     = _symbols.gen
 SYMBOLOBJ      = _symbols.o
@@ -96,6 +98,13 @@ $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
+-include $(LIBC_DEPS)
+
+$(LIBC_OBJS): %.k.o: %.c
+	@echo Compiling $< to $@ ...
+	$(CC) -MM -I. -MT $@ -MF $(patsubst %.k.o, %.k.d, $@) $<
+	$(CC) $(LC_FLAGS) -c $< -o $@
+
 $(AS_OBJS): %.o: %.s
 	@echo Compiling $< to $@ ...
 	@$(AS) -o $@ -c $< $(AS_FLAGS)
@@ -110,4 +119,4 @@ $(TRAMPOLINEBLOB): $(TRAMPOLINEFILE)
 	@$(NASM) $^ -o $@
 
 clean:
-	rm -rf $(KERNELOBJ) $(OBJS) $(C_DEPS) $(SYMBOLFILE) $(SYMBOLOBJ) $(TRAMPOLINEBLOB) hanos.sym
+	rm -rf $(KERNELOBJ) $(OBJS) $(C_DEPS) $(LIBC_DEPS) $(SYMBOLFILE) $(SYMBOLOBJ) $(TRAMPOLINEBLOB) hanos.sym

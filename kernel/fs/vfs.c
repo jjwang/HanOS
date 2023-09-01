@@ -11,6 +11,8 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <libc/string.h>
+
 #include <fs/vfs.h>
 #include <fs/filebase.h>
 #include <fs/fat32.h>
@@ -19,8 +21,6 @@
 #include <lib/klog.h>
 #include <lib/kmalloc.h>
 #include <lib/lock.h>
-#include <lib/string.h>
-#include <lib/memutils.h>
 #include <lib/vector.h>
 
 static bool vfs_initialized = false;

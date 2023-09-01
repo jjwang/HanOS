@@ -16,13 +16,14 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <libc/string.h>
+
 #include <device/keyboard/keyboard.h>
 #include <device/keyboard/keycode.h>
 #include <device/display/term.h>
 #include <lib/klog.h>
 #include <lib/lock.h>
 #include <lib/time.h>
-#include <lib/memutils.h>
 #include <sys/isr_base.h>
 #include <sys/cpu.h>
 #include <sys/idt.h>

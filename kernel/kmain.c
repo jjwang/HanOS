@@ -24,8 +24,8 @@
 #include <lib/time.h>
 #include <lib/image.h>
 #include <lib/klog.h>
-#include <lib/string.h>
 #include <lib/shell.h>
+#include <libc/string.h>
 #include <sys/mm.h>
 #include <sys/gdt.h>
 #include <sys/idt.h>

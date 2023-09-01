@@ -1,1 +1,0 @@
-../../kernel/proc/syscall.h

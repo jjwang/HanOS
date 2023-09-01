@@ -8,7 +8,7 @@ ASM_FLAGS = -f elf64 -I.
 
 LC_FLAGS :=                 \
     -std=gnu11              \
-    -I.                     \
+    -I. -I..                \
     -ffreestanding          \
     -flto                   \
     -fno-pic                \
@@ -26,41 +26,51 @@ LD_FLAGS :=                 \
 	-nostdlib               \
 	-Tlinker.ld             \
 	-z max-page-size=0x2000 \
-	-I .                    \
+	-I. -I..                \
 	-O2 -mcmodel=large -g
 
-LIB_FILES := lib/string.o lib/memutils.o lib/re.o lib/ctype.o lib/command.o
+LIB_FILES :=
 
 C_FILES   := $(shell find ./ -type f,l -name '*.c')
-C_OBJ     := $(C_FILES:.c=.o)
+C_OBJS    := $(C_FILES:.c=.o)
 C_DEPS    := $(C_FILES:.c=.d)
 
+LIBC_FILES:= $(shell find ../libc -type f,l -name '*.c')
+LIBC_OBJS := $(patsubst %.c, %.u.o, ${LIBC_FILES})
+LIBC_DEPS := $(patsubst %.c, %.u.d, ${LIBC_FILES})
+
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
-ASM_OBJ   := $(ASM_FILES:.asm=.o)
+ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 CELF      := hansh
 
 .PHONY: clean all
 
-all: $(C_OBJ) $(ASM_OBJ) $(CELF)
+all: $(C_OBJS) $(ASM_OBJS) $(LIBC_OBJS) $(CELF)
 	mkdir -p ../initrd/bin
 	# objcopy --only-keep-debug $(CELF) hansh.sym
 	objcopy --strip-debug $(CELF)
 	cp $(CELF) ../initrd/bin
 
 -include $(C_DEPS)
-$(C_OBJ): %.o: %.c
+$(C_OBJS): %.o: %.c
 	@echo Compiling $^ ...
 	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
-$(ASM_OBJ): %.o: %.asm
+-include $(LIBC_DEPS)
+$(LIBC_OBJS): %.u.o: %.c 
+	@echo Compiling $^ ...
+	$(CC) -MM -I. -MT $@ -MF $(patsubst %.u.o, %.u.d, $@) $<
+	$(CC) $(LC_FLAGS) -c $< -o $@
+
+$(ASM_OBJS): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
-$(CELF): %: %.o $(ASM_OBJ) $(C_OBJ)
-	$(LD) $(LD_FLAGS) $(ASM_OBJ) $(LIB_FILES) $< -o $@
+$(CELF): %: %.o $(ASM_OBJS) $(C_OBJS) $(LIBC_OBJS)
+	$(LD) $(LD_FLAGS) $(ASM_OBJS) $(LIBC_OBJS) $(LIB_FILES) $< -o $@
 
 clean:
-	rm -rf $(C_OBJ) $(C_DEPS) $(ASM_OBJ) $(CELF) hansh.sym
+	rm -rf $(C_OBJS) $(C_DEPS) $(LIBC_OBJS) $(LIBC_DEPS) $(ASM_OBJS) $(CELF) hansh.sym
 	rm -rf ../initrd/bin/*

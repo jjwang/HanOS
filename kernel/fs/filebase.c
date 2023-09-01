@@ -13,10 +13,10 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <libc/string.h>
+
 #include <fs/filebase.h>
 #include <lib/kmalloc.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 #include <lib/errno.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>

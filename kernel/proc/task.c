@@ -16,11 +16,11 @@
  */
 #include <stddef.h>
 
+#include <libc/string.h>
+
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <lib/kmalloc.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 #include <lib/klog.h>
 #include <sys/cpu.h>
 #include <sys/hpet.h>

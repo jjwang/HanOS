@@ -15,12 +15,13 @@
  */
 #include <stdbool.h>
 #include <stddef.h>
+
+#include <libc/string.h>
+
 #include <sys/acpi.h>
 #include <sys/madt.h>
 #include <sys/mm.h>
 #include <lib/klog.h>
-#include <lib/memutils.h>
-#include <lib/string.h>
 
 static acpi_sdt_t* sdt = NULL;
 static bool use_xsdt = false;

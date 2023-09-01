@@ -11,7 +11,39 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <lib/string.h>
+#include <libc/string.h>
+
+void* memcpy(void *dest, const void *src, size_t len)
+{
+    asm volatile("mov %[len], %%rcx;"
+                 "mov %[src], %%rsi;"
+                 "mov %[dest], %%rdi;"
+                 "rep movsb;"
+                 :   
+                 : [len] "g"(len), [src] "g"(src), [dest] "g"(dest)
+                 : "memory", "rcx", "rsi", "rdi");
+
+    return dest;
+}
+
+void memset(void *addr, uint8_t val, size_t len)
+{
+    uint8_t *a = (uint8_t*)addr;
+    for (uint64_t i = 0; i < len; i++)
+        a[i] = val;
+}
+
+bool memcmp(const void *s1, const void *s2, size_t len)
+{
+    for (uint64_t i = 0; i < len; i++) {
+        uint8_t a = ((uint8_t*)s1)[i];
+        uint8_t b = ((uint8_t*)s2)[i];
+
+        if (a != b)
+            return false;
+    }   
+    return true;
+}
 
 int strlen(const char *s)
 {
@@ -43,7 +75,7 @@ int strncmp(const char *a, const char *b, size_t len)
     return 0;
 }
 
-int strcpy(char *dest, const char *src)
+char *strcpy(char *__restrict dest, const char *src)
 {
     size_t i;
     for (i = 0;; i++) {
@@ -51,21 +83,18 @@ int strcpy(char *dest, const char *src)
         if (src[i] == '\0')
             break;
     }
-    return i;
+    return dest + i;
 }
 
-int strncpy(char *dest, const char *src, size_t len)
+char *strncpy(char *__restrict dest, const char *src, size_t len)
 {
     size_t i;
-    for (i = 0;; i++) {
+    for (i = 0; i < len; i++) {
         dest[i] = src[i];
         if (src[i] == '\0')
             break;
-        if (i == len - 1) {
-            dest[len] = '\0';
-            break;
-        }
-    }   
+    }
+    return dest + i;
 }
 
 int strcat(char *dest, const char *src)
