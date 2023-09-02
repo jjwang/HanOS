@@ -28,10 +28,10 @@
 #include <sys/mm.h>
 #include <sys/hpet.h>
 #include <device/display/fb.h>
-#include <lib/kmalloc.h>
-#include <lib/lock.h>
-#include <lib/klog.h>
-#include <lib/klib.h>
+#include <base/kmalloc.h>
+#include <base/lock.h>
+#include <base/klog.h>
+#include <base/klib.h>
 
 #define LOGO_SCALE      6
 

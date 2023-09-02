@@ -25,7 +25,7 @@
 #include <sys/cpu.h>
 #include <sys/idt.h>
 #include <sys/panic.h>
-#include <lib/klog.h>
+#include <base/klog.h>
 
 /* The local APIC registers are memory mapped to an address that can be found
  * in the MP/MADT tables.

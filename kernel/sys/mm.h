@@ -19,9 +19,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+
 #include <3rd-party/boot/limine.h>
-#include <lib/lock.h>
-#include <lib/vector.h>
+#include <base/lock.h>
+#include <base/vector.h>
 
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8

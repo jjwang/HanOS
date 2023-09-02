@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <lib/lock.h>
-#include <lib/klog.h>
+#include <base/lock.h>
+#include <base/klog.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>
 

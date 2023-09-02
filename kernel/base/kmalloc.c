@@ -16,8 +16,8 @@
 
 #include <libc/string.h>
 
-#include <lib/kmalloc.h>
-#include <lib/klog.h>
+#include <base/kmalloc.h>
+#include <base/klog.h>
 #include <sys/mm.h>
 
 void *kmalloc_core(uint64_t size, const char *func, size_t line)

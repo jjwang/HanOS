@@ -18,7 +18,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <lib/klog.h>
+
+#include <base/klog.h>
 
 void dump_backtrace();
 

@@ -16,8 +16,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
 #include <device/display/fb.h>
-#include <lib/image.h>
+#include <base/image.h>
 
 void kdisplay(char* s);     /* Implemented in entry C file */
 

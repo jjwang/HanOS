@@ -1,4 +1,4 @@
-#include <lib/lock.h>
+#include <base/lock.h>
 
 void lock_lock(lock_t *s)
 {

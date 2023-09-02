@@ -21,8 +21,8 @@
 
 #include <libc/string.h>
 
-#include <lib/klog.h>
-#include <lib/kmalloc.h>
+#include <base/klog.h>
+#include <base/kmalloc.h>
 
 #define VECTOR_RESIZE_FACTOR        4
 

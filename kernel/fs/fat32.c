@@ -21,10 +21,10 @@
 #include <fs/vfs.h>
 #include <fs/fat32.h>
 #include <fs/filebase.h>
-#include <lib/kmalloc.h>
-#include <lib/klog.h>
-#include <lib/klib.h>
-#include <lib/vector.h>
+#include <base/kmalloc.h>
+#include <base/klog.h>
+#include <base/klib.h>
+#include <base/vector.h>
 
 #define SECTORSHIFT                 9   /* 512 bytes */
 #define SECTOR_TO_OFFSET(x)         ((x) << SECTORSHIFT)
