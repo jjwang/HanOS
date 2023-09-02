@@ -16,7 +16,7 @@
 #include <libc/string.h>
 
 #include <sys/cpu.h>
-#include <lib/klog.h>
+#include <base/klog.h>
 
 static bool cpu_initialized = false;
 

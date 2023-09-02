@@ -1,11 +1,11 @@
 #include <libc/string.h>
+#include <libc/errno.h>
 
 #include <fs/ttyfs.h>
 #include <fs/filebase.h>
-#include <lib/kmalloc.h>
-#include <lib/klog.h>
-#include <lib/klib.h>
-#include <lib/errno.h>
+#include <base/kmalloc.h>
+#include <base/klog.h>
+#include <base/klib.h>
 #include <sys/panic.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>

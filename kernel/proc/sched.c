@@ -17,11 +17,12 @@
  **-----------------------------------------------------------------------------
  */
 #include <libc/string.h>
-#include <lib/klog.h>
-#include <lib/lock.h>
-#include <lib/time.h>
-#include <lib/kmalloc.h>
-#include <lib/vector.h>
+
+#include <base/klog.h>
+#include <base/lock.h>
+#include <base/time.h>
+#include <base/kmalloc.h>
+#include <base/vector.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
 #include <proc/eventbus.h>

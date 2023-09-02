@@ -1,6 +1,6 @@
 #include <sys/hpet.h>
-#include <lib/vector.h>
-#include <lib/lock.h>
+#include <base/vector.h>
+#include <base/lock.h>
 #include <proc/eventbus.h>
 #include <proc/sched.h>
 

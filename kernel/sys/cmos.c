@@ -20,7 +20,7 @@
 
 #include <sys/cmos.h>
 #include <sys/cpu.h>
-#include <lib/klog.h>
+#include <base/klog.h>
 
 #define CURRENT_YEAR    2022    /* Change this each year! */
 

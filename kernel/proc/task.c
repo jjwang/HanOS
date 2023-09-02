@@ -20,8 +20,8 @@
 
 #include <proc/task.h>
 #include <proc/sched.h>
-#include <lib/kmalloc.h>
-#include <lib/klog.h>
+#include <base/kmalloc.h>
+#include <base/klog.h>
 #include <sys/cpu.h>
 #include <sys/hpet.h>
 #include <sys/apic.h>

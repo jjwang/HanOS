@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include <lib/klog.h>
+#include <base/klog.h>
 
 #define PIC1        0x20 /* Master PIC */
 #define PIC2        0xA0 /* Slave PIC */

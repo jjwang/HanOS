@@ -16,10 +16,11 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+
 #include <symbols.h>
 #include <sys/panic.h>
 #include <sys/smp.h>
-#include <lib/klog.h>
+#include <base/klog.h>
 #include <device/display/term.h>
 
 static int symbols_get_index(uint64_t addr)

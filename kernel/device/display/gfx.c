@@ -4,8 +4,8 @@
 #include <sys/pci.h>
 #include <sys/pit.h>
 #include <sys/mm.h>
-#include <lib/vector.h>
-#include <lib/klog.h>
+#include <base/vector.h>
+#include <base/klog.h>
 #include <device/display/gfx.h>
 #include <device/display/gfx_reg.h>
 

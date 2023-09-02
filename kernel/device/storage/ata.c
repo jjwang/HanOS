@@ -6,8 +6,8 @@
 #include <sys/panic.h>
 #include <sys/pit.h>
 #include <device/storage/ata.h>
-#include <lib/lock.h>
-#include <lib/klog.h>
+#include <base/lock.h>
+#include <base/klog.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>

@@ -15,7 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <lib/klog.h>
+#include <base/klog.h>
 #include <sys/isr_base.h>
 #include <sys/panic.h>
 #include <sys/cpu.h>

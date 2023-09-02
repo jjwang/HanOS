@@ -20,7 +20,7 @@
 
 #include <libc/string.h>
 
-#include <lib/klog.h>
+#include <base/klog.h>
 #include <sys/isr_base.h>
 #include <sys/idt.h>
 #include <sys/cpu.h>

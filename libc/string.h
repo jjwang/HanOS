@@ -28,10 +28,8 @@ bool memcmp(const void *s1, const void *s2, size_t len);
 void memset(void *addr, uint8_t val, size_t len);
 void* memcpy(void *dest, const void *src, size_t len);
 
-/* Copying functions */
 char *strcpy(char *__restrict dest, const char *src);
 char *strncpy(char *__restrict dest, const char *src, size_t len);
-
 int strlen(const char *s);
 int strcmp(const char *a, const char *b); 
 int strncmp(const char *a, const char *b, size_t len);

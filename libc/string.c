@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    string.c
- @brief   Implementation of string operation related functions
+ @brief   Implementation of various string manipulation functions.
  @details
  @verbatim
 

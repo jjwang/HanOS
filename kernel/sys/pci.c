@@ -21,8 +21,8 @@
 #include <sys/pci.h>
 #include <sys/cpu.h>
 #include <sys/panic.h>
-#include <lib/klog.h>
-#include <lib/vector.h>
+#include <base/klog.h>
+#include <base/vector.h>
 
 #define MAX_FUNCTION            8
 #define MAX_DEVICE              16

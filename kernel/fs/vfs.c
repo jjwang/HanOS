@@ -18,10 +18,10 @@
 #include <fs/fat32.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
-#include <lib/klog.h>
-#include <lib/kmalloc.h>
-#include <lib/lock.h>
-#include <lib/vector.h>
+#include <base/klog.h>
+#include <base/kmalloc.h>
+#include <base/lock.h>
+#include <base/vector.h>
 
 static bool vfs_initialized = false;
 

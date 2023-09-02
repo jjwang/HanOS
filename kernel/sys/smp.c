@@ -20,9 +20,9 @@
 
 #include <libc/string.h>
 
-#include <lib/klog.h>
-#include <lib/kmalloc.h>
-#include <lib/time.h>
+#include <base/klog.h>
+#include <base/kmalloc.h>
+#include <base/time.h>
 #include <sys/mm.h>
 #include <sys/cpu.h>
 #include <sys/smp.h>

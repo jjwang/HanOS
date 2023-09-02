@@ -20,7 +20,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <lib/time.h>
+#include <base/time.h>
 
 #define APIC_REG_TIMER_LVT          0x320
 #define APIC_REG_TIMER_ICR          0x380

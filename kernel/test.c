@@ -13,7 +13,8 @@
  */
 #include <fs/vfs.h>
 #include <fs/fat32.h>
-#include <lib/klog.h>
+
+#include <base/klog.h>
 
 #include <test.h>
 

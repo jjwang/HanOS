@@ -2,8 +2,8 @@
 
 #include <proc/elf.h>
 #include <proc/task.h>
-#include <lib/klib.h>
-#include <lib/klog.h>
+#include <base/klib.h>
+#include <base/klog.h>
 #include <fs/vfs.h>
 #include <sys/mm.h>
 #include <sys/panic.h>

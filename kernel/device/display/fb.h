@@ -16,9 +16,10 @@
 #pragma once
 
 #include <stdint.h>
+
 #include <3rd-party/boot/limine.h>
 #include <device/display/font.h>
-#include <lib/image.h>
+#include <base/image.h>
 
 #define FB_WIDTH            2048
 #define FB_HEIGHT           1536

@@ -2,14 +2,14 @@
  * Manual Combined Volumes: 1, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 4
  */
 #include <libc/string.h>
+#include <libc/errno.h>
 
 #include <sys/cpu.h>
 #include <sys/idt.h>
 #include <sys/apic.h>
 #include <sys/panic.h>
 #include <sys/isr_base.h>
-#include <lib/klog.h>
-#include <lib/errno.h>
+#include <base/klog.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>

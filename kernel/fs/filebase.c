@@ -14,10 +14,10 @@
  **-----------------------------------------------------------------------------
  */
 #include <libc/string.h>
+#include <libc/errno.h>
 
 #include <fs/filebase.h>
-#include <lib/kmalloc.h>
-#include <lib/errno.h>
+#include <base/kmalloc.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 
