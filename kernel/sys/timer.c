@@ -31,8 +31,8 @@
 #include <sys/apic.h>
 #include <sys/idt.h>
 #include <sys/pit.h>
-#include <lib/klog.h>
-#include <lib/time.h>
+#include <base/klog.h>
+#include <base/time.h>
 
 static uint64_t base_freq = 0;
 static uint8_t divisor = 0;

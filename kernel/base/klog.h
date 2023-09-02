@@ -17,8 +17,9 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+
 #include <device/display/term.h>
-#include <lib/lock.h>
+#include <base/lock.h>
 
 #define KLOG_BUFFER_SIZE       (UINT16_MAX + 1)
 

@@ -21,9 +21,9 @@
 #include <device/keyboard/keyboard.h>
 #include <device/keyboard/keycode.h>
 #include <device/display/term.h>
-#include <lib/klog.h>
-#include <lib/lock.h>
-#include <lib/time.h>
+#include <base/klog.h>
+#include <base/lock.h>
+#include <base/time.h>
 #include <sys/isr_base.h>
 #include <sys/cpu.h>
 #include <sys/idt.h>

@@ -2,9 +2,9 @@
 
 #include <fs/ramfs.h>
 #include <fs/filebase.h>
-#include <lib/kmalloc.h>
-#include <lib/klog.h>
-#include <lib/klib.h>
+#include <base/kmalloc.h>
+#include <base/klog.h>
+#include <base/klib.h>
 #include <sys/panic.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>

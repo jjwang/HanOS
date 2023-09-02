@@ -14,8 +14,9 @@
  */
 #include <stdbool.h>
 #include <kconfig.h>
-#include <lib/klog.h>
-#include <lib/time.h>
+
+#include <base/klog.h>
+#include <base/time.h>
 #include <device/display/term.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>

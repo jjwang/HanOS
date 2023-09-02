@@ -22,8 +22,8 @@
 #include <libc/string.h>
 
 #include <fs/vfs.h>
-#include <lib/lock.h>
-#include <lib/time.h>
+#include <base/lock.h>
+#include <base/time.h>
 #include <device/storage/ata.h>
 
 #define FAT32_ATTR_READ_ONLY            0x01

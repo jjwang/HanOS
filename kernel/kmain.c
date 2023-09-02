@@ -5,12 +5,20 @@
  @details
  @verbatim
 
-  Lots of system initializations will be processed here.
+  This function initializes various components of the operating system, such as
+  the CPU, serial communication, logging, memory management, interrupt handling,
+  ACPI, HPET, CMOS, APIC, PIT, keyboard, VFS, SMP, syscall, INITRD, and terminal.
+
+  It also sets up the background image, prints system information, and starts
+  the kcursor task.
+
+  Finally, it executes the default shell application.
 
   History:
     Feb 19, 2022  Added CLI task which supports some simple commands.
     May 21, 2022  Changed boot protocol to limine with corresponding
                   modifications.
+
 @endverbatim
 
  **-----------------------------------------------------------------------------
@@ -18,14 +26,14 @@
 
 #include <stddef.h>
 
+#include <libc/string.h>
+
 #include <kconfig.h>
 #include <version.h>
 #include <3rd-party/boot/limine.h>
-#include <lib/time.h>
-#include <lib/image.h>
-#include <lib/klog.h>
-#include <lib/shell.h>
-#include <libc/string.h>
+#include <base/time.h>
+#include <base/image.h>
+#include <base/klog.h>
 #include <sys/mm.h>
 #include <sys/gdt.h>
 #include <sys/idt.h>

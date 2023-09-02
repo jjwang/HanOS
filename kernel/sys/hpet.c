@@ -24,8 +24,8 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <lib/klog.h>
-#include <lib/time.h>
+#include <base/klog.h>
+#include <base/time.h>
 #include <sys/hpet.h>
 #include <sys/acpi.h>
 #include <sys/mm.h>
