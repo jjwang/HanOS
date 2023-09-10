@@ -415,6 +415,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     /* Find the node */
     vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0);
     if (!req) {
+        klogd("VFS: Cannot find inode for %s\n", path);
         vfs_tnode_t* pn = NULL;
         char curpath[VFS_MAX_PATH_LEN] = {0}, parent[VFS_MAX_PATH_LEN] = {0};
         strcpy(curpath, path);

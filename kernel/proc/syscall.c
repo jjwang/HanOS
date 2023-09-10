@@ -99,7 +99,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     /* TODO: How to handle the first information page???  */
 
     /* Unmap before mapping to a new malloc-ed memory block */
-    vmm_unmap(as, ptr, np);
+    if (ptr != (uint64_t)NULL) vmm_unmap(as, ptr, np);
 
     uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(np * PAGE_SIZE));
 
@@ -135,6 +135,8 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     return ptr;
 
 err_exit:
+    kloge("k_vm_map: tid %d 0x%x(PML4 0x%x) returns NULL in malloc()\n",
+          t->tid, as, as->PML4);
     return (uint64_t)NULL;
 }
 
@@ -430,6 +432,8 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
     cpu_set_errno(0);
 
     if (fh == STDOUT || fh == STDERR) {
+        klogd("k_write: write to %d with %d bytes\n", fh, count);
+
         bool found = false;
         vfs_handle_t oldfh = -1; 
         if (t != NULL) {
@@ -769,7 +773,7 @@ int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
 {
     task_t *t = sched_get_current_task();
     if ((int32_t)pid == (int32_t)(-1) && t != NULL) {
-        klogd("k_waitpid: tid %d waits pid 0x%x status 0x%x flags 0x%x\n",
+        klogv("k_waitpid: tid %d waits pid 0x%x status 0x%x flags 0x%x\n",
               t->tid, pid, status, flags);
 
         cpu_set_errno(0);
@@ -780,19 +784,19 @@ int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
         for (size_t i = 0; i < len; i++) {
             task_id_t tid_child = vec_at(&(t->child_list), i);
             if (sched_get_task_status(tid_child) == TASK_DEAD) {
-                klogd("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
+                klogw("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
                 if (status != NULL) *status = (int64_t)NULL;
                 return tid_child;
             }
             if (sched_get_task_status(tid_child) != TASK_UNKNOWN) {
                 all_dead = false;
-                klogd("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
+                klogv("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
             }
         }
   
         if (!all_dead) {
             sched_sleep(200);
-            klogd("k_waitpid: tid %d waiting pid 0x%x returns with "
+            klogv("k_waitpid: tid %d waiting pid 0x%x returns with "
                   "active children\n", t->tid, pid);
             return 0;
         } else {
