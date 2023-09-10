@@ -235,9 +235,8 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
         id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
         memset(id, 0, sizeof(ramfs_ident_t));
     }
-    if (id->data != NULL) goto succ;
 
-    /* TODO: Need to speed up this part */
+    /* TODO: Need to speed up this part and check where to free id->data */
     bool islink = false;
     ramfs_ident_item_t *item_link = NULL;
 
@@ -251,6 +250,9 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
                 item_link = item;
                 break;
             }
+
+            klogd("RAMFS: reset %s to %d bytes\n", path, item->entry.size);
+
             if (id->data != NULL) {
                 id->data = (void*)kmrealloc(id->data, item->entry.size);
             } else {
@@ -281,20 +283,22 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
         }
     }
 
-succ:
     klogd("RAMFS: opening %s finished\n", path);
     return vfs_path_to_node(path, NO_CREATE, 0);
 }
 
 int64_t ramfs_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
 {
-    klogd("RAMFS: read %d from offset %d\n", len, offset);
+    ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
+    char *cbuff = (char*)buff;
 
     size_t retlen = len;
-    ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
     if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) memcpy(buff, ((uint8_t*)id->data) + offset, len);
+
+    klogd("RAMFS: read %d [%02x %02x...] from 0x%x with offset %d\n",
+          len, cbuff[0], cbuff[1], id->data, offset);
 
     return retlen;
 }
@@ -303,6 +307,9 @@ int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* bu
 {
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
     memcpy(((uint8_t*)id->data) + offset, buff, len);
+
+    klogd("RAMFS: write %d to 0x%x with offset %d\n", len, id->data, offset);
+
     return 0;
 }
 

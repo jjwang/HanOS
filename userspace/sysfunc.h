@@ -87,39 +87,87 @@
 #define STDOUT              1
 #define STDERR              2
 
+static inline void sys_libc_log(const char *message) {
+    int ret, errno;
+    SYSCALL1(SYSCALL_DEBUGLOG, message);
+}
+
 static inline int sys_fork() {
     int64_t ret;
     int errno;
     SYSCALL0(SYSCALL_FORK);
-    if (ret == -1) 
-        return errno;
-    /* Remember we should also return correct value in mlibc */
     return ret;
 }
 
-static inline int sys_read(
-    int fd, void *buf, size_t count, size_t *bytes_read)
+static inline int sys_read(int fd, void *buf, size_t count)
 {
     int64_t ret;
     int errno;
     SYSCALL3(SYSCALL_READ, fd, buf, count);
-    if (ret == -1)
-        return errno;
-    if (bytes_read != NULL)
-        *bytes_read = ret;
     return ret;
 }
 
-static inline int sys_write(
-    int fd, const void *buf, size_t count, size_t *bytes_written)
+static inline int sys_write(int fd, const void *buf, size_t count)
 {
     int64_t ret;
     int errno;
     SYSCALL3(SYSCALL_WRITE, fd, buf, count);
-    if (ret == -1)
-        return errno;
-    if (bytes_written != NULL)
-        *bytes_written = ret;
     return ret;
 }
 
+static inline int sys_exec(const char *path, char *const argv[])
+{
+    int errno, ret;
+    const char *envp[] = { 
+        "TIME_STYLE=posix-long-iso",
+        "TERM=linux",
+        NULL
+    };  
+    SYSCALL3(SYSCALL_EXECVE, path, argv, envp);
+    return ret;
+}
+
+static inline void sys_exit(int status)
+{
+    int ret, errno;
+    SYSCALL1(SYSCALL_EXIT, status);
+}
+
+static inline int sys_wait(int pid)
+{
+    while (true) {
+        int errno, ret;
+        SYSCALL3(SYSCALL_WAITPID, pid, NULL, 0);
+        if (ret < 0) break;
+    }
+    return 0;
+}
+
+static inline int sys_panic(const char *message)
+{
+    int errno, ret;
+    SYSCALL1(SYSCALL_DEBUGLOG, message);
+    sys_exit(255);
+}
+
+void *sys_malloc(int size)
+{
+    void *ret;
+    int errno;
+    SYSCALL6(SYSCALL_MMAP, 0, size, 0, 0x08, 0, 0);
+    return ret;
+}
+
+int sys_chdir(const char *path) {
+    int ret, errno;
+    SYSCALL1(SYSCALL_CHDIR, path);
+    return ret;
+}
+
+int sys_mkdirat(const char *path) {
+    int ret, errno;
+    SYSCALL3(SYSCALL_MKDIRAT, -100, path, 0755);
+    return ret;
+}
+
+#define printf(x)       sys_write(STDOUT, x, strlen(x))

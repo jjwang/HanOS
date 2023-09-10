@@ -234,7 +234,9 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
     cpu_t* cpu = smp_get_current_cpu(false);
 
 #ifndef ENABLE_KLOG_DEBUG
-    if (level <= KLOG_LEVEL_DEBUG) return;
+    if (level <= KLOG_LEVEL_DEBUG)   return;
+#else
+    if (level <= KLOG_LEVEL_VERBOSE) return;
 #endif
     if (level < KLOG_LEVEL_UNK)    lock_lock(&klog_info_lock);
 

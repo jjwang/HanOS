@@ -32,26 +32,52 @@
  */
 void* lapic_base = NULL;
 
+/**
+ * Reads the value of a register from the Advanced Programmable Interrupt
+ * Controller (APIC).
+ *
+ * @param offset The offset of the register to read.
+ *
+ * @returns The value of the register.
+ */
 uint32_t apic_read_reg(uint16_t offset)
 {
     return *(volatile uint32_t*)(lapic_base + offset);
 }
 
+/**
+ * Writes a value to a register in the Advanced Programmable Interrupt
+ * Controller (APIC).
+ *
+ * @param offset The offset of the register.
+ * @param val The value to write to the register.
+ *
+ * @returns None
+ */
 void apic_write_reg(uint16_t offset, uint32_t val)
 {
     *(volatile uint32_t*)(lapic_base + offset) = val;
 }
 
-/* Write to the register with offset 0xB0 using the value 0 to signal an end
- * of interrupt.
+/**
+ * Sends an End of Interrupt (EOI) signal to the Advanced Programmable Interrupt
+ * Controller (APIC).
+ *
+ * @returns None
  */
 void apic_send_eoi()
 {
     apic_write_reg(APIC_REG_EOI, 1);
 }
 
-/* Inter-Processor Interrupts (IPIs) can be used as basic signaling for
- * scheduling coordination, multi-processor bootstrapping, etc.
+/**
+ * Sends an Inter-Processor Interrupt (IPI) to a specific destination processor.
+ *
+ * @param dest The destination processor ID.
+ * @param vector The interrupt vector number.
+ * @param mtype The message type for the IPI.
+ *
+ * @returns None
  */
 void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
 {
@@ -59,11 +85,29 @@ void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
     apic_write_reg(APIC_REG_ICR_LOW, (mtype << 8) | vector);
 }
 
+
+/**
+ * Enables the Advanced Programmable Interrupt Controller (APIC).
+ *
+ * This function writes a value to the Spurious Interrupt Vector Register (SVR)
+ * of the APIC, enabling it and setting the interrupt vector number to the
+ * APIC_SPURIOUS_VECTOR_NUM constant.
+ *
+ * @returns None
+ */
 void apic_enable()
 {
     apic_write_reg(APIC_REG_SPURIOUS_INT, APIC_FLAG_ENABLE | APIC_SPURIOUS_VECTOR_NUM);
 }
 
+/**
+ * Initializes the Advanced Programmable Interrupt Controller (APIC).
+ * This function checks if the CPU supports APIC, maps the local APIC base
+ * address,
+ * enables the APIC, and logs the APIC version.
+ *
+ * @returns None
+ */
 void apic_init()
 {
     /* QEMU does not support APIC virtualization if host CPU cannot support. */

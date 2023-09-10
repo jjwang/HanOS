@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    sched.c
- @brief   Implementation of scheduling related functions
+ @brief   Maintain task list and schedule tasks according to system clock ticks
  @details
  @verbatim
 
@@ -565,10 +565,12 @@ task_t *sched_execve(
 
     task_regs_t *tc_regs = (task_regs_t*)PHYS_TO_VIRT(tc->tstack_top);
 
-    klogd("SCHED: execve with regs 0x%x and stack top 0x%x\n",
-          tc_regs, tc->tstack_top); 
+    klogd("SCHED: execve with regs 0x%x, stack top 0x%x, aux.entry 0x%x and "
+          "entry 0x%x\n", tc_regs, tc->tstack_top, aux.entry, entry); 
 
-    if (aux.entry != entry) {
+    if (aux.entry != entry || true)
+    /* TODO: Do not check any more. Need to add reason later. */
+    {
         uint64_t *stack = (uint64_t*)PHYS_TO_VIRT(tc->tstack_top);
 
         if (cwd != NULL) strcpy(tc->cwd, cwd);
@@ -580,12 +582,14 @@ task_t *sched_execve(
             for (const char **e = envp; *e; e++) {
                 stack = (void*)stack - (strlen(*e) + 1);
                 strcpy((char*)stack, *e);
+                klogd("         envp: %s\n", *e);
                 nenv++;
             }
 
             for (const char **e = argv; *e; e++) {
                 stack = (void*)stack - (strlen(*e) + 1);
                 strcpy((char*)stack, *e);
+                klogd("         argv: %s (0x%x)\n", *e, stack);
                 nargs++;
             }
 
@@ -653,6 +657,9 @@ task_t *sched_execve(
         tc->tstack_top = (void*)VIRT_TO_PHYS(stack);
         tc_regs = (task_regs_t*)stack;
         tc_regs->rsp = (uint64_t)tc->tstack_top + sizeof(task_regs_t);
+        klogd("SCHED: task stack top 0x%x, rsp 0x%x, top argc %d\n",
+              tc->tstack_top, tc_regs->rsp,
+              *((uint64_t*)PHYS_TO_VIRT(tc_regs->rsp)));
     }
 
     tc_regs->rip = (uint64_t)entry;
