@@ -1,8 +1,8 @@
 #include <stddef.h>
 
+#include <libc/stdio.h>
 #include <libc/string.h>
-
-#include <sysfunc.h>
+#include <libc/sysfunc.h>
 
 /* Parsed command representation */
 /* Currently we only support EXEC */
@@ -91,6 +91,35 @@ void runcmd(struct cmd *cmd)
         }
         break;
 
+  case PIPE:
+        pcmd = (struct pipecmd*)cmd;
+        strcpy(pathname, "/TEMP$$$$");
+        if (fork1() == 0) {
+            /* Child process */
+            int fh = sys_open(pathname, O_WRONLY | O_CREAT);
+            if (fh < 0) sys_exit(1);
+            sys_dup(STDOUT, 0, fh);
+            runcmd(pcmd->left);
+            /* Never run below code since sys_exit() will be called when
+             * calling runcmd().
+             */
+            sys_close(fh);
+            sys_exit(1);
+        }
+        sys_wait(-1);
+        if (fork1() == 0) {
+            /* Child process */
+            int fh = sys_open(pathname, O_RDONLY);
+            if (fh < 0) sys_exit(1);
+            sys_dup(STDIN, 0, fh);
+            runcmd(pcmd->right);
+            /* Never run below code */
+            sys_close(fh);
+            sys_exit(1);
+        }        
+        sys_wait(-1);
+        break;
+
     case LIST:
         lcmd = (struct listcmd*)cmd;
         if(fork1() == 0)
@@ -120,13 +149,14 @@ int getcmd(char *buf, int nbuf)
             continue;
         }
         if (i >= nbuf - 1) break;
+        if (buf[i] == (char)EOF) break;
         if (buf[i] == '\n') {
             buf[i] = '\0';
             break;
         }
         i++;
     }
-    if(buf[0] == 0) /* EOF */
+    if(buf[0] == (char)EOF)
         return -1;
     return 0;
 }
@@ -149,6 +179,8 @@ void main(void)
             continue;
         }
 
+        if(buf[0] == 0) continue;
+
         if(fork1() == 0) {
             runcmd(parsecmd(buf));
             sys_exit(0);
@@ -156,6 +188,7 @@ void main(void)
         sys_wait(-1);
         sys_libc_log("hansh: exit from current command and wait for next one");
     }
+    printf("exit: ending sh\n");
     sys_exit(0);
 }
 

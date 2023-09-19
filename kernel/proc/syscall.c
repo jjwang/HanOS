@@ -403,14 +403,15 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
                     oldfh = dup.fh;
                     found = true;
                     break;
+                } else if (dup.fh == fh) {
+                    oldfh = dup.newfh;
+                    found = true;
                 }
             }
             lock_release(&vfs_lock);
         }
         if (found) {
             int64_t ret = vfs_read(oldfh, count, buf);
-            klogd("k_read: read %d/%d from oldfh %d <- fh %d\n",
-                  ret, count, oldfh, fh);
             return ret;
         } else if (ttyfh != VFS_INVALID_HANDLE) {
             return vfs_read(ttyfh, count, buf);
@@ -432,8 +433,6 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
     cpu_set_errno(0);
 
     if (fh == STDOUT || fh == STDERR) {
-        klogd("k_write: write to %d with %d bytes\n", fh, count);
-
         bool found = false;
         vfs_handle_t oldfh = -1; 
         if (t != NULL) {
@@ -445,7 +444,11 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
                     oldfh = dup.fh;
                     found = true;
                     break;
-                }   
+                } else if (dup.fh == fh) {
+                    oldfh = dup.newfh;
+                    found = true;
+                    break;
+                }
             }
             lock_release(&vfs_lock);
         }   
@@ -950,8 +953,6 @@ void k_uname(void)
 
 int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
 {
-    klogd("k_dup3: fh %d <- newfh %d, flags 0x%x\n", fh, newfh, flags);
-
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
@@ -959,6 +960,9 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
         cpu_set_errno(ENOSYS);
         return -1;
     }
+
+    klogd("k_dup3: tid %d fh %d <- newfh %d, flags 0x%x\n",
+          t->tid, fh, newfh, flags);
 
     lock_lock(&vfs_lock);
     file_dup_t dup = {.fh = fh, .newfh = newfh};
