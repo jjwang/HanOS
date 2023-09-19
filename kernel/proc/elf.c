@@ -14,7 +14,7 @@
 #define IS_DATA(p)      (p.flags & PF_W)
 #define IS_BSS(p)       (p.filesz < p.memsz)
 
-static bool debug_info = false;
+static bool debug_info = true;
 
 extern lock_t sched_lock;
 
@@ -63,15 +63,16 @@ int64_t elf_load(
 
     const char* fn = path_name;
     /* TODO: Need to review const description */
-    vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READWRITE);
+    vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READ);
     if (f != VFS_INVALID_HANDLE) {
         elf_len = vfs_tell(f);
         elf_buff = (uint8_t*)kmalloc(elf_len);
         if (elf_buff != NULL) {
             size_t readlen = vfs_read(f, elf_len, elf_buff);
-            if (debug_info) {
-                klogd("ELF(%s): read %d bytes from %s(%d)\n",
-                      path_name, readlen, fn, f);
+            if (debug_info && readlen >= 3) {
+                klogd("ELF(%s): read %d bytes [0x%02x 0x%02x 0x%02x ...] "
+                      "from %s(%d)\n", path_name, readlen,
+                      elf_buff[0], elf_buff[1], elf_buff[2], fn, f);
             }
 
             m.vaddr = (uint64_t)elf_buff;

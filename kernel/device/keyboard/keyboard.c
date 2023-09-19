@@ -17,6 +17,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <libc/string.h>
+#include <libc/stdio.h>
 
 #include <device/keyboard/keyboard.h>
 #include <device/keyboard/keycode.h>
@@ -86,6 +87,26 @@ static void keyboard_callback()
             }
             lock_release(&kb_lock);
             break;
+        }
+
+        if (ps2_kb.key_pressed[KB_LCTRL])
+        {
+            if (buffer_length < KB_BUFFER_SIZE
+                && (ch == 'd' || ch == 'D'))
+            {
+                lock_lock(&kb_lock);
+                key_buffer[write_index] = EOF; 
+                write_index++;
+                buffer_length++;
+                if (write_index == KB_BUFFER_SIZE) {
+                    write_index = 0;
+                }
+                lock_release(&kb_lock);
+                
+                eb_publish(TID_NONE, EVENT_KEY_PRESSED, EOF);
+                klogd("keyboard: EOF recevied!\n");
+                break;
+            }
         }
 
         if (buffer_length < KB_BUFFER_SIZE) {

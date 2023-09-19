@@ -328,7 +328,7 @@ void kmain(void)
         "HOME=/root",
         "TIME_STYLE=posix-long-iso",
         "PATH=/usr/bin:/bin",
-        "TERM=linux",
+        "TERM=hanos",
         NULL
     };
 
