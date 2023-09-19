@@ -557,6 +557,14 @@ task_t *sched_execve(
     lock_lock(&sched_lock);
     tc = task_make(tname, NULL, 0, TASK_USER_MODE,
                    tp == NULL ? NULL : tp->addrspace);
+    if (tp != NULL) {
+        for (size_t i = 0; i < vec_length(&tp->dup_list); i++) {
+            file_dup_t dup = vec_at(&tp->dup_list, i);  
+            vec_push_back(&tc->dup_list, dup);
+            klogd("SCHED: fh pair for tid %d's child task %d - (%d, %d)\n",
+                  tp->tid, tc->tid, dup.fh, dup.newfh);
+        }
+    } 
     lock_release(&sched_lock);
 
     if (elf_load(tc, path, &entry, &aux)) {

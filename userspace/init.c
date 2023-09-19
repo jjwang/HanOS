@@ -1,8 +1,7 @@
 #include <stddef.h>
 
 #include <libc/string.h>
-
-#include <sysfunc.h>
+#include <libc/sysfunc.h>
 
 char *argv[] = {
     "hansh",

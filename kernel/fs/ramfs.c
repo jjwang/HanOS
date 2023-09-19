@@ -290,15 +290,11 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
 int64_t ramfs_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
 {
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
-    char *cbuff = (char*)buff;
 
     size_t retlen = len;
     if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) memcpy(buff, ((uint8_t*)id->data) + offset, len);
-
-    klogd("RAMFS: read %d [%02x %02x...] from 0x%x with offset %d\n",
-          len, cbuff[0], cbuff[1], id->data, offset);
 
     return retlen;
 }

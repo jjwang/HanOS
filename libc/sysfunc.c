@@ -1,4 +1,8 @@
-#pragma once
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <libc/sysfunc.h>
 
 #define SYSCALL0(NUM) ({                     \
     asm volatile ("syscall"                  \
@@ -83,23 +87,48 @@
 #define SYSCALL_FUTEX_WAIT  32
 #define SYSCALL_FUTEX_WAKE  33
 
-#define STDIN               0
-#define STDOUT              1
-#define STDERR              2
-
-static inline void sys_libc_log(const char *message) {
+void sys_libc_log(const char *message)
+{
     int ret, errno;
     SYSCALL1(SYSCALL_DEBUGLOG, message);
 }
 
-static inline int sys_fork() {
+int sys_fork()
+{
     int64_t ret;
     int errno;
     SYSCALL0(SYSCALL_FORK);
     return ret;
 }
 
-static inline int sys_read(int fd, void *buf, size_t count)
+int sys_openat(int dirfd, const char *path, int flags)
+{
+    int ret, errno;
+    SYSCALL3(SYSCALL_OPENAT, dirfd, path, flags);
+    return ret;
+}
+
+int sys_getcwd(char *buffer, size_t size)
+{
+    int ret, errno;
+    SYSCALL2(SYSCALL_GETCWD, buffer, size);
+    return ret;
+}
+
+int sys_open(const char *path, int flags)
+{
+    int ret = sys_openat(AT_FDCWD, path, flags);
+    return ret;
+}
+
+int sys_close(int fd)
+{
+    int ret, errno;
+    SYSCALL1(SYSCALL_CLOSE, fd);
+    return ret;
+}
+
+int sys_read(int fd, void *buf, size_t count)
 {
     int64_t ret;
     int errno;
@@ -107,7 +136,7 @@ static inline int sys_read(int fd, void *buf, size_t count)
     return ret;
 }
 
-static inline int sys_write(int fd, const void *buf, size_t count)
+int sys_write(int fd, const void *buf, size_t count)
 {
     int64_t ret;
     int errno;
@@ -115,7 +144,7 @@ static inline int sys_write(int fd, const void *buf, size_t count)
     return ret;
 }
 
-static inline int sys_exec(const char *path, char *const argv[])
+int sys_exec(const char *path, char *const argv[])
 {
     int errno, ret;
     const char *envp[] = { 
@@ -127,13 +156,13 @@ static inline int sys_exec(const char *path, char *const argv[])
     return ret;
 }
 
-static inline void sys_exit(int status)
+void sys_exit(int status)
 {
     int ret, errno;
     SYSCALL1(SYSCALL_EXIT, status);
 }
 
-static inline int sys_wait(int pid)
+int sys_wait(int pid)
 {
     while (true) {
         int errno, ret;
@@ -143,7 +172,7 @@ static inline int sys_wait(int pid)
     return 0;
 }
 
-static inline int sys_panic(const char *message)
+void sys_panic(const char *message)
 {
     int errno, ret;
     SYSCALL1(SYSCALL_DEBUGLOG, message);
@@ -158,16 +187,25 @@ void *sys_malloc(int size)
     return ret;
 }
 
-int sys_chdir(const char *path) {
+int sys_chdir(const char *path)
+{
     int ret, errno;
     SYSCALL1(SYSCALL_CHDIR, path);
     return ret;
 }
 
-int sys_mkdirat(const char *path) {
+int sys_mkdirat(const char *path)
+{
     int ret, errno;
-    SYSCALL3(SYSCALL_MKDIRAT, -100, path, 0755);
+    SYSCALL3(SYSCALL_MKDIRAT, AT_FDCWD, path, 0755);
     return ret;
 }
 
-#define printf(x)       sys_write(STDOUT, x, strlen(x))
+int sys_dup(int fd, int flags, int newfd)
+{
+    int errno, ret;
+    SYSCALL3(SYSCALL_DUP3, fd, newfd, flags);
+    return ret;
+}
+
+

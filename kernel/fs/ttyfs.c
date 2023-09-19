@@ -1,5 +1,6 @@
 #include <libc/string.h>
 #include <libc/errno.h>
+#include <libc/stdio.h>
 
 #include <fs/ttyfs.h>
 #include <fs/filebase.h>
@@ -207,7 +208,11 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
         term_set_cursor(' ');
         term_refresh(TERM_MODE_CLI);
 
-        kprintf("%c", id->ibuff[index]);
+        if (id->ibuff[index] != (char)EOF) {
+            kprintf("%c", id->ibuff[index]);
+        } else {
+            kprintf("[EOF]\n");
+        }
 
         cursor_visible = CURSOR_INVISIBLE;
     }
