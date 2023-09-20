@@ -222,19 +222,18 @@ void ramfs_init(void* address, uint64_t size)
 /* The path parameter needs to be full path */
 vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
 {
-    int idx = 0;
+    int nn = 0;
     size_t pathlen = strlen(path);
-    for (idx = pathlen - 1; idx >= 0; idx--) {
-        if (path[idx] == '/') break;
+    for (nn = pathlen - 1; nn >= 0; nn--) {
+        if (path[nn] == '/') break;
     }
-    if (idx < 0) idx = 0;
 
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
 
     if (id == NULL) { 
         id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
-        memset(id, 0, sizeof(ramfs_ident_t));
     }
+    memset(id, 0, sizeof(ramfs_ident_t));
 
     /* TODO: Need to speed up this part and check where to free id->data */
     bool islink = false;
@@ -251,14 +250,18 @@ vfs_tnode_t* ramfs_open(vfs_inode_t* this, const char* path)
                 break;
             }
 
-            klogd("RAMFS: reset %s to %d bytes\n", path, item->entry.size);
-
             if (id->data != NULL) {
                 id->data = (void*)kmrealloc(id->data, item->entry.size);
             } else {
                 id->data = (void*)kmalloc(item->entry.size);
             }
             id->alloc_size = item->entry.size;
+
+            uint8_t *buff = (uint8_t*)item->entry.data;
+            if (item->entry.size >= 2) {
+                klogd("RAMFS: %s reset 0x%x [0x%02x 0x%02x ...] to %d bytes\n",
+                      path, id->data, buff[0], buff[1], item->entry.size);
+            }
             memcpy(id->data, item->entry.data, item->entry.size);
             break;
         }
@@ -294,7 +297,11 @@ int64_t ramfs_read(vfs_inode_t* this, size_t offset, size_t len, void* buff)
     size_t retlen = len;
     if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
     if (offset > id->alloc_size) retlen = 0;
-    if (retlen > 0) memcpy(buff, ((uint8_t*)id->data) + offset, len);
+    if (retlen > 0) {
+        memcpy(buff, ((uint8_t*)id->data) + offset, len);
+        klogd("RAMFS: read %d bytes from 0x%x with offset %d\n",
+              len, id->data, offset);
+    }
 
     return retlen;
 }

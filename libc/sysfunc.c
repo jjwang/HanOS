@@ -149,7 +149,7 @@ int sys_exec(const char *path, char *const argv[])
     int errno, ret;
     const char *envp[] = { 
         "TIME_STYLE=posix-long-iso",
-        "TERM=linux",
+        "TERM=hanos",
         NULL
     };  
     SYSCALL3(SYSCALL_EXECVE, path, argv, envp);
