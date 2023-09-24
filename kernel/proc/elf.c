@@ -14,7 +14,7 @@
 #define IS_DATA(p)      (p.flags & PF_W)
 #define IS_BSS(p)       (p.filesz < p.memsz)
 
-static bool debug_info = true;
+static bool debug_info = false;
 
 extern lock_t sched_lock;
 

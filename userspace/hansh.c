@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdint.h>
 
 #include <libc/stdio.h>
 #include <libc/string.h>
@@ -173,9 +174,11 @@ void main(void)
     while(getcmd(buf, CMD_MAX_LEN) >= 0){
         if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') {
             /* Chdir must be called by the parent, not the child. */
-            buf[strlen(buf) - 1] = 0;  /* chop \n */
+            if (buf[strlen(buf) - 1] == '\n') {
+                buf[strlen(buf) - 1] = 0;  /* chop \n */
+            }
             if(sys_chdir(buf + 3) < 0)
-                printf("cannot change directory\n");
+                printf("cd: cannot change folder to \"%s\"\n", buf + 3);
             continue;
         }
 

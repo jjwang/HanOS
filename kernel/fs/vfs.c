@@ -111,6 +111,7 @@ void vfs_init()
     vfs_root.inode = vfs_alloc_inode(VFS_NODE_FOLDER, 0777, 0, NULL, NULL);
     vfs_root.st.st_dev = vfs_new_dev_id();
     vfs_root.st.st_ino = vfs_new_ino_id();
+    vfs_root.st.st_mode |= S_IFDIR;
 
     /* Register all file systems which will be used */
     vfs_register_fs(&fat32);

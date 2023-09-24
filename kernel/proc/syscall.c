@@ -621,6 +621,11 @@ int64_t k_chdir(char *dir)
         goto err_exit;
     }
 
+    /* TODO: Need to add bound check */
+    while (*dir == ' ') {
+        dir++;
+    }
+
     if (strlen(dir) == 0) {
         cpu_set_errno(ENOENT);
         goto err_exit;
@@ -637,26 +642,52 @@ int64_t k_chdir(char *dir)
     }
 
     char cwd[VFS_MAX_PATH_LEN] = {0};
+    char fullpath[VFS_MAX_PATH_LEN] = {0};
     char parent[VFS_MAX_PATH_LEN] = {0};
     char currdir[VFS_MAX_PATH_LEN] = {0};
 
-    int64_t ret = vfs_get_parent_dir(dir, parent, currdir);
+    strcpy(fullpath, t->cwd);
+    if (dir[0] == '/') {
+        strcpy(fullpath, dir);
+    } else {
+        strcpy(fullpath, t->cwd);
+        if (strlen(fullpath) > 1) {
+            /* We should not repalce "/" when in root folder */
+            if (fullpath[strlen(fullpath) - 1] != '/') {
+                strcat(fullpath, "/");
+            }
+        } else if (strlen(fullpath) == 1) {
+            if (fullpath[0] != '/') {
+                cpu_set_errno(EINVAL);
+                goto err_exit;
+            }
+        } else {
+            cpu_set_errno(EINVAL);
+            goto err_exit;
+        }
+        strcat(fullpath, dir);
+    }
+        
+    int64_t ret = vfs_get_parent_dir(fullpath, parent, currdir);
 
-    if (ret < 0) {
+    klogd("k_chdir: target \"%s\", parrent \"%s\", curr \"%s\" and ret %d\n",
+          fullpath, parent, currdir, ret);
+
+    if (ret < 0) { 
         strcpy(cwd, dir);
     } else {
-        if (strcmp(currdir, ".") == 0) {
+        if (strcmp(currdir, ".") == 0) { 
             strcpy(cwd, parent);
-        } else if (strcmp(currdir, "..") == 0) {
-            char top_path[VFS_MAX_PATH_LEN] = {0};
+        } else if (strcmp(currdir, "..") == 0) { 
+            char top_path[VFS_MAX_PATH_LEN] = {0}; 
             ret = vfs_get_parent_dir(parent, top_path, currdir);
-            if (ret < 0) {
+            if (ret < 0) { 
                 strcpy(cwd, "/");
             } else {
                 strcpy(cwd, top_path);
             }
         } else {
-            strcpy(cwd, dir);
+            strcpy(cwd, fullpath);
         }
     }
 
