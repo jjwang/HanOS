@@ -115,6 +115,13 @@ int sys_getcwd(char *buffer, size_t size)
     return ret;
 }
 
+int sys_chdir(const char *path)
+{
+    int ret, errno;
+    SYSCALL1(SYSCALL_CHDIR, path);
+    return ret;
+}
+
 int sys_open(const char *path, int flags)
 {
     int ret = sys_openat(AT_FDCWD, path, flags);
@@ -187,13 +194,6 @@ void *sys_malloc(int size)
     return ret;
 }
 
-int sys_chdir(const char *path)
-{
-    int ret, errno;
-    SYSCALL1(SYSCALL_CHDIR, path);
-    return ret;
-}
-
 int sys_mkdirat(const char *path)
 {
     int ret, errno;
@@ -208,4 +208,24 @@ int sys_dup(int fd, int flags, int newfd)
     return ret;
 }
 
+int sys_fstat(int fd, stat_t *statbuf)
+{
+    int errno, ret;
+    SYSCALL2(SYSCALL_FSTAT, fd, statbuf);
+    return ret;
+}
+
+int sys_stat(const char *path, stat_t *statbuf)
+{
+    int errno, ret;
+    SYSCALL4(SYSCALL_FSTATAT, AT_FDCWD, path, statbuf, 0);
+    return ret;
+}
+
+int sys_readdir(int fd, void *buffer)
+{
+    int ret, errno;
+    SYSCALL2(SYSCALL_READDIR, fd, buffer);
+    return ret;
+}
 
