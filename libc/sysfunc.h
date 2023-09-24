@@ -1,6 +1,8 @@
 #pragma once
 
-#define AT_FDCWD        -100
+#include <libc/stdio.h>
+
+#define AT_FDCWD            -100
 
 #define STDIN               0
 #define STDOUT              1
@@ -33,6 +35,7 @@ void sys_libc_log(const char *message);
 int sys_fork();
 int sys_openat(int dirfd, const char *path, int flags);
 int sys_getcwd(char *buffer, size_t size);
+int sys_chdir(const char *path);
 int sys_open(const char *path, int flags);
 int sys_close(int fd);
 int sys_read(int fd, void *buf, size_t count);
@@ -42,7 +45,9 @@ void sys_exit(int status);
 int sys_wait(int pid);
 void sys_panic(const char *message);
 void *sys_malloc(int size);
-int sys_chdir(const char *path);
 int sys_mkdirat(const char *path);
 int sys_dup(int fd, int flags, int newfd);
+int sys_fstat(int fd, stat_t *statbuf);
+int sys_stat(const char *path, stat_t *statbuf);
+int sys_readdir(int fd, void *buffer);
 
