@@ -158,7 +158,7 @@ int sys_exec(const char *path, char *const argv[])
         "TIME_STYLE=posix-long-iso",
         "TERM=hanos",
         NULL
-    };  
+    };
     SYSCALL3(SYSCALL_EXECVE, path, argv, envp);
     return ret;
 }

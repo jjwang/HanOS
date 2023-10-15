@@ -389,17 +389,22 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel)
 {
-    size_t i;
+    size_t i, np;
 
     kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
-    /*
-     * Since we share the same virtual memory manager with user mode, here
-     * we must set flags with USERMODE.
+    /* We only need to map all memories as below for kernel task, so we do not
+     * call vmm_map() function.
+     * 
+     *  vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
+     *          VMM_FLAGS_DEFAULT);
+     *
      */
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
-            VMM_FLAGS_DEFAULT);
+    np = NUM_PAGES(kmem_info.phys_limit);
+    for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
+        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
+    }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
@@ -447,7 +452,7 @@ void vmm_init(
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT/* | VMM_FLAG_USER*/);
+                    VMM_FLAGS_DEFAULT);
             klogi("Mapped 0x%9x to 0x%x(len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
         }

@@ -1,7 +1,11 @@
 #include <base/lock.h>
+#include <base/klog.h>
 
-void lock_lock(lock_t *s)
+void lock_lock_impl(lock_t *s, const char *fn, const int ln)
 {
+    (void)fn;
+    (void)ln;
+
     asm volatile(
         "pushfq;"
         "cli;"
@@ -20,8 +24,11 @@ void lock_lock(lock_t *s)
         : "memory", "cc");
 }
 
-void lock_release(lock_t *s)
+void lock_release_impl(lock_t *s, const char *fn, const int ln)
 {
+    (void)fn;
+    (void)ln;
+
     asm volatile("push %[flags];"
                  "lock btrl $0, %[lock];"
                     "popfq;"
