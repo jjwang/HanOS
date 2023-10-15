@@ -177,23 +177,27 @@ task_t *task_fork(task_t *tp)
 
     memcpy(tc, tp, sizeof(task_t));
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
+    memset(&tc->child_list, 0, sizeof(tc->child_list));
 
     tc->addrspace = create_addrspace();
 
     size_t len = vec_length(&(tp->mmap_list));
-    klogd("task_fork: totally %d memory blocks\n", len);
+    klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
+          len, tp->tid, curr_tid);
     for (size_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
         uint64_t ptr = VIRT_TO_PHYS(kmalloc(m.np * PAGE_SIZE));
         memcpy((void*)PHYS_TO_VIRT(ptr), (void*)PHYS_TO_VIRT(m.paddr),
                m.np * PAGE_SIZE);
-        if ((uint64_t)tp->ustack_limit == (uint64_t)m.paddr) {
-            klogd("task_fork: new user stack 0x%x and map to 0x%x "
-                  "with top 0x%x\n", ptr, m.vaddr, m.vaddr + STACK_SIZE);
+        if ((uint64_t)tp->ustack_limit == (uint64_t)m.vaddr) {
+            klogi("task_fork: #%d (parent #%d) new user stack 0x%x and "
+                  "map to 0x%x with top 0x%x\n",
+                  curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         if ((uint64_t)tp->kstack_limit == (uint64_t)m.vaddr) {
-            klogd("task_fork: new kern stack 0x%x and map to 0x%x "
-                  "with top 0x%x\n", ptr, m.vaddr, m.vaddr + STACK_SIZE);
+            klogi("task_fork: #%d (parent #%d) new kern stack 0x%x and "
+                  "map to 0x%x with top 0x%x\n",
+                  curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
 
@@ -237,6 +241,7 @@ task_t *task_fork(task_t *tp)
     vmm_map(tc->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
             VMM_FLAGS_MMIO);
 
+    klogd("TASK: child tid %d and parent tid %d\n", tc->tid, tp->tid);
     vec_push_back(&tp->child_list, tc->tid);
 
     curr_tid++;
