@@ -200,6 +200,7 @@ void do_context_switch(void* stack, int64_t mode)
             curr->status = TASK_READY;
 
         if ((uint64_t)curr != (uint64_t)tasks_idle[cpu_id]) {
+            /* TODO: Need to add macros for mode 2 etc. */
             if (mode == 2) {
                 task_t *curr_fork = task_fork(curr);
                 vec_push_back(&tasks_active, curr_fork);
@@ -349,13 +350,12 @@ void sched_sleep(time_t millis)
     force_context_switch();
 }
 
-task_status_t sched_get_task_status(task_id_t tid)
+static task_status_t sched_get_task_status_impl(task_id_t tid)
 {
     task_t *ntask = NULL;
     task_status_t status = TASK_UNKNOWN;
     bool has_child = false; 
 
-    lock_lock(&sched_lock);
     size_t i;
     for (i = 0; i < vec_length(&tasks_active); i++) {
         task_t *t = vec_at(&tasks_active, i); 
@@ -364,28 +364,31 @@ task_status_t sched_get_task_status(task_id_t tid)
                 status = t->status;
                 ntask = t;
             }
-            if (t->ptid == tid && t->status != TASK_DEAD
-                && t->status != TASK_UNKNOWN)
-            {
-                has_child = true;
+            if (t->ptid == tid) {
+                if(t->status != TASK_DEAD && t->status != TASK_UNKNOWN) {
+                    has_child = true;
+                } else if(sched_get_task_status_impl(t->tid) == TASK_RUNNING) {
+                    has_child = true;
+                }
             }
         }   
     }
-    for (i = 0; i < CPU_MAX; i++) {
+    for (i = 0; i < CPU_MAX && !has_child; i++) {
         task_t *t = tasks_running[i];
         if (t) {
             if (t->tid == tid) {
                 status = t->status;
                 ntask = t;
             }
-            if (t->ptid == tid && t->status != TASK_DEAD
-                && t->status != TASK_UNKNOWN)
-            {   
-                has_child = true;
-            } 
+            if (t->ptid == tid) {
+                if(t->status != TASK_DEAD && t->status != TASK_UNKNOWN) {
+                    has_child = true;
+                } else if(sched_get_task_status_impl(t->tid) == TASK_RUNNING) {
+                    has_child = true;
+                }
+            }
         }   
     }
-    lock_release(&sched_lock);
 
     if (!has_child) {
         if (ntask != NULL) {
@@ -394,6 +397,17 @@ task_status_t sched_get_task_status(task_id_t tid)
     } else {
         status = TASK_RUNNING;
     }
+
+    return status;
+}
+
+task_status_t sched_get_task_status(task_id_t tid)
+{
+    task_status_t status = TASK_UNKNOWN;
+
+    lock_lock(&sched_lock);
+    status = sched_get_task_status_impl(tid);
+    lock_release(&sched_lock);
 
     return status;
 }
@@ -548,7 +562,7 @@ task_t *sched_execve(
 
     char *tname = (char*)path;
     for (int64_t i = strlen(path) - 1; i >= 0; i--) {
-        if (path[i] == '/') {
+       if (path[i] == '/') {
             tname = (char*)&(path[i + 1]);
             break;
         }
@@ -573,102 +587,107 @@ task_t *sched_execve(
 
     task_regs_t *tc_regs = (task_regs_t*)PHYS_TO_VIRT(tc->tstack_top);
 
-    klogd("SCHED: execve with regs 0x%x, stack top 0x%x, aux.entry 0x%x and "
-          "entry 0x%x\n", tc_regs, tc->tstack_top, aux.entry, entry); 
+    /* TODO: Do not check whether aux.entry == entry any more */
+    uint64_t *stack = (uint64_t*)PHYS_TO_VIRT(tc->tstack_top);
 
-    if (aux.entry != entry || true)
-    /* TODO: Do not check any more. Need to add reason later. */
-    {
-        uint64_t *stack = (uint64_t*)PHYS_TO_VIRT(tc->tstack_top);
+    if (cwd != NULL) strcpy(tc->cwd, cwd);
 
-        if (cwd != NULL) strcpy(tc->cwd, cwd);
+    uint8_t *sa = (uint8_t*)tc->tstack_top;
+    size_t nenv = 0, nargs = 0;
 
-        uint8_t *sa = (uint8_t*)tc->tstack_top;
-        size_t nenv = 0, nargs = 0;
-
-        if (argv != NULL && envp != NULL) {
-            for (const char **e = envp; *e; e++) {
-                stack = (void*)stack - (strlen(*e) + 1);
-                strcpy((char*)stack, *e);
-                klogd("         envp: %s\n", *e);
-                nenv++;
-            }
-
-            for (const char **e = argv; *e; e++) {
-                stack = (void*)stack - (strlen(*e) + 1);
-                strcpy((char*)stack, *e);
-                klogd("         argv: %s (0x%x)\n", *e, stack);
-                nargs++;
-            }
-
-            /* Align stack address to 16-byte */
-            stack = (void*)stack - ((uintptr_t)stack & 0xf);
-
-            if ((nargs + nenv + 1) & 1)
-                stack--;
-        } else {
-            *(--stack) = 0;
+    if (argv != NULL && envp != NULL) {
+        size_t i = 0;
+        const char *e;
+        for (i = 0; ; i++) {
+            e = envp[i];
+            if (e == NULL) break;
+            stack = (void*)stack - (strlen(e) + 1);
+            strcpy((char*)stack, e);
+            klogd("         envp: %s (0x%x -> 0x%x, %d)\n",
+                  e, e, stack, strlen(e) + 1);
+            nenv++;
         }
 
-        /* Auxilary vector */
+        for (i = 0; ; i++) {
+            e = argv[i];
+            if (e == NULL) break;
+            stack = (void*)stack - (strlen(e) + 1);
+            strcpy((char*)stack, e);
+            klogd("         argv: %s (0x%x -> 0x%x, %d)\n",
+                  e, e, stack, strlen(e) + 1);
+            nargs++;
+        }
+
+        /* Align stack address to 16-byte */
+        stack = (void*)stack - ((uintptr_t)stack & 0xf);
+
+        if ((nargs + nenv + 1) & 1)
+            stack--;
+    } else {
         *(--stack) = 0;
-        *(--stack) = 0;
-
-        stack   -= 2;
-        stack[0] = 10;  /* AT_ENTRY */
-        stack[1] = aux.entry;
-
-        stack   -= 2;
-        stack[0] = 20;  /* AT_PHDR */
-        stack[1] = aux.phdr;
-
-        stack   -= 2;
-        stack[0] = 21;  /* AT_PHENT */
-        stack[1] = aux.phentsize;
-
-        stack   -= 2;
-        stack[0] = 22;  /* AT_PHNUM */
-        stack[1] = aux.phnum;
-
-        klogi("SCHED: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
-              "phentsize %d, phnum %d\n", tc->tid, stack, aux.entry,
-              aux.phdr, aux.phentsize, aux.phnum);
-
-        /* Environment variables */
-        *(--stack) = 0;     /* End of environment */
-
-        if (argv != NULL && envp != NULL) {
-            stack -= nenv;
-            for (size_t i = 0; i < nenv; i++) {
-                sa -= strlen(envp[i]) + 1;
-                stack[i] = (uint64_t)sa;
-            }
-        }
-
-        /* Arguments */
-        *(--stack) = 0;     /* End of arguments */
-
-        if (argv != NULL && envp != NULL) {
-            stack -= nargs;
-            for (size_t i = 0; i < nargs; i++) {
-                sa -= strlen(argv[i]) + 1;
-                stack[i] = (uint64_t)sa;
-            }
-            *(--stack) = nargs; /* argc */
-        } else {
-            *(--stack) = 0;
-        }
-
-        stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
-        memcpy(stack, tc_regs, sizeof(task_regs_t));
-
-        tc->tstack_top = (void*)VIRT_TO_PHYS(stack);
-        tc_regs = (task_regs_t*)stack;
-        tc_regs->rsp = (uint64_t)tc->tstack_top + sizeof(task_regs_t);
-        klogd("SCHED: task stack top 0x%x, rsp 0x%x, top argc %d\n",
-              tc->tstack_top, tc_regs->rsp,
-              *((uint64_t*)PHYS_TO_VIRT(tc_regs->rsp)));
     }
+
+    /* Auxilary vector */
+    *(--stack) = 0;
+    *(--stack) = 0;
+
+    stack   -= 2;
+    stack[0] = 10;  /* AT_ENTRY */
+    stack[1] = aux.entry;
+
+    stack   -= 2;
+    stack[0] = 20;  /* AT_PHDR */
+    stack[1] = aux.phdr;
+
+    stack   -= 2;
+    stack[0] = 21;  /* AT_PHENT */
+    stack[1] = aux.phentsize;
+
+    stack   -= 2;
+    stack[0] = 22;  /* AT_PHNUM */
+    stack[1] = aux.phnum;
+
+    klogi("SCHED: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
+          "phentsize %d, phnum %d\n", tc->tid, stack, aux.entry,
+          aux.phdr, aux.phentsize, aux.phnum);
+
+    /* Environment variables */
+    *(--stack) = 0;     /* End of environment */
+
+    if (argv != NULL && envp != NULL) {
+        stack -= nenv;
+        for (size_t i = 0; i < nenv; i++) {
+            sa -= strlen(envp[i]) + 1;
+            stack[i] = (uint64_t)sa;
+        }
+    }
+
+    /* Arguments */
+    *(--stack) = 0;     /* End of arguments */
+
+    if (argv != NULL && envp != NULL) {
+        stack -= nargs;
+        for (size_t i = 0; i < nargs; i++) {
+            sa -= strlen(argv[i]) + 1;
+            stack[i] = (uint64_t)sa;
+        }
+        *(--stack) = nargs; /* argc */
+    } else {
+        *(--stack) = 0;
+    }
+
+    stack = (uint64_t*)((uint64_t)stack - sizeof(task_regs_t));
+    memcpy(stack, tc_regs, sizeof(task_regs_t));
+
+    tc->tstack_top = (void*)VIRT_TO_PHYS(stack);
+    tc_regs = (task_regs_t*)stack;
+    tc_regs->rsp = (uint64_t)tc->tstack_top + sizeof(task_regs_t);
+
+    klogd("SCHED: task stack top 0x%x, rsp 0x%x, top argc %d\n",
+          tc->tstack_top, tc_regs->rsp,
+          *((uint64_t*)PHYS_TO_VIRT(tc_regs->rsp)));
+
+    /* --- Stack filling finished --- */
 
     tc_regs->rip = (uint64_t)entry;
 
@@ -676,6 +695,7 @@ task_t *sched_execve(
 
     lock_lock(&sched_lock);
     if (tp != NULL) {
+        klogi("SCHED: child tid %d and parent tid %d\n", tc->tid, tp->tid);
         vec_push_back(&tp->child_list, tc->tid);
         tc->ptid = tp->tid;
     }

@@ -83,7 +83,7 @@ vfs_fsinfo_t ttyfs = {
 };
 
 vfs_handle_t ttyfh = VFS_INVALID_HANDLE;
-static lock_t tty_lock;
+lock_t tty_lock;
 
 /* Identifying information for a node */
 typedef struct {
@@ -173,7 +173,11 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     /* If read less than len bytes, wait until there are enough data */
     while (id->isize < (int64_t)len) {
         event_para_t para = 0;
+        lock_release(&tty_lock);
+        lock_release(&vfs_lock);    /* If waiting, we need to release lock */
         if (eb_subscribe(sched_get_tid(), EVENT_KEY_PRESSED, &para)) {
+            lock_lock(&tty_lock);
+
             /* We maximumly backtrace half of TTY_BUFFER_SIZE to determine
              * whether the backspace key should be accepted or not
              */
@@ -194,7 +198,10 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
                     kpanic("TTYFS: input buffer overflow\n");
                 }
             }
+        } else {
+            lock_lock(&tty_lock);
         }
+        lock_lock(&vfs_lock);
     }
 
     /* OK, data is enough! Read data from input buffer */

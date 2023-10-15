@@ -94,10 +94,11 @@ void runcmd(struct cmd *cmd)
 
   case PIPE:
         pcmd = (struct pipecmd*)cmd;
-        strcpy(pathname, "/TEMP$$$$");
+        strcpy(pathname, "/.pipeswap");
         if (fork1() == 0) {
             /* Child process */
             int fh = sys_open(pathname, O_WRONLY | O_CREAT);
+            if (fh < 0) fh = sys_open(pathname, O_WRONLY);
             if (fh < 0) sys_exit(1);
             sys_dup(STDOUT, 0, fh);
             runcmd(pcmd->left);

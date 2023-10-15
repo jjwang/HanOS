@@ -453,9 +453,9 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
             lock_release(&vfs_lock);
         }   
         if (found) {
+            klogd("k_write: write %d bytes to oldfh %d <- fh %d\n",
+                  count, oldfh, fh); 
             int64_t ret = vfs_write(oldfh, count, buf);
-            klogi("k_write: write %d return %d to oldfh %d <- fh %d\n",
-                  count, ret, oldfh, fh);
             return ret;
         } else if (ttyfh != VFS_INVALID_HANDLE) {
             return vfs_write(ttyfh, count, buf);
@@ -817,12 +817,14 @@ int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
 
         for (size_t i = 0; i < len; i++) {
             task_id_t tid_child = vec_at(&(t->child_list), i);
-            if (sched_get_task_status(tid_child) == TASK_DEAD) {
+            task_status_t status_child = sched_get_task_status(tid_child);
+            if (status_child == TASK_DEAD) {
                 klogw("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
-                if (status != NULL) *status = (int64_t)NULL;
-                return tid_child;
-            }
-            if (sched_get_task_status(tid_child) != TASK_UNKNOWN) {
+                if (status != NULL) {
+                    *status = (int64_t)NULL;
+                    return tid_child;
+                }
+            } else if (status_child != TASK_UNKNOWN) {
                 all_dead = false;
                 klogv("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
             }

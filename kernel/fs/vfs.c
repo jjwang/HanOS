@@ -356,6 +356,7 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
         klogd("Seek position out of bounds: %d(0x%x):%d in len %d with "
               "offset %d\n",
               pos, pos, whence, fd->inode->size, fd->seek_pos);
+        lock_release(&vfs_lock);
         return -1; 
     }
 
@@ -412,6 +413,8 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 {
     lock_lock(&vfs_lock);
+
+    klogd("VFS: open %s with mode 0x%8x\n", path, mode);
 
     /* Find the node */
     vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0);
