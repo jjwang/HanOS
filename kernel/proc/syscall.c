@@ -641,62 +641,57 @@ int64_t k_chdir(char *dir)
         goto err_exit;
     }
 
-    char cwd[VFS_MAX_PATH_LEN] = {0};
     char fullpath[VFS_MAX_PATH_LEN] = {0};
     char parent[VFS_MAX_PATH_LEN] = {0};
     char currdir[VFS_MAX_PATH_LEN] = {0};
 
+    size_t k = 0;
+    size_t len = strlen(dir);
+
     strcpy(fullpath, t->cwd);
-    if (dir[0] == '/') {
-        strcpy(fullpath, dir);
-    } else {
-        strcpy(fullpath, t->cwd);
-        if (strlen(fullpath) > 1) {
-            /* We should not repalce "/" when in root folder */
-            if (fullpath[strlen(fullpath) - 1] != '/') {
-                strcat(fullpath, "/");
-            }
-        } else if (strlen(fullpath) == 1) {
-            if (fullpath[0] != '/') {
+
+    /* Note that "i" will loop to last character "\0" */
+    for (size_t i = 0; i < len; i++) {
+        if (dir[i] != '/') {
+            currdir[k++] = dir[i];
+            if (i != len - 1) continue;
+        }
+        currdir[k] = '\0';
+
+        /* "currdir" stores current folder name */
+        if (strcmp(currdir, ".") == 0) {
+            /* It is current folder, do nothing */
+        } else if (strcmp(currdir, "..") == 0) {
+            /* Change to parent folder */
+            if (vfs_get_parent_dir(fullpath, parent, currdir) < 0) {
                 cpu_set_errno(EINVAL);
                 goto err_exit;
             }
+            strcpy(fullpath, parent);
+        } else if (strlen(currdir) == 0 && i == 0) {
+            /* It is root folder based */
+            strcpy(fullpath, "/");
         } else {
-            cpu_set_errno(EINVAL);
-            goto err_exit;
-        }
-        strcat(fullpath, dir);
-    }
-        
-    int64_t ret = vfs_get_parent_dir(fullpath, parent, currdir);
-
-    klogd("k_chdir: target \"%s\", parrent \"%s\", curr \"%s\" and ret %d\n",
-          fullpath, parent, currdir, ret);
-
-    if (ret < 0) { 
-        strcpy(cwd, dir);
-    } else {
-        if (strcmp(currdir, ".") == 0) { 
-            strcpy(cwd, parent);
-        } else if (strcmp(currdir, "..") == 0) { 
-            char top_path[VFS_MAX_PATH_LEN] = {0}; 
-            ret = vfs_get_parent_dir(parent, top_path, currdir);
-            if (ret < 0) { 
-                strcpy(cwd, "/");
-            } else {
-                strcpy(cwd, top_path);
+            size_t fpl = strlen(fullpath);
+            if (fpl > 0) {
+                if (fullpath[fpl - 1] != '/') strcat(fullpath, "/");
             }
-        } else {
-            strcpy(cwd, fullpath);
+            strcat(fullpath, currdir);
         }
+
+        /* Set "currdir" to zero length */
+        k = 0;
     }
 
-    if (vfs_path_to_node(cwd, NO_CREATE, 0) == NULL) {
+    klogd("k_chdir: current \"%s\", target \"%s\" and change to \"%s\"",
+          t->cwd, dir, fullpath);
+
+    if (vfs_path_to_node(fullpath, NO_CREATE, 0) == NULL) {
         cpu_set_errno(ENOENT);
         goto err_exit;
     }
 
-    strcpy(t->cwd, cwd);
+    strcpy(t->cwd, fullpath);
     return 0;
 err_exit:
     return -1; 
