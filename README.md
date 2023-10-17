@@ -14,7 +14,7 @@
 - [x] Physical memory allocator and virtual memory manager
 - [x] Parse ACPI tables and initialize MADT
 - [x] Start up all CPUs
-- [x] Set up APIC interrupt controller
+- [x] Set up APIC(Advanced Programmable Interrupt Controller) interrupt controller
 - [x] Read RTC time from CMOS and configure HPET timer
 - [x] Scheduling driven by APIC timer
 - [x] Keyboard/mouse driver and command line interface
@@ -22,6 +22,7 @@
 - [x] Tasks of kernel and user space
 - [x] Background image display for command line interface
 - [x] Implement syscalls for bash and other system tools
+- [x] Simple userspace shell apps ported from xv6
 
 ## Fonts
 - Adopted 14px fonts from https://font.gohu.org/ and convert to psf1 using bdf2psf.
@@ -34,8 +35,8 @@
 `qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
 
 ## Screenshots
-- May 3, 2022: Live Demo
+- Oct 17, 2023: Userspace Shell Demo
 
-![Cool~~~](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0004-demo220503.gif)
+![Cool~~~](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0005-shell.gif)
 
 
