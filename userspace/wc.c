@@ -5,7 +5,11 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
-char buf[512];
+static command_help_t help_msg[] = { 
+    {"<help> wc",       "Print newline, word, and byte counts."},
+};
+
+char buf[512] = {0};
 
 void wc(int fd, char *name)
 {
@@ -36,7 +40,7 @@ void wc(int fd, char *name)
         sys_exit(1);
     }
 succ_exit:
-    printf("\t%d\t%d\t%d\n", w, l, c);
+    printf("\t%d\t%d\t%d\n", l, w, c);
 }
 
 int main(int argc, char *argv[])

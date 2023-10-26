@@ -18,6 +18,10 @@
 #define CMD_MAX_LEN     100
 #define CMD_PROMPT      "\033[36m$ \033[0m"
 
+static command_help_t help_msg[] = { 
+    {"<help> cd",       "Change current directoy."},
+};
+
 struct cmd {
     int type;
 };

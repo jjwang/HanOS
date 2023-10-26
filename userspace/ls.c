@@ -7,6 +7,10 @@
 
 #define DIRSIZE     256
 
+static command_help_t help_msg[] = {
+    {"<help> ls",       "List the contents of a specified directory."},
+};
+
 char *fmtname(char *path, char *buf)
 {
     char *p;
