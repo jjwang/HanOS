@@ -42,7 +42,7 @@ LIBC_DEPS := $(patsubst %.c, %.u.d, ${LIBC_FILES})
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
-CELF      := init hansh echo cat wc ls pwd
+CELF      := init hansh echo cat wc ls pwd help
 
 .PHONY: clean all
 
@@ -52,6 +52,8 @@ all: $(C_OBJS) $(ASM_OBJS) $(LIBC_OBJS) $(CELF)
 
 -include $(C_DEPS)
 $(C_OBJS): %.o: %.c
+	@./genhelp
+	$(CC) $(LC_FLAGS) -c _help.c -o _help.o
 	@echo Compiling $^ ...
 	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
@@ -66,9 +68,9 @@ $(ASM_OBJS): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
-$(CELF): %: %.o $(ASM_OBJS) $(C_OBJS) $(LIBC_OBJS)
-	$(LD) $(LD_FLAGS) $(ASM_OBJS) $(LIBC_OBJS) $(LIB_FILES) $< -o $@
+$(CELF): %: %.o $(ASM_OBJS) $(C_OBJS) $(LIBC_OBJS) _help.o
+	$(LD) $(LD_FLAGS) $(ASM_OBJS) $(LIBC_OBJS) $(LIB_FILES) _help.o $< -o $@
 
 clean:
 	rm -rf $(C_OBJS) $(C_DEPS) $(LIBC_OBJS) $(LIBC_DEPS) $(ASM_OBJS) $(CELF) sh.sym
-	rm -rf ../initrd/bin/*
+	rm -rf ../initrd/bin/* _help.c

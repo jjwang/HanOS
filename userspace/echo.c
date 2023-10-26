@@ -3,6 +3,10 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
+static command_help_t help_msg[] = { 
+    {"<help> echo",     "Display a specified string."},
+};
+
 int main(int argc, char *argv[])
 {
     int i;
