@@ -5,7 +5,11 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
-char buf[512];
+static command_help_t help_msg[] = { 
+    {"<help> cat",      "Concatenate files and print on the standard output."},
+};
+
+char buf[512] = {0};
 
 void cat(int fd)
 {

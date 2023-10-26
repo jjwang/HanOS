@@ -16,7 +16,7 @@ int main(void)
 
     /* Loop to start shell program */
     for (;;) {
-        printf("init: starting sh\n");
+        printf("init: starting sh...type \"help\" for command list\n");
         pid = sys_fork();
         if(pid < 0) {
             printf("init: fork failed\n");

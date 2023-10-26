@@ -7,6 +7,10 @@
 
 #define DIRSIZE     256
 
+static command_help_t help_msg[] = { 
+    {"<help> pwd",      "Print current directory."},
+};
+
 int main(int argc, char *argv[])
 {
     char path[DIRSIZE + 1] = {0};

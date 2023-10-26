@@ -31,6 +31,11 @@
 #define O_CLOEXEC           0x4000
 #define O_PATH              0x8000
 
+typedef struct {
+    char command[256];
+    char desc[256];
+} command_help_t;
+
 void sys_libc_log(const char *message);
 int sys_fork();
 int sys_openat(int dirfd, const char *path, int flags);
