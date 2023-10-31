@@ -1,7 +1,7 @@
 # HanOS
 
 ![](https://tokei.rs/b1/github/jjwang/HanOS?category=code)
-
+| [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) | [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 ## Design as below
 
 - Bootloader: Limine is used to get the kernel running as quickly possible. Limine boot protocol is chosed by HanOS.
