@@ -1,6 +1,7 @@
 # HanOS
 
 ![](https://tokei.rs/b1/github/jjwang/HanOS?category=code)
+
 | [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) |
 [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
