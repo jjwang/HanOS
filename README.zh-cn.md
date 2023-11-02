@@ -1,11 +1,11 @@
-# HanOS
+# HanOS - 基于微内核的通用操作系统
+
+[English](https://github.com/jjwang/HanOS/blob/mainline/README.md) |
+[中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
 ![](https://tokei.rs/b1/github/jjwang/HanOS?category=code)
 
-| [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) |
-[中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
-
-## 设计如下
+## 设计指南
 
 - Bootloader：Limine用于使内核尽快运行，HanOS选择了Limine启动协议
 - CPU模式：HanOS支持x86-64长模式，HanOS没有计划支持其他x86模式
