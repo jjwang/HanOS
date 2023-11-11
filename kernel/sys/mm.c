@@ -427,26 +427,8 @@ void vmm_init(
                     | VMM_FLAG_WRITECOMBINE);
             klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length);
-
-#if !LAUNCHER_GRAPHICS
-            /* This is for Limine terminal usage */
-            vmm_map(NULL, entry->base, entry->base,
-                    NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT
-                    | VMM_FLAG_WRITECOMBINE);
-            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
-                  entry->base, entry->base, entry->length);
-#endif
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
-#if !LAUNCHER_GRAPHICS
-            /* This is for Limine terminal usage */
-            vmm_map(NULL, entry->base, entry->base,
-                    NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT
-                    | VMM_FLAG_WRITECOMBINE);
-            klogi("Mapped bootloader reclaimable 0x%9x to 0x%x (len: %d)\n",
-                  entry->base, entry->base, entry->length);
-#endif
+            /* vmm_map: do nothing */
         } else if (entry->type != LIMINE_MEMMAP_RESERVED) {
             /* Maybe the reserved memory is corrupt */
             /* vmm_map: this should share for all tasks */

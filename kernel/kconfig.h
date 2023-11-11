@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #define LAUNCHER_CLI            true
-#define LAUNCHER_GRAPHICS       true
 
 #undef  ENABLE_KLOG_DEBUG
 #undef  ENABLE_BASH
