@@ -23,7 +23,6 @@
 #include <sys/panic.h>
 #include <3rd-party/boot/limine.h>
 
-#ifdef LAUNCHER_GRAPHICS
 static const uint32_t font_colors[9] = { 
     COLOR_BLACK,
     COLOR_RED,
@@ -41,7 +40,6 @@ static int term_active_mode = TERM_MODE_UNKNOWN;
 static uint8_t term_cursor = 0;
 static lock_t term_lock = {0};
 static bool term_need_redraw = false;
-#endif
 
 static term_info_t term_cli = {0};
 
@@ -79,19 +77,11 @@ bool term_set_winsize(winsize_t *ws)
 
 bool term_set_bg_image(image_t *img)
 {
-    (void)img;
-#if LAUNCHER_GRAPHICS
     return fb_set_bg_image(&(term_cli.fb), img);
-#else
-    return false;
-#endif
 }
 
 bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
 {
-    (void)term_act;
-    (void)byte;
-#if LAUNCHER_GRAPHICS
     CHECK_ACTIVE_TERM();
 
     if (term_act->state == STATE_UNKNOWN) {
@@ -214,15 +204,10 @@ succ:
     term_act->state = STATE_IDLE;
     term_act->cparamcount = 0;
     return true;
-#else
-    return false;
-#endif
 }
 
 void term_scroll(term_info_t* term_act)
 {
-    (void)term_act;
-#if LAUNCHER_GRAPHICS
     CHECK_ACTIVE_TERM();
 
     if (term_act->state == STATE_UNKNOWN) {
@@ -244,30 +229,20 @@ void term_scroll(term_info_t* term_act)
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
         }
     }
-#endif
 }
 
 void term_set_cursor(uint8_t c)
 {
-    (void)c;
-#if LAUNCHER_GRAPHICS
     term_cursor = c;
-#endif
 }
 
 int term_get_mode(void)
 {
-#if LAUNCHER_GRAPHICS
     return term_active_mode;
-#else
-    return TERM_MODE_UNKNOWN;
-#endif
 }
 
 void term_refresh(int mode)
 {
-    (void)mode;
-#if LAUNCHER_GRAPHICS
     term_info_t* term_act;
 
     lock_lock(&term_lock);
@@ -314,13 +289,10 @@ void term_refresh(int mode)
     }
 
     lock_release(&term_lock);
-#endif
 }
 
 void term_clear(int mode)
 {
-    (void)mode;
-#if LAUNCHER_GRAPHICS
     term_info_t* term_act;
 
     if (mode == TERM_MODE_INFO) {
@@ -344,14 +316,10 @@ void term_clear(int mode)
 
     term_act->cursor_x = 0;
     term_act->cursor_y = 0;
-#endif
 }
 
 void term_print(int mode, uint8_t c)
 {
-    (void)mode;
-    (void)c;
-#if LAUNCHER_GRAPHICS
     term_info_t* term_act;
 
     if (mode == TERM_MODE_INFO) {
@@ -435,14 +403,10 @@ void term_print(int mode, uint8_t c)
             break;
         }
     }
-#endif
 }
 
 void term_putch(int mode, uint8_t c)
 {
-    (void)mode;
-    (void)c;
-#if LAUNCHER_GRAPHICS
     term_info_t* term_act;
 
     if (mode == TERM_MODE_INFO) {
@@ -491,13 +455,10 @@ void term_putch(int mode, uint8_t c)
     }   
 
     term_print(mode, c);
-#endif  
 }
 
 void term_init(struct limine_framebuffer* s)
 {
-    (void)s;
-#if LAUNCHER_GRAPHICS
     term_info_t* term_act;
     
     term_lock = lock_new();
@@ -525,12 +486,10 @@ void term_init(struct limine_framebuffer* s)
                 i, (uint64_t)term_act, term_act->fb.width,
                 term_act->fb.height, term_act->fb.pitch, term_act->fb.addr);
     }
-#endif
 }
 
 void term_start()
 {
-#if LAUNCHER_GRAPHICS
     fb_init(&(term_info.fb), NULL);
     fb_init(&(term_cli.fb), NULL);
 
@@ -548,30 +507,19 @@ void term_start()
 #endif
 
     term_need_redraw = true;
-#endif
 }
 
 bool term_get_redraw()
 {
-#if LAUNCHER_GRAPHICS
     return term_need_redraw;
-#else
-    return false;
-#endif
 }
 
 void term_set_redraw(bool val)
 {
-    (void)val;
-#if LAUNCHER_GRAPHICS
     term_need_redraw = val;
-#endif
 }
 
 void term_switch(int mode)
 {
-    (void)mode;
-#if LAUNCHER_GRAPHICS
     term_active_mode = mode;
-#endif
 }

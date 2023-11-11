@@ -60,7 +60,8 @@
 #include <fs/ttyfs.h>
 #include <proc/elf.h>
 
-#if 1
+LIMINE_BASE_REVISION(1)
+
 static volatile struct limine_framebuffer_request fb_request = { 
     .id = LIMINE_FRAMEBUFFER_REQUEST,
     .revision = 0 
@@ -70,7 +71,6 @@ static volatile struct limine_hhdm_request hhdm_request = {
     .id = LIMINE_HHDM_REQUEST,
     .revision = 0 
 };
-#endif
 
 static volatile struct limine_memmap_request mm_request = { 
     .id = LIMINE_MEMMAP_REQUEST,
@@ -90,11 +90,6 @@ static volatile struct limine_kernel_address_request kernel_addr_request = {
 static volatile struct limine_module_request module_request = { 
     .id = LIMINE_MODULE_REQUEST,
     .revision = 0 
-};
-
-static volatile struct limine_terminal_request terminal_request = {
-    .id = LIMINE_TERMINAL_REQUEST,
-    .revision = 0
 };
 
 static volatile computer_info_t self_info = {0};
@@ -130,40 +125,17 @@ void done(void)
 void screen_write(char c)
 {
     (void)c;
-#if !(LAUNCHER_GRAPHICS)
-    char s[2] = {0};
-
-    s[0] = c;
-    s[1] = '\0';
-
-    if (terminal_request.response == NULL
-        || terminal_request.response->terminal_count < 1) {
-        done();
-    }   
-
-    struct limine_terminal *terminal = terminal_request.response->terminals[0];
-    terminal_request.response->write(terminal, s, 1);
-#endif
 }
 
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
-    /* Limine sanity check */
-    if (terminal_request.response == NULL
-        || terminal_request.response->terminal_count < 1) {
-        done();
-    }
-    struct limine_terminal *terminal = terminal_request.response->terminals[0];
-    terminal_request.response->write(terminal, "Starting HanOS...\n", 18);
-
     cpu_init();
 
     serial_init();
     klog_init();
     klogi("HanOS version %s starting...\n", VERSION);
 
-#if LAUNCHER_GRAPHICS
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
              hhdm_request.response->offset, hhdm_request.response->revision);
@@ -178,20 +150,13 @@ void kmain(void)
     struct limine_framebuffer *fb =
         fb_request.response->framebuffers[0];
     if (fb->width > FB_WIDTH || fb->height > FB_HEIGHT) {
-        char *err_msg = "Resolution cannot be supported";
-        terminal_request.response->write(terminal, err_msg, strlen(err_msg));
+        /* Resolution cannot be supported */
         done();
     }
 
     term_init(fb);
 
     klogi("Framebuffer address: 0x%x\n", fb->address);
-#else
-    klogi("Terminal: rows %d, columns %d, framebuffer 0x%x (0x%x)\n",
-          terminal->rows, terminal->columns,
-          terminal->framebuffer, terminal->framebuffer->address);
-    term_init(NULL);
-#endif
 
     gdt_init(NULL);
     idt_init();
@@ -249,7 +214,6 @@ void kmain(void)
     klogi("Press \"\033[37m%s\033[0m\" (left) to shell and \"\033[37m%s\033[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
 
-#if LAUNCHER_GRAPHICS
     if (fb->edid_size == sizeof(edid_info_t)) {
         edid_info_t* edid = (edid_info_t*)fb->edid;
         klogi("EDID: version %d.%d, screen size %dcm * %dcm\n", edid->edid_version, edid->edid_revision,
@@ -272,7 +236,6 @@ void kmain(void)
         }
     }
     klogi("Framebuffer address 0x%x\n", fb->address);
-#endif
 
     pci_init();
     ata_init();
@@ -315,10 +278,8 @@ void kmain(void)
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
         kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
                 self_info.prefer_res_x, self_info.prefer_res_y);
-#if LAUNCHER_GRAPHICS
         kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
                 fb->width, fb->height);
-#endif
     }
 
     /* Start all programs */

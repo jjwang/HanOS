@@ -236,9 +236,7 @@ void smp_init()
     klogi("SMP: %d processors brought up\n", smp_info->num_cpus);
 
     /* identity mapping is no longer needed */
-#if LAUNCHER_GRAPHICS
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000));
-#endif
 
     smp_initialized = true;
 }
