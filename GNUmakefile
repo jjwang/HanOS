@@ -32,7 +32,7 @@ distro:
 	cp -rf xbstrap-build/system-root/* initrd
 
 limine:
-	git clone https://github.com/limine-bootloader/limine.git --branch=v4.x-branch-binary --depth=1
+	git clone https://github.com/limine-bootloader/limine.git --branch=v5.x-branch-binary --depth=1
 	make -C limine
 
 kernel:
@@ -51,13 +51,13 @@ $(ISO_IMAGE): limine initrd kernel
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
-		limine.cfg limine/limine.sys limine/limine-cd.bin limine/limine-cd-efi.bin iso_root/
-	xorriso -as mkisofs -b limine-cd.bin \
+		limine.cfg limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
+	xorriso -as mkisofs -b limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
-		--efi-boot limine-cd-efi.bin \
+		--efi-boot limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		iso_root -o $(ISO_IMAGE)
-	limine/limine-deploy $(ISO_IMAGE)
+	limine/limine bios-install $(ISO_IMAGE)
 	rm -rf iso_root
 
 clean:
