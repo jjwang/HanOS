@@ -37,6 +37,7 @@ typedef struct {
 } command_help_t;
 
 void sys_libc_log(const char *message);
+int sys_meminfo();
 int sys_fork();
 int sys_openat(int dirfd, const char *path, int flags);
 int sys_getcwd(char *buffer, size_t size);

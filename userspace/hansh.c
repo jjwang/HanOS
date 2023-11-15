@@ -20,6 +20,7 @@
 
 static command_help_t help_msg[] = { 
     {"<help> cd",       "Change current directoy."},
+    {"<help> mem",      "Display memory usage information."},
 };
 
 struct cmd {
@@ -184,6 +185,12 @@ void main(void)
             }
             if(sys_chdir(buf + 3) < 0)
                 printf("cd: cannot change folder to \"%s\"\n", buf + 3);
+            continue;
+        } else if(buf[0] == 'm' && buf[1] == 'e' && buf[2] == 'm'
+                  && buf[3] == '\0')
+        {
+            if(sys_meminfo() < 0)
+                printf("mem: cannot display memory usage information\n"); 
             continue;
         }
 

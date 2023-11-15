@@ -746,6 +746,28 @@ err_exit:
     return -1; 
 }
 
+int64_t k_meminfo()
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }    
+
+    if (t->tid < 1) { 
+        cpu_set_errno(ESRCH);
+        goto err_exit;
+    }
+
+    pmm_dump_usage();
+    return 0;
+
+err_exit:
+    return -1;
+}
+
 int64_t k_fork()
 {
     task_t *t = sched_get_current_task();
@@ -1051,6 +1073,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_UNAME]         = (syscall_ptr_t)k_uname,
     [SYSCALL_FUTEX_WAIT]    = (syscall_ptr_t)k_futex_wait,
     [SYSCALL_FUTEX_WAKE]    = (syscall_ptr_t)k_futex_wake,
+    [SYSCALL_MEMINFO]       = (syscall_ptr_t)k_meminfo,         /* 34 */
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
