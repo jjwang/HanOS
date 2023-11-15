@@ -86,6 +86,7 @@
 #define SYSCALL_UNAME       31
 #define SYSCALL_FUTEX_WAIT  32
 #define SYSCALL_FUTEX_WAKE  33
+#define SYSCALL_MEMINFO     34
 
 void sys_libc_log(const char *message)
 {
@@ -98,6 +99,14 @@ int sys_fork()
     int64_t ret;
     int errno;
     SYSCALL0(SYSCALL_FORK);
+    return ret;
+}
+
+int sys_meminfo()
+{
+    int64_t ret;
+    int errno;
+    SYSCALL0(SYSCALL_MEMINFO);
     return ret;
 }
 
