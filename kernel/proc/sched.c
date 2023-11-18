@@ -121,37 +121,7 @@ _Noreturn static void task_idle_proc(task_id_t tid)
             klogi("sched: clean memory of dead task #%d\n", t->tid);
 
             /* Step 1.2: Free all resources of this dead task */
-            size_t mmap_num = vec_length(&t->mmap_list);
-            for (size_t i = 0; i < mmap_num; i++) {
-                mem_map_t m = vec_at(&t->mmap_list, i); 
-                vmm_unmap(t->addrspace, m.vaddr, m.np);
-                kmfree((void*)PHYS_TO_VIRT(m.paddr));
-            }  
-            vec_erase_all(&t->mmap_list);
-
-            klogi("task_idle: dead task tid %d free mmap number %d\n",
-                  t->tid, mmap_num);
-
-            /* 2. Free memory when creating a new task */
-            if (t->mode == TASK_USER_MODE) {
-                /* Notes that ustack memory is already free in mmap_list */
-            }
-            kmfree((void*)t->kstack_limit);
-
-            size_t mem_num = vec_length(&t->addrspace->mem_list);
-            for (size_t i = 0; i < mem_num; i++) {
-                /*
-                 * Maybe it was already freed in unmap(), but it is also
-                 * OK freed here because pmm_free will not crash.
-                 */
-                uint64_t m = vec_at(&t->addrspace->mem_list, i); 
-                pmm_free(m, 8, __func__, __LINE__);
-            }   
-            vec_erase_all(&t->addrspace->mem_list);
-
-            kmfree((void*)t->addrspace->PML4);
-            kmfree((void*)t->addrspace);
-            kmfree(t);
+            task_free(t);
         } else {
             /* If we cannot find dead tasks, then fall into sleep */
             asm volatile ("hlt");
@@ -582,6 +552,8 @@ task_t *sched_execve(
     lock_release(&sched_lock);
 
     if (elf_load(tc, path, &entry, &aux)) {
+        /* Need to release memory for task "tc" */
+        task_free(tc);
         return NULL;
     }
 

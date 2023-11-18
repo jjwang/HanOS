@@ -16,10 +16,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MEM_MAGIC_NUM       0xCDADDBEE
+
 typedef struct {
+    size_t magic;
+    size_t checkno;
     size_t numpages;
     size_t size;
+    char   filename[512];
+    size_t lineno;
 } memory_metadata_t;
+
+extern size_t kmalloc_checkno;
 
 void* kmalloc_core(uint64_t size, const char *func, size_t line);
 void kmfree_core(void* addr, const char *func, size_t line);

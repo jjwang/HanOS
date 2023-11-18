@@ -6,6 +6,7 @@
 #define LAUNCHER_CLI            true
 
 #undef  ENABLE_KLOG_DEBUG
+#undef  ENABLE_MEM_DEBUG
 #undef  ENABLE_BASH
 
 #ifndef ENABLE_BASH
