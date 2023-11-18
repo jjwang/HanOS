@@ -250,3 +250,39 @@ norm_exit:
     return tc;
 }
 
+void task_free(task_t *t)
+{
+    size_t mmap_num = vec_length(&t->mmap_list);
+    for (size_t i = 0; i < mmap_num; i++) {
+        mem_map_t m = vec_at(&t->mmap_list, i); 
+        vmm_unmap(t->addrspace, m.vaddr, m.np);
+        kmfree((void*)PHYS_TO_VIRT(m.paddr));
+    }
+    vec_erase_all(&t->mmap_list);
+    vec_erase_all(&t->child_list);
+    vec_erase_all(&t->dup_list);
+
+    klogi("task_idle: dead task tid %d free mmap number %d\n",
+          t->tid, mmap_num);
+
+    /* 2. Free memory when creating a new task */
+    if (t->mode == TASK_USER_MODE) {
+        /* Notes that ustack memory is already free in mmap_list */
+    }
+    kmfree((void*)t->kstack_limit);
+
+    size_t mem_num = vec_length(&t->addrspace->mem_list);
+    for (size_t i = 0; i < mem_num; i++) {
+        /*
+         * Maybe it was already freed in unmap(), but it is also
+         * OK freed here because pmm_free will not crash.
+         */
+        uint64_t m = vec_at(&t->addrspace->mem_list, i); 
+        pmm_free(m, 8, __func__, __LINE__);
+    }
+    vec_erase_all(&t->addrspace->mem_list);
+
+    kmfree((void*)t->addrspace->PML4);
+    kmfree((void*)t->addrspace);
+    kmfree(t);
+}

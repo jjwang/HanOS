@@ -240,3 +240,4 @@ task_t* task_make(
 
 task_t *task_fork(task_t *tp);
 void task_debug(task_t *t, bool force);
+void task_free(task_t *t);
