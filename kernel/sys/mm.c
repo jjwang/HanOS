@@ -29,6 +29,8 @@
  */
 #include <stdint.h>
 
+#include <kconfig.h>
+
 #include <libc/string.h>
 
 #include <sys/cpu.h>
@@ -197,6 +199,22 @@ void pmm_dump_usage(void)
             t / 1024, t / (1024 * 1024),
             f / 1024, f / (1024 * 1024),
             u / 1024, u / (1024 * 1024));
+
+#ifdef ENABLE_MEM_DEBUG
+    kprintf("Checking #%d\n", kmalloc_checkno);
+    size_t np = NUM_PAGES(kmem_info.phys_limit);
+    for (uint64_t addr = 0; addr < np * PAGE_SIZE; addr += PAGE_SIZE) {
+        memory_metadata_t *alloc = (memory_metadata_t*)PHYS_TO_VIRT(addr);
+        if (alloc->magic == MEM_MAGIC_NUM) {
+            if (alloc->checkno == kmalloc_checkno && kmalloc_checkno > 0) {
+                kprintf("0x%x %s():%d %d bytes\n", alloc, alloc->filename,
+                        alloc->lineno, alloc->size);
+            }
+        }
+    }
+    kmalloc_checkno++;
+    kprintf("Update checking point to #%d for kmalloc()\n", kmalloc_checkno);
+#endif
 }
 
 /*------------------------------------------------------------------------------
@@ -389,22 +407,23 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel)
 {
-    size_t i, np;
+    size_t i;
 
     kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
+#ifdef ENABLE_MEM_DEBUG
     /* We only need to map all memories as below for kernel task, so we do not
      * call vmm_map() function.
-     * 
-     *  vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
-     *          VMM_FLAGS_DEFAULT);
-     *
-     */
-    np = NUM_PAGES(kmem_info.phys_limit);
+     */ 
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
+            VMM_FLAGS_DEFAULT);
+#else
+    size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
+#endif
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
