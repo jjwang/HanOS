@@ -458,6 +458,18 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
             int64_t ret = vfs_write(oldfh, count, buf);
             return ret;
         } else if (ttyfh != VFS_INVALID_HANDLE) {
+            if (debug_info) {
+                for (size_t i = 0; i < count; i++) {
+                    char c = ((char*)buf)[i];
+                    if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')
+                        || (c >= 'A' && c <= 'Z') || c == '[')
+                    {
+                        klogd("k_write: write [%c]\n", c);
+                    } else {
+                        klogd("k_write: write [0x%2x]\n", c);
+                    }
+                }
+            }
             return vfs_write(ttyfh, count, buf);
         } else {
             return 0;

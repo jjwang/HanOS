@@ -18,6 +18,7 @@
 #include <libc/string.h>
 
 #include <device/display/term.h>
+#include <base/klib.h>
 #include <base/klog.h>
 #include <base/lock.h>
 #include <sys/panic.h>
@@ -121,6 +122,42 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
             term_act->cursor_x = 0;
             term_act->cursor_y = 0;
             goto succ;
+        } else if (byte == 'K') {
+            /* CSI n K | EL | Erase in Line
+             * Erases part of the line. If n is 0 (or missing), clear from
+             * cursor to the end of the line. If n is 1, clear from cursor
+             * to beginning of the line. If n is 2, clear entire line. Cursor
+             * position does not change.
+             * Ref: https://en.wikipedia.org/wiki/ANSI_escape_code
+             */
+            int mode = -1;
+            if (term_act->cparamcount == 0
+                || (term_act->cparamcount == 1 && term_act->cparams[0] == 0))
+            {
+                mode = 0;
+            } else if (term_act->cparamcount == 1 && term_act->cparams[0] == 1) {
+                mode = 1;
+            } else if (term_act->cparamcount == 1 && term_act->cparams[0] == 2) {
+                mode = 2;
+            }
+
+            if (mode >= 0)
+            {
+                for (size_t y = term_act->cursor_y * FONT_HEIGHT;
+                     y < MIN((term_act->cursor_y + 1) * FONT_HEIGHT,
+                             term_act->fb.height);
+                     y++)
+                {
+                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                        if (!(mode == 0 && x >= term_act->cursor_x * FONT_WIDTH))
+                            continue;
+                        if (!(mode == 1 && x < term_act->cursor_x * FONT_WIDTH))
+                            continue;
+                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+                    }   
+                }   
+            } 
+            goto succ;
         } else if (byte == 'J') {
             /* \033[J or \033[0J | ED | clear the screen from cursor to the end
              * \033[1J           | ED | clear the screen from beginning to the
@@ -175,6 +212,10 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
             if (term_act->cparamcount > 0) idx = term_act->cparamcount - 1;
             if (term_act->cparams[term_act->cparamcount - 1] == 0) {
                 term_act->fgcolor = DEFAULT_FGCOLOR;
+                term_act->bgcolor = DEFAULT_BGCOLOR;
+            } else if (term_act->cparams[idx] >= 30
+                       && term_act->cparams[idx] <= 37) {
+                term_act->fgcolor = font_colors[term_act->cparams[idx] - 30];
                 term_act->bgcolor = DEFAULT_BGCOLOR;
             } else if (term_act->cparams[idx] >= 30
                        && term_act->cparams[idx] <= 37) {
@@ -523,3 +564,4 @@ void term_switch(int mode)
 {
     term_active_mode = mode;
 }
+
