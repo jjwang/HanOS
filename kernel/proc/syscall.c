@@ -780,6 +780,35 @@ err_exit:
     return -1;
 }
 
+int64_t k_pipe(int64_t *fh)
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        goto err_exit;
+    }    
+
+    if (t->tid < 1) { 
+        cpu_set_errno(ESRCH);
+        goto err_exit;
+    }    
+
+    vfs_create("/dev/pipe/1", VFS_NODE_CHAR_DEVICE);
+
+    /* fh[0] is the reading port, fh[1] is the writing port */
+    fh[0] = vfs_open("/dev/pipe/1", VFS_MODE_READ);
+    fh[1] = vfs_open("/dev/pipe/1", VFS_MODE_WRITE);
+
+    klogd("k_pipe: return reading port %d and writing port %d\n", fh[0], fh[1]);
+
+    return 0;
+
+err_exit:
+    return -1;
+}
+
 int64_t k_fork()
 {
     task_t *t = sched_get_current_task();
@@ -1086,6 +1115,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_FUTEX_WAIT]    = (syscall_ptr_t)k_futex_wait,
     [SYSCALL_FUTEX_WAKE]    = (syscall_ptr_t)k_futex_wake,
     [SYSCALL_MEMINFO]       = (syscall_ptr_t)k_meminfo,         /* 34 */
+    [SYSCALL_PIPE]          = (syscall_ptr_t)k_pipe,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

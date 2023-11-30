@@ -87,6 +87,7 @@
 #define SYSCALL_FUTEX_WAIT  32
 #define SYSCALL_FUTEX_WAKE  33
 #define SYSCALL_MEMINFO     34
+#define SYSCALL_PIPE        35
 
 void sys_libc_log(const char *message)
 {
@@ -128,6 +129,18 @@ int sys_chdir(const char *path)
 {
     int ret, errno;
     SYSCALL1(SYSCALL_CHDIR, path);
+    return ret;
+}
+
+int sys_pipe(int *fd)
+{
+    /* We need to handle different definition of file handle,
+     * int32_t or int64_t? */
+    int64_t fd1[2];
+    int ret, errno;
+    SYSCALL1(SYSCALL_PIPE, fd1);
+    fd[0] = fd1[0];
+    fd[1] = fd1[1];
     return ret;
 }
 
