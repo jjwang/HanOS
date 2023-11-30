@@ -35,6 +35,7 @@
 #define SYSCALL_FUTEX_WAIT  32
 #define SYSCALL_FUTEX_WAKE  33
 #define SYSCALL_MEMINFO     34
+#define SYSCALL_PIPE        35
 
 /* Standard I/O devices */
 #define STDIN               0

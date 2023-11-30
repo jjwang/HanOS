@@ -65,7 +65,7 @@ struct cmd *parsecmd(char*);
 /* Execute cmd.  Never returns. */
 void runcmd(struct cmd *cmd)
 {
-    int p[2];
+    int p[2] = {0};
     char pathname[CMD_MAX_LEN] = {0};
     struct backcmd *bcmd;
     struct execcmd *ecmd;
@@ -99,31 +99,23 @@ void runcmd(struct cmd *cmd)
 
   case PIPE:
         pcmd = (struct pipecmd*)cmd;
-        strcpy(pathname, "/.pipeswap");
-        if (fork1() == 0) {
+        if(sys_pipe(p) < 0)
+            sys_panic("pipe");
+        printf("fh: %d %d\n", p[0], p[1]);
+        if(fork1() == 0) {
             /* Child process */
-            int fh = sys_open(pathname, O_WRONLY | O_CREAT);
-            if (fh < 0) fh = sys_open(pathname, O_WRONLY);
-            if (fh < 0) sys_exit(1);
-            sys_dup(STDOUT, 0, fh);
+            sys_dup(STDOUT, 0, p[1]);
             runcmd(pcmd->left);
-            /* Never run below code since sys_exit() will be called when
-             * calling runcmd().
-             */
-            sys_close(fh);
-            sys_exit(1);
-        }
-        sys_wait(-1);
-        if (fork1() == 0) {
-            /* Child process */
-            int fh = sys_open(pathname, O_RDONLY);
-            if (fh < 0) sys_exit(1);
-            sys_dup(STDIN, 0, fh);
-            runcmd(pcmd->right);
+            sys_close(p[1]);
             /* Never run below code */
-            sys_close(fh);
-            sys_exit(1);
-        }        
+        }
+        if(fork1() == 0) {
+            /* Child process */
+            sys_dup(STDIN, 0, p[0]);
+            runcmd(pcmd->right);
+            sys_close(p[0]);
+            /* Never run below code */
+        }
         sys_wait(-1);
         break;
 

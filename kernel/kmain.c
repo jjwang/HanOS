@@ -58,6 +58,7 @@
 #include <fs/vfs.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
+#include <fs/pipefs.h>
 #include <proc/elf.h>
 
 LIMINE_BASE_REVISION(1)
@@ -210,6 +211,7 @@ void kmain(void)
     }
 
     ttyfs_init(); 
+    pipefs_init();
 
     klogi("Press \"\033[37m%s\033[0m\" (left) to shell and \"\033[37m%s\033[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");

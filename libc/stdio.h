@@ -1,5 +1,7 @@
 #pragma once
 
+#include <libc/numeric.h>
+
 #define EOF     -1
 
 /* ----- Definition of file system, same with vfs.h ----- */

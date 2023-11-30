@@ -18,6 +18,7 @@
 #include <fs/fat32.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
+#include <fs/pipefs.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
 #include <base/lock.h>
@@ -117,6 +118,7 @@ void vfs_init()
     vfs_register_fs(&fat32);
     vfs_register_fs(&ramfs);
     vfs_register_fs(&ttyfs);
+    vfs_register_fs(&pipefs);
 
     char* fn = "/";
 
@@ -138,6 +140,10 @@ void vfs_init()
     vfs_path_to_node("/dev/tty", CREATE, VFS_NODE_FOLDER);
     vfs_mount("tty", "/dev/tty", "ttyfs");
     ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
+
+    /* Mount PIPEFS with device name "/dev/pipe" */
+    vfs_path_to_node("/dev/pipe", CREATE, VFS_NODE_FOLDER);
+    vfs_mount("pipe", "/dev/pipe", "pipefs");
 
     klogi("VFS initialization finished\n");
 }
@@ -298,31 +304,31 @@ end:
 /* Write specified number of bytes to file */
 int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
-    if (!fd)
+    vfs_node_desc_t* nd = vfs_handle_to_fd(handle);
+    if (!nd)
         return 0;
 
     /* Cannot write to read-only files */
-    if (fd->mode == VFS_MODE_READ) {
-        kloge("File handle %d is read only\n", handle);
+    if (nd->mode == VFS_MODE_READ) {
+        kloge("File handle %d is read only, nd = 0x%x\n", handle, nd);
         return 0;
     }
 
     lock_lock(&vfs_lock);
-    vfs_inode_t* inode = fd->inode;
+    vfs_inode_t* inode = nd->inode;
 
     /* Expand file if writing more data than its size */
-    if (fd->seek_pos + len > inode->size) {
-        inode->size = fd->seek_pos + len;
-        inode->fs->sync(inode);
+    if (nd->seek_pos + len > inode->size) {
+        inode->size = nd->seek_pos + len;
+        if (inode->fs->sync != NULL) inode->fs->sync(inode);
     }
 
-    int64_t status = inode->fs->write(inode, fd->seek_pos, len, buff);
+    int64_t status = inode->fs->write(inode, nd->seek_pos, len, buff);
     if (status == -1)
         len = 0;
 
     /* Set file size to stat data structure */
-    fd->tnode->st.st_size = fd->inode->size;
+    nd->tnode->st.st_size = nd->inode->size;
 
     lock_release(&vfs_lock);
     return (int64_t)len;
@@ -466,7 +472,8 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     lock_release(&vfs_lock);
 
     vfs_handle_t fh = ((vfs_handle_t)(vfs_openfiles.len - 1)) + VFS_MIN_HANDLE;
-    klogv("VFS: Open %s and return handle %d\n", path, fh);
+    klogd("VFS: Open %s with mode 0x%x and return handle %d, nd = 0x%x\n",
+          path, mode, fh, nd);
     return fh;
 fail:
     lock_release(&vfs_lock);
@@ -485,7 +492,12 @@ int64_t vfs_close(vfs_handle_t handle)
 
     fd->inode->refcount--;
     kmfree(fd);
-    vfs_openfiles.data[handle] = NULL;
+
+    if ((size_t)handle < vfs_openfiles.len + VFS_MIN_HANDLE
+        && (size_t)handle >= VFS_MIN_HANDLE)
+    {
+        vfs_openfiles.data[handle - VFS_MIN_HANDLE] = NULL;
+    }
 
     lock_release(&vfs_lock);
     return 0;
