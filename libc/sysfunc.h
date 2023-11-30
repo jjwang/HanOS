@@ -56,4 +56,5 @@ int sys_dup(int fd, int flags, int newfd);
 int sys_fstat(int fd, stat_t *statbuf);
 int sys_stat(const char *path, stat_t *statbuf);
 int sys_readdir(int fd, void *buffer);
+int sys_pipe(int *fd);
 

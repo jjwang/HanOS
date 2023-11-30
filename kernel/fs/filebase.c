@@ -76,7 +76,7 @@ vfs_node_desc_t* vfs_handle_to_fd(vfs_handle_t handle)
     if ((size_t)handle >= vfs_openfiles.len + VFS_MIN_HANDLE
         || (size_t)handle < VFS_MIN_HANDLE
         || !(vfs_openfiles.data[handle - VFS_MIN_HANDLE])) {
-        kloge("Invalid file handle %d\n", handle);
+        kloge("VFS: Invalid file handle %d\n", handle);
         return NULL;
     }
     return vfs_openfiles.data[handle - VFS_MIN_HANDLE];
