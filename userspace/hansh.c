@@ -101,7 +101,6 @@ void runcmd(struct cmd *cmd)
         pcmd = (struct pipecmd*)cmd;
         if(sys_pipe(p) < 0)
             sys_panic("pipe");
-        printf("fh: %d %d\n", p[0], p[1]);
         if(fork1() == 0) {
             /* Child process */
             sys_dup(STDOUT, 0, p[1]);
