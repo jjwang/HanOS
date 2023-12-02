@@ -19,18 +19,19 @@ void wc(int fd, char *name)
     l = w = c = 0;
     inword = 0;
     /* Read one character and write back to screen everytime */
-    while((n = sys_read(fd, buf, 1)) > 0) {
+    while((n = sys_read(fd, buf, sizeof(buf))) > 0) {
         for(i = 0; i < n; i++) {
+            if(buf[i] == (char)EOF) {
+                goto succ_exit;
+            }
             c++;
             if(buf[i] == '\n') {
                 l++;
             }
             if(strchr(" \r\t\n\v", buf[i])) {
                 inword = 0;
-            } else if(buf[i] == (char)EOF) {
-                goto succ_exit;
-            } else if(!inword) {
-                w++;
+            } else {
+                if (inword == 0) w++;
                 inword = 1;
             }
         }
@@ -40,6 +41,10 @@ void wc(int fd, char *name)
         sys_exit(1);
     }
 succ_exit:
+    if(inword) {
+        l++;
+        w++;
+    } 
     printf("\t%d\t%d\t%d\n", l, w, c);
 }
 

@@ -64,17 +64,25 @@ int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     pipefs_ident_t *id = this->ident;
     size_t rlen = 0;
 
+    if (id->size == 0 || len == 0) return 0;
+
     lock_lock(&pipe_lock);
 
     /* We do not use offset here */
     (void)offset;
 
-    /* If read less than len bytes, wait until there are enough data */
+    /* Below codes depend on the conduction checking at beginning */
     rlen = id->size;
     if (rlen > len) rlen = len;
     memcpy(buff, id->buff, rlen);
-    if (rlen > 0 && id->size - rlen > 0) {
+    
+    if (id->size - rlen > 0) {
+        char val = ((char*)id->buff)[id->size - 1];
         memcpy(id->buff, &(id->buff[rlen]), id->size - rlen);
+        if (((char*)id->buff)[id->size - rlen - 1] != val) {
+            kpanic("pipefs: corruption in memcpy() while reading %d bytes from " \
+                   "%d bytes buffer\n", rlen, id->size);
+        }
     }
     id->size -= rlen;
 
@@ -99,6 +107,8 @@ int64_t pipefs_write(vfs_inode_t* this, size_t offset, size_t len,
     wlen = PIPE_BUFFER_SIZE - id->size;
     if (wlen > len) wlen = len;
     memcpy(&(id->buff[id->size]), buff, wlen);
+
+    id->size += wlen;
 
     lock_release(&pipe_lock);
 
