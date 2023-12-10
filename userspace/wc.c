@@ -10,6 +10,8 @@ static command_help_t help_msg[] = {
 };
 
 char buf[512] = {0};
+char out[512] = {0};
+bool outmore = false;
 
 void wc(int fd, char *name)
 {
@@ -19,7 +21,7 @@ void wc(int fd, char *name)
     l = w = c = 0;
     inword = 0;
     /* Read one character and write back to screen everytime */
-    while((n = sys_read(fd, buf, sizeof(buf))) > 0) {
+    while((n = sys_read(fd, buf, sizeof(buf) - 1)) > 0) {
         for(i = 0; i < n; i++) {
             if(buf[i] == (char)EOF) {
                 goto succ_exit;
@@ -35,6 +37,13 @@ void wc(int fd, char *name)
                 inword = 1;
             }
         }
+        buf[n] = '\0';
+        if (strlen(buf) + strlen(out) < sizeof(out) - 1) {
+            strcat(out, buf);
+            outmore = false;
+        } else {
+            outmore = true;
+        }
     }
     if(n < 0) {
         printf("wc: read error\n");
@@ -46,6 +55,7 @@ succ_exit:
         w++;
     } 
     printf("\t%d\t%d\t%d\n", l, w, c);
+    printf("%s%s\n", out, outmore ? " ..." : "[EOF]");
 }
 
 int main(int argc, char *argv[])
