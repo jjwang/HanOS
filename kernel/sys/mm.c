@@ -202,8 +202,9 @@ void pmm_dump_usage(void)
 
 #ifdef ENABLE_MEM_DEBUG
     kprintf("Checking #%d\n", kmalloc_checkno);
-    size_t np = NUM_PAGES(kmem_info.phys_limit);
+    size_t np = MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256);
     for (uint64_t addr = 0; addr < np * PAGE_SIZE; addr += PAGE_SIZE) {
+        if (bitmap_isfree(addr, 1)) continue;
         memory_metadata_t *alloc = (memory_metadata_t*)PHYS_TO_VIRT(addr);
         if (alloc->magic == MEM_MAGIC_NUM) {
             if (alloc->checkno == kmalloc_checkno && kmalloc_checkno > 0) {
@@ -415,15 +416,19 @@ void vmm_init(
 #ifdef ENABLE_MEM_DEBUG
     /* We only need to map all memories as below for kernel task, so we do not
      * call vmm_map() function.
-     */ 
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0, NUM_PAGES(kmem_info.phys_limit),
+     *
+     * For memory debuging purpose, we totally map 1GB memory for all tasks
+     * to access these memories. If we map all physical memories, there will be
+     * #PF (page fault) exception when forking 2 or more tasks.
+     */
+    vmm_map(NULL, MEM_VIRT_OFFSET, 0,
+            MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256),
             VMM_FLAGS_DEFAULT);
-#else
+#endif
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
-#endif
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
@@ -481,7 +486,7 @@ addrspace_t *create_addrspace(void)
     for (size_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&mmap_list, i); 
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
-    }   
+    } 
 
     return as; 
 }

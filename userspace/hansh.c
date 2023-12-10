@@ -101,12 +101,14 @@ void runcmd(struct cmd *cmd)
         pcmd = (struct pipecmd*)cmd;
         if(sys_pipe(p) < 0)
             sys_panic("pipe");
+        sys_libc_log("hansh: start to fork pipe processes for left and right tasks\n");
         if(fork1() == 0) {
             /* Child process */
             sys_dup(STDOUT, 0, p[1]);
             runcmd(pcmd->left);
             sys_close(p[1]);
             /* Never run below code */
+            sys_exit(0);
         }
         if(fork1() == 0) {
             /* Child process */
@@ -114,7 +116,9 @@ void runcmd(struct cmd *cmd)
             runcmd(pcmd->right);
             sys_close(p[0]);
             /* Never run below code */
+            sys_exit(0);
         }
+        sys_wait(-1);
         sys_wait(-1);
         break;
 

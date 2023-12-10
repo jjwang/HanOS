@@ -128,6 +128,7 @@ task_t *task_make(
         vmm_unmap(pas, (uint64_t)ntask->ustack_limit, NUM_PAGES(STACK_SIZE));
     }
 
+#ifndef ENABLE_MEM_DEBUG
     /* MEMMAP: hpet should be visible for all kernel tasks */
     vmm_map(ntask->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
@@ -135,6 +136,7 @@ task_t *task_make(
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
     vmm_map(ntask->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
             VMM_FLAGS_MMIO);
+#endif
 
     return ntask;
 }
@@ -233,13 +235,19 @@ task_t *task_fork(task_t *tp)
 
     task_debug(tc, false);
 
-    /* MEMMAP: hpet should be visible for all kernel tasks */
+    /* MEMMAP: hpet should be visible for all kernel tasks
+     *
+     * Note that if we open mem debug option, hpet is already visible for
+     * all kernel tasks.
+     */
+#ifndef ENABLE_MEM_DEBUG
     vmm_map(tc->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
 
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
-    vmm_map(tc->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
-            VMM_FLAGS_MMIO);
+    vmm_map(tc->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base),
+            1, VMM_FLAGS_MMIO);
+#endif
 
     klogd("TASK: child tid %d and parent tid %d\n", tc->tid, tp->tid);
     vec_push_back(&tp->child_list, tc->tid);
