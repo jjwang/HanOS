@@ -41,6 +41,8 @@ static smp_info_t* smp_info = NULL;
 
 static bool smp_initialized = false;
 
+static lock_t smp_lock = {0};
+
 const smp_info_t* smp_get_info()
 {
     return smp_info;
@@ -62,16 +64,22 @@ cpu_t* smp_get_current_cpu(bool force_read)
     }
 }
 
+/* This is the only function in this module which will be called very
+ * oftenly in syscall functions.
+ */
 bool cpu_set_errno(int64_t val)
 {
+    lock_lock(&smp_lock);
     if (smp_initialized) {
         cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
         if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
         if (cpu != NULL) {
             cpu->errno = val;
+            lock_release(&smp_lock);
             return true;
         }
     }
+    lock_release(&smp_lock);
     return false;
 }
 

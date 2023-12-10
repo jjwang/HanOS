@@ -66,6 +66,8 @@ int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
 
     if (id->size == 0 || len == 0) return 0;
 
+    klogd("PIPEFS: read %d bytes to buffer 0x%x\n", len, buff);
+
     lock_lock(&pipe_lock);
 
     /* We do not use offset here */
@@ -97,6 +99,8 @@ int64_t pipefs_write(vfs_inode_t* this, size_t offset, size_t len,
 {
     pipefs_ident_t *id = this->ident;
     size_t wlen = 0;
+
+    klogd("PIPEFS: write %d bytes to buffer 0x%x\n", len, buff);
 
     lock_lock(&pipe_lock);
 
