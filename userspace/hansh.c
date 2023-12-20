@@ -106,7 +106,6 @@ void runcmd(struct cmd *cmd)
             /* Child process */
             sys_dup(STDOUT, 0, p[1]);
             runcmd(pcmd->left);
-            sys_close(p[1]);
             /* Never run below code */
             sys_exit(0);
         }
@@ -114,12 +113,13 @@ void runcmd(struct cmd *cmd)
             /* Child process */
             sys_dup(STDIN, 0, p[0]);
             runcmd(pcmd->right);
-            sys_close(p[0]);
             /* Never run below code */
             sys_exit(0);
         }
         sys_wait(-1);
         sys_wait(-1);
+        sys_close(p[0]);
+        sys_close(p[1]);
         break;
 
     case LIST:

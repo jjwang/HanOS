@@ -20,6 +20,7 @@ vfs_fsinfo_t pipefs = {
     .open = pipefs_open,
     .mount = pipefs_mount,
     .mknode = pipefs_mknode,
+    .rmnode = pipefs_rmnode,
     .sync = NULL,
     .refresh = NULL,
     .read = pipefs_read,
@@ -123,6 +124,28 @@ int64_t pipefs_mknode(vfs_tnode_t* this)
 {
     this->inode->ident = create_ident();
     return 0;
+}
+
+int64_t pipefs_rmnode(vfs_tnode_t *this)
+{
+    pipefs_ident_t *id = (pipefs_ident_t*)this->inode->ident;
+
+    if (id == NULL) goto err_exit;
+    kmfree(id);
+
+    vfs_inode_t *parent = this->parent;
+    size_t child_num = vec_length(&parent->child);
+    if (child_num > 0) {
+        for (size_t i = 0; i < child_num; i++) {
+            vfs_tnode_t *t = vec_at(&parent->child, i); 
+            if (t == this) {
+                vec_erase(&parent->child, i); 
+                return 0;
+            }
+        }
+    }   
+err_exit:
+    return -1; 
 }
 
 vfs_inode_t* pipefs_mount(vfs_inode_t* at)

@@ -88,6 +88,7 @@
 #define SYSCALL_FUTEX_WAKE  33
 #define SYSCALL_MEMINFO     34
 #define SYSCALL_PIPE        35
+#define SYSCALL_UNLINK      36
 
 void sys_libc_log(const char *message)
 {
@@ -129,6 +130,13 @@ int sys_chdir(const char *path)
 {
     int ret, errno;
     SYSCALL1(SYSCALL_CHDIR, path);
+    return ret;
+}
+
+int sys_unlink(const char *path)
+{
+    int ret, errno;
+    SYSCALL1(SYSCALL_UNLINK, path);
     return ret;
 }
 

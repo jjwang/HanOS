@@ -49,7 +49,7 @@
 #define ENOENT          1043    /* No such file or directory */
 #define ENOEXEC         1044    /* Exec format error */
 #define ENOLCK          1045    /* No record locks available */
-#define ENOLINK         1046    /* Too many links */
+#define ENOLINK         1046    /* No links */
 #define ENOMEM          1047    /* Out of memory */
 #define ENOMSG          1048    /* No message of desired type */
 #define ENOPROTOOPT     1049    /* Protocol not available */

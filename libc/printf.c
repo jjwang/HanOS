@@ -4,11 +4,22 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
+#define CHAR_BUFF_SIZE      128
+
 static char digits[] = "0123456789ABCDEF";
+static char charbuff[CHAR_BUFF_SIZE] = {0};
 
 static void putc(int fd, char c)
 {
-    sys_write(fd, &c, 1);
+    size_t len = strlen(charbuff);
+    if (len < CHAR_BUFF_SIZE - 1) {
+        charbuff[len] = c;
+        charbuff[len + 1] = '\0';
+    } else { 
+        sys_write(fd, charbuff, len);
+        charbuff[0] = c;
+        charbuff[1] = '\0';
+    }
 }
 
 static void printint(int fd, int xx, int base, int sgn)
@@ -97,6 +108,9 @@ void fprintf(int fd, const char *fmt, ...)
 
     va_start(ap, fmt);
     vprintf(fd, fmt, ap);
+
+    sys_write(fd, charbuff, strlen(charbuff));
+    charbuff[0] = '\0';
 }
 
 void printf(const char *fmt, ...)
@@ -104,6 +118,9 @@ void printf(const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    vprintf(1, fmt, ap);
+    vprintf(STDOUT, fmt, ap);
+
+    sys_write(STDOUT, charbuff, strlen(charbuff));
+    charbuff[0] = '\0';
 }
 
