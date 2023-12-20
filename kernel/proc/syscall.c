@@ -10,6 +10,7 @@
 #include <sys/panic.h>
 #include <sys/isr_base.h>
 #include <base/klog.h>
+#include <base/vector.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
@@ -340,6 +341,60 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     klogi("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
     return vfs_open(full_path, openmode);
+}
+
+int64_t k_unlink(char *path)
+{
+    cpu_set_errno(0);
+
+    char full_path[VFS_MAX_PATH_LEN] = {0};
+    if (get_full_path(VFS_FDCWD, path, full_path) < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    } else {
+        /* Check whether folder exists or not, e.g. filename is "1/txt" */
+        size_t len = strlen(full_path);
+        if (len == 0) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        for (int64_t i = len - 1; i >= 0; i--) {
+            if (full_path[i] == '/') {
+                full_path[i] = '\0';
+                break;
+            }
+        }
+        if (strlen(full_path) > 0) {
+            vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
+            if (tnode == NULL) {
+                klogd("k_openat: directory \"%s\" doesn't exist\n", full_path);
+                cpu_set_errno(ENOENT);
+                return -1;
+            }
+        }
+        if (get_full_path(VFS_FDCWD, path, full_path) < 0) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+    }
+
+    vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
+    if (tnode == NULL) {
+        cpu_set_errno(ENOENT);
+        return -1;
+    }
+
+    vfs_inode_t *pi = tnode->parent;
+    for (size_t i = 0; i < vec_length(&(pi->child)); i++) {
+        if (vec_at(&(pi->child), i) == tnode) {
+            vec_erase(&(pi->child), i);
+            klogi("k_unlink: path %s", path);
+            return 0;
+        }
+    }
+
+    cpu_set_errno(ENOENT);
+    return -1;
 }
 
 int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)

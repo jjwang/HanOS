@@ -159,12 +159,18 @@ vfs_tnode_t* vfs_path_to_node(
             switch(create_type) {
             case VFS_NODE_FOLDER:
                 new_tnode->st.st_mode |= S_IFDIR;
+                new_tnode->st.st_nlink = 1;
                 break;
             case VFS_NODE_FILE:
                 new_tnode->st.st_mode |= S_IFREG;
+                new_tnode->st.st_nlink = 1;
                 break;
             case VFS_NODE_SYMLINK:
                 new_tnode->st.st_mode |= S_IFLNK;
+                new_tnode->st.st_nlink = 1;
+                break;
+            case VFS_NODE_MOUNTPOINT:
+                new_tnode->st.st_nlink = 1;
                 break;
             default:
                 break;

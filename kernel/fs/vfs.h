@@ -164,6 +164,7 @@ typedef struct vfs_fsinfo_t {
     vfs_inode_t* (*mount)(vfs_inode_t *device);
     vfs_tnode_t* (*open)(vfs_inode_t *this, const char *path);
     int64_t (*mknode)(vfs_tnode_t *this);
+    int64_t (*rmnode)(vfs_tnode_t *this);
     int64_t (*read)(vfs_inode_t *this, size_t offset, size_t len, void *buff);
     int64_t (*write)(vfs_inode_t *this, size_t offset, size_t len, const void *buff);
     int64_t (*sync)(vfs_inode_t *this);
@@ -216,7 +217,8 @@ int64_t vfs_close(vfs_handle_t handle);
 int64_t vfs_tell(vfs_handle_t handle);
 int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence);
 int64_t vfs_read(vfs_handle_t handle, size_t len, void *buff);
-int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff);
+int64_t vfs_write(vfs_handle_t handle, size_t len, const void *buff);
+int64_t vfs_unlink(char *path);
 int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms);
 int64_t vfs_refresh(vfs_handle_t handle);
 int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent);

@@ -74,6 +74,7 @@ vfs_fsinfo_t ttyfs = {
     .open = ttyfs_open,
     .mount = ttyfs_mount,
     .mknode = ttyfs_mknode,
+    .rmnode = NULL,
     .sync = ttyfs_sync,
     .refresh = ttyfs_refresh,
     .read = ttyfs_read,
