@@ -38,6 +38,7 @@ vfs_fsinfo_t fat32 = {
     .open = fat32_open,
     .mount = fat32_mount,
     .mknode = fat32_mknode,
+    .rmnode = NULL,
     .sync = fat32_sync,
     .refresh = fat32_refresh,
     .read = fat32_read,

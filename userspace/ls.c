@@ -41,19 +41,19 @@ void ls(char *path)
 
     if(strcmp(path, ".") == 0) {
         if(sys_getcwd(buf, sizeof(buf) - 1) < 0) {
-            printf("ls: getcwd failed\n");
+            fprintf(STDERR, "ls: getcwd failed\n");
             sys_exit(0);
         }
     }
     printf("Files in \"%s\" folder:\n", buf);
 
     if((fd = sys_open(path, 0)) < 0){
-        printf("ls: cannot open %s\n", path);
+        fprintf(STDERR, "ls: cannot open %s\n", path);
         return;
     }
 
     if(sys_fstat(fd, &st) < 0) {
-        printf("ls: cannot stat %s\n", path);
+        fprintf(STDERR, "ls: cannot stat %s\n", path);
         sys_close(fd);
         return;
     }
@@ -71,17 +71,17 @@ void ls(char *path)
             memcpy(p, de.d_name, sizeof(de.d_name));
             p[sizeof(de.d_name)] = 0;
             if(sys_stat(buf, &st) < 0) {
-                printf("ls: cannot stat %s\n", buf);
+                fprintf(STDERR, "ls: cannot stat %s\n", buf);
                 continue;
             }
             printf("%s\t0x%x\t%d\t%d\n", fmtname(buf, fmtbuf),
                    (st.st_mode & S_IFMT) >> 12, st.st_ino, st.st_size);
             num++;
         }
-        if (num == 0) printf("ls: no files found\n");
+        if (num == 0) fprintf(STDERR, "ls: no files found\n");
         break;
     default:
-        printf("ls: \"%s\" is not a folder (0x%x)\n", path,
+        fprintf(STDERR, "ls: \"%s\" is not a folder (0x%x)\n", path,
                (st.st_mode & S_IFMT) >> 12);
         break;
     }

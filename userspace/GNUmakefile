@@ -42,7 +42,7 @@ LIBC_DEPS := $(patsubst %.c, %.u.d, ${LIBC_FILES})
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
-CELF      := init hansh echo cat wc ls pwd help
+CELF      := init hansh echo cat wc ls pwd help rm
 
 .PHONY: clean all
 

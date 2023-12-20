@@ -113,6 +113,7 @@ void vfs_init()
     vfs_root.st.st_dev = vfs_new_dev_id();
     vfs_root.st.st_ino = vfs_new_ino_id();
     vfs_root.st.st_mode |= S_IFDIR;
+    vfs_root.st.st_nlink = 1;
 
     /* Register all file systems which will be used */
     vfs_register_fs(&fat32);
@@ -301,6 +302,48 @@ end:
     return (int64_t)len;
 }
 
+/* Unlink the file, reduce link count (nlink in st of tnode). If the reference
+ * count is equal to zero, we will delete this file.
+ */
+int64_t vfs_unlink(char *path)
+{
+    klogd("VFS: unlink %s\n", path);
+
+    lock_lock(&vfs_lock);
+
+    /* Find the node and set st_nlink parameter */
+    vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0); 
+    if (!req) {
+        klogd("VFS: Cannot find tnode for %s\n", path);
+        goto fail;
+    } else {
+        if (req->st.st_nlink > 1) {
+            klogd("VFS: \"%s\" has links which should be removed firstly\n",
+                  path);
+            goto fail;
+        } else if (req->st.st_nlink == 0) {
+            klogd("VFS: \"%s\" should have one link by itself\n",
+                  path);
+            goto fail;
+        }
+        req->st.st_nlink = 0;
+    }   
+
+    /* Remove this file if needed */
+    if (req->inode->refcount == 0) {
+        if (req->inode->fs->rmnode != NULL) {
+            req->inode->fs->rmnode(req);
+        }
+    }
+
+    lock_release(&vfs_lock);
+    return 0;
+
+fail:
+    lock_release(&vfs_lock);
+    return -1;
+}
+
 /* Write specified number of bytes to file */
 int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
 {
@@ -486,7 +529,7 @@ int64_t vfs_close(vfs_handle_t handle)
 
     lock_lock(&vfs_lock);
 
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
     if (!fd)
         goto fail;
 
@@ -497,6 +540,14 @@ int64_t vfs_close(vfs_handle_t handle)
         && (size_t)handle >= VFS_MIN_HANDLE)
     {
         vfs_openfiles.data[handle - VFS_MIN_HANDLE] = NULL;
+    }
+
+    /* Remove this file if needed */
+    if (fd->inode->refcount == 0 && fd->tnode->st.st_nlink == 0) {
+        if (fd->inode->fs->rmnode != NULL) {
+            klogd("VFS: close \"%s\" and remove tnode\n", fd->path);
+            fd->inode->fs->rmnode(fd->tnode);
+        }
     }
 
     lock_release(&vfs_lock);

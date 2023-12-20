@@ -2,7 +2,11 @@
 
 #include <libc/numeric.h>
 
-#define EOF     -1
+#define STDIN               0
+#define STDOUT              1
+#define STDERR              2
+
+#define EOF                 -1
 
 /* ----- Definition of file system, same with vfs.h ----- */
 #ifndef KERNEL_BUILD

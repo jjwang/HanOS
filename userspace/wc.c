@@ -46,7 +46,7 @@ void wc(int fd, char *name)
         }
     }
     if(n < 0) {
-        printf("wc: read error\n");
+        fprintf(STDERR, "wc: read error\n");
         sys_exit(1);
     }
 succ_exit:
@@ -54,8 +54,8 @@ succ_exit:
         l++;
         w++;
     } 
-    printf("\t%d\t%d\t%d\n", l, w, c);
-    printf("%s%s\n", out, outmore ? " ..." : "[EOF]");
+    printf("\t%d\t%d\t%d\n%s%s\n", l, w, c,
+           out, outmore ? " ..." : "[EOF]");
 }
 
 int main(int argc, char *argv[])
@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
 
     for(i = 1; i < argc; i++) {
         if((fd = sys_open(argv[i], 0)) < 0){
-            printf("wc: cannot open \n");
-            printf(argv[i]);
-            printf("\n");
+            fprintf(STDERR, "wc: cannot open \n");
+            fprintf(STDERR, argv[i]);
+            fprintf(STDERR, "\n");
             sys_exit(1);
         }
         wc(fd, argv[i]);
