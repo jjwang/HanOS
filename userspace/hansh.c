@@ -90,10 +90,9 @@ void runcmd(struct cmd *cmd)
             strcpy(pathname, "/bin/");
         }
         strcat(pathname, ecmd->argv[0]);
+        sys_libc_log("hansh: start to execute process for current task\n");
         if (sys_exec(pathname, ecmd->argv) < 0) {
-            printf("exec ");
-            printf(ecmd->argv[0]);
-            printf(" failed\n");
+            fprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
         }
         break;
 
@@ -165,7 +164,6 @@ int getcmd(char *buf, int nbuf)
 
 void main(void)
 {
-    /* static char buf[100]; */
     char *buf = (char*)sys_malloc(CMD_MAX_LEN);
     int fd;
 
@@ -179,26 +177,28 @@ void main(void)
                 buf[strlen(buf) - 1] = 0;  /* chop \n */
             }
             if(sys_chdir(buf + 3) < 0)
-                printf("cd: cannot change folder to \"%s\"\n", buf + 3);
+                fprintf(STDERR, "cd: cannot change folder to \"%s\"\n", buf + 3);
             continue;
         } else if(buf[0] == 'm' && buf[1] == 'e' && buf[2] == 'm'
                   && buf[3] == '\0')
         {
             if(sys_meminfo() < 0)
-                printf("mem: cannot display memory usage information\n"); 
+                fprintf(STDERR, "mem: cannot display memory usage information\n"); 
             continue;
         }
 
         if(buf[0] == 0) continue;
 
         if(fork1() == 0) {
+            sys_libc_log("hansh: start to execute command\n");
             runcmd(parsecmd(buf));
             sys_exit(0);
         }
+        sys_libc_log("hansh: waiting for the end of child process\n");
         sys_wait(-1);
         sys_libc_log("hansh: exit from current command and wait for next one");
     }
-    printf("exit: ending sh\n");
+    fprintf(STDERR, "exit: ending sh\n");
     sys_exit(0);
 }
 
@@ -352,7 +352,7 @@ struct cmd *parsecmd(char *s)
     cmd = parseline(&s, es);
     peek(&s, es, "");
     if(s != es){
-        /* fprintf(2, "leftovers: %s\n", s); */
+        fprintf(STDERR, "leftovers: %s\n", s);
         sys_panic("syntax");
     }
     nulterminate(cmd);
