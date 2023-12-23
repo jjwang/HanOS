@@ -27,7 +27,13 @@
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
 #define CPU_MAX                         256
-#define STACK_SIZE                      (PAGE_SIZE * 32)
+
+/* TODO: If stack size is set to PAGE_SIZE * 32, there will be some #PF
+ * exceptions in userspace apps (specifically in hansh). From the contexts, it
+ * seems that the stack is corrupted. But we do not know the reason. In the
+ * future, we should deeply dive into this. (Dec 23, 2023)
+ */
+#define STACK_SIZE                      (PAGE_SIZE * 4)
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;

@@ -1171,6 +1171,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_FUTEX_WAKE]    = (syscall_ptr_t)k_futex_wake,
     [SYSCALL_MEMINFO]       = (syscall_ptr_t)k_meminfo,         /* 34 */
     [SYSCALL_PIPE]          = (syscall_ptr_t)k_pipe,
+    [SYSCALL_UNLINK]        = (syscall_ptr_t)k_unlink,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,

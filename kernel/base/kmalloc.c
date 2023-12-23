@@ -19,6 +19,7 @@
 #include <base/kmalloc.h>
 #include <base/klog.h>
 #include <sys/mm.h>
+#include <sys/panic.h>
 
 size_t kmalloc_checkno = 0;
 
@@ -26,6 +27,11 @@ void *kmalloc_core(uint64_t size, const char *func, size_t line)
 {
     memory_metadata_t *alloc = (memory_metadata_t*)
         PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0, func, line));
+
+    if (alloc == NULL) {
+        kpanic("Out of memory when allocating %d bytes in %s:%d\n",
+               size, func, line);
+    }
 
     alloc->magic = MEM_MAGIC_NUM;
     alloc->checkno = kmalloc_checkno;
