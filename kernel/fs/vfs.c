@@ -5,7 +5,15 @@
  @details
  @verbatim
 
-  Main VFS functions are implemented in this file. 
+  VFS is an abstraction layer that provides a unified interface for various
+  physical file systems. This allows users to access the file system through
+  standard file operation functions without knowing the details of the
+  underlying physical file system. 
+
+  Like all Unix-like system, inode is the fundmental data structure of VFS which
+  stores file index information. All children node pointers will be stored in
+  inode. tnode is used to store tree information, e.g., parent node. node_desc
+  data structure is used for every file operation, from fopen, fread to fclose. 
 
  @endverbatim
 
@@ -23,6 +31,7 @@
 #include <base/kmalloc.h>
 #include <base/lock.h>
 #include <base/vector.h>
+#include <base/hash.h>
 
 static bool vfs_initialized = false;
 
@@ -43,7 +52,10 @@ vfs_tnode_t vfs_root = {0};
 vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 
 /* List of opened files */
-vec_new(vfs_node_desc_t*, vfs_openfiles);
+ht_t vfs_openfiles;
+
+/* New file handle */
+static size_t vfs_next_handle = VFS_MIN_HANDLE; 
 
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
@@ -120,6 +132,9 @@ void vfs_init()
     vfs_register_fs(&ramfs);
     vfs_register_fs(&ttyfs);
     vfs_register_fs(&pipefs);
+
+    /* Init the hash list of open files */
+    ht_init(&vfs_openfiles);
 
     char* fn = "/";
 
@@ -507,16 +522,17 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     /* TODO: Need to consider in the future */
     nd->tnode->st.st_size = req->inode->size;
 
-    /* Add to current task */
-    /* TODO: Loop for NULL pointer position in open file list */
-    vec_push_back(&vfs_openfiles, nd);
-
     /* Return the handle */
+    vfs_handle_t fh = vfs_next_handle++;
+
+    /* Add to current task */
+    ht_insert(&vfs_openfiles, fh, nd);
+    
     lock_release(&vfs_lock);
 
-    vfs_handle_t fh = ((vfs_handle_t)(vfs_openfiles.len - 1)) + VFS_MIN_HANDLE;
     klogd("VFS: Open %s with mode 0x%x and return handle %d, nd = 0x%x\n",
           path, mode, fh, nd);
+
     return fh;
 fail:
     lock_release(&vfs_lock);
@@ -536,11 +552,7 @@ int64_t vfs_close(vfs_handle_t handle)
     fd->inode->refcount--;
     kmfree(fd);
 
-    if ((size_t)handle < vfs_openfiles.len + VFS_MIN_HANDLE
-        && (size_t)handle >= VFS_MIN_HANDLE)
-    {
-        vfs_openfiles.data[handle - VFS_MIN_HANDLE] = NULL;
-    }
+    ht_delete(&vfs_openfiles, handle);
 
     /* Remove this file if needed */
     if (fd->inode->refcount == 0 && fd->tnode->st.st_nlink == 0) {
