@@ -5,6 +5,11 @@
  @details
  @verbatim
 
+  VFS is an abstraction layer that provides a unified interface for various
+  physical file systems. This allows users to access the file system through
+  standard file operation functions without knowing the details of the
+  underlying physical file system. 
+
   Like all Unix-like system, inode is the fundmental data structure of VFS which
   stores file index information. All children node pointers will be stored in
   inode. tnode is used to store tree information, e.g., parent node. node_desc

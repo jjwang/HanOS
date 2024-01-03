@@ -18,11 +18,12 @@
 
 #include <fs/filebase.h>
 #include <base/kmalloc.h>
+#include <base/hash.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 
 /* List of opened files */
-vec_extern(vfs_node_desc_t*, vfs_openfiles);
+extern ht_t vfs_openfiles;
 
 /* Allocate a tnode in memory */
 vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
@@ -73,13 +74,7 @@ void vfs_free_nodes(vfs_tnode_t* tnode)
 /* Return the node descriptor for a handle */
 vfs_node_desc_t* vfs_handle_to_fd(vfs_handle_t handle)
 {
-    if ((size_t)handle >= vfs_openfiles.len + VFS_MIN_HANDLE
-        || (size_t)handle < VFS_MIN_HANDLE
-        || !(vfs_openfiles.data[handle - VFS_MIN_HANDLE])) {
-        kloge("VFS: Invalid file handle %d\n", handle);
-        return NULL;
-    }
-    return vfs_openfiles.data[handle - VFS_MIN_HANDLE];
+    return ht_search(&vfs_openfiles, handle);
 }
 
 /* Convert a path to a node, creates the node if required */

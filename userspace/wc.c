@@ -54,8 +54,7 @@ succ_exit:
         l++;
         w++;
     } 
-    printf("\t%d\t%d\t%d\n%s%s\n", l, w, c,
-           out, outmore ? " ..." : "[EOF]");
+    printf("\t%d\t%d\t%d\n", l, w, c);
 }
 
 int main(int argc, char *argv[])

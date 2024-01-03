@@ -49,9 +49,9 @@ int64_t k_debug_log(char *message)
     char *s = strchr(message, '\n');
 
     if (s != NULL && (*(s + 1) == '\0')) {
-        klogd("%s", message);
+        klogd("debug: %s", message);
     } else {
-        klogd("%s\n", message);
+        klogd("debug: %s\n", message);
     }
 
     return strlen(message);
