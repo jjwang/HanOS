@@ -22,9 +22,6 @@
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 
-/* List of opened files */
-extern ht_t vfs_openfiles;
-
 /* Allocate a tnode in memory */
 vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
                              vfs_inode_t* parent)
@@ -63,23 +60,29 @@ vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
 }
 
 /* Free a tnode, and the inode if needed */
-void vfs_free_nodes(vfs_tnode_t* tnode)
+void vfs_free_nodes(vfs_tnode_t *tnode)
 {
-    vfs_inode_t* inode = tnode->inode;
+    vfs_inode_t *inode = tnode->inode;
     if (inode->refcount <= 0)
         kmfree(inode);
     kmfree(tnode);
 }
 
 /* Return the node descriptor for a handle */
-vfs_node_desc_t* vfs_handle_to_fd(vfs_handle_t handle)
+vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle)
 {
-    return ht_search(&vfs_openfiles, handle);
+    task_t *t = sched_get_current_task();
+    if (t != NULL) {
+        vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->openfiles), handle);
+        if (nd != NULL) return nd;
+        kloge("VFS: cannot locate %d in task#%d's file list\n", handle, t->tid);
+    }
+    return NULL;
 }
 
 /* Convert a path to a node, creates the node if required */
-vfs_tnode_t* vfs_path_to_node(
-    const char* path, uint8_t mode, vfs_node_type_t create_type)
+vfs_tnode_t *vfs_path_to_node(
+    const char *path, uint8_t mode, vfs_node_type_t create_type)
 {
     static char tmpbuff[VFS_MAX_PATH_LEN];
     vfs_tnode_t* curr = &vfs_root;

@@ -23,6 +23,7 @@
 #include <base/time.h>
 #include <base/kmalloc.h>
 #include <base/vector.h>
+#include <base/hash.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
 #include <proc/eventbus.h>
@@ -93,7 +94,7 @@ void sched_debug(bool showlog)
     lock_release(&sched_lock);
 }
 
-_Noreturn static void task_idle_proc(task_id_t tid)
+_Noreturn void task_idle_proc(task_id_t tid)
 {
     (void)tid;
 
@@ -522,6 +523,8 @@ void sched_add(task_t *t)
 task_t *sched_execve(
     const char *path, const char *argv[], const char *envp[], const char *cwd)
 {
+    int64_t i;
+
     klogi("SCHED: execute \"%s\" in \"%s\" directory\n", path, cwd);
 
     auxval_t aux = {0};
@@ -531,7 +534,7 @@ task_t *sched_execve(
     task_t *tc = NULL;
 
     char *tname = (char*)path;
-    for (int64_t i = strlen(path) - 1; i >= 0; i--) {
+    for (i = strlen(path) - 1; i >= 0; i--) {
        if (path[i] == '/') {
             tname = (char*)&(path[i + 1]);
             break;
@@ -539,8 +542,10 @@ task_t *sched_execve(
     }
 
     lock_lock(&sched_lock);
+
     tc = task_make(tname, NULL, 0, TASK_USER_MODE,
                    tp == NULL ? NULL : tp->addrspace);
+
     if (tp != NULL) {
         for (size_t i = 0; i < vec_length(&tp->dup_list); i++) {
             file_dup_t dup = vec_at(&tp->dup_list, i);  
@@ -548,7 +553,24 @@ task_t *sched_execve(
             klogd("SCHED: fh pair for tid %d's child task %d - (%d, %d)\n",
                   tp->tid, tc->tid, dup.fh, dup.newfh);
         }
-    } 
+
+        /* Increase refcount of all open files */
+        memcpy(&tc->openfiles, &tp->openfiles, sizeof(ht_t));
+        for (i = 0; i < HT_ARRAY_SIZE; i++) {
+            if (tc->openfiles.array[i].key == -1
+                || tc->openfiles.array[i].data == NULL)
+            {
+                continue;
+            }
+            vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+            memcpy(nd, tc->openfiles.array[i].data, sizeof(vfs_node_desc_t));
+            tc->openfiles.array[i].data = nd; 
+            nd->inode->refcount++;
+            klogd("SCHED: copy fd %d from tid %d to tid %d\n",
+                  tc->openfiles.array[i].key, tp->tid, tc->tid);
+        } 
+    }
+
     lock_release(&sched_lock);
 
     if (elf_load(tc, path, &entry, &aux)) {

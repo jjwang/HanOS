@@ -3,6 +3,7 @@
  */
 #include <libc/string.h>
 #include <libc/errno.h>
+#include <libc/numeric.h>
 
 #include <sys/cpu.h>
 #include <sys/idt.h>
@@ -468,8 +469,13 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
         if (found) {
             int64_t ret = vfs_read(oldfh, count, buf);
             return ret;
-        } else if (ttyfh != VFS_INVALID_HANDLE) {
-            return vfs_read(ttyfh, count, buf);
+        } else {
+            vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
+            if (ttyfh != VFS_INVALID_HANDLE) {
+                int64_t len = vfs_read(ttyfh, count, buf);
+                vfs_close(ttyfh);
+                return len;
+            }
         }
         cpu_set_errno(EINVAL);
         return -1;
@@ -512,7 +518,7 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
                   count, oldfh, fh); 
             int64_t ret = vfs_write(oldfh, count, buf);
             return ret;
-        } else if (ttyfh != VFS_INVALID_HANDLE) {
+        } else {
             if (debug_info) {
                 for (size_t i = 0; i < count; i++) {
                     char c = ((char*)buf)[i];
@@ -525,8 +531,12 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
                     }
                 }
             }
-            return vfs_write(ttyfh, count, buf);
-        } else {
+            vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
+            if (ttyfh != VFS_INVALID_HANDLE) {
+                int64_t len = vfs_write(ttyfh, count, buf);
+                vfs_close(ttyfh);
+                return len;
+            }
             return 0;
         }
     }
@@ -554,8 +564,11 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
     cpu_set_errno(0);
 
     if (fd == STDIN || fd == STDOUT || fd == STDERR) {
+        vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
         if (ttyfh != VFS_INVALID_HANDLE) {
-            return vfs_ioctl(ttyfh, request, arg);
+            int64_t ret = vfs_ioctl(ttyfh, request, arg);
+            vfs_close(ttyfh);
+            return ret;
         }   
     }
 
@@ -850,11 +863,19 @@ int64_t k_pipe(int64_t *fh)
         goto err_exit;
     }    
 
-    vfs_create("/dev/pipe/1", VFS_NODE_CHAR_DEVICE);
+    char path[VFS_MAX_PATH_LEN] = {0};
+    strcpy(path, "/dev/pipe/");
+
+    size_t len = strlen(path);
+    itoa(rand(pit_get_ticks() % 1000, 1, 1000),
+         &path[len], VFS_MAX_PATH_LEN - len - 1,
+         10);
+
+    vfs_create(path, VFS_NODE_CHAR_DEVICE);
 
     /* fh[0] is the reading port, fh[1] is the writing port */
-    fh[0] = vfs_open("/dev/pipe/1", VFS_MODE_READ);
-    fh[1] = vfs_open("/dev/pipe/1", VFS_MODE_WRITE);
+    fh[0] = vfs_open(path, VFS_MODE_READ);
+    fh[1] = vfs_open(path, VFS_MODE_WRITE);
 
     klogd("k_pipe: return reading port %d and writing port %d\n", fh[0], fh[1]);
 

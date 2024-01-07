@@ -16,6 +16,8 @@
 #include <proc/task.h>
 #include <base/time.h>
 
+_Noreturn void task_idle_proc(task_id_t tid);
+
 void sched_debug(bool showlog);
 
 void sched_init(const char *name, uint16_t cpu_id);
