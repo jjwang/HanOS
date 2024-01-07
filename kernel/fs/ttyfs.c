@@ -83,7 +83,6 @@ vfs_fsinfo_t ttyfs = {
     .ioctl = ttyfs_ioctl
 };
 
-vfs_handle_t ttyfh = VFS_INVALID_HANDLE;
 lock_t tty_lock;
 
 /* Identifying information for a node */

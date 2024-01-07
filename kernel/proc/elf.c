@@ -75,6 +75,11 @@ int64_t elf_load(
                       elf_buff[0], elf_buff[1], elf_buff[2], fn, f);
             }
 
+            if (readlen == 0) {
+                kloge("VFS: open \"%s\" successfully but cannot "
+                      "read data (len: %d)\n", fn, elf_len);
+            }
+
             m.vaddr = (uint64_t)elf_buff;
             m.paddr = VIRT_TO_PHYS(elf_buff);
             m.np = NUM_PAGES(elf_len);
@@ -82,6 +87,8 @@ int64_t elf_load(
             vec_push_back(&task->mmap_list, m); 
         }
         vfs_close(f);
+    } else {
+        kloge("VFS: open \"%s\" failed\n", fn);
     }
 
     if (elf_buff == NULL)               goto err_exit;

@@ -95,6 +95,13 @@ static volatile struct limine_module_request module_request = {
 
 static volatile computer_info_t self_info = {0};
 
+void done(void)
+{
+    for (;;) {
+        asm volatile ("hlt;");
+    }   
+}
+
 _Noreturn void kcursor(task_id_t tid)
 {
     while (true) {
@@ -116,11 +123,74 @@ _Noreturn void kcursor(task_id_t tid)
     (void)tid;
 }
 
-void done(void)
+_Noreturn void kshell(task_id_t tid)
 {
-    for (;;) {
-        asm volatile ("hlt;");
+    (void)tid;
+
+    ttyfs_init(); 
+    pipefs_init();
+
+    pci_init();
+    ata_init();
+
+    pci_get_gfx_device(kernel_addr_request.response);
+
+    image_t image;
+    if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
+        klogi("Background image: %d*%d with bpp %d, size %d\n",
+              image.img_width, image.img_height, image.bpp, image.size);
+        term_set_bg_image(&image);
+    }
+
+    kprintf("HanOS based on HNK kernel version %s. Copyleft (2022) HNK.\n",
+            VERSION);
+
+    char *cpu_model_name = cpu_get_model_name();
+    if (strlen(cpu_model_name) > 0) {
+        kprintf("\033[36mCPU        \033[0m: %s\n", cpu_model_name);
+    }
+
+    {   
+        kprintf("\033[36mMemory     \033[0m: %11d MB\n", pmm_get_total_memory());
     }   
+
+    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
+        kprintf("\033[36mMonitor    \033[0m: %4d x %4d cm\n",
+                self_info.screen_hor_size, self_info.screen_ver_size);
+    }   
+
+    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
+        kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
+                self_info.prefer_res_x, self_info.prefer_res_y);
+        kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
+                self_info.actual_res_x, self_info.actual_res_y);
+    }
+
+    /* Start all programs */
+#ifdef ENABLE_BASH
+    const char *argv[] = { "/usr/bin/bash", "--login", NULL };
+    const char *envp[] = { 
+        "HOME=/root",
+        "TIME_STYLE=posix-long-iso",
+        "PATH=/usr/bin:/bin",
+        "TERM=hanos",
+        NULL
+    };  
+
+    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root"); 
+#else 
+    sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
+#endif
+
+    /* This should be idle task which frees resources of all dead tasks */
+    task_t *t = sched_get_current_task();
+    if (t != NULL) {
+        task_idle_proc(t->tid);
+    } else {
+        while (true) {
+            done();
+        }
+    }
 }
 
 void screen_write(char c)
@@ -185,33 +255,11 @@ void kmain(void)
     klogi("Init APIC...\n");
     apic_init();
 
-    klogi("Init VFS...\n");
-    vfs_init();
-
     klogi("Init SMP...\n");
     smp_init();
 
     klogi("Init syscall...\n");
     syscall_init();
-
-    klogi("Init INITRD...\n");
-    struct limine_module_response *module_response = module_request.response;
-    if (module_response != NULL) {
-        for (size_t i = 0; i < module_response->module_count; i++) {
-            struct limine_file *module = module_response->modules[i];
-            klogi("Module %d path   : %s\n", i, module->path);
-            klogi("Module %d cmdline: %s\n", i, module->cmdline);
-            klogi("Module %d size   : %d\n", i, module->size);
-            if (strcmp(module->cmdline, "INITRD") == 0) {
-                ramfs_init(module->address, module->size);
-            }
-        }
-    } else {
-        kpanic("Cannot find INITRD module\n");
-    }
-
-    ttyfs_init(); 
-    pipefs_init();
 
     klogi("Press \"\033[37m%s\033[0m\" (left) to shell and \"\033[37m%s\033[0m\" back\n",
           "ctrl+shift+1", "ctrl+shift+2");
@@ -239,17 +287,26 @@ void kmain(void)
     }
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-    pci_init();
-    ata_init();
+    self_info.prefer_res_x = fb->width;
+    self_info.prefer_res_y = fb->height;
 
-    pci_get_gfx_device(kernel_addr_request.response);
+    vfs_init();
 
-    image_t image;
-    if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
-        klogi("Background image: %d*%d with bpp %d, size %d\n",
-              image.img_width, image.img_height, image.bpp, image.size);
-        term_set_bg_image(&image);
-    }
+    klogi("Init INITRD...\n");
+    struct limine_module_response *module_response = module_request.response;
+    if (module_response != NULL) {
+        for (size_t i = 0; i < module_response->module_count; i++) {
+            struct limine_file *module = module_response->modules[i];
+            klogi("Module %d path   : %s\n", i, module->path);
+            klogi("Module %d cmdline: %s\n", i, module->cmdline);
+            klogi("Module %d size   : %d\n", i, module->size);
+            if (strcmp(module->cmdline, "INITRD") == 0) {
+                ramfs_init(module->address, module->size);
+            }   
+        }   
+    } else {
+        kpanic("Cannot find INITRD module\n");
+    }   
 
     klog_debug();
 
@@ -260,45 +317,8 @@ void kmain(void)
     term_clear(TERM_MODE_CLI);
 #endif
 
-    kprintf("HanOS based on HNK kernel version %s. Copyleft (2022) HNK.\n",
-            VERSION); 
-
-    char *cpu_model_name = cpu_get_model_name();
-    if (strlen(cpu_model_name) > 0) {
-        kprintf("\033[36mCPU        \033[0m: %s\n", cpu_model_name);
-    }
-
-    {
-        kprintf("\033[36mMemory     \033[0m: %11d MB\n", pmm_get_total_memory());
-    }
-
-    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\033[36mMonitor    \033[0m: %4d x %4d cm\n",
-                self_info.screen_hor_size, self_info.screen_ver_size);
-    }
-
-    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
-                self_info.prefer_res_x, self_info.prefer_res_y);
-        kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
-                fb->width, fb->height);
-    }
-
-    /* Start all programs */
-#ifdef ENABLE_BASH
-    const char *argv[] = { "/usr/bin/bash", "--login", NULL };
-    const char *envp[] = { 
-        "HOME=/root",
-        "TIME_STYLE=posix-long-iso",
-        "PATH=/usr/bin:/bin",
-        "TERM=hanos",
-        NULL
-    };
-
-    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root"); 
-#else 
-    sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
-#endif
+    task_t *tshell = sched_new("kshell", kshell, false);
+    sched_add(tshell);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {

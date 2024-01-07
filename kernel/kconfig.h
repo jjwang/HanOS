@@ -24,5 +24,7 @@ typedef struct {
     uint64_t screen_ver_size;
     uint64_t prefer_res_x;
     uint64_t prefer_res_y;
+    uint64_t actual_res_x;
+    uint64_t actual_res_y;
 } computer_info_t;
 

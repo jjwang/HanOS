@@ -49,3 +49,16 @@ bool itoa(int num, char* str, int len, int base)
     return true;
 }
 
+static unsigned int lcg_random(int seed)
+{  
+    const long a = 1103515245;  
+    const long c = 12345;  
+    const long m = (long)(((unsigned long)1 << 31) - 1);  
+    return ((a * seed + c) % m) + 1;  
+}  
+  
+int rand(int seed, int min, int max)
+{
+    return min + lcg_random(seed) % (max - min + 1);
+}  
+  
