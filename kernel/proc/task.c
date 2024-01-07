@@ -119,6 +119,8 @@ task_t *task_make(
     strcpy(ntask->cwd, "/");
     strncpy(ntask->name, name, sizeof(ntask->name));
 
+    ht_init(&ntask->openfiles);
+
     klogi("TASK: Create tid %d with name \"%s\" (task 0x%x)\n",
           ntask->tid, name, ntask);
 
@@ -172,6 +174,8 @@ void task_debug(task_t *t, bool force)
 
 task_t *task_fork(task_t *tp)
 {
+    size_t i;
+
     task_debug(tp, false);
 
     task_t *tc = (task_t*)kmalloc(sizeof(task_t));
@@ -186,7 +190,7 @@ task_t *task_fork(task_t *tp)
     size_t len = vec_length(&(tp->mmap_list));
     klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
           len, tp->tid, curr_tid);
-    for (size_t i = 0; i < len; i++) {
+    for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
         uint64_t ptr = VIRT_TO_PHYS(kmalloc(m.np * PAGE_SIZE));
         memcpy((void*)PHYS_TO_VIRT(ptr), (void*)PHYS_TO_VIRT(m.paddr),
@@ -231,6 +235,22 @@ task_t *task_fork(task_t *tp)
 
         offset = (uint64_t)tr->rbp - (uint64_t)tp->kstack_limit;
         tr->rbp = (uint64_t)tc->kstack_limit + offset;
+    }
+
+    /* Increase refcount of all open files */
+    memcpy(&tc->openfiles, &tp->openfiles, sizeof(ht_t));
+    for (i = 0; i < HT_ARRAY_SIZE; i++) {
+        if (tc->openfiles.array[i].key == -1
+            || tc->openfiles.array[i].data == NULL)
+        {
+            continue;
+        }
+        vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+        memcpy(nd, tc->openfiles.array[i].data, sizeof(vfs_node_desc_t));
+        tc->openfiles.array[i].data = nd; 
+        nd->inode->refcount++;
+        klogd("TASK: copy fd %d from tid %d to tid %d\n",
+              tc->openfiles.array[i].key, tp->tid, tc->tid);
     }
 
     task_debug(tc, false);

@@ -37,6 +37,7 @@
 
 #include <base/time.h>
 #include <base/vector.h>
+#include <base/hash.h>
 #include <sys/smp.h>
 #include <sys/mm.h>
 #include <fs/vfs.h>
@@ -222,6 +223,8 @@ typedef struct task_t {
 
     auxval_t        aux;
     vec_struct(task_id_t)  child_list;
+
+    ht_t            openfiles;
     vec_struct(file_dup_t) dup_list;
 
     int64_t         errno;

@@ -14,7 +14,6 @@ typedef struct {
 } ttyfs_ident_item_t;
 
 extern vfs_fsinfo_t ttyfs;
-extern vfs_handle_t ttyfh;
 
 vfs_inode_t* ttyfs_mount(vfs_inode_t *at);
 int64_t ttyfs_mknode(vfs_tnode_t *this);

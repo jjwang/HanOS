@@ -51,9 +51,6 @@ vfs_tnode_t vfs_root = {0};
 /* List of installed filesystems */
 vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 
-/* List of opened files */
-ht_t vfs_openfiles;
-
 /* New file handle */
 static size_t vfs_next_handle = VFS_MIN_HANDLE; 
 
@@ -133,20 +130,8 @@ void vfs_init()
     vfs_register_fs(&ttyfs);
     vfs_register_fs(&pipefs);
 
-    /* Init the hash list of open files */
-    ht_init(&vfs_openfiles);
-
-    char* fn = "/";
-
     /* Mount RAMFS without device name (NULL) */
-    vfs_mount(NULL, fn, "ramfs");
-
-    /* Call vsf_refrsh() to load all RAMFS files */
-    vfs_handle_t f = vfs_open(fn, VFS_MODE_READWRITE);
-    if (f != VFS_INVALID_HANDLE) {
-        vfs_refresh(f);
-        vfs_close(f);
-    }
+    vfs_mount(NULL, "/", "ramfs");
 
     /* Create directory for mounting devices in the future */
     vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
@@ -155,7 +140,6 @@ void vfs_init()
     /* Mount TTYFS with device name "/dev/tty" */
     vfs_path_to_node("/dev/tty", CREATE, VFS_NODE_FOLDER);
     vfs_mount("tty", "/dev/tty", "ttyfs");
-    ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
 
     /* Mount PIPEFS with device name "/dev/pipe" */
     vfs_path_to_node("/dev/pipe", CREATE, VFS_NODE_FOLDER);
@@ -275,7 +259,8 @@ int64_t vfs_tell(vfs_handle_t handle)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
 
-    if (!fd) { 
+    if (!fd) {
+        kloge("VFS: cannot get fd for file %d\n", handle); 
         return 0;
     } else {
         vfs_inode_t* inode = fd->inode;
@@ -300,7 +285,7 @@ int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
      * 2. Return directly if remaining length is zero except tty device
      */
     if (fd->seek_pos + len > inode->size
-        && handle != ttyfh)
+        && strcmp(fd->inode->fs->name, "ttyfs") != 0)
     {
         len = inode->size - fd->seek_pos;
         if (len == 0)
@@ -476,9 +461,9 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 
 vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 {
-    lock_lock(&vfs_lock);
+    klogv("VFS: open %s with mode 0x%8x\n", path, mode);
 
-    klogd("VFS: open %s with mode 0x%8x\n", path, mode);
+    lock_lock(&vfs_lock);
 
     /* Find the node */
     vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0);
@@ -501,7 +486,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
         if (!req) goto fail;
     } else {
         if (req->inode->fs != NULL) {
-            klogd("VFS: inode for %s already exists\n", path);
+            klogv("VFS: inode for %s already exists\n", path);
             req = req->inode->fs->open(req->inode, path);
         }
     }
@@ -526,11 +511,16 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
     vfs_handle_t fh = vfs_next_handle++;
 
     /* Add to current task */
-    ht_insert(&vfs_openfiles, fh, nd);
-    
+    task_t *t = sched_get_current_task();
+    if (t != NULL) {
+        ht_insert(&(t->openfiles), fh, nd);
+    } else {
+        kloge("VFS: cannot insert \"%s\" because of invalid task\n", path);
+    }
+
     lock_release(&vfs_lock);
 
-    klogd("VFS: Open %s with mode 0x%x and return handle %d, nd = 0x%x\n",
+    klogv("VFS: Open %s with mode 0x%x and return handle %d, nd = 0x%x\n",
           path, mode, fh, nd);
 
     return fh;
@@ -552,7 +542,12 @@ int64_t vfs_close(vfs_handle_t handle)
     fd->inode->refcount--;
     kmfree(fd);
 
-    ht_delete(&vfs_openfiles, handle);
+    task_t *t = sched_get_current_task();
+    if (t != NULL) {
+        ht_delete(&(t->openfiles), handle);
+    } else {
+        kloge("VFS: cannot remove file %d because of invalid task\n", handle);
+    }
 
     /* Remove this file if needed */
     if (fd->inode->refcount == 0 && fd->tnode->st.st_nlink == 0) {

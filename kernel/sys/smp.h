@@ -33,7 +33,7 @@
  * seems that the stack is corrupted. But we do not know the reason. In the
  * future, we should deeply dive into this. (Dec 23, 2023)
  */
-#define STACK_SIZE                      (PAGE_SIZE * 4)
+#define STACK_SIZE                      (PAGE_SIZE * 8)
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;
