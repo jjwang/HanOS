@@ -144,11 +144,8 @@ int sys_pipe(int *fd)
 {
     /* We need to handle different definition of file handle,
      * int32_t or int64_t? */
-    int64_t fd1[2];
     int ret, errno;
-    SYSCALL1(SYSCALL_PIPE, fd1);
-    fd[0] = fd1[0];
-    fd[1] = fd1[1];
+    SYSCALL2(SYSCALL_PIPE, fd, 0);
     return ret;
 }
 
