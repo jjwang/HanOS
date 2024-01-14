@@ -348,6 +348,8 @@ int64_t k_unlink(char *path)
 {
     cpu_set_errno(0);
 
+    klogi("k_unlink: %s\n", path);
+
     char full_path[VFS_MAX_PATH_LEN] = {0};
     if (get_full_path(VFS_FDCWD, path, full_path) < 0) {
         cpu_set_errno(EINVAL);
@@ -389,7 +391,6 @@ int64_t k_unlink(char *path)
     for (size_t i = 0; i < vec_length(&(pi->child)); i++) {
         if (vec_at(&(pi->child), i) == tnode) {
             vec_erase(&(pi->child), i);
-            klogi("k_unlink: path %s", path);
             return 0;
         }
     }
@@ -481,6 +482,8 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
         return -1;
     } else if (fh >= VFS_MIN_HANDLE) {
         int64_t len = vfs_read(fh, count, buf);
+        klogd("k_read: try to read %d bytes from file %d and return %d bytes\n",
+              count, fh, len);
         return len;
     } else {
         cpu_set_errno(EBADF);
@@ -615,7 +618,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
          */
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memset(st, 0, sizeof(vfs_stat_t));
-        klogd("k_fstat: success with file handle 0x%x\n", handle);
+        klogd("k_fstat: success with file handle %d\n", handle);
         return 0;
     }
  
@@ -625,11 +628,11 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
-        klogd("k_fstat: success with file handle 0x%x and size %d\n",
+        klogd("k_fstat: success with file handle %d and size %d\n",
               handle, st->st_size);
         return 0;
     } else {
-        kloge("k_fstat: fail with file handle 0x%x\n", handle);
+        kloge("k_fstat: fail with file handle %d\n", handle);
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -848,8 +851,10 @@ err_exit:
     return -1;
 }
 
-int64_t k_pipe(int64_t *fh)
+int64_t k_pipe(int32_t *fh, uint32_t flags)
 {
+    (void)flags;
+
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
@@ -867,7 +872,7 @@ int64_t k_pipe(int64_t *fh)
     strcpy(path, "/dev/pipe/");
 
     size_t len = strlen(path);
-    itoa(rand(pit_get_ticks() % 1000, 1, 1000),
+    itoa(rand(sched_get_ticks() % 1000, 1, 1000),
          &path[len], VFS_MAX_PATH_LEN - len - 1,
          10);
 
@@ -937,9 +942,11 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
     return -1; 
 }
 
-int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
+int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
 {
     task_t *t = sched_get_current_task();
+    if (status != NULL) *status = 0;
+
     if ((int32_t)pid == (int32_t)(-1) && t != NULL) {
         klogv("k_waitpid: tid %d waits pid 0x%x status 0x%x flags 0x%x\n",
               t->tid, pid, status, flags);
@@ -954,10 +961,7 @@ int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
             task_status_t status_child = sched_get_task_status(tid_child);
             if (status_child == TASK_DEAD) {
                 klogw("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
-                if (status != NULL) {
-                    *status = (int64_t)NULL;
-                    return tid_child;
-                }
+                return tid_child;
             } else if (status_child != TASK_UNKNOWN) {
                 all_dead = false;
                 klogv("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
@@ -970,15 +974,30 @@ int64_t k_waitpid(int64_t pid, int64_t *status, int64_t flags)
                   "active children\n", t->tid, pid);
             return 0;
         } else {
+            sched_sleep(200);
             klogd("k_waitpid: tid %d waiting pid 0x%x returns without "
                   "children\n", t->tid, pid);
             cpu_set_errno(ECHILD);
             return -1;
         }
+    } else if (t->tid == (task_id_t)pid) {
+        /* It is ourselves, return immediately */
+        return 0;
     } else {
-        klogd("k_waitpid: waiting pid 0x%x with invalid parameters\n", pid);
-        cpu_set_errno(ECHILD);
-        return -1;
+        /* Retry for 20 times */
+        for (size_t i = 0; ; i++) {
+            task_status_t status = sched_get_task_status(pid);
+            if (status != TASK_DEAD && status != TASK_UNKNOWN) {
+                sched_sleep(200);
+                if (i == 19) {
+                    kloge("k_waitpid: waiting pid 0x%x which is still active\n", pid);
+                    cpu_set_errno(EBUSY);
+                    return -1;
+                }
+            }
+        }
+        klogd("k_waitpid: waiting pid 0x%x which is not active and exit\n", pid);
+        return 0;
     }
 }
 
@@ -1192,7 +1211,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_FUTEX_WAKE]    = (syscall_ptr_t)k_futex_wake,
     [SYSCALL_MEMINFO]       = (syscall_ptr_t)k_meminfo,         /* 34 */
     [SYSCALL_PIPE]          = (syscall_ptr_t)k_pipe,
-    [SYSCALL_UNLINK]        = (syscall_ptr_t)k_unlink,
+    [SYSCALL_UNLINK]        = (syscall_ptr_t)k_unlink,          /* 36 */
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
