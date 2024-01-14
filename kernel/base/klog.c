@@ -22,6 +22,8 @@
 #include <sys/cmos.h>
 #include <sys/smp.h>
 #include <sys/serial.h>
+#include <proc/task.h>
+#include <proc/sched.h>
 
 static klog_info_t klog_info = {0};
 static klog_info_t klog_cli = {0};
@@ -264,9 +266,16 @@ void klog_vprintf(klog_level_t level, const char* s, ...)
                      1900 + now_tm.year, now_tm.mon + 1, now_tm.mday,
                      now_tm.hour, now_tm.min, now_tm.sec, now_ms);
         if (cpu != NULL) {
-            klog_vprintf_wrapper(TERM_MODE_INFO, "%02d ", cpu->cpu_id);
+            klog_vprintf_wrapper(TERM_MODE_INFO, "%02d", cpu->cpu_id);
         } else {
-            klog_vprintf_wrapper(TERM_MODE_INFO, "-- ");
+            klog_vprintf_wrapper(TERM_MODE_INFO, "--");
+        }
+
+        task_t *t = sched_get_current_task();
+        if (t != NULL) {
+            klog_vprintf_wrapper(TERM_MODE_INFO, "-%03d ", t->tid);
+        } else {
+            klog_vprintf_wrapper(TERM_MODE_INFO, "---- ");
         }
     }
 

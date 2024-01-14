@@ -146,7 +146,10 @@ vfs_tnode_t *vfs_path_to_node(
                 vfs_alloc_tnode(tmpbuff, new_inode, curr->inode);
 
             vec_push_back(&(curr->inode->child), new_tnode);
-            if (curr->inode->fs != NULL) curr->inode->fs->mknode(new_tnode);
+            if (curr->inode->fs != NULL) {
+                curr->inode->fs->mknode(new_tnode);
+                new_tnode->inode->fs = curr->inode->fs;
+            }
             if (strncmp(path, "usr/local", 9) == 0
                 || strncmp(path, "/usr/bin", 8) == 0)
             {

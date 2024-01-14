@@ -40,7 +40,7 @@ typedef struct {
 static ramfs_ident_t *create_ident()
 {
     ramfs_ident_t *id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
-    *id = (ramfs_ident_t) { .alloc_size = 0, .data = NULL };
+    *id = (ramfs_ident_t) { .alloc_size = 0, .data = NULL};
     return id;
 }
 
@@ -225,7 +225,7 @@ void ramfs_init(void *address, uint64_t size)
 }
 
 /* The path parameter needs to be full path */
-vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char* path)
+vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *path)
 {
     int nn = 0;
     size_t pathlen = strlen(path);
@@ -237,8 +237,8 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char* path)
 
     if (id == NULL) { 
         id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
+        memset(id, 0, sizeof(ramfs_ident_t));
     }
-    memset(id, 0, sizeof(ramfs_ident_t));
 
     /* TODO: Need to speed up this part and check where to free id->data */
     bool islink = false;
@@ -254,7 +254,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char* path)
                 item_link = item;
                 break;
             }
-
+            
             if (id->data != NULL) {
                 id->data = (void*)kmrealloc(id->data, item->entry.size);
             } else {
@@ -306,6 +306,10 @@ int64_t ramfs_read(vfs_inode_t *this, size_t offset, size_t len, void *buff)
         memcpy(buff, ((uint8_t*)id->data) + offset, len);
         klogd("RAMFS: read %d bytes from 0x%x with offset %d\n",
               len, id->data, offset);
+    } else {
+        klogd("RAMFS: read %d bytes from 0x%x with offset %d but failed with "
+              "copy (%d <= %d)\n",
+              len, id->data, offset, offset, id->alloc_size);
     }
 
     return retlen;
@@ -313,6 +317,8 @@ int64_t ramfs_read(vfs_inode_t *this, size_t offset, size_t len, void *buff)
 
 int64_t ramfs_rmnode(vfs_tnode_t *this)
 {
+    (void)this;
+#if 0
     ramfs_ident_t *id = (ramfs_ident_t*)this->inode->ident;
 
     if (id == NULL) goto err_exit;
@@ -333,15 +339,28 @@ int64_t ramfs_rmnode(vfs_tnode_t *this)
         }
     }
 err_exit:
+#endif
     return -1;
 }
 
 int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff)
 {
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
+    size_t old_size = this->size;
+
+    if (offset + len > this->size) {
+        this->size = offset + len;
+    }
+
+    if (this->size > id->alloc_size) {
+        id->alloc_size = this->size;
+        id->data = kmrealloc(id->data, id->alloc_size);
+    }
+
     memcpy(((uint8_t*)id->data) + offset, buff, len);
 
-    klogd("RAMFS: write %d to 0x%x with offset %d\n", len, id->data, offset);
+    klogd("RAMFS: write %d to 0x%x with offset %d (%d -> %d)\n",
+          len, id->data, offset, old_size, this->size);
 
     return 0;
 }
@@ -360,8 +379,11 @@ int64_t ramfs_sync(vfs_inode_t* this)
 
 int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
 {
+    (void)this;
     (void)inode;
 
+    /* We do not clean data here */
+#if 0
     if (this->inode->refcount == 0) {
         ramfs_ident_t* id = (ramfs_ident_t*)this->inode->ident;
         if (id->data)
@@ -369,6 +391,8 @@ int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
         kmfree(id);
         this->inode->ident = NULL;
     }
+#endif
+
     return 0;
 }
 

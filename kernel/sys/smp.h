@@ -28,10 +28,12 @@
 
 #define CPU_MAX                         256
 
-/* TODO: If stack size is set to PAGE_SIZE * 32, there will be some #PF
- * exceptions in userspace apps (specifically in hansh). From the contexts, it
- * seems that the stack is corrupted. But we do not know the reason. In the
- * future, we should deeply dive into this. (Dec 23, 2023)
+/* FIXME:
+ * - If stack size is set to PAGE_SIZE * 32, there will be some #PF
+ *   exceptions in userspace apps (specifically in hansh). From the contexts, it
+ *   seems that the stack is corrupted. But we do not know the reason. In the
+ *   future, we should deeply dive into this. (Dec 23, 2023)
+ * - If stack size is not big enough, gcc can not run correctly.
  */
 #define STACK_SIZE                      (PAGE_SIZE * 8)
 

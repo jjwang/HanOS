@@ -159,12 +159,15 @@ _Noreturn void kshell(task_id_t tid)
                 self_info.screen_hor_size, self_info.screen_ver_size);
     }   
 
-    if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
+    if (self_info.prefer_res_x > 0 && self_info.prefer_res_y > 0) {
         kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
                 self_info.prefer_res_x, self_info.prefer_res_y);
+    }
+
+    if (self_info.actual_res_x > 0 && self_info.actual_res_y > 0) {
         kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
                 self_info.actual_res_x, self_info.actual_res_y);
-    }
+    }   
 
     /* Start all programs */
 #ifdef ENABLE_BASH
@@ -287,8 +290,8 @@ void kmain(void)
     }
     klogi("Framebuffer address 0x%x\n", fb->address);
 
-    self_info.prefer_res_x = fb->width;
-    self_info.prefer_res_y = fb->height;
+    self_info.actual_res_x = fb->width;
+    self_info.actual_res_y = fb->height;
 
     vfs_init();
 
