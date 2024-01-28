@@ -35,7 +35,7 @@
  *   future, we should deeply dive into this. (Dec 23, 2023)
  * - If stack size is not big enough, gcc can not run correctly.
  */
-#define STACK_SIZE                      (PAGE_SIZE * 8)
+#define STACK_SIZE                      (PAGE_SIZE * 32)
 
 typedef struct [[gnu::packed]] {
     uint32_t reserved;

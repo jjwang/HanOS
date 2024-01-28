@@ -119,7 +119,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
         lock_release(&sched_lock);
 
         if (t != NULL) {
-            klogi("sched: clean memory of dead task #%d\n", t->tid);
+            klogi("sched: clean memory of dead task #%d (0x%x)\n", t->tid, t);
 
             /* Step 1.2: Free all resources of this dead task */
             task_free(t);

@@ -312,5 +312,13 @@ void task_free(task_t *t)
 
     kmfree((void*)t->addrspace->PML4);
     kmfree((void*)t->addrspace);
-    kmfree(t);
+
+    /*
+     * TODO: Jan 28, 2024 - Locate the root cause of RAMFS file loading failure
+     * issue which is caused by memory garbage collection of dead tasks.
+     * Remember we need to call kmfree(t) in some place, but we should review
+     * the full life cycle of each task including their children tasks
+     * carefully. Let's work on it when we restructure task manager in the
+     * future.
+     */
 }
