@@ -51,7 +51,11 @@ typedef struct {
         STATE_UNKNOWN = 0,
         STATE_IDLE,
         STATE_CMD,
-        STATE_PARAM
+        STATE_PARAM,
+        STATE_HYPERLINK_HEADER,
+        STATE_HYPERLINK_URL,
+        STATE_HYPERLINK_TEXT,
+        STATE_HYPERLINK_TAIL,
     } state;
     int cparams[16];
     int cparamcount;
