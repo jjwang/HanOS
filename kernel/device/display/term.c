@@ -104,16 +104,22 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                 term_act->last_qu_char = false;
                 goto err;
             }
-        }
-        else
+        } else {
             goto err;
+        }
     } else if (term_act->state == STATE_CMD) {
         if (byte == '[') {
             term_act->cparamcount = 1;
             term_act->cparams[0] = 0;
             term_act->state = STATE_PARAM;
-        } else
+        } else if (byte == ']') {
+            term_act->cparamcount = 0;
+            term_act->cparams[0] = 0;
+            term_act->state = STATE_HYPERLINK_HEADER;
+            term_act->last_qu_char = false;
+        } else {
             goto err;
+        }
     } else if (term_act->state == STATE_PARAM) {
         if (byte == ';') {
             term_act->cparams[term_act->cparamcount++] = 0;
@@ -230,6 +236,54 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
             term_act->cparams[term_act->cparamcount - 1] += byte - '0';
         } else {
             goto err;
+        }
+    } else if (term_act->state == STATE_HYPERLINK_HEADER) {
+        if (byte == ';' && term_act->cparamcount == 2) {
+            if (term_act->cparams[0] == '8' && term_act->cparams[1] == ';')
+            {
+                term_act->state = STATE_HYPERLINK_URL;
+            } else if (term_act->cparams[1] == ';') {
+                goto err;
+            } else {
+                term_act->cparams[term_act->cparamcount++] = byte;
+            }
+        } else if (term_act->cparamcount > 2) {
+            goto err;
+        } else {
+            term_act->cparams[term_act->cparamcount++] = byte;
+        }
+    } else if (term_act->state == STATE_HYPERLINK_URL) {
+        char *s = "\007";
+        if (byte == s[0]) {
+            term_act->state = STATE_HYPERLINK_TEXT;
+        } else {
+            /* Skip URL display */
+            return true;
+        }   
+    } else if (term_act->state == STATE_HYPERLINK_TEXT) {
+        if (byte == '\033') {
+            term_act->cparams[0] = 0;
+            term_act->cparamcount = 0; 
+            term_act->state = STATE_HYPERLINK_TAIL;
+        } else {
+            /* Display URL title*/
+            return false;
+        }
+    } else if (term_act->state == STATE_HYPERLINK_TAIL) {
+        if (byte == '\007' && term_act->cparamcount == 4) {
+            if (term_act->cparams[0] == ']' && term_act->cparams[1] == '8'
+                && term_act->cparams[2] == ';' && term_act->cparams[3] == ';')
+            {
+                goto succ;
+            } else {
+                /* Exit from hyperlink state machine */
+                goto err;
+            }
+        } else if (term_act->cparamcount > 4) {
+            /* Exit from hyperlink state machine */
+            goto err;
+        } else {
+            term_act->cparams[term_act->cparamcount++] = byte;
         }
     } else {
         goto err;
@@ -479,7 +533,7 @@ void term_putch(int mode, uint8_t c)
     } else if (term_act->skip_left != 0) {
         term_act->skip_left--;
         return;
-    } else if (term_act->last_qu_char && c != '[') {
+    } else if (term_act->last_qu_char && c != '[' && c != ']') {
         term_act->state = STATE_IDLE;
 
         /* Resend the '\033' character */
