@@ -105,14 +105,35 @@ _Noreturn void task_idle_proc(task_id_t tid)
         /* Step 1.1: Find a dead task */
         lock_lock(&sched_lock);
         size_t task_num = vec_length(&tasks_active);
+        size_t i;
         if (task_num > 0) {
-            for (size_t i = 0; i < task_num; i++) {
+            for (i = 0; i < task_num; i++) {
                 t = vec_at(&tasks_active, i);
                 if (t->status == TASK_DEAD) {
                     vec_erase(&tasks_active, i);
                     break;
                 } else {
                     t = NULL;
+                }
+            }
+        }
+        if (t != NULL) {
+            for (i = 0; i < task_num; i++) {
+                task_t *tp = vec_at(&tasks_active, i); 
+                if (t->ptid == tp->tid) {
+                    for (size_t k = 0; k < vec_length(&tp->child_list); k++) {
+                        task_id_t tid_child = vec_at(&tp->child_list, k); 
+                        if (tid_child == t->tid) {
+                            vec_erase(&tp->child_list, k)
+                            if (vec_length(&tp->child_list) == 0
+                                && tp->status == TASK_DYING)
+                            {
+                                tp->status = TASK_DEAD;
+                            }
+                            break;
+                        }
+                    }
+                    break;
                 }
             }
         }
@@ -363,7 +384,9 @@ static task_status_t sched_get_task_status_impl(task_id_t tid)
 
     if (!has_child) {
         if (ntask != NULL) {
-            if (ntask->status == TASK_DEAD) status = TASK_UNKNOWN;
+            if (ntask->status == TASK_DEAD || ntask->status == TASK_DYING) {
+                status = TASK_UNKNOWN;
+            }
         }
     } else {
         status = TASK_RUNNING;
@@ -397,9 +420,22 @@ void sched_exit(int64_t status)
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     if (curr) {
-        curr->status = TASK_DEAD;
+        curr->status = TASK_DYING;
         if (curr->tid < 1) {
             kpanic("SCHED: %s meets corrupted tid\n", __func__);
+        }
+        size_t len = vec_length(&(curr->child_list));
+        bool all_children_dead = true;
+        for (size_t i = 0; i < len; i++) {
+            task_id_t tid_child = vec_at(&(curr->child_list), i);
+            task_status_t status_child = sched_get_task_status_impl(tid_child);
+            if (status_child != TASK_DEAD) {
+                all_children_dead = false;
+                break;
+            }
+        }
+        if (all_children_dead) { /* This also includes no-children situation*/
+            curr->status = TASK_DEAD;
         }
     }   
 
