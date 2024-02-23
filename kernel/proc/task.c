@@ -293,7 +293,7 @@ void task_free(task_t *t)
     klogi("task_idle: dead task tid %d free mmap number %d\n",
           t->tid, mmap_num);
 
-    /* 2. Free memory when creating a new task */
+    /* Free memory when creating a new task */
     if (t->mode == TASK_USER_MODE) {
         /* Notes that ustack memory is already free in mmap_list */
     }
@@ -314,11 +314,15 @@ void task_free(task_t *t)
     kmfree((void*)t->addrspace);
 
     /*
-     * TODO: Jan 28, 2024 - Locate the root cause of RAMFS file loading failure
+     * Jan 28, 2024 - Locate the root cause of RAMFS file loading failure
      * issue which is caused by memory garbage collection of dead tasks.
      * Remember we need to call kmfree(t) in some place, but we should review
      * the full life cycle of each task including their children tasks
      * carefully. Let's work on it when we restructure task manager in the
      * future.
+     * Feb 18, 2024 - An extra task status - TASK_DYING is defined to make
+     * sure when we free resources of a dead task, it's all children tasks
+     * must be dead.
      */
+    kmfree(t);
 }
