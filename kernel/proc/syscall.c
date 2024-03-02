@@ -175,7 +175,7 @@ err_exit:
     return -1;
 }
 
-static int get_full_path(int64_t dirfh, const char *path, char *full_path)
+int get_full_path(int64_t dirfh, const char *path, char *full_path)
 {
     /* Clean the full path buffer */
     full_path[0] = '\0';
@@ -279,12 +279,14 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
     if (get_full_path(dirfh, path, full_path) < 0) {
+        kloge("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
     } else {
         /* Check whether folder exists or not, e.g. filename is "1/txt" */
         size_t len = strlen(full_path);
         if (len == 0) {
+            kloge("k_openat: full path of \"%s\" is null\n", path);
             cpu_set_errno(EINVAL);
             return -1;
         }
@@ -297,12 +299,13 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         if (strlen(full_path) > 0) {
             vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
             if (tnode == NULL) {
-                klogd("k_openat: directory \"%s\" doesn't exist\n", full_path);
+                kloge("k_openat: directory \"%s\" doesn't exist\n", full_path);
                 cpu_set_errno(ENOENT);
                 return -1;
             }
         }
         if (get_full_path(dirfh, path, full_path) < 0) {
+            kloge("k_openat: full path of \"%s\" cannot be got\n", path);
             cpu_set_errno(EINVAL);
             return -1;
         }
@@ -329,6 +332,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     if (flags & O_CREAT) {
         int64_t ret = vfs_create(full_path, VFS_NODE_FILE);
         if (ret < 0) {
+            kloge("k_openat: creating file for \"%s\" failed\n", path);
             cpu_set_errno(EEXIST);
             return ret;
         } else {
@@ -404,7 +408,7 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
     cpu_set_errno(0);
 
     if (fh == STDIN || fh == STDOUT || fh == STDERR) {
-        klogd("k_seek: fh %d(0x%x), offset %d, whence %d\n",
+        klogv("k_seek: fh %d(0x%x), offset %d, whence %d\n",
               fh, fh, offset, whence);
         return 0;
     }
@@ -651,7 +655,7 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode, uint64_t fla
         return -1; 
     }
 
-    klogi("k_faccessat: open '%s' at mode 0x%x and flags 0x%x\n",
+    klogi("k_faccessat: open \"%s\" at mode 0x%x and flags 0x%x\n",
           full_path, mode, flags);
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
@@ -1047,7 +1051,11 @@ err_exit:
 int k_getrusage(int64_t who, uint64_t usage) {
     rusage_t *u = (rusage_t*)usage;
 
-    klogi("SYSCALL: get %d rusage\n", who);
+    /* When gcc is launched, it will call getrusage(). We need to dive into
+     * gcc to know the purpose of this function call.
+     */
+    sched_sleep(1000);
+    klogw("SYSCALL: get %d rusage\n", who);
     memset(u, sizeof(rusage_t), 0);
 
     return 0;

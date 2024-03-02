@@ -17,7 +17,7 @@ LC_FLAGS  =                 \
     -mno-sse2               \
     -mno-red-zone           \
     -Wno-cast-function-type \
-    -O2
+    -O2 -g
 
 AS_FLAGS  = -I . -flto
 ASM_FLAGS = -f elf64 -I.
@@ -31,7 +31,7 @@ LD_FLAGS  =                 \
     -Tlinker.ld             \
     -z max-page-size=0x2000 \
     -I .                    \
-    -O2
+    -O2 -g
 
 KERNELOBJ = hanos.elf
 BOOT_DIR  = 3rd-party/boot

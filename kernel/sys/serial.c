@@ -1,5 +1,6 @@
 #include <sys/cpu.h>
 #include <sys/serial.h>
+#include <libc/string.h>
 
 int serial_init()
 {
@@ -39,5 +40,13 @@ void serial_write(char a)
         if (port_inb(SERIAL_PORT + 5) & 0x20) break;
     }
     port_outb(SERIAL_PORT, a);
+}
+
+void serial_puts(char *s)
+{
+    size_t len = strlen(s);
+    for (size_t i = 0; i < len; i++) {
+        serial_write(s[i]);
+    }
 }
 

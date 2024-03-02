@@ -84,6 +84,7 @@ void* kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
     }
 
     void *new = kmalloc_core(newsize, func, line);
+    memset(new, 0, newsize);
     if (d->size > newsize)
         memcpy(new, addr, newsize);
     else

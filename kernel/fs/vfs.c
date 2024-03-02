@@ -154,7 +154,7 @@ int64_t vfs_create(char* path, vfs_node_type_t type)
     int64_t status = 0;
     lock_lock(&vfs_lock);
 
-    vfs_tnode_t* tnode = vfs_path_to_node(path, CREATE | ERR_ON_EXIST, type);
+    vfs_tnode_t* tnode = vfs_path_to_node(path, CREATE, type);
     if (tnode == NULL) {
         status = -1;
     } else {
@@ -237,7 +237,7 @@ int64_t vfs_mount(char* device, char* path, char* fsname)
     if (!at)
         goto fail;
     if (at->inode->type != VFS_NODE_FOLDER || at->inode->child.len != 0) {
-        kloge("'%s' is not an empty folder\n", path);
+        kloge("\"%s\" is not an empty folder\n", path);
         goto fail;
     }
     kmfree(at->inode);
@@ -345,9 +345,9 @@ fail:
 }
 
 /* Write specified number of bytes to file */
-int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
+int64_t vfs_write(vfs_handle_t handle, size_t len, const void *buff)
 {
-    vfs_node_desc_t* nd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
     if (!nd)
         return 0;
 
@@ -367,8 +367,12 @@ int64_t vfs_write(vfs_handle_t handle, size_t len, const void* buff)
     }
 
     int64_t status = inode->fs->write(inode, nd->seek_pos, len, buff);
-    if (status == -1)
+    if (status == -1) {
         len = 0;
+    } else {
+        /* Move seek position to the tail of writing area */
+        nd->seek_pos += len;
+    }
 
     /* Set file size to stat data structure */
     nd->tnode->st.st_size = nd->inode->size;
@@ -397,6 +401,14 @@ int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
     case SEEK_END: /* 2 */
         offset = fd->inode->size - pos;
         break;
+    }
+
+    /* For writing mode, it can enlarge file size */
+    if ((fd->mode == VFS_MODE_WRITE || fd->mode == VFS_MODE_READWRITE)
+        && offset > (int64_t)fd->inode->size)
+    {
+        fd->inode->size = offset;
+        if (fd->inode->fs->sync != NULL) fd->inode->fs->sync(fd->inode);
     }
 
     /* Seek position is out of bounds */
@@ -459,7 +471,7 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
     return 0;
 }
 
-vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
+vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 {
     klogv("VFS: open %s with mode 0x%8x\n", path, mode);
 
@@ -475,7 +487,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
         while (true) {
             vfs_get_parent_dir(curpath, parent, NULL);
             if (strcmp(curpath, parent) == 0) break;
-            pn = vfs_path_to_node(parent, NO_CREATE, 0);
+            pn = vfs_path_to_node(parent, NO_CREATE, 0); 
             if (pn) break;
             strcpy(curpath, parent);
         }
@@ -485,6 +497,7 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
         }
         if (!req) goto fail;
     } else {
+        /* OK, move forward to open the file */
         if (req->inode->fs != NULL) {
             klogv("VFS: inode for %s already exists\n", path);
             req = req->inode->fs->open(req->inode, path);
@@ -520,12 +533,18 @@ vfs_handle_t vfs_open(char* path, vfs_openmode_t mode)
 
     lock_release(&vfs_lock);
 
-    klogv("VFS: Open %s with mode 0x%x and return handle %d, nd = 0x%x\n",
-          path, mode, fh, nd);
+    if (strcmp(path, "/dev/tty") != 0) {
+        klogd("VFS: Open %s with mode 0x%x and return handle %d, "
+              "nd = 0x%x, inode = 0x%x\n", path, mode, fh, nd, nd->inode);
+    } else {
+        klogv("VFS: Open %s with mode 0x%x and return handle %d, "
+              "nd = 0x%x, inode = 0x%x\n", path, mode, fh, nd, nd->inode);
+    }
 
     return fh;
 fail:
     lock_release(&vfs_lock);
+    kloge("VFS: failed when opening %s with mode 0x%8x\n", path, mode);
     return VFS_INVALID_HANDLE;
 }
 

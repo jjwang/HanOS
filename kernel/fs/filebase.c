@@ -22,6 +22,9 @@
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 
+#include <fs/vfs.h>
+#include <proc/syscall.h>
+
 /* Allocate a tnode in memory */
 vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
                              vfs_inode_t* parent)
@@ -75,30 +78,65 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle)
     if (t != NULL) {
         vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->openfiles), handle);
         if (nd != NULL) return nd;
-        kloge("VFS: cannot locate %d in task#%d's file list\n", handle, t->tid);
+        kloge("VFS: cannot locate %d (0x%x) in file list of task %d\n",
+              handle, handle, t->tid);
     }
     return NULL;
 }
 
 /* Convert a path to a node, creates the node if required */
 vfs_tnode_t *vfs_path_to_node(
-    const char *path, uint8_t mode, vfs_node_type_t create_type)
+    const char *pathname, uint8_t mode, vfs_node_type_t create_type)
 {
-    static char tmpbuff[VFS_MAX_PATH_LEN];
-    vfs_tnode_t* curr = &vfs_root;
+    char tmpbuff[VFS_MAX_PATH_LEN], path[VFS_MAX_PATH_LEN];
+    vfs_tnode_t *curr = &vfs_root;
 
     /*  Only work with absolute paths */
-    if (path[0] != '/') {
-        kloge("'%s' is not an absolute path\n", path);
-        return NULL;
+    if (pathname[0] != '/') {
+        if (get_full_path(VFS_FDCWD, pathname, tmpbuff) < 0) {
+            kloge("'%s' is not a valid path\n", pathname);
+            return NULL;
+        }
+        strcpy(path, &(tmpbuff[1]));
+    } else {
+        pathname++;
+        strcpy(path, pathname); /* Skip the leading slash */
     }
-    path++; /* Skip the leading slash */
 
-    size_t pathlen = strlen(path), curr_index;
+    /* TODO: Need to remove '.' in full path name here */
+
+    size_t pathlen = strlen(path), i;
+
+    i = 0;
+    for (; i + 4 < pathlen; i++) {
+        if (path[i] == '/' && path[i + 1] == '.' && path[i + 2] == '.'
+            && path[i + 3] == '/')
+        {
+            bool foundparent = false;
+            for (int64_t k = i - 1; k >= 0; k--) {
+                if (path[k] == '/') {
+                    strcpy(&path[k], &path[i + 3]);
+                    foundparent = true;
+                    i = 0;
+                    break;
+                }
+            }
+            if (!foundparent) {
+                kloge("'%s' is an invalid path\n", pathname);
+                return NULL;
+            }
+        }
+    } 
+
+    if (strlen(pathname) != strlen(path)) {
+        klogw("VFS: \"%s\" -> \"%s\"\n", pathname, path);
+    }
+
+    pathlen = strlen(path);
+    size_t curr_index;
     bool foundnode = true;
     for (curr_index = 0; curr_index < pathlen;) {
         /* Extract next token from the path */
-        size_t i;
         for (i = 0; curr_index + i < pathlen; i++) {
             if (path[curr_index + i] == '/')
                 break;
@@ -107,11 +145,13 @@ vfs_tnode_t *vfs_path_to_node(
         tmpbuff[i] = '\0';
         curr_index += i + 1;
 
+        if (strcmp(tmpbuff, ".") == 0) continue;
+
         /* Search for token in children of current node */
         foundnode = false;
         if (!IS_TRAVERSABLE(curr->inode))
             break;
-        for (size_t i = 0; i < curr->inode->child.len; i++) {
+        for (i = 0; i < curr->inode->child.len; i++) {
             vfs_tnode_t* child = vec_at(&(curr->inode->child), i);
             if (strncmp(child->name, tmpbuff, sizeof(child->name)) == 0) {
                 foundnode = true;
@@ -119,6 +159,10 @@ vfs_tnode_t *vfs_path_to_node(
                 break;
             }
         }
+        /* We need to break here to fixing /usr/local/include -> /usr/include
+         * issue.
+         */
+        if (!foundnode) break;
     }
 
     /* Should we create the node */
@@ -186,7 +230,7 @@ vfs_tnode_t *vfs_path_to_node(
     }
     /* The node should not have existed */
     else if (mode & ERR_ON_EXIST) {
-        klogw("'%s' already exists\n", path);
+        klogw("\"%s\" already exists\n", path);
         return NULL;
     }
 
