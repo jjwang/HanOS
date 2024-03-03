@@ -246,6 +246,7 @@ int64_t elf_load(
     shdr = kmalloc(hdr.shnum * sizeof(elf_shdr_t));
     if (!shdr) goto err_exit;
 
+    memset(shdr, 0, hdr.shnum * sizeof(elf_shdr_t));
     m.vaddr = (uint64_t)shdr;
     m.paddr = VIRT_TO_PHYS(shdr);
     m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
@@ -257,26 +258,45 @@ int64_t elf_load(
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
     if (debug_info) {
-        for (size_t k = 0; k < hdr.shnum && debug_info; k++) {
+        for (size_t k = 0; k < hdr.shnum; k++) {
             klogd("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
                   path_name, k, shdr[k].addr, shdr[k].type,
                   &header_strs[shdr[k].name], shdr[k].offset, shdr[k].size);
         }
+        klogd("ELF(%s): dumping headers finished\n", path_name);
     }
 
     int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
 
-    elf_shdr_t *shdr_sym = (elf_shdr_t*)(shdr + symbol_table_index);
-    elf_sym_t *syms = (elf_sym_t*)((uint8_t*)elf_buff + shdr_sym->offset);
-    const char* strings = (char*)elf_buff + shdr[shdr_sym->link].offset;
-        
-    for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
-        if (strcmp("main", strings + syms[i].name) == 0) {
-            klogd("ELF(%s): Found entry function (main) with len %d, "
-                  "session idx %d, value 0x%x\n",
-                  path_name, syms[i].size, syms[i].shndx, syms[i].value);
-        }   
-    }   
+    if (debug_info) {
+        klogd("ELF(%s): symbol table index is %d (0x%x)\n", path_name,
+              symbol_table_index, symbol_table_index);
+    }
+
+    if ((uint32_t)symbol_table_index != (uint32_t)0xFFFFFFFF) {
+        elf_shdr_t *shdr_sym = (elf_shdr_t*)(shdr + symbol_table_index);
+        elf_sym_t *syms = (elf_sym_t*)((uint8_t*)elf_buff + shdr_sym->offset);
+
+        if (debug_info) {
+            klogd("ELF(%s): shdr=0x%x (%d*%d), shdr_sym->link=%d\n", path_name,
+                  shdr, hdr.shnum, sizeof(elf_shdr_t), shdr_sym->link);
+        }
+ 
+        const char *strings = (char*)elf_buff + shdr[shdr_sym->link].offset;
+
+        if (debug_info) {
+            klogd("ELF(%s): shdr_sym=0x%x, syms=0x%x, strings=0x%x\n", path_name,
+                  shdr_sym, syms, strings);
+        }
+
+        for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+            if (strcmp("main", strings + syms[i].name) == 0) {
+                klogd("ELF(%s): Found entry function (main) with len %d, "
+                      "session idx %d, value 0x%x\n",
+                      path_name, syms[i].size, syms[i].shndx, syms[i].value);
+            }
+        }
+    }
 
     if (has_dynamic_linking) {
         if (entry != NULL) *entry = dynamic_aux.entry;
