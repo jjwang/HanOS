@@ -41,6 +41,7 @@ task_t *task_make(
     memset(ntask, 0, sizeof(task_t));
 
     ntask->tid = curr_tid;
+    ntask->isforked = false;
 
     task_regs_t *ntask_regs = NULL;
     addrspace_t *as = create_addrspace();
@@ -185,6 +186,7 @@ task_t *task_fork(task_t *tp)
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
     memset(&tc->child_list, 0, sizeof(tc->child_list));
 
+    tc->isforked = true;
     tc->addrspace = create_addrspace();
 
     size_t len = vec_length(&(tp->mmap_list));
@@ -324,5 +326,8 @@ void task_free(task_t *t)
      * sure when we free resources of a dead task, it's all children tasks
      * must be dead.
      */
+    klogw("TASK: try to free task %d (forked: %s)\n",
+          t->tid, t->isforked ? "true" : "false");
     kmfree(t);
 }
+
