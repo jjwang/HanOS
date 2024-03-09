@@ -261,7 +261,6 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     }
 
     ramfs_ident_t *id = (ramfs_ident_t*)this->ident;
-
     if (id == NULL) { 
         id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
         memset(id, 0, sizeof(ramfs_ident_t));
@@ -308,12 +307,14 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
             }
             id->alloc_size = item->entry.size;
 
-            uint8_t *buff = (uint8_t*)item->entry.data;
+            memcpy(id->data, item->entry.data, item->entry.size);
+
+            uint8_t *buff = (uint8_t*)id->data;
             if (item->entry.size >= 2) {
-                klogd("RAMFS: %s reset 0x%x [0x%02x 0x%02x ...] to %d bytes\n",
+                klogd("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...] to %d bytes\n",
                       path, id->data, buff[0], buff[1], item->entry.size);
             }
-            memcpy(id->data, item->entry.data, item->entry.size);
+
             break;
         }
     }
@@ -348,6 +349,25 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     if (tnode != NULL && islink) tnode->inode->size = id->alloc_size;
     klogi("RAMFS: finish opening %s and return 0x%x\n", path,
           (tnode != NULL) ? tnode->inode : NULL);
+
+    /* The memory for this node should not be freed when exiting from this
+     * task.
+     */
+    task_t *t = sched_get_current_task();
+    addrspace_t *as = NULL;
+
+    if (t != NULL) {
+        if (t->tid < 1) kpanic("RAMFS: %s meets corrupted tid\n", __func__);
+        size_t len = vec_length(&t->mmap_list);
+        for (size_t i = 0; i < len; i++) {
+            mem_map_t m = vec_at(&t->mmap_list, i); 
+            if (m.vaddr == id || (m.vaddr = id->data && id->data != NULL)) {
+                vec_erase(&t->mmap_list, i); 
+                break;
+            }
+        }
+    }
+
     return tnode;
 }
 
@@ -360,8 +380,12 @@ int64_t ramfs_read(vfs_inode_t *this, size_t offset, size_t len, void *buff)
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) {
         memcpy(buff, ((uint8_t*)id->data) + offset, len);
-        klogd("RAMFS: read %d bytes from 0x%x with offset %d and return %d\n",
-              len, id->data, offset, retlen);
+        if (len >= 2) {
+            uint8_t *ptr = (uint8_t*)buff;
+            klogd("RAMFS: read %d bytes [0x%2x 0x%2x...] from 0x%x with "
+                  "offset %d and return %d\n",
+                  len, ptr[0], ptr[1], id->data, offset, retlen);
+        }
     } else {
         klogd("RAMFS: read %d bytes from 0x%x with offset %d but failed with "
               "copy (%d <= %d)\n",

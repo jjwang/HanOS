@@ -221,6 +221,7 @@ typedef struct task_t {
     event_t         wakeup_event;
     task_status_t   status;
     task_mode_t     mode;
+    bool            isforked;
 
     auxval_t        aux;
     vec_struct(task_id_t)  child_list;
