@@ -11,10 +11,8 @@ LC_FLAGS  =                 \
     -ffreestanding          \
     -flto                   \
     -fno-pic                \
-    -fno-omit-frame-pointer \
-    -mno-mmx                \
-    -mno-sse                \
     -mno-sse2               \
+    -fno-omit-frame-pointer \
     -mno-red-zone           \
     -Wno-cast-function-type \
     -O2 -g
