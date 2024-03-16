@@ -280,19 +280,19 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     uint16_t pdpe = (vaddr >> 30) & 0x1ff;
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
-    uint64_t* pml4 = as->PML4;
+    uint64_t *pml4 = as->PML4;
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
         return;
 
-    uint64_t* pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
+    uint64_t *pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
         return;
 
-    uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
+    uint64_t *pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
     if (!(pd[pde] & VMM_FLAG_PRESENT))
         return;
 
-    uint64_t* pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
+    uint64_t *pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
     if (!(pt[pte] & VMM_FLAG_PRESENT))
         return;
 
@@ -310,6 +310,16 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     pd[pde] = 0;
     pmm_free(VIRT_TO_PHYS(pt), 8, __func__, __LINE__);
 
+    size_t mem_num, i;
+    mem_num = vec_length(&as->mem_list);
+    for (i = 0; i < mem_num; i++) {
+        uint64_t m = vec_at(&as->mem_list, i);
+        if (m == VIRT_TO_PHYS(pt)) {
+            vec_erase(&as->mem_list, i);
+            break;
+        }
+    }
+
     for (int i = 0; i < 512 * 8; i++)
         if (pd[i] != 0)
             goto done;
@@ -317,12 +327,29 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     pdpt[pdpe] = 0;
     pmm_free(VIRT_TO_PHYS(pd), 8, __func__, __LINE__);
 
+    mem_num = vec_length(&as->mem_list);
+    for (i = 0; i < mem_num; i++) {
+        uint64_t m = vec_at(&as->mem_list, i); 
+        if (m == VIRT_TO_PHYS(pd)) {
+            vec_erase(&as->mem_list, i); 
+            break;
+        }   
+    } 
     for (int i = 0; i < 512 * 8; i++)
         if (pdpt[i] != 0)
             goto done;
 
     pml4[pml4e] = 0;
     pmm_free(VIRT_TO_PHYS(pdpt), 8, __func__, __LINE__);
+
+    mem_num = vec_length(&as->mem_list);
+    for (i = 0; i < mem_num; i++) {
+        uint64_t m = vec_at(&as->mem_list, i); 
+        if (m == VIRT_TO_PHYS(pdpt)) {
+            vec_erase(&as->mem_list, i); 
+            break;
+        }   
+    } 
 
 done:
     return;
@@ -427,7 +454,7 @@ void vmm_init(
 #endif
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
-        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
+        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
