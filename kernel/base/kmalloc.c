@@ -60,7 +60,7 @@ void kmfree_core(void *addr, const char *func, size_t line)
     }
 }
 
-void* kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
+void *kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
 {
     if (!addr)
         return kmalloc_core(newsize, func, line);

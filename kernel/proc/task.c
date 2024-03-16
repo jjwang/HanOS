@@ -306,6 +306,10 @@ void task_free(task_t *t)
         /*
          * Maybe it was already freed in unmap(), but it is also
          * OK freed here because pmm_free will not crash.
+         *
+         * Mar 2024 - if it was freed in unmap(), it should not be freed here.
+         * The root cause of ELF loading failure is repeatly release of memories
+         * in mem_list.
          */
         uint64_t m = vec_at(&t->addrspace->mem_list, i); 
         pmm_free(m, 8, __func__, __LINE__);
@@ -316,15 +320,9 @@ void task_free(task_t *t)
     kmfree((void*)t->addrspace);
 
     /*
-     * Jan 28, 2024 - Locate the root cause of RAMFS file loading failure
-     * issue which is caused by memory garbage collection of dead tasks.
-     * Remember we need to call kmfree(t) in some place, but we should review
-     * the full life cycle of each task including their children tasks
-     * carefully. Let's work on it when we restructure task manager in the
-     * future.
-     * Feb 18, 2024 - An extra task status - TASK_DYING is defined to make
-     * sure when we free resources of a dead task, it's all children tasks
-     * must be dead.
+     * Feb 2024 - An extra task status - TASK_DYING is defined to make sure
+     * when we free resources of a dead task, it's all children tasks must be
+     * dead.
      */
     klogw("TASK: try to free task %d (forked: %s)\n",
           t->tid, t->isforked ? "true" : "false");
