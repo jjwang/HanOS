@@ -37,6 +37,7 @@
 #define SYSCALL_MEMINFO     34
 #define SYSCALL_PIPE        35
 #define SYSCALL_UNLINK      36
+#define SYSCALL_CHMOD       39
 
 /* Standard I/O devices */
 #define STDIN               0
