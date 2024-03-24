@@ -309,11 +309,16 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
             cpu_set_errno(EINVAL);
             return -1;
         }
+        klogi("k_openat: continue opening \"%s\"\n", full_path);
     }
 
     vfs_openmode_t openmode = VFS_MODE_READWRITE;
     int32_t perms = 0;
     switch(flags & 0x7) {
+    case O_EXEC:
+        openmode = VFS_MODE_READ;
+        perms = S_IRUSR | S_IXUSR;
+        break;
     case O_RDONLY:
         openmode = VFS_MODE_READ;
         perms = S_IRUSR;
@@ -346,6 +351,39 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     klogi("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
     return vfs_open(full_path, openmode);
+}
+
+int64_t k_chmod(char *path, int64_t flags)
+{
+    cpu_set_errno(0);
+
+    klogi("k_chmod: \"%s\" with flags 0x%x\n", path, flags);
+
+    vfs_handle_t fh = k_openat(VFS_FDCWD, path, O_RDWR, 0);
+    if (fh != VFS_INVALID_HANDLE) {
+        int32_t perms = 0; 
+        switch(flags & 0x7) {
+        case O_EXEC:
+            perms = S_IRUSR | S_IXUSR;
+            break;
+        case O_RDONLY:
+            perms = S_IRUSR;
+            break;
+        case O_WRONLY:
+            perms = S_IWUSR;
+            break;
+        case O_RDWR:
+        default:
+            perms = S_IRUSR | S_IWUSR;
+            break;
+        }
+        vfs_chmod(fh, perms | S_IRUSR);
+        vfs_close(fh);
+        return 0;
+    }
+
+    cpu_set_errno(ENOENT);
+    return -1;
 }
 
 int64_t k_unlink(char *path)
@@ -394,8 +432,15 @@ int64_t k_unlink(char *path)
     vfs_inode_t *pi = tnode->parent;
     for (size_t i = 0; i < vec_length(&(pi->child)); i++) {
         if (vec_at(&(pi->child), i) == tnode) {
-            vec_erase(&(pi->child), i);
-            return 0;
+            if (tnode->inode->refcount == 0) {
+                vec_erase(&(pi->child), i);
+                return 0;
+            } else {
+                klogw("k_unlink: failed because of refcount of \"%s\" is %d\n",
+                    path, tnode->inode->refcount);
+                cpu_set_errno(EINVAL);
+                return -1;
+            }
         }
     }
 
@@ -495,9 +540,14 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
     }
 }
 
+static task_id_t last_write_task_id = 0;
+static uint64_t last_write_ticks = 0;
+
 int64_t k_write(int64_t fh, const void* buf, size_t count)
 {
     task_t *t = sched_get_current_task();
+    uint64_t ticks = sched_get_ticks();
+
     cpu_set_errno(0);
 
     if (fh == STDOUT || fh == STDERR) {
@@ -538,6 +588,25 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
                     }
                 }
             }
+
+            if (last_write_task_id != t->tid)
+            {
+                while(true) {
+                    if (ticks > last_write_ticks
+                        && ticks - last_write_ticks > 250) 
+                    {
+                        break;
+                    }
+                    sched_sleep(100);
+                    ticks = sched_get_ticks();
+                }
+            }
+
+            lock_lock(&vfs_lock);
+            last_write_task_id = t->tid;
+            last_write_ticks = ticks;
+            lock_release(&vfs_lock);
+
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
             if (ttyfh != VFS_INVALID_HANDLE) {
                 int64_t len = vfs_write(ttyfh, count, buf);
@@ -598,7 +667,7 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf, int64_t flag
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
-    if (node != NULL) {
+    if (node != NULL && node->st.st_nlink > 0) {
         vfs_stat_t *st = (vfs_stat_t*)statbuf;
         memcpy(st, &(node->st), sizeof(vfs_stat_t));
         klogd("k_fstatat: success with dirfh 0x%x and path %s(%s), size %d\n",
@@ -973,26 +1042,63 @@ int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
         }
   
         if (!all_dead) {
-            sched_sleep(200);
+            sched_sleep(100);
             klogv("k_waitpid: tid %d waiting pid 0x%x returns with "
                   "active children\n", t->tid, pid);
             return 0;
         } else {
-            sched_sleep(200);
+            sched_sleep(100);
             klogd("k_waitpid: tid %d waiting pid 0x%x returns without "
                   "children\n", t->tid, pid);
             cpu_set_errno(ECHILD);
             return -1;
         }
     } else if (t->tid == (task_id_t)pid) {
-        /* It is ourselves, return immediately */
-        return 0;
+        /* We should not return immediately. When gcc is compiling, it will
+         * call this func with it's task id and wait for all children tasks
+         * to be done.
+         */
+        klogw("k_waitpid: current task %d waits for itself\n", t->tid);
+
+        cpu_set_errno(0);
+
+        size_t retry_times = 0;
+        while(true) {
+            bool all_dead = true;
+            size_t len = vec_length(&(t->child_list));
+
+            for (size_t i = 0; i < len; i++) {
+                task_id_t tid_child = vec_at(&(t->child_list), i);
+                task_status_t status_child = sched_get_task_status(tid_child);
+                if (status_child != TASK_UNKNOWN && status_child != TASK_DEAD
+                    && status_child != TASK_DYING)
+                {
+                    all_dead = false;
+                    break;
+                }
+            }
+
+            if (!all_dead) {
+                sched_sleep(100);
+                retry_times++;
+                if (retry_times >= 5000) {
+                    /* Retry for 500 seconds and return an error code.
+                     * I think it is a long time span enough for everything
+                     * done.
+                     */
+                    cpu_set_errno(ECHILD);
+                    return -1;
+                }
+            } else {
+                return 0;
+            }
+        }
     } else {
         /* Retry for 20 times */
         for (size_t i = 0; ; i++) {
             task_status_t status = sched_get_task_status(pid);
             if (status != TASK_DEAD && status != TASK_UNKNOWN) {
-                sched_sleep(200);
+                sched_sleep(100);
                 if (i == 19) {
                     kloge("k_waitpid: waiting pid 0x%x which is still active\n", pid);
                     cpu_set_errno(EBUSY);
@@ -1009,7 +1115,7 @@ void k_exit(int64_t status)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        klogd("k_exit: task %d exit with status %d\n", t->tid, status);
+        klogi("k_exit: task %d exit with status %d\n", t->tid, status);
     }
     sched_exit(status);
 }
@@ -1054,8 +1160,7 @@ int k_getrusage(int64_t who, uint64_t usage) {
     /* When gcc is launched, it will call getrusage(). We need to dive into
      * gcc to know the purpose of this function call.
      */
-    sched_sleep(1000);
-    klogw("SYSCALL: get %d rusage\n", who);
+    klogw("SYSCALL: get 0x%x rusage\n", who);
     memset(u, sizeof(rusage_t), 0);
 
     return 0;
@@ -1222,7 +1327,7 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_UNLINK]        = (syscall_ptr_t)k_unlink,          /* 36 */
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
-    (syscall_ptr_t)k_not_implemented,
+    [SYSCALL_CHMOD]         = (syscall_ptr_t)k_chmod,           /* 39 */
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented
 };

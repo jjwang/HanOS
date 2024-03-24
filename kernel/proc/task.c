@@ -324,7 +324,7 @@ void task_free(task_t *t)
      * when we free resources of a dead task, it's all children tasks must be
      * dead.
      */
-    klogw("TASK: try to free task %d (forked: %s)\n",
+    klogv("TASK: try to free task %d (forked: %s)\n",
           t->tid, t->isforked ? "true" : "false");
     kmfree(t);
 }
