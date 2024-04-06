@@ -78,6 +78,11 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
         return;
     }
 
+    /* Some of IRQ130+ are used for scheduler */
+    if (excno > IRQ128) {
+        klogi("IRQ: received software interrupt of 0x%02x\n", excno);
+    }
+
     /* Process other exceptions and interrupts */
     exc_handler_t handler = handlers[excno];
 
@@ -87,7 +92,7 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
          * command only to the Master PIC; however if the IRQ came from the
          * Slave PIC, it is necessary to issue EOI to both PIC chips.
          */
-        if (excno >= IRQ0 + 8) {
+        if (excno >= IRQ0 + 8 && excno < IRQ128) {
             port_outb(PIC1, PIC_EOI);
             port_outb(PIC2, PIC_EOI);
         } else {
@@ -104,7 +109,6 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
 
     uint64_t cr3val;
     read_cr("cr3", &cr3val);
-
 
     klogd("Dump registers for exception: \n"
           "RIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"

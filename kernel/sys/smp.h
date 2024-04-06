@@ -77,7 +77,7 @@ typedef struct {
 } smp_info_t;
 
 void smp_init(void);
-const smp_info_t* smp_get_info(void);
+smp_info_t* smp_get_info(void);
 cpu_t* smp_get_current_cpu(bool force_read);
 bool cpu_set_errno(int64_t val);
 void cpu_debug(void);

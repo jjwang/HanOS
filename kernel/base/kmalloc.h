@@ -16,7 +16,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MEM_MAGIC_NUM       0xCDADDBEE
+#define MEM_MAGIC_NUM       0xABEEABEE
 
 typedef struct {
     size_t magic;

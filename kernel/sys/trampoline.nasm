@@ -48,16 +48,16 @@ pmode_entry:
     mov fs, eax
     mov gs, eax
 
-    ; update cr3
-    mov eax, [ARG_CR3_VAL]
-    mov cr3, eax
-
-    ; enable pae
+    ; set the pae enable bit in cr4
     mov eax, cr4
     or eax, 1 << 5
     mov cr4, eax
 
-    ; enable long mode
+    ; update cr3 
+    mov eax, [ARG_CR3_VAL]
+    mov cr3, eax 
+
+    ; enable long mode by set lme flag (bit 8) in msr
     mov ecx, 0xc0000080
     rdmsr
     or eax, 1 << 8

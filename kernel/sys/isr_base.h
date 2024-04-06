@@ -38,7 +38,7 @@
 #define IRQ12       44
 
 /* Software interrupts */
-#define IRQ128      (128 + 32)
+#define IRQ128      128
 
 typedef void (*exc_handler_t)();
 void exc_register_handler(uint64_t id, exc_handler_t handler);
