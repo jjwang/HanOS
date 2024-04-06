@@ -8,8 +8,16 @@
   Symmetric Multiprocessing (or SMP) is one method of having multiple
   processors in one computer system.
 
-  - Nov 30, 2022: Need to check why AP cannot be launched when enabling SSE
-                  support. (Root Cause: ???)
+  - Nov 2022: Need to check why AP cannot be launched when enabling SSE support.
+              (Root Cause: ???)
+  - Apr 2024: Finally we get SMP working very well by the following works:
+              1) Enable interrupt after all AP cores are initialized.
+                 At beginning, we find APIC timer does not work for AP core.
+                 This is caused by abnormal exit from timer ISR function.
+              2) Init syscall for AP core to avoid invalid opcode exception.
+                 For Intel 64bit, IA32_EFER.SCE must be set, or SYSCALL will
+                 result in a #UD exception. IA32_EFER is an MSR at 0xC0000080,
+                 and SCE (SYSCALL Enable) is its 0th bit.
 
  @endverbatim
   Ref: https://wiki.osdev.org/SMP
@@ -35,17 +43,21 @@
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
-static volatile int* ap_boot_counter = (volatile int*)PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
+static volatile int *ap_boot_counter = (volatile int*)PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
 
-static smp_info_t* smp_info = NULL;
+static smp_info_t *smp_info = NULL;
 
-static bool smp_initialized = false;
+static volatile bool smp_initialized = false;
 
 static lock_t smp_lock = {0};
 
-const smp_info_t* smp_get_info()
+smp_info_t *smp_get_info()
 {
-    return smp_info;
+    if (!smp_initialized) {
+        return NULL;
+    } else {
+        return smp_info;
+    }
 }
 
 /* The reason why there is a force_read parameter here is that when
@@ -53,7 +65,7 @@ const smp_info_t* smp_get_info()
  * is already initialized. Check the code in proc/sched.c whose
  * parameter is true.
  */
-cpu_t* smp_get_current_cpu(bool force_read)
+cpu_t *smp_get_current_cpu(bool force_read)
 {
     if (smp_initialized || force_read) {
         cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
@@ -97,7 +109,7 @@ void cpu_debug(void)
     klogd("CPU: uninitialized\n");
 }
 
-void init_tss(cpu_t* cpuinfo)
+void init_tss(cpu_t *cpuinfo)
 {
     gdt_install_tss(cpuinfo);
 }
@@ -106,28 +118,39 @@ void init_tss(cpu_t* cpuinfo)
 _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
 {
     /* initialize cpu features */
-    gdt_init(cpuinfo);
     cpu_init();
+    gdt_init(cpuinfo);
 
-    klogi("SMP: continue to initialize core %d\n", cpuinfo->cpu_id);
+    klogi("SMP: continue to initialize core %d (0x%x)\n",
+          cpuinfo->cpu_id, cpuinfo);
 
-    /* initialze gdt and make a tss */
-    init_tss(cpuinfo);
- 
     /* put cpu information in gs */
     write_msr(MSR_GS_BASE, (uint64_t)cpuinfo);
     write_msr(MSR_KERN_GS_BASE, (uint64_t)cpuinfo);
 
+    /* initialze gdt and make a tss */
+    for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
+    init_tss(cpuinfo);
+
     /* enable the apic */
     apic_enable();
 
-    /* Wait for 10ms here */
-    hpet_sleep(10);
+    /* enable syscall. this should be called for each CPU */
+    syscall_init();
 
     /* initialize and wait for scheduler */
     sched_init("init", cpuinfo->cpu_id);
 
+    while (!smp_initialized) {
+        pit_wait(1);
+    }
+
+    /* Remember we need to init all CPUs and then make hearts beat */
     asm volatile("sti");
+
+    klogi("SMP: finish initialization of core %d (0x%x)\n",
+          cpuinfo->cpu_id, cpuinfo);
+
     while (true)
         asm volatile("hlt");
 }
@@ -172,7 +195,7 @@ void smp_init()
  
     /* loop through the lapic's present and initialize them one by one */
     for (uint64_t i = 0; i < cpunum; i++) {
-        memset(&(smp_info->cpus[smp_info->num_cpus].tss), 0, sizeof(tss_t));
+        memset(&(smp_info->cpus[smp_info->num_cpus]), 0, sizeof(cpu_t));
         int counter_prev = *ap_boot_counter;
 
         /* if cpu is not online capable, do not initialize it */
@@ -197,7 +220,8 @@ void smp_init()
             continue;
         }
 
-        klogi("SMP: initializing core %d...\n", lapics[i]->proc_id);
+        klogi("SMP: initializing core %d with APIC id 0x%x...\n",
+              lapics[i]->proc_id, lapics[i]->apic_id);
 
         /* allocate and pass the stack */
         void *stack = kmalloc(STACK_SIZE);
@@ -208,7 +232,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        hpet_sleep(10);
+        sched_sleep(10);
 
         bool success = false;
         for (size_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
@@ -220,7 +244,7 @@ void smp_init()
                     success = true;
                     break;
                 }
-                hpet_sleep(10);
+                sched_sleep(1);
             }
             if (success)
                 break;
@@ -247,4 +271,7 @@ void smp_init()
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000));
 
     smp_initialized = true;
+
+    /* Make the heart beat */
+    asm volatile("sti");
 }

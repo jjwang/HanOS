@@ -84,6 +84,8 @@ typedef struct {
     lock_t    lock;
 } addrspace_t;
 
+extern addrspace_t kaddrspace;
+
 void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel);

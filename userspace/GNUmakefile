@@ -13,6 +13,7 @@ LC_FLAGS :=                 \
     -flto                   \
     -fno-pic                \
     -fno-omit-frame-pointer \
+    -mno-sse2               \
     -mno-3dnow              \
     -mno-red-zone           \
     -Wno-cast-function-type \

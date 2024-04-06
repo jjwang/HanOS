@@ -42,7 +42,7 @@
 #include <base/vector.h>
 
 static mem_info_t kmem_info = {0};
-static addrspace_t kaddrspace = {0};
+addrspace_t kaddrspace = {0};
 static bool debug_info = false;
 
 vec_new_static(mem_map_t, mmap_list);

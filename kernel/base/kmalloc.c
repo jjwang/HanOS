@@ -33,6 +33,9 @@ void *kmalloc_core(uint64_t size, const char *func, size_t line)
                size, func, line);
     }
 
+    /* TODO: for final release, this should be removed to improve speed */
+    memset(alloc, size + PAGE_SIZE, 0);
+
     alloc->magic = MEM_MAGIC_NUM;
     alloc->checkno = kmalloc_checkno;
     alloc->numpages = NUM_PAGES(size);
