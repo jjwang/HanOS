@@ -30,7 +30,7 @@
 /* The local APIC registers are memory mapped to an address that can be found
  * in the MP/MADT tables.
  */
-void* lapic_base = NULL;
+volatile void* lapic_base = NULL;
 
 /**
  * Reads the value of a register from the Advanced Programmable Interrupt
@@ -103,8 +103,7 @@ void apic_enable()
 /**
  * Initializes the Advanced Programmable Interrupt Controller (APIC).
  * This function checks if the CPU supports APIC, maps the local APIC base
- * address,
- * enables the APIC, and logs the APIC version.
+ * address, enables the APIC, and logs the APIC version.
  *
  * @returns None
  */

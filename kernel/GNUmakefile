@@ -78,7 +78,7 @@ $(SYMBOLFILE): $(OBJS)
 	$(LD) $(LD_FLAGS) $(OBJS) $(SYMBOLOBJ) -o $(KERNELOBJ)
 
 	# Below are used to generate symbol file for gdb debug
-	# objcopy --only-keep-debug $(KERNELOBJ) hanos.sym
+	objcopy --only-keep-debug $(KERNELOBJ) hanos.sym
 	# Remove debug information from target executable file
 	objcopy --strip-debug $(KERNELOBJ)
 

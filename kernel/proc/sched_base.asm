@@ -9,6 +9,8 @@ extern do_context_switch
 extern lock_release
 
 enter_context_switch:
+    cli
+
     push_all
 
     mov rdi, rsp
@@ -17,6 +19,7 @@ enter_context_switch:
     ; Will call exit_context_switch in the end of implementation
     call do_context_switch
 
+    ; If coming here, system will halt
     add rsp, 120
     iretq
 

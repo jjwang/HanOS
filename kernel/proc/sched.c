@@ -84,6 +84,7 @@ void sched_debug(bool showlog)
             }
         }
 
+        if (tasks_idle[k] == NULL) continue;
         if (tasks_idle[k]->tid < 1) {
             kpanic("SCHED: idle task on CPU %d corrupted (%d 0x%x)\n",
                 k, showlog, tasks_idle[k]);
@@ -160,11 +161,14 @@ _Noreturn void task_idle_proc(task_id_t tid)
  */
 void do_context_switch(void* stack, int64_t mode)
 {
-    const smp_info_t* smp_info = smp_get_info();
-    if (smp_info == NULL)               return;
-
-    /* Make sure that all CPUs initialization finished */
-    if (smp_info->num_cpus != cpu_num)  return;
+    /* If all CPUs initialization are not finished, smp_info will be NULL
+     * here
+     */
+    smp_info_t* smp_info = smp_get_info();
+    if (smp_info == NULL) {
+        kpanic("sched: cannot get SMP information\n");
+        return;
+    }
 
     /* Firstly all events on event bus should be processed */
     eb_dispatch();
@@ -174,6 +178,7 @@ void do_context_switch(void* stack, int64_t mode)
     cpu_t *cpu = smp_get_current_cpu(true);
     if (cpu == NULL) {
         lock_release(&sched_lock);
+        kpanic("sched: cannot get current CPU information\n");
         return;
     }
 
@@ -237,7 +242,7 @@ void do_context_switch(void* stack, int64_t mode)
     tasks_running[cpu_id] = next;
 
     cpu->errno = next->errno;
-    cpu->tss.rsp0 = (uint64_t)(next->kstack_limit + STACK_SIZE);
+    cpu->tss.rsp0 = (uint64_t)next->kstack_top;
 
     tasks_coordinate[cpu_id]++;
     
@@ -249,10 +254,11 @@ void do_context_switch(void* stack, int64_t mode)
 
     if (!(cpu->tss.rsp0 & 0xFFFF000000000000) || next->tid < 1) {
         sched_debug(true);
-        kpanic("SCHED: CPU %d kernel stack 0x%x corrputed "
+        kpanic("SCHED: CPU %d kernel stack 0x%x addrspace 0x%x corrputed "
                "(kernel 0x%x|0x%x user 0x%x|%x in task 0x%x tid %d, last tick %d)\n",
-               cpu->cpu_id, cpu->tss.rsp0, next->kstack_top, next->kstack_limit,
-               next->ustack_top, next->ustack_limit, next, next->tid, next->last_tick);
+               cpu->cpu_id, cpu->tss.rsp0, next->addrspace, next->kstack_top,
+               next->kstack_limit, next->ustack_top, next->ustack_limit, next,
+               next->tid, next->last_tick);
     }
 
     if (next->fs_base != 0
@@ -529,8 +535,8 @@ void sched_init(const char *name, uint16_t cpu_id)
 
     cpu_num++;
 
-    klogi("Scheduler initialization finished for CPU %d with idle task %d\n",
-          cpu_id, tasks_idle[cpu_id]->tid);
+    klogi("Scheduler initialization finished for CPU %d with idle task %s:%d\n",
+          cpu_id, name, tasks_idle[cpu_id]->tid);
 }
 
 uint16_t sched_get_cpu_num()
@@ -677,8 +683,8 @@ task_t *sched_execve(
     stack[0] = 22;  /* AT_PHNUM */
     stack[1] = aux.phnum;
 
-    klogi("SCHED: tid %d aux stack 0x%x, entry 0x%x, phdr 0x%x, "
-          "phentsize %d, phnum %d\n", tc->tid, stack, aux.entry,
+    klogi("SCHED: tid %d aux stack 0x%x (ori 0x%x), entry 0x%x, phdr 0x%x, "
+          "phentsize %d, phnum %d\n", tc->tid, stack, tc_regs->rsp, aux.entry,
           aux.phdr, aux.phentsize, aux.phnum);
 
     /* Environment variables */

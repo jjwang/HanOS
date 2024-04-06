@@ -204,6 +204,7 @@ void screen_write(char c)
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
+    idt_init();
     cpu_init();
 
     serial_init();
@@ -233,7 +234,6 @@ void kmain(void)
     klogi("Framebuffer address: 0x%x\n", fb->address);
 
     gdt_init(NULL);
-    idt_init();
 
     pmm_init(mm_request.response);
     vmm_init(mm_request.response, kernel_addr_request.response);
@@ -326,6 +326,7 @@ void kmain(void)
     cpu_t *cpu = smp_get_current_cpu(false);
     if(cpu != NULL) {
         sched_init("init", cpu->cpu_id);
+        asm volatile("sti");
     } else {
         kpanic("Can not get CPU info in shell process\n");
     }

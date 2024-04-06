@@ -18,8 +18,6 @@
 #include <sys/cpu.h>
 #include <base/klog.h>
 
-static bool cpu_initialized = false;
-
 static uint32_t cpu_model = 0;
 static uint32_t cpu_family = 0;
 static char cpu_model_name[60] = {0}; /* Should no less than 48 */
@@ -157,13 +155,6 @@ void cpu_init()
         cpu_model_name[48] = '\0';
         klogi("CPU: %s\n", cpu_model_name);
     }
-
-    cpu_initialized = true;
-}
-
-bool cpu_ok()
-{
-    return cpu_initialized;
 }
 
 char *cpu_get_model_name()
