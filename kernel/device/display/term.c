@@ -350,27 +350,17 @@ void term_refresh(int mode)
             if (term_act->state != STATE_UNKNOWN && mode == term_active_mode) {
                 fb_refresh(&(term_act->fb));
             }
-
             uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
-            if (x >= term_act->width) {
-                x = 0;
-                y++;
+            if (x < term_act->width && y < term_act->height) {
+                fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
+                         term_act->fgcolor, term_act->bgcolor, term_cursor,
+                         term_act->bold);
+                if (mode == term_active_mode) {
+                    fb_refresh(&(term_act->fb));
+                }
+                lock_release(&term_lock);
+                return;
             }
- 
-            if (y >= term_act->height) {
-                term_scroll(term_act);
-                y--;
-                term_act->cursor_y--;
-            }
-
-            fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, term_cursor,
-                     term_act->bold);
-            if (mode == term_active_mode) {
-                fb_refresh(&(term_act->fb));
-            }
-            lock_release(&term_lock);
-            return;
         }
     }
 
@@ -490,6 +480,10 @@ void term_print(int mode, uint8_t c)
     }
 
     while(1) {
+        if (term_act->cursor_x >= term_act->width) {
+            term_act->cursor_x = 0;
+            term_act->cursor_y++;
+        }
         if (term_act->cursor_y >= term_act->height
             && !(term_act->cursor_y == term_act->height && term_act->cursor_x == 0)) {
             term_scroll(term_act);
