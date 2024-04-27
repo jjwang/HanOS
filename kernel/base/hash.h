@@ -1,6 +1,6 @@
 #pragma once
 
-#define HT_ARRAY_SIZE           16
+#define HT_ARRAY_SIZE           128
 
 typedef struct {
    int64_t  key;
