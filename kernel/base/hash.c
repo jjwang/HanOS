@@ -3,6 +3,7 @@
 #include <libc/stdio.h>
 #include <libc/string.h>
 #include <base/hash.h>
+#include <sys/panic.h>
 
 static int64_t ht_hashcode(int64_t key)
 {
@@ -60,6 +61,7 @@ bool ht_insert(ht_t *ht, int64_t key, void *data)
         /* At most loop the table twice */
         if (++loop_count >= HT_ARRAY_SIZE * 2) {
             /* TODO: we should increase the hash table size here */
+            kpanic("hash: current size %d is not enough\n", HT_ARRAY_SIZE);
             return false;
         }
     }
