@@ -78,7 +78,8 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle)
     if (t != NULL) {
         vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->openfiles), handle);
         if (nd != NULL) return nd;
-        kloge("VFS: cannot locate %d (0x%x) in file list of task %d\n",
+        klogw("VFS: cannot locate %d (0x%x) in file list of task %d, "
+              "maybe we need to increase hash table's size.\n",
               handle, handle, t->tid);
     }
     return NULL;
