@@ -10,8 +10,8 @@ LC_FLAGS  =                 \
     -std=gnu11              \
     -ffreestanding          \
     -flto                   \
+    -mgeneral-regs-only     \
     -fno-pic                \
-    -mno-sse2               \
     -fno-omit-frame-pointer \
     -mno-red-zone           \
     -Wno-cast-function-type \
