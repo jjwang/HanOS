@@ -133,7 +133,10 @@ _Noreturn void kshell(task_id_t tid)
     pci_init();
     ata_init();
 
-    pci_get_gfx_device(kernel_addr_request.response);
+    /*
+     * Below function call will cause exception on real hardware.
+     * pci_get_gfx_device(kernel_addr_request.response);
+     */
 
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
@@ -304,6 +307,10 @@ void kmain(void)
             klogi("Module %d cmdline: %s\n", i, module->cmdline);
             klogi("Module %d size   : %d\n", i, module->size);
             if (strcmp(module->cmdline, "INITRD") == 0) {
+                vmm_map(NULL, (uint64_t)module->address,
+                    VIRT_TO_PHYS(module->address),
+                    NUM_PAGES(module->size),
+                    VMM_FLAGS_DEFAULT);
                 ramfs_init(module->address, module->size);
             }   
         }   
