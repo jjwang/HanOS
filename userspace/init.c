@@ -31,5 +31,6 @@ int main(void)
             sys_wait(-1);
         }
     }
+    return 0;
 }
 

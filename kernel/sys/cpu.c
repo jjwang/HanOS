@@ -1,13 +1,13 @@
 /**-----------------------------------------------------------------------------
 
  @file    cpu.c
- @brief   Implementation of CPU related functions
+ @brief   Initialize CPUs including BSP and other cores for SMP arch.
  @details
  @verbatim
 
    Important CPU initializations are:
    * Write Combining : Write this bit to speed up framebuffer read/write speed.
-   * SSE & SSE2      : We should enable them for SIMD operations.
+   * SSE & SSE2      : They should be enabled by default for x86-64 arch.
 
  @endverbatim
 
@@ -71,9 +71,46 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     return false;
 }
 
-void cpu_init()
+void cpu_init(size_t cpuno)
 {
     uint64_t patval, vcr0, vcr4;
+
+    /* The EM and MP flags of CR0 control how the processor reacts to
+     * coprocessor instructions.
+     *
+     * The EM bit indicates whether coprocessor functions are to be emulated.
+     * If the processor finds EM set when executing an ESC instruction, it
+     * signals exception 7, giving the exception handler an opportunity to
+     * emulate the ESC instruction.
+     *
+     * The MP (monitor coprocessor) bit indicates whether a coprocessor is
+     * actually attached. The MP flag controls the function of the WAIT
+     * instruction. If, when executing a WAIT instruction, the CPU finds MP
+     * set, then it tests the TS flag; it does not otherwise test TS during
+     * a WAIT instruction. If it finds TS set under these conditions, the CPU
+     * signals exception 7.
+     *
+     * clear the CR0.EM bit (BIT2) and set the CR0.MP bit (BIT1)
+     *
+     * clear the CR0.NW bit (Not-write through, BIT29) and CR0.CD bit (Cache
+     * disable, BIT30) to speed up writing framebuffer.
+     */
+    read_cr("cr0", &vcr0);
+    vcr0 &= ~(1 << 2); 
+    vcr0 |= 1 << 1;
+    vcr0 &= ~(1 << 28);
+    vcr0 &= ~(1 << 29);
+    write_cr("cr0", vcr0);
+
+    /* OSFXSR: Enables 128-bit SSE support.
+     * OSXMMEXCPT: Enables the #XF exception.
+     *
+     * set the CR4.OSFXSR and CR4.OSXMMEXCPT bit
+     */
+    read_cr("cr4", &vcr4);
+    vcr4 |= 1 << 9;
+    vcr4 |= 1 << 10; 
+    write_cr("cr4", vcr4);
 
     /* Page Attribute Table (PAT) allows for setting the memory attribute at
      * the page level granularity. PAT is complementary to the MTRR settings
@@ -91,39 +128,24 @@ void cpu_init()
         patval &= ~(0b111ULL << 32);
         patval |= 0b001ULL << 32; 
         write_msr(MSR_PAT, patval);
-    }  
+    }   
 
-    /* The EM and MP flags of CR0 control how the processor reacts to
-     * coprocessor instructions.
-     *
-     * The EM bit indicates whether coprocessor functions are to be emulated.
-     * If the processor finds EM set when executing an ESC instruction, it
-     * signals exception 7, giving the exception handler an opportunity to
-     * emulate the ESC instruction.
-     *
-     * The MP (monitor coprocessor) bit indicates whether a coprocessor is
-     * actually attached. The MP flag controls the function of the WAIT
-     * instruction. If, when executing a WAIT instruction, the CPU finds MP
-     * set, then it tests the TS flag; it does not otherwise test TS during
-     * a WAIT instruction. If it finds TS set under these conditions, the CPU
-     * signals exception 7.
-     *
-     * clear the CR0.EM bit and set the CR0.MP bit
-     */
-    read_cr("cr0", &vcr0);
-    vcr0 &= ~(1 << 2); 
-    vcr0 |= 1 << 1;
-    write_cr("cr0", vcr0);
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    cpuid(1, 0, &a, &b, &c, &d);
 
-    /* OSFXSR: Enables 128-bit SSE support.
-     * OSXMMEXCPT: Enables the #XF exception.
-     *
-     * set the CR4.OSFXSR and CR4.OSXMMEXCPT bit
-     */
-    read_cr("cr4", &vcr4);
-    vcr4 |= 1 << 9;
-    vcr4 |= 1 << 10; 
-    write_cr("cr4", vcr4);
+    if (c & CPUID_XSAVE) {
+        klogi("CPU %d: detect XSAVE flag\n", cpuno);
+    }
+
+    cpuid(0x1, 0, &a, &b, &c, &d);
+    if (!(c & CPUID_TSC_DEADLINE)) {
+        klogw("CPU %d: No TSC-deadline mode!!!\n", cpuno);
+    }
+
+    cpuid(0x80000007, 0, &a, &b, &c, &d);
+    if (!(d & CPUID_INVARIANT_TSC)) {
+        klogw("CPU %d: No invariant TSC!!!\n", cpuno);
+    }
 
     uint32_t x, y, na;
     cpuid(0, 0, &na, &y, &na, &na);
@@ -142,8 +164,8 @@ void cpu_init()
         cpu_family = (x >> 8) & 0x0F;
     }
 
-    klogi("CPU: model 0x%2x, family 0x%2x, manufacturer %s\n",
-          cpu_model, cpu_family, cpu_manufacturer);
+    klogi("CPU %d: model 0x%2x, family 0x%2x, manufacturer %s\n",
+          cpuno, cpu_model, cpu_family, cpu_manufacturer);
 
     cpuid(0x80000000, 0, &x, &na, &na, &na);
     if (x >= 0x80000004) {
@@ -153,7 +175,7 @@ void cpu_init()
         cpuid(0x80000004, 0, &(brand[8]), &(brand[9]), &(brand[10]), &(brand[11]));
         memcpy(cpu_model_name, brand, 48);
         cpu_model_name[48] = '\0';
-        klogi("CPU: %s\n", cpu_model_name);
+        klogi("CPU %d: %s\n", cpuno, cpu_model_name);
     }
 }
 

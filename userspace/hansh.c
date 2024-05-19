@@ -166,7 +166,7 @@ int getcmd(char *buf, int nbuf)
     return 0;
 }
 
-void main(void)
+int main(void)
 {
     char *buf = (char*)sys_malloc(CMD_MAX_LEN);
     int fd;
@@ -204,6 +204,8 @@ void main(void)
     }
     fprintf(STDERR, "exit: ending sh\n");
     sys_exit(0);
+
+    return 0;
 }
 
 int fork1(void)

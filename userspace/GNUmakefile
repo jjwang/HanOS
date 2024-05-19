@@ -13,8 +13,7 @@ LC_FLAGS :=                 \
     -flto                   \
     -fno-pic                \
     -fno-omit-frame-pointer \
-    -mno-sse2               \
-    -mno-3dnow              \
+    -mgeneral-regs-only     \
     -mno-red-zone           \
     -Wno-cast-function-type \
     -O2 -mcmodel=large

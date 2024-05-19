@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define LAUNCHER_CLI            true
+#define BSP_CORE_ONLY           true
 
 #undef  ENABLE_KLOG_DEBUG
 #undef  ENABLE_MEM_DEBUG
