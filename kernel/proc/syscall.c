@@ -94,7 +94,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         goto err_exit;
     }
 
-    size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+    size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAG_USER;
     uint64_t ptr = (uint64_t)hint;
     uint64_t np = NUM_PAGES(length);
 
@@ -993,9 +993,11 @@ int64_t k_fork()
          * This should be parent process and returns child task id, but
          * currently it returns parent task id
          */
+        klogd("k_fork: return %d from parent task #%d\n", tid_child, t->tid);
         return tid_child;
     } else {
         /* This should be child process and returns 0 */
+        klogd("k_fork: return 0 from child task #%d\n", tid_child);
         return 0;
     }
 err_exit:

@@ -3,8 +3,10 @@
  @brief   Definition of CPU related data structures and macros
  @details
  @verbatim
-  e.g., Read & write control registers, model specific registers and port
-  input & output.
+ 
+  Macros and inline functions including read & write control registers, model
+  specific registers and port input & output.
+
  @endverbatim
  **-----------------------------------------------------------------------------
  */
@@ -224,7 +226,14 @@ static inline void mmio_inn(
 }
 
 /* CPU related functions and data structures*/
-void cpu_init();
+#define CPUID_XSAVE         (1 << 26)
+#define CPUID_AVX           (1 << 28)
+#define CPUID_AVX512        (1 << 16)
+#define CPUID_INVARIANT_TSC (1 << 8)
+#define CPUID_TSC_DEADLINE  (1 << 24)
+#define CPUID_MTRR          (1 << 12)
+
+void cpu_init(size_t cpuno);
 char *cpu_get_model_name();
 
 typedef struct {
@@ -248,6 +257,11 @@ static const cpuid_feature_t CPUID_FEATURE_APIC = {
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
     .mask = 1 << 9 };
+
+static const cpuid_feature_t CPUID_FEATURE_MTRR = { 
+    .func = 0x00000001,
+    .reg = CPUID_REG_EDX,
+    .mask = CPUID_MTRR };
 
 bool cpuid_check_feature(cpuid_feature_t feature);
 
