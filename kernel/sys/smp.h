@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    smp.h
- @brief   Definition of SMP related data structures
+ @brief   Definition of SMP related data structures and functions
  @details
  @verbatim
 
@@ -68,7 +68,11 @@ typedef struct [[gnu::packed]] {
     uint16_t cpu_id;
     uint16_t lapic_id;
     bool is_bsp;
-    uint8_t reserved_1[3];
+    size_t fpu_storage_size;
+    void (*fpu_save)(void *);
+    void (*fpu_restore)(void *);
+    uint16_t proc_id;
+    uint8_t reserved;
 } cpu_t;
 
 typedef struct {

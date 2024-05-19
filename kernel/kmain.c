@@ -39,6 +39,7 @@
 #include <sys/idt.h>
 #include <sys/isr_base.h>
 #include <sys/smp.h>
+#include <sys/mtrr.h>
 #include <sys/cmos.h>
 #include <sys/serial.h>
 #include <sys/acpi.h>
@@ -94,6 +95,8 @@ static volatile struct limine_module_request module_request = {
 };
 
 static volatile computer_info_t self_info = {0};
+
+extern addrspace_t kaddrspace;
 
 void done(void)
 {
@@ -207,11 +210,12 @@ void screen_write(char c)
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
-    idt_init();
-    cpu_init();
-
     serial_init();
     klog_init();
+
+    idt_init();
+    cpu_init(0);
+
     klogi("HanOS version %s starting...\n", VERSION);
 
     if (hhdm_request.response != NULL) {
@@ -261,6 +265,12 @@ void kmain(void)
     klogi("Init APIC...\n");
     apic_init();
 
+#if BSP_CORE_ONLY
+    klogi("Init MTRR...\n");
+    mtrr_save(0);
+    mtrr_restore(0);
+#endif
+
     klogi("Init SMP...\n");
     smp_init();
 
@@ -307,7 +317,11 @@ void kmain(void)
             klogi("Module %d cmdline: %s\n", i, module->cmdline);
             klogi("Module %d size   : %d\n", i, module->size);
             if (strcmp(module->cmdline, "INITRD") == 0) {
-                vmm_map(NULL, (uint64_t)module->address,
+                /* If we do not call vmm_map() here, there will be Page Fault
+                 * exception on real hardware when building in gcc and other
+                 * tools.
+                 */
+                vmm_map(&kaddrspace, (uint64_t)module->address,
                     VIRT_TO_PHYS(module->address),
                     NUM_PAGES(module->size),
                     VMM_FLAGS_DEFAULT);

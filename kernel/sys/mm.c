@@ -241,7 +241,11 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        pdpt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
+        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        if (buf == NULL) {
+            kpanic("VMM: out of memory for PDPT of PML4 0x%x\n", pml4);
+        }
+        pdpt = (uint64_t*)PHYS_TO_VIRT(buf);
         memset(pdpt, 0, PAGE_SIZE * 8);
         pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pdpt));
@@ -249,7 +253,11 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        pd = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
+        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        if (buf == NULL) {
+            kpanic("VMM: out of memory for PD of PML4 0x%x\n", pml4);
+        }
+        pd = (uint64_t*)PHYS_TO_VIRT(buf);
         memset(pd, 0, PAGE_SIZE * 8);
         pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pd));
@@ -257,7 +265,11 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0xfff));
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        pt = (uint64_t*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
+        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        if (buf == NULL) {
+            kpanic("VMM: out of memory for PT of PML4 0x%x\n", pml4);
+        }   
+        pt = (uint64_t*)PHYS_TO_VIRT(buf);
         memset(pt, 0, PAGE_SIZE * 8);
         pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pt));
@@ -450,11 +462,11 @@ void vmm_init(
      */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0,
             MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256),
-            VMM_FLAGS_DEFAULT);
+            VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
 #endif
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
-        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
@@ -468,26 +480,40 @@ void vmm_init(
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("Mapped kernel 0x%9x to 0x%x (len: %d)\n",
-                  entry->base, vaddr, entry->length);
+            klogi("Mapped kernel 0x%9x to 0x%x (len: %d, #%d)\n",
+                  entry->base, vaddr, entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT
                     | VMM_FLAG_WRITECOMBINE);
-            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d)\n",
-                  entry->base, PHYS_TO_VIRT(entry->base), entry->length);
+            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
             /* vmm_map: do nothing */
         } else if (entry->type != LIMINE_MEMMAP_RESERVED) {
             /* Maybe the reserved memory is corrupt */
-            /* vmm_map: this should share for all tasks */
-            vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
+            /*
+             * Only memory entry with bitmap storage is visible for all tasks.
+             *
+             * If all entries are visible for all tasks, Page Fault exception
+             * occurs on real hardware when we only use BSP core. It takes a
+             * long time to locate the root cause.
+             */
+            bool is_bitmap_loc = false;
+            if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
+                && VIRT_TO_PHYS(kmem_info.bitmap) < entry->base + entry->length)
+            {
+                is_bitmap_loc = true;
+            }
+            vmm_map(is_bitmap_loc ? NULL : &kaddrspace,
+                    PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("Mapped 0x%9x to 0x%x(len: %d)\n",
-                  entry->base, PHYS_TO_VIRT(entry->base), entry->length);
+            klogi("Mapped 0x%9x to 0x%x(len: %d, #%d, %s)\n",
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, i,
+                  is_bitmap_loc ? "all tasks" : "kernel only");
         }
     }
 
@@ -498,8 +524,11 @@ void vmm_init(
 addrspace_t *create_addrspace(void)
 {
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
-    if (!as)
+    if (!as) {
+        kpanic("VMM: cannot allocate addrspace\n");
         return NULL;
+    }
+
     memset(as, 0, sizeof(addrspace_t));
     as->PML4 = kmalloc(PAGE_SIZE * 8);
     if (!as->PML4) {
@@ -508,12 +537,11 @@ addrspace_t *create_addrspace(void)
     } 
     memset(as->PML4, 0, PAGE_SIZE * 8); 
     as->lock = lock_new();
-
     size_t len = vec_length(&mmap_list);
     for (size_t i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&mmap_list, i); 
+        mem_map_t m = vec_at(&mmap_list, i);
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
-    } 
+    }
 
     return as; 
 }

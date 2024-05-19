@@ -183,6 +183,7 @@ task_t *task_fork(task_t *tp)
     if (tc == NULL) goto norm_exit;
 
     memcpy(tc, tp, sizeof(task_t));
+
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
     memset(&tc->child_list, 0, sizeof(tc->child_list));
 
@@ -192,6 +193,7 @@ task_t *task_fork(task_t *tp)
     size_t len = vec_length(&(tp->mmap_list));
     klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
           len, tp->tid, curr_tid);
+
     for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
         uint64_t ptr = VIRT_TO_PHYS(kmalloc(m.np * PAGE_SIZE));
