@@ -1,9 +1,42 @@
 /**-----------------------------------------------------------------------------
 
  @file    mtrr.c
- @brief
+ @brief   MTRR configuration to speed up memory reading & writing operations
  @details
  @verbatim
+
+   MTRR, or Memory-Type Range Registers are a group of x86 Model Specific
+   Registers providing a way to control access and cacheability of physical
+   memory regions. These were introduced in the Intel Pentium Pro (P6) processor,
+   intended to extend and enhance the memory type information provided by page
+   tables (i.e. the write-through and cache disable bits).
+
+   The set of registers is provided in two groups: 11 registers for 88 fixed
+   ranges and a number of base-mask pairs for custom range configuration. The
+   exact number of the latter can be known by reading the capabilities register.
+
+   There are 5 memory types defined for use in MTRRs:
+
+   Number  Name                 Description
+   ======  ====                 ===========
+   0       UC — Uncacheable     All accesses are uncacheable. Write combining is
+                                not allowed. Speculative accesses are not
+                                allowed.
+   1       WC — Write-Combining All accesses are uncacheable. Write combining is
+                                allowed. Speculative reads are allowed.
+   4       WT — Writethrough    Reads allocate cache lines on a cache miss.
+                                Cache lines are not allocated on a write miss.
+                                Write hits update the cache and main memory.
+   5       WP — Write-Protect   Reads allocate cache lines on a cache miss. All
+                                writes update main memory. Cache lines are not
+                                allocated on a write miss. Write hits invalidate
+                                the cache line and update main memory.
+   6       WB — Writeback       Reads allocate cache lines on a cache miss, and
+                                can allocate to either the shared, exclusive,
+                                or modified state. Writes allocate to the
+                                modified state on a cache miss.
+
+   Reference: https://wiki.osdev.org/MTRR
 
  @endverbatim
 
@@ -12,13 +45,14 @@
 #include <libc/string.h>
 
 #include <sys/cpu.h>
+#include <sys/mtrr.h>
 #include <sys/panic.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
 
 uint64_t *saved_mtrrs = NULL;
 
-void mtrr_save(uint16_t cpu_id)
+void mtrr_save(uint16_t cpu_id, void *framebuffer)
 {
     if (!cpuid_check_feature(CPUID_FEATURE_MTRR)) {
         return;
@@ -49,10 +83,18 @@ void mtrr_save(uint16_t cpu_id)
         uint64_t phys_mask = ia32_mttrphysmask & 0x000FFFFFFFFFF000;
         uint8_t type = ia32_mttrphysbase & 0xFF;
         uint64_t mask_target = phys_mask & 0xB0000000;
-        klogd("CPU %d: variable MTRR #%d - type %d, %s, mask base 0x%x,"
-              " target 0x%x\n",
-              cpu_id, i / 2, type, (valid ? "valid" : "invalid"),
-              phys_base & phys_mask, mask_target);
+        if (valid) {
+            klogi("CPU %d: variable MTRR #%d - type %d, %s, mask base 0x%x,"
+                  " target 0x%x\n",
+                  cpu_id, i / 2, type, (valid ? "valid" : "invalid"),
+                  phys_base & phys_mask, mask_target);
+            if ((phys_base & phys_mask) == (uint64_t)framebuffer) {
+                klogw("MTRR: set framebuffer 0x%x to WRITE COMBINING\n",
+                      framebuffer);
+                saved_mtrrs[i] = saved_mtrrs[i] & 0xFFFFFFFFFFFFF000;
+                saved_mtrrs[i] |= MTRR_CACHE_WRITE_COMBINING;
+            }
+        }
     }
 
     /* save fixed range MTRRs */
