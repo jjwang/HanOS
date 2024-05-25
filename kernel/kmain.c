@@ -245,6 +245,11 @@ void kmain(void)
     pmm_init(mm_request.response);
     vmm_init(mm_request.response, kernel_addr_request.response);
 
+#if BSP_CORE_ONLY
+    mtrr_save(0, (void*)VIRT_TO_PHYS(fb->address));
+    mtrr_restore(0);
+#endif
+
     term_start();
 
     klogi("Init PIT...\n");
@@ -264,12 +269,6 @@ void kmain(void)
 
     klogi("Init APIC...\n");
     apic_init();
-
-#if BSP_CORE_ONLY
-    klogi("Init MTRR...\n");
-    mtrr_save(0);
-    mtrr_restore(0);
-#endif
 
     klogi("Init SMP...\n");
     smp_init();
