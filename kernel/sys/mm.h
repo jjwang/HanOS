@@ -56,7 +56,7 @@ typedef struct {
     uint64_t np; 
 } mem_map_t;
 
-void pmm_init(struct limine_memmap_response* map);
+void pmm_init(struct limine_memmap_response* map, uint64_t higher_half);
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
     const char *func, size_t line);
 void pmm_free(uint64_t addr, uint64_t numpages,
