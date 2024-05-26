@@ -112,8 +112,12 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
     return 0;
 }
 
-void pmm_init(struct limine_memmap_response* map)
+void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
 {
+    if (higher_half != PHYS_TO_VIRT(0x0)) {
+        kpanic("pmm_init: cannot handle high half region 0x%x\n", higher_half);
+    }
+
     kmem_info.phys_limit = 0;
     kmem_info.total_size = 0;
     kmem_info.free_size = 0;
@@ -123,14 +127,8 @@ void pmm_init(struct limine_memmap_response* map)
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
-        if (entry->type == LIMINE_MEMMAP_RESERVED) {
-            /* Skip this type of memory and maybe it will be corrupt */
-            continue;
-        }
-
         if (entry->type == LIMINE_MEMMAP_USABLE
             || entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE
-            || entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE
             || entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             kmem_info.total_size += entry->length;
         }
@@ -139,8 +137,6 @@ void pmm_init(struct limine_memmap_response* map)
 
         if (new_limit > kmem_info.phys_limit) {
             kmem_info.phys_limit = new_limit;
-            klogd("PMM: entry base 0x%x, length %d, type %d\n",
-                  entry->base, entry->length, entry->type);
         } 
     }
 
@@ -150,10 +146,14 @@ void pmm_init(struct limine_memmap_response* map)
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
+        if (entry->type != LIMINE_MEMMAP_USABLE) {
+            continue;
+        }
+
         if (entry->base + entry->length <= 0x100000)
             continue;
 
-        if (entry->length >= bm_size && entry->type == LIMINE_MEMMAP_USABLE) {
+        if (entry->length >= bm_size) {
             if (!gotit) kmem_info.bitmap = (uint8_t*)PHYS_TO_VIRT(entry->base);
             gotit = true;
         }

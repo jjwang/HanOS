@@ -83,6 +83,16 @@ extern void screen_write(char c);
 
 static void klog_putch(int mode, uint8_t i)
 {
+    if (mode == TERM_MODE_INFO) {
+        serial_write(i);
+    }
+
+#ifdef LAUNCHER_CLI
+    if (mode == TERM_MODE_INFO && term_get_mode() != TERM_MODE_INFO) {
+        return;
+    }
+#endif
+
     klog_info_t* k = ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
 
     k->buff[k->end] = i;
@@ -99,7 +109,6 @@ static void klog_putch(int mode, uint8_t i)
 
     if (mode == TERM_MODE_INFO) {
         screen_write(i);
-        serial_write(i);
     }
 }
 

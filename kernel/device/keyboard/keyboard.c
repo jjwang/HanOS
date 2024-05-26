@@ -74,21 +74,6 @@ static void keyboard_callback()
     keyboard_set_key(key_state, scan_code);
 
     while (key_state && ch != 0) {
-        /* Ctrl + Shift (Left) */
-        if (ps2_kb.key_pressed[KB_LSHIFT] && ps2_kb.key_pressed[KB_LCTRL])
-        {
-            lock_lock(&kb_lock);
-            if (ch == '!' || ch == '1') {            /* Shift + '1' */
-                term_switch(TERM_MODE_CLI);
-                term_refresh(TERM_MODE_CLI);
-            } else if (ch == '@' || ch == '2') {     /* Shift + '2' */
-                term_switch(TERM_MODE_INFO);
-                term_refresh(TERM_MODE_INFO);
-            }
-            lock_release(&kb_lock);
-            break;
-        }
-
         if (ps2_kb.key_pressed[KB_LCTRL])
         {
             if (buffer_length < KB_BUFFER_SIZE

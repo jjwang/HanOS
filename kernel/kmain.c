@@ -130,6 +130,13 @@ _Noreturn void kshell(task_id_t tid)
 {
     (void)tid;
 
+    /* If we want to trigger an exception, uncomment below code */
+    if (0) {
+        int y = 0, x = 128, z;
+        z = x / y;
+        klogi("kshell: 128 / 0 = %d\n", z);
+    }
+
     ttyfs_init(); 
     pipefs_init();
 
@@ -141,12 +148,14 @@ _Noreturn void kshell(task_id_t tid)
      * pci_get_gfx_device(kernel_addr_request.response);
      */
 
+#if 0 /* Do not show desktop bitmap to speed up */
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
         klogi("Background image: %d*%d with bpp %d, size %d\n",
               image.img_width, image.img_height, image.bpp, image.size);
         term_set_bg_image(&image);
     }
+#endif
 
     kprintf("HanOS based on HNK kernel version %s. Copyleft (2022) HNK.\n",
             VERSION);
@@ -221,6 +230,8 @@ void kmain(void)
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
              hhdm_request.response->offset, hhdm_request.response->revision);
+    } else {
+        kpanic("HHDM is NULL\n");
     }
 
     if (fb_request.response == NULL) {
@@ -242,7 +253,7 @@ void kmain(void)
 
     gdt_init(NULL);
 
-    pmm_init(mm_request.response);
+    pmm_init(mm_request.response, hhdm_request.response->offset);
     vmm_init(mm_request.response, kernel_addr_request.response);
 
 #if BSP_CORE_ONLY
@@ -275,9 +286,6 @@ void kmain(void)
 
     klogi("Init syscall...\n");
     syscall_init();
-
-    klogi("Press \"\033[37m%s\033[0m\" (left) to shell and \"\033[37m%s\033[0m\" back\n",
-          "ctrl+shift+1", "ctrl+shift+2");
 
     if (fb->edid_size == sizeof(edid_info_t)) {
         edid_info_t* edid = (edid_info_t*)fb->edid;
