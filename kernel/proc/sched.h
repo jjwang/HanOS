@@ -16,6 +16,10 @@
 #include <proc/task.h>
 #include <base/time.h>
 
+#define SCHED_SWITCH_TIME_CYCLE         0
+#define SCHED_SWITCH_SLEEP              1
+#define SCHED_SWITCH_FORK               2
+
 _Noreturn void task_idle_proc(task_id_t tid);
 
 void sched_debug(bool showlog);

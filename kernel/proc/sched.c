@@ -197,8 +197,7 @@ void do_context_switch(void* stack, int64_t mode)
             curr->status = TASK_READY;
 
         if ((uint64_t)curr != (uint64_t)tasks_idle[cpu_id]) {
-            /* TODO: Need to add macros for mode 2 etc. */
-            if (mode == 2) {
+            if (mode == SCHED_SWITCH_FORK) {
                 task_t *curr_fork = task_fork(curr);
                 vec_push_back(&tasks_active, curr_fork);
             }
@@ -246,7 +245,7 @@ void do_context_switch(void* stack, int64_t mode)
 
     tasks_coordinate[cpu_id]++;
     
-    if (mode == 0) {
+    if (mode == SCHED_SWITCH_TIME_CYCLE) {
         apic_send_eoi();
     }
 
