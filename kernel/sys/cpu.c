@@ -75,6 +75,23 @@ void cpu_init(size_t cpuno)
 {
     uint64_t patval, vcr0, vcr4;
 
+    /* Page Attribute Table (PAT) allows for setting the memory attribute at
+     * the page level granularity. PAT is complementary to the MTRR settings
+     * which allows for setting of memory types over physical address ranges.
+     * However, PAT is more flexible than MTRR due to its capability to set
+     * attributes at page level and also due to the fact that there are no
+     * hardware limitations on number of such attribute settings allowed.
+     * Added flexibility comes with guidelines for not having memory type
+     * aliasing for the same physical memory with multiple virtual addresses.
+     */
+    if (cpuid_check_feature(CPUID_FEATURE_PAT)) {
+        klogi("CPU %d: enable PAT with write-combining\n", cpuno);
+        patval = read_msr(MSR_PAT);
+        patval &= (uint64_t)(0xFFFFFFFF);
+        patval |= (uint64_t)(0x01) << 32;
+        write_msr(MSR_PAT, patval);
+    }   
+
     /* The EM and MP flags of CR0 control how the processor reacts to
      * coprocessor instructions.
      *
@@ -111,24 +128,6 @@ void cpu_init(size_t cpuno)
     vcr4 |= 1 << 9;
     vcr4 |= 1 << 10; 
     write_cr("cr4", vcr4);
-
-    /* Page Attribute Table (PAT) allows for setting the memory attribute at
-     * the page level granularity. PAT is complementary to the MTRR settings
-     * which allows for setting of memory types over physical address ranges.
-     * However, PAT is more flexible than MTRR due to its capability to set
-     * attributes at page level and also due to the fact that there are no
-     * hardware limitations on number of such attribute settings allowed.
-     * Added flexibility comes with guidelines for not having memory type
-     * aliasing for the same physical memory with multiple virtual addresses.
-     *
-     * if PAT is supported, set pa4 in the PAT to write-combining
-     */
-    if (cpuid_check_feature(CPUID_FEATURE_PAT)) {
-        patval = read_msr(MSR_PAT);
-        patval &= ~(0b111ULL << 32);
-        patval |= 0b001ULL << 32; 
-        write_msr(MSR_PAT, patval);
-    }   
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(1, 0, &a, &b, &c, &d);
