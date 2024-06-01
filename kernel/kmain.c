@@ -131,7 +131,7 @@ _Noreturn void kshell(task_id_t tid)
     (void)tid;
 
     /* If we want to trigger an exception, uncomment below code */
-    if (0) {
+    if (false) {
         int y = 0, x = 128, z;
         z = x / y;
         klogi("kshell: 128 / 0 = %d\n", z);
@@ -249,7 +249,8 @@ void kmain(void)
 
     term_init(fb);
 
-    klogi("Framebuffer address: 0x%x\n", fb->address);
+    klogi("Framebuffer address: 0x%x, EDID size: %d\n",
+          fb->address, fb->edid_size);
 
     gdt_init(NULL);
 
