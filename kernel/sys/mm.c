@@ -45,7 +45,7 @@ static mem_info_t kmem_info = {0};
 addrspace_t kaddrspace = {0};
 static bool debug_info = false;
 
-vec_new_static(mem_map_t, mmap_list);
+vec_new_static(mem_map_t, global_mmap_list);
 
 static void bitmap_markused(uint64_t addr, uint64_t numpages)
 {
@@ -399,11 +399,11 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np)
 {
     if (addrspace == NULL) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
-        size_t len = vec_length(&mmap_list);
+        size_t len = vec_length(&global_mmap_list);
         for (size_t i = 0; i < len; i++) {
-            mem_map_t m = vec_at(&mmap_list, i); 
+            mem_map_t m = vec_at(&global_mmap_list, i); 
             if (m.vaddr == vaddr) {
-                vec_erase(&mmap_list, i); 
+                vec_erase(&global_mmap_list, i); 
                 break;
             }   
         }   
@@ -424,12 +424,9 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 {
     if (addrspace == NULL) {
         mem_map_t mm = {
-            .vaddr = vaddr,
-            .paddr = paddr,
-            .flags= flags,
-            .np = np
+            .vaddr = vaddr, .paddr = paddr, .flags= flags, .np = np
         };
-        vec_push_back(&mmap_list, mm);
+        vec_push_back(&global_mmap_list, mm);
     }
 
     for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
@@ -452,18 +449,27 @@ void vmm_init(
     kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
-#ifdef ENABLE_MEM_DEBUG
     /* We only need to map all memories as below for kernel task, so we do not
      * call vmm_map() function.
+     *
+     * - For ENABLE_MEM_DEBUG definition
      *
      * For memory debuging purpose, we totally map 1GB memory for all tasks
      * to access these memories. If we map all physical memories, there will be
      * #PF (page fault) exception when forking 2 or more tasks.
+     * 
+     * - For UEFI mode
+     *
+     * But we also open this memory region map to resolve #PF exception when
+     * booting from UEFI mode.
+     *
+     * TODO: need to locate the root cause of UEFI booting issue.
+     *
      */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0,
             MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256),
             VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
-#endif
+
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
@@ -501,19 +507,19 @@ void vmm_init(
              * occurs on real hardware when we only use BSP core. It takes a
              * long time to locate the root cause.
              */
-            bool is_bitmap_loc = false;
+            bool is_kernel_loc = false;
             if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
                 && VIRT_TO_PHYS(kmem_info.bitmap) < entry->base + entry->length)
             {
-                is_bitmap_loc = true;
+                is_kernel_loc = true;
             }
-            vmm_map(is_bitmap_loc ? NULL : &kaddrspace,
+            vmm_map(is_kernel_loc ? NULL : &kaddrspace,
                     PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
             klogi("Mapped 0x%9x to 0x%x(len: %d, #%d, %s)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length, i,
-                  is_bitmap_loc ? "all tasks" : "kernel only");
+                  is_kernel_loc ? "all tasks [bitmap]" : "kernel only");
         }
     }
 
@@ -530,16 +536,19 @@ addrspace_t *create_addrspace(void)
     }
 
     memset(as, 0, sizeof(addrspace_t));
+
     as->PML4 = kmalloc(PAGE_SIZE * 8);
     if (!as->PML4) {
         kmfree(as);
         return NULL;
     } 
     memset(as->PML4, 0, PAGE_SIZE * 8); 
+
     as->lock = lock_new();
-    size_t len = vec_length(&mmap_list);
+
+    size_t len = vec_length(&global_mmap_list);
     for (size_t i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&mmap_list, i);
+        mem_map_t m = vec_at(&global_mmap_list, i);
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
     }
 
