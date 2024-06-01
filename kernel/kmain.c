@@ -157,7 +157,7 @@ _Noreturn void kshell(task_id_t tid)
     }
 #endif
 
-    kprintf("HanOS based on HNK kernel version %s. Copyleft (2022) HNK.\n",
+    kprintf("HanOS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
             VERSION);
 
     char *cpu_model_name = cpu_get_model_name();
