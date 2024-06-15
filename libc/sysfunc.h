@@ -58,3 +58,4 @@ int sys_stat(const char *path, stat_t *statbuf);
 int sys_readdir(int fd, void *buffer);
 int sys_pipe(int *fd);
 int sys_unlink(const char *path);
+int sys_runcmd(const char *cmd);

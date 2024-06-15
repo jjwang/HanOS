@@ -8,10 +8,14 @@
   There are two functions in this file:
   1. pci_init() which can scan all PCI devices and store information into an
      array.
-  2. pci_debug() which can be called by command line and display PCI device
+  2. pci_list() which can be called by command line and display PCI device
      list.
 
+  The PCI device can be determined by vendor id and device id:
+     https://devicehunt.com/view/type/pci/vendor/1052#search-results-table
+
  @endverbatim
+
   Ref: https://wiki.osdev.org/PCI
 
  **-----------------------------------------------------------------------------
@@ -53,6 +57,9 @@ static pci_device_desc_t device_table[] =
     {0x8086, 0x1237, "440FX - 82441FX PMC"},
     {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
     {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
+    {0x8086, 0x1604, "Broadwell-U Host Bridge -OPI"},
+    {0x8086, 0x160C, "Broadwell-U Audio Controller"},
+    {0x8086, 0x1616, "HD Graphics 5500"},
     /* Realtek */
     {0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter"},
     /* QEMU */
@@ -283,7 +290,7 @@ void pci_init(void)
           vec_length(&pci_devices));
 }
 
-void pci_debug(void)
+void pci_list(void)
 {
     for (size_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i); 

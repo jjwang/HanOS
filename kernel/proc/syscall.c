@@ -9,6 +9,7 @@
 #include <sys/idt.h>
 #include <sys/apic.h>
 #include <sys/panic.h>
+#include <sys/pci.h>
 #include <sys/isr_base.h>
 #include <base/klog.h>
 #include <base/vector.h>
@@ -21,6 +22,7 @@
 #include <fs/ttyfs.h>
 #include <device/keyboard/keyboard.h>
 #include <device/display/term.h>
+#include <device/display/gfx.h>
 
 #define MMAP_ANON_BASE      0x80000000000
 
@@ -56,6 +58,18 @@ int64_t k_debug_log(char *message)
     }
 
     return strlen(message);
+}
+
+int64_t k_runcmd(char *cmd)
+{
+    if (strcmp(cmd, "lspci") == 0) {
+        pci_list();
+        pci_get_gfx_device();
+        return 0;
+    } else {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
 }
 
 /*
@@ -139,7 +153,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
 err_exit:
     kloge("k_vm_map: tid %d 0x%x(PML4 0x%x) returns NULL in malloc()\n",
           t->tid, as, as->PML4);
-    return (uint64_t)NULL;
+    return -1;
 }
 
 int64_t k_vm_unmap(void *ptr, size_t size)
@@ -172,7 +186,7 @@ int64_t k_vm_unmap(void *ptr, size_t size)
 
 err_exit:
     cpu_set_errno(EINVAL);
-    return -1;
+    return (uint64_t)NULL;
 }
 
 int get_full_path(int64_t dirfh, const char *path, char *full_path)
@@ -1330,6 +1344,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented,
     [SYSCALL_CHMOD]         = (syscall_ptr_t)k_chmod,           /* 39 */
+    [SYSCALL_RUNCMD]        = (syscall_ptr_t)k_runcmd,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented
 };
