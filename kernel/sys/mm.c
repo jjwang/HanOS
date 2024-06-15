@@ -467,7 +467,7 @@ void vmm_init(
      *
      */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0,
-            MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256),
+            MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256 * 2),
             VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
 
     size_t np = NUM_PAGES(kmem_info.phys_limit);

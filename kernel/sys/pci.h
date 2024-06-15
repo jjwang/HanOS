@@ -48,7 +48,7 @@ typedef struct {
 } pci_device_desc_t;
 
 void pci_init(void);
-void pci_debug(void);
+void pci_list(void);
  const char *pci_device_id_to_string(pci_device_t *device);
 
 uint8_t pci_inb(uint32_t id, uint32_t offset);

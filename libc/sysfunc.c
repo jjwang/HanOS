@@ -89,11 +89,19 @@
 #define SYSCALL_MEMINFO     34
 #define SYSCALL_PIPE        35
 #define SYSCALL_UNLINK      36
+#define SYSCALL_RUNCMD      40
 
 void sys_libc_log(const char *message)
 {
     int ret, errno;
     SYSCALL1(SYSCALL_DEBUGLOG, message);
+}
+
+int sys_runcmd(const char *cmd)
+{
+    int ret, errno;
+    SYSCALL1(SYSCALL_RUNCMD, cmd);
+    return ret;
 }
 
 int sys_fork()

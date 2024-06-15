@@ -143,11 +143,6 @@ _Noreturn void kshell(task_id_t tid)
     pci_init();
     ata_init();
 
-    /*
-     * Below function call will cause exception on real hardware.
-     * pci_get_gfx_device(kernel_addr_request.response);
-     */
-
 #if 0 /* Do not show desktop bitmap to speed up */
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
@@ -157,7 +152,7 @@ _Noreturn void kshell(task_id_t tid)
     }
 #endif
 
-    kprintf("HanOS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
+    kprintf("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
             VERSION);
 
     char *cpu_model_name = cpu_get_model_name();
@@ -308,7 +303,15 @@ void kmain(void)
             klogi("EDID: %d * %d\n",
                   self_info.prefer_res_x, self_info.prefer_res_y);
         }
+    } else if (fb->edid_size == 0) {
+        klogi("Framebuffer: totally %d video modes\n", fb->mode_count);
+        for (size_t i = 0; i < fb->mode_count; i++) {
+            struct limine_video_mode *mode = fb->modes[i];
+            klogd("             %d (width) * %d (height), %d (bpp), %d (pitch)\n",
+                  mode->width, mode->height, mode->bpp, mode->pitch);
+        }
     }
+
     klogi("Framebuffer address 0x%x\n", fb->address);
 
     self_info.actual_res_x = fb->width;
