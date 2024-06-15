@@ -3,9 +3,9 @@
 typedef struct {
     uint32_t id;
 
-    volatile void* aperture_bar;
-    volatile void* mmio_bar;
-    volatile uint32_t* gtt_addr;
+    volatile void *aperture_bar;
+    volatile void *mmio_bar;
+    volatile uint32_t*gtt_addr;
     uint16_t iobase;
 
     uint32_t aperture_size;
@@ -19,7 +19,7 @@ typedef struct {
     uint32_t num_total_entries;     /* How many entries in the GTT */
     uint32_t num_mappable_entries;  /* How many can be mapped at once */
 
-    volatile uint32_t* entries;
+    volatile uint32_t *entries;
 } gfx_gtt_t;
 
 typedef struct {
@@ -38,15 +38,14 @@ typedef struct {
     gfx_mem_range_t shared; /* Addresses mapped through aperture. */
     gfx_mem_range_t priv;   /* Only accessable by GPU, but allocated by CPU. */
 
-    volatile uint8_t* gfx_mem_base;
-    volatile uint8_t* gfx_mem_next;
+    volatile uint8_t *gfx_mem_base;
+    volatile uint8_t *gfx_mem_next;
 } gfx_mem_manager_t;
 
 #define FENCE_BASE                      0x100000
 #define FENCE_COUNT                     16
 
-void gfx_init(void);
-pci_device_t pci_get_gfx_device(struct limine_kernel_address_response* kernel);
+pci_device_t pci_get_gfx_device(void);
 
 #define gfx_ind(pci, reg)           mmio_ind((uint8_t*)pci->mmio_bar + reg)
 #define gfx_outd(pci, reg, val)     mmio_outd((uint8_t*)pci->mmio_bar + reg, val)

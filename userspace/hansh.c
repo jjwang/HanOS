@@ -189,6 +189,12 @@ int main(void)
             if(sys_meminfo() < 0)
                 fprintf(STDERR, "mem: cannot display memory usage information\n"); 
             continue;
+        } else if(buf[0] == 'l' && buf[1] == 's' && buf[2] == 'p' 
+                  && buf[3] == 'c' && buf[4] == 'i' && buf[5] == '\0')
+        {
+            if(sys_runcmd(buf) < 0)
+                fprintf(STDERR, "lspci: cannot list pci devices\n"); 
+            continue;
         }
 
         if(buf[0] == 0) continue;
