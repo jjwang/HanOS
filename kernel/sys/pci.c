@@ -16,7 +16,8 @@
 
  @endverbatim
 
-  Ref: https://wiki.osdev.org/PCI
+  Ref: https://wiki.osdev.org/PCI for technical document
+       https://devicehunt.com/view/type/pci/vendor/8086 for device name
 
  **-----------------------------------------------------------------------------
  */
@@ -28,8 +29,9 @@
 #include <base/klog.h>
 #include <base/vector.h>
 
+#define MAX_BUS                 1
+#define MAX_DEVICE              32
 #define MAX_FUNCTION            8
-#define MAX_DEVICE              16
 
 vec_new(pci_device_t, pci_devices);
 
@@ -41,25 +43,26 @@ static pci_device_desc_t device_table[] =
     /* Intel */
     {0x8086, 0x0154, "3rd Gen Core processor DRAM Controller"},
     {0x8086, 0x0166, "3rd Gen Core processor Graphics Controller"},
-    {0x8086, 0x100E, "Gigabit Ethernet Controller"},
     {0x8086, 0x0A04, "Haswell-ULT DRAM Controller"},
     {0x8086, 0x0A0C, "Haswell-ULT HD Audio Controller"},
     {0x8086, 0x0A16, "Haswell-ULT Integrated Graphics Controller"},
     {0x8086, 0x153A, "Ethernet Connection I217-LM"},
+    {0x8086, 0x100E, "Gigabit Ethernet Controller"},
     {0x8086, 0x10D3, "82574L Gigabit Network Connection"},
     {0x8086, 0x10EA, "82577LM Gigabit Network Connection"},
+    {0x8086, 0x1237, "440FX - 82441FX PMC"},
+    {0x8086, 0x1604, "Broadwell-U Host Bridge -OPI"},
+    {0x8086, 0x160C, "Broadwell-U Audio Controller"},
+    {0x8086, 0x1616, "HD Graphics 5500"},
+    {0x8086, 0x1C20, "6 Series/C200 Series Chipset Family High Definition Audio Controller"},
+    {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
+    {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
     {0x8086, 0x7000, "82371SB PIIX3 ISA"},
     {0x8086, 0x7010, "82371SB PIIX3 IDE"},
     {0x8086, 0x7110, "82371AB/EB/MB PIIX4 ISA"},
     {0x8086, 0x7111, "82371AB/EB/MB PIIX4 IDE"},
     {0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI"},
     {0x8086, 0x7192, "440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled)"},
-    {0x8086, 0x1237, "440FX - 82441FX PMC"},
-    {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
-    {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
-    {0x8086, 0x1604, "Broadwell-U Host Bridge -OPI"},
-    {0x8086, 0x160C, "Broadwell-U Audio Controller"},
-    {0x8086, 0x1616, "HD Graphics 5500"},
     /* Realtek */
     {0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter"},
     /* QEMU */
@@ -275,16 +278,20 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
     }
 }
 
-static void pci_scan_bus(uint8_t bus_id)
+void pci_scan_bus(uint8_t bus_id)
 {
-    for (size_t dev = 0; dev != MAX_DEVICE; dev++) {
+    for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
         pci_scan_device(bus_id, dev);
     }
 }
 
 void pci_init(void)
 {
-    pci_scan_bus(0);
+    for (size_t bus_id = 0; bus_id < MAX_BUS; bus_id++) {
+        for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
+            pci_scan_device(bus_id, dev);
+        }
+    }
 
     klogi("PCI: Full recursive device scan done, [%d] devices found\n",
           vec_length(&pci_devices));
