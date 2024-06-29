@@ -48,13 +48,13 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
         fb->bgbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
         vmm_map(NULL, (uint64_t)fb->bgbuffer, VIRT_TO_PHYS(fb->bgbuffer),
                 NUM_PAGES(fb->width * fb->height * 4),
-                VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
+                VMM_FLAGS_DEFAULT);
     }
     if (fb->swapbuffer == NULL) {
         fb->swapbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
         vmm_map(NULL, (uint64_t)fb->swapbuffer, VIRT_TO_PHYS(fb->swapbuffer),
                 NUM_PAGES(fb->width * fb->height * 4),
-                VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
+                VMM_FLAGS_DEFAULT);
     }
 
     for (size_t y = 0; y < fb->height; y++) {
@@ -192,7 +192,7 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
             fb->backbuffer = kmalloc(fb->backbuffer_len);
             vmm_map(NULL, (uint64_t)fb->backbuffer, VIRT_TO_PHYS(fb->backbuffer),
                     NUM_PAGES(fb->backbuffer_len),
-                    VMM_FLAGS_DEFAULT | VMM_FLAG_WRITECOMBINE);
+                    VMM_FLAGS_DEFAULT);
             memcpy(fb->backbuffer, fb->addr, fb->backbuffer_len);
         }
         return;

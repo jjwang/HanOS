@@ -3,6 +3,7 @@
 #include <sys/cpu.h>
 #include <sys/pci.h>
 #include <sys/pit.h>
+#include <sys/serial.h>
 #include <sys/mm.h>
 #include <base/vector.h>
 #include <base/klog.h>
@@ -12,7 +13,7 @@
 #include <device/display/gfx_reg.h>
 
 #define DEVICE_HD5500           0x1616
-#define DEVICE_PANTHERPOINT     0x1e00
+#define DEVICE_HD520            0x1916
 
 static const uint32_t GMS_TO_SIZE[] =
 {
@@ -36,6 +37,27 @@ static const uint32_t GMS_TO_SIZE[] =
 };
 
 vec_extern(pci_device_t, pci_devices);
+
+bool gfx_validate_chipset(void)
+{
+    /* Check we are on Pather Point Chipset */
+
+    /* Assume location of ISA Bridge */
+    uint32_t isa_bridge_id = PCI_MAKE_ID(0, 0x1f, 0);
+
+    uint16_t class_code = 
+        ((uint16_t)pci_inb(isa_bridge_id, PCI_CONFIG_CLASS_CODE) << 8)
+        | (uint16_t)pci_inb(isa_bridge_id, PCI_CONFIG_SUBCLASS);
+
+    if (class_code != PCI_BRIDGE_ISA) {
+        kprintf("Isa Bridge not found at expected location! "
+                "(Found: 0x%4x, Expected: 0x%4x)\n",
+                class_code, PCI_BRIDGE_ISA);
+        return false;
+    }
+
+    return true;
+}
 
 void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
 {
@@ -163,7 +185,7 @@ void gfx_disable_vga(gfx_pci_t* pci)
     pit_wait(100);
     gfx_outd(pci, VGA_CONTROL, VGA_DISABLE);
 
-    kprintf("VGA Plane disabled\n");
+    serial_puts("VGA Plane disabled\n");
 }
 
 void gfx_enter_force_wake(gfx_pci_t* pci)
@@ -210,7 +232,7 @@ pci_device_t pci_get_gfx_device(void)
     for (size_t i = 0; i < vec_length(&pci_devices); i++) {
         dev = vec_at(&pci_devices, i); 
         if ((dev.vendor_id != VENDOR_INTEL) ||
-            (dev.device_id != DEVICE_HD5500))
+            (dev.device_id != DEVICE_HD5500 && dev.device_id != DEVICE_HD520))
         {   
             continue;
         }
@@ -226,6 +248,11 @@ pci_device_t pci_get_gfx_device(void)
         return dev;
     }   
 
+    if (!gfx_validate_chipset()) {
+        memset(&dev, 0, sizeof(pci_device_t));
+        return dev;
+    }
+
     /* Open and config */
     gfx_pci_t pci;
     gfx_gtt_t gtt;
@@ -235,9 +262,9 @@ pci_device_t pci_get_gfx_device(void)
     gfx_init_gtt(&pci, &gtt, dev);
     gfx_init_mem_manager(&pci, &gtt, &mgr);
 
-#if 0
     gfx_disable_vga(&pci);
 
+#if 0
     /* We need to force out of D6 state before reading/writing to registers */
     gfx_enter_force_wake(&pci);
     gfx_exit_force_wake(&pci);

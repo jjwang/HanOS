@@ -140,7 +140,6 @@ _Noreturn void kshell(task_id_t tid)
     ttyfs_init(); 
     pipefs_init();
 
-    pci_init();
     ata_init();
 
 #if 0 /* Do not show desktop bitmap to speed up */
@@ -273,6 +272,9 @@ void kmain(void)
 
     klogi("Init CMOS...\n");
     cmos_init();
+
+    klogi("Init PCI...\n");
+    pci_init();
 
     klogi("Init APIC...\n");
     apic_init();

@@ -27,6 +27,13 @@
 #include <sys/panic.h>
 #include <base/klog.h>
 
+#define IA32_APIC_BASE_MSR          0x1B
+#define IA32_APIC_BASE_MSR_BSP      0x100 /* Processor is a BSP */
+#define IA32_APIC_BASE_MSR_X2APIC   0x400
+#define IA32_APIC_BASE_MSR_ENABLE   0x800
+
+static bool is_x2apic_enabled = false;
+
 /* The local APIC registers are memory mapped to an address that can be found
  * in the MP/MADT tables.
  */
@@ -42,7 +49,7 @@ volatile void* lapic_base = NULL;
  */
 uint32_t apic_read_reg(uint16_t offset)
 {
-    return *(volatile uint32_t*)(lapic_base + offset);
+    return *(uint32_t volatile*)(lapic_base + offset);
 }
 
 /**
@@ -56,7 +63,7 @@ uint32_t apic_read_reg(uint16_t offset)
  */
 void apic_write_reg(uint16_t offset, uint32_t val)
 {
-    *(volatile uint32_t*)(lapic_base + offset) = val;
+    *(uint32_t volatile*)(lapic_base + offset) = val;
 }
 
 /**
@@ -109,16 +116,41 @@ void apic_enable()
  */
 void apic_init()
 {
-    /* QEMU does not support APIC virtualization if host CPU cannot support. */
-    if (cpuid_check_feature(CPUID_FEATURE_APIC)) {
-        kloge("APIC: unsupported indicated by CPU flag\n");
+    uint64_t apic_base_msr = read_msr(IA32_APIC_BASE_MSR);
+
+    if (cpuid_check_feature(CPUID_FEATURE_X2APIC)) {
+        klogi("APIC: support x2APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
+              apic_base_msr & 0xFFFF,
+              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" : "Not BSP core");
+    } else if (cpuid_check_feature(CPUID_FEATURE_APIC)) {
+        klogi("APIC: support APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
+              apic_base_msr & 0xFFFF,
+              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" : "Not BSP core");
+    } else {
+        kpanic("APIC: both APIC and x2APIC are not supported\n");
     }
+
+    if (apic_base_msr & IA32_APIC_BASE_MSR_ENABLE) {
+        is_x2apic_enabled = (apic_base_msr & IA32_APIC_BASE_MSR_X2APIC);
+    } else {
+        is_x2apic_enabled = false;
+    }
+
+    if (is_x2apic_enabled) {
+        kpanic("APIC: currently x2APIC is not supported by this kernel\n");
+    }
+
+    /* We do not care whether CPU support x2APIC or not. Our current
+     * implementation only includes xAPIC.
+     */
 
     lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
 
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
     vmm_map(NULL, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
             VMM_FLAGS_MMIO);
+
+    klogi("APIC base memory 0x%x mapping finished\n", lapic_base);
 
     apic_enable();
 
