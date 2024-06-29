@@ -248,15 +248,20 @@ typedef struct {
     uint32_t mask;
 } cpuid_feature_t;
 
-static const cpuid_feature_t CPUID_FEATURE_PAT  = {
+static const cpuid_feature_t CPUID_FEATURE_PAT = {
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
     .mask = 1 << 16 };
 
-static const cpuid_feature_t CPUID_FEATURE_APIC = {
+static const cpuid_feature_t CPUID_FEATURE_APIC  = { 
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
     .mask = 1 << 9 };
+
+static const cpuid_feature_t CPUID_FEATURE_X2APIC  = { 
+    .func = 0x00000001,
+    .reg = CPUID_REG_ECX,
+    .mask = 1 << 21 };
 
 static const cpuid_feature_t CPUID_FEATURE_MTRR = { 
     .func = 0x00000001,

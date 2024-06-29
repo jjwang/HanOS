@@ -468,11 +468,11 @@ void vmm_init(
      */
     vmm_map(NULL, MEM_VIRT_OFFSET, 0,
             MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256 * 2),
-            VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
+            VMM_FLAGS_USERMODE);
 
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
-        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
+        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_USERMODE);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
@@ -492,8 +492,7 @@ void vmm_init(
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT
-                    | VMM_FLAG_WRITECOMBINE);
+                    VMM_FLAGS_DEFAULT);
             klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {

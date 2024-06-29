@@ -22,6 +22,7 @@
 #include <base/klog.h>
 #include <base/lock.h>
 #include <sys/panic.h>
+#include <sys/serial.h>
 #include <3rd-party/boot/limine.h>
 
 static const uint32_t font_colors[9] = { 
@@ -405,6 +406,14 @@ void term_clear(int mode)
 
 void term_print(int mode, uint8_t c)
 {
+#ifdef LAUNCHER_CLI
+    serial_write(c);
+
+    if (mode == TERM_MODE_INFO && term_get_mode() != TERM_MODE_INFO) {
+        return;
+    }   
+#endif
+
     term_info_t* term_act;
 
     if (mode == TERM_MODE_INFO) {
