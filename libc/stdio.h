@@ -65,6 +65,6 @@ typedef vfs_stat_t stat_t;
 #endif /* NO KERNEL_BUILD */
 /* ----- Definition of file system finished ----- */
 
-void fprintf(int fd, const char *fmt, ...);
-void printf(const char *fmt, ...);
+int fprintf(int fd, const char *fmt, ...);
+int printf(const char *fmt, ...);
 
