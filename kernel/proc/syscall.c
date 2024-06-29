@@ -108,7 +108,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         goto err_exit;
     }
 
-    size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAG_USER;
+    size_t pf = VMM_FLAGS_USERMODE;
     uint64_t ptr = (uint64_t)hint;
     uint64_t np = NUM_PAGES(length);
 
