@@ -35,7 +35,7 @@
 ## 如何运行
 - 发布文件夹中的磁盘映像文件 - "hdd.img" 可用于测试：
 
-`qemu-system-x86_64 -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
+`qemu-system-x86_64 -enable-kvm -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
 
 ## 屏幕快照
 - 2023年10月17日：用户空间shell演示
