@@ -123,6 +123,19 @@ static void klog_puthex(int mode, uint64_t n, int width)
     }
 }
 
+static void klog_putbin(int mode, uint64_t n, int width, bool mid_blank)
+{
+    int cnt = 0;
+    for (int i = 63; i >= 0; i--) {
+        cnt++;
+        if(width > 0 && cnt + width <= 64) continue;
+        uint64_t digit = (n >> i) & 0x1;
+        klog_putch(mode, (digit == 0) ? '0' : '1');
+        if ((i % 4 == 0) && i > 0 && mid_blank) klog_putch(mode, ' ');
+    }
+    klog_putch(mode, 'b'); 
+}
+
 static void klog_putint(int mode, int64_t n, int width, bool zero_filling)
 {
     int64_t n_val = n;
@@ -203,13 +216,16 @@ void klog_vprintf_core(int mode, const char* s, va_list args)
             case 'x':
                 klog_puthex(mode, va_arg(args, uint64_t), arg_width);
                 break;
+            case 'b':
+                klog_putbin(mode, va_arg(args, uint64_t), arg_width, !zero_filling);
+                break;
             case 's':
                 klog_puts(mode, va_arg(args, const char*), arg_width);
                 break;
             case 'c':
                 klog_putch(mode, va_arg(args, int));
                 break;
-            case 'b':
+            case 't':
                 klog_puts(mode, va_arg(args, int) ? "true" : "false", 0);
                 break;
             }
