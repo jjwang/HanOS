@@ -3,7 +3,7 @@ name: Generate LoC badge
 
 jobs:
   hanos_job:
-    runs-on: hanos-latest
+    runs-on: ubuntu-latest
     name: Generate LoC badge
     steps:
     - name: Lines of Code Badge
