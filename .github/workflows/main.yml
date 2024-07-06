@@ -1,0 +1,12 @@
+on: [push]
+name: Generate LoC badge
+
+jobs:
+  hanos_job:
+    runs-on: hanos-latest
+    name: Generate LoC badge
+    steps:
+    - name: Lines of Code Badge
+      uses: shadowmoose/GHA-LoC-Badge@1.0.0
+      with:
+        badge: ./doc/badge_loc.svg
