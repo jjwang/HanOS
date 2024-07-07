@@ -3,7 +3,7 @@
 [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) |
 [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
-![](https://tokei.rs/b1/github/jjwang/HanOS?category=code)
+![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
 
 ## 设计思想
 
