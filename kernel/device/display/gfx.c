@@ -12,8 +12,9 @@
 #include <device/display/gfx.h>
 #include <device/display/gfx_reg.h>
 
-#define DEVICE_HD5500           0x1616
-#define DEVICE_HD520            0x1916
+#define DEVICE_HD5500               0x1616
+#define DEVICE_HD520                0x1916
+#define DEVICE_SUNRISE_PANTHERPOINT 0x9D00
 
 static const uint32_t GMS_TO_SIZE[] =
 {
@@ -53,6 +54,15 @@ bool gfx_validate_chipset(void)
         kprintf("Isa Bridge not found at expected location! "
                 "(Found: 0x%4x, Expected: 0x%4x)\n",
                 class_code, PCI_BRIDGE_ISA);
+        return false;
+    }
+
+    uint16_t device_id = pci_inw(isa_bridge_id, PCI_CONFIG_DEVICE_ID) & 0xFF00;
+    if (device_id != DEVICE_SUNRISE_PANTHERPOINT)
+    {
+        kprintf("Chipset is not expect panther point (needed for display "
+                "handling)! (Found: 0x%X, Expected: 0x%X)\n",
+                device_id, DEVICE_SUNRISE_PANTHERPOINT);
         return false;
     }
 
@@ -96,7 +106,7 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
     kprintf("\tGMADR:    0x%11x (%d MB)\n", bar.u.address, bar.size / MB);
 
     vmm_map(as, (uint64_t)pci->aperture_bar, (uint64_t)bar.u.address,
-            NUM_PAGES(bar.size), VMM_FLAGS_MMIO);
+            NUM_PAGES(bar.size), VMM_FLAGS_DEFAULT);
 
     /* BAR4: IOBASE - This register provides the Base offset of the IO
      * registers within Device #2. */
@@ -178,16 +188,6 @@ void gfx_init_mem_manager(gfx_pci_t* pci, gfx_gtt_t* gtt, gfx_mem_manager_t *mgr
     mgr->gfx_mem_next = mgr->gfx_mem_base + 4 * GTT_PAGE_SIZE;
 }
 
-void gfx_disable_vga(gfx_pci_t* pci)
-{
-    port_outb(SR_INDEX, SEQ_CLOCKING);
-    port_outb(SR_DATA, port_inb(SR_DATA) | SCREEN_OFF);
-    pit_wait(100);
-    gfx_outd(pci, VGA_CONTROL, VGA_DISABLE);
-
-    serial_puts("VGA Plane disabled\n");
-}
-
 void gfx_enter_force_wake(gfx_pci_t* pci)
 {
     kprintf("Trying to entering force wake...\n");
@@ -261,8 +261,6 @@ pci_device_t pci_get_gfx_device(void)
     gfx_init_pci(&pci, dev);
     gfx_init_gtt(&pci, &gtt, dev);
     gfx_init_mem_manager(&pci, &gtt, &mgr);
-
-    gfx_disable_vga(&pci);
 
 #if 0
     /* We need to force out of D6 state before reading/writing to registers */
