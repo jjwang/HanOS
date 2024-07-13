@@ -28,9 +28,9 @@
 #include <base/time.h>
 #include <sys/hpet.h>
 #include <sys/acpi.h>
-#include <sys/mm.h>
 #include <sys/pit.h>
 #include <sys/panic.h>
+#include <mm/mm.h>
 #include <proc/sched.h>
 
 hpet_t* hpet = NULL;
