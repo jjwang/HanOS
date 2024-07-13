@@ -20,7 +20,7 @@
 
 #include <sys/acpi.h>
 #include <sys/madt.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <base/klog.h>
 
 static acpi_sdt_t* sdt = NULL;

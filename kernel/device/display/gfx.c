@@ -4,7 +4,7 @@
 #include <sys/pci.h>
 #include <sys/pit.h>
 #include <sys/serial.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <base/vector.h>
 #include <base/klog.h>
 #include <proc/task.h>

@@ -34,7 +34,7 @@
 #include <base/time.h>
 #include <base/image.h>
 #include <base/klog.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <sys/gdt.h>
 #include <sys/idt.h>
 #include <sys/isr_base.h>

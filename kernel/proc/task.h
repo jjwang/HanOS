@@ -39,7 +39,7 @@
 #include <base/vector.h>
 #include <base/hash.h>
 #include <sys/smp.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <fs/vfs.h>
 
 #define DEFAULT_KMODE_CODE      0b00101000 /* 0x28 */
