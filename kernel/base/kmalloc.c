@@ -18,8 +18,8 @@
 
 #include <base/kmalloc.h>
 #include <base/klog.h>
-#include <sys/mm.h>
 #include <sys/panic.h>
+#include <mm/mm.h>
 
 size_t kmalloc_checkno = 0;
 

@@ -5,7 +5,7 @@
 #include <base/klib.h>
 #include <base/klog.h>
 #include <fs/vfs.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <sys/panic.h>
 
 #define RTDL_ADDR       0x40000000

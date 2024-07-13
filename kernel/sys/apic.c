@@ -21,10 +21,10 @@
 #include <sys/acpi.h>
 #include <sys/apic.h>
 #include <sys/madt.h>
-#include <sys/mm.h>
 #include <sys/cpu.h>
 #include <sys/idt.h>
 #include <sys/panic.h>
+#include <mm/mm.h>
 #include <base/klog.h>
 
 #define IA32_APIC_BASE_MSR          0x1B

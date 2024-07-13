@@ -34,8 +34,8 @@
 #include <libc/string.h>
 
 #include <sys/cpu.h>
-#include <sys/mm.h>
 #include <sys/panic.h>
+#include <mm/mm.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
 #include <base/klib.h>

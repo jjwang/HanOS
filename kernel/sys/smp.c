@@ -32,7 +32,7 @@
 #include <base/klog.h>
 #include <base/kmalloc.h>
 #include <base/time.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <sys/cpu.h>
 #include <sys/smp.h>
 #include <sys/gdt.h>

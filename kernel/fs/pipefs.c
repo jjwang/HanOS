@@ -8,7 +8,7 @@
 #include <base/klog.h>
 #include <base/klib.h>
 #include <sys/panic.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 
 #define PIPE_BUFFER_SIZE    4096
 

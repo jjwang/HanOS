@@ -10,7 +10,7 @@
 #include <sys/panic.h>
 #include <sys/hpet.h>
 #include <sys/cmos.h>
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <proc/eventbus.h>
 #include <device/display/term.h>
 

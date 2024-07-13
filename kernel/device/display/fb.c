@@ -25,7 +25,7 @@
 
 #include <libc/string.h>
 
-#include <sys/mm.h>
+#include <mm/mm.h>
 #include <sys/hpet.h>
 #include <device/display/fb.h>
 #include <base/kmalloc.h>
