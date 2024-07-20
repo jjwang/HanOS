@@ -36,6 +36,8 @@
 
 `qemu-system-x86_64 -enable-kvm -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
 
+- Execute "doxygen Doxygen" in root folder and "make" in "latex" folder to generate manual.pdf. 
+
 ## Screenshots
 - Oct 17, 2023: Userspace Shell Demo
 
