@@ -32,6 +32,8 @@
 
 `bdf2psf gohufont-14.bdf /usr/share/bdf2psf/standard.equivalents /usr/share/bdf2psf/ascii.set 256 gohufont-14.psf`
 
+- 在根目录下运行"doxygen Doxygen"，然后在latex目录运行"make"生成项目PDF文档
+
 ## 如何运行
 - 发布文件夹中的磁盘映像文件 - "hdd.img" 可用于测试：
 
