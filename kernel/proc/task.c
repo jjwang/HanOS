@@ -304,7 +304,7 @@ void task_free(task_t *t)
     if (t->mode == TASK_USER_MODE) {
         /* Notes that ustack memory is already free in mmap_list */
     }
-    kmfree((void*)t->kstack_limit);
+    kmfree_chunk((void*)t->kstack_limit, __func__, __LINE__);
 
     size_t mem_num = vec_length(&t->addrspace->mem_list);
     for (size_t i = 0; i < mem_num; i++) {
