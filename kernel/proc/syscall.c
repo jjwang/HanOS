@@ -52,10 +52,10 @@ int64_t k_debug_log(char *message)
     char *s = strchr(message, '\n');
 
     if (s != NULL && (*(s + 1) == '\0')) {
-        klogd("debug: %s", message);
-    } else {
-        klogd("debug: %s\n", message);
+        *s = '\0';
     }
+
+    klogd("debug: %s[0x%x]\n", message, message);
 
     return strlen(message);
 }
@@ -117,7 +117,8 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
     /* Unmap before mapping to a new malloc-ed memory block */
     if (ptr != (uint64_t)NULL) vmm_unmap(as, ptr, np);
 
-    uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc(np * PAGE_SIZE));
+    uint64_t phys_ptr = VIRT_TO_PHYS(kmalloc_chunk(
+        np * PAGE_SIZE, __func__, __LINE__));
 
     /* On QEMU, the memory will be set to zero. But on real hardaware,
      * maybe they will not be set to zero. Need to do this!

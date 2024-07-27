@@ -160,7 +160,6 @@ void ramfs_init(void *address, uint64_t size)
                 } else {
                     item->entry.data = NULL;
                 }
-
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_SYMLINK);
                 if (tnode->inode->size <= sizeof(tnode->inode->link))
                 {
@@ -175,7 +174,6 @@ void ramfs_init(void *address, uint64_t size)
                 } else {
                     item->entry.data = NULL;
                 }
-            
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_FILE);
                 tnode->inode->size = item->entry.size;
             }
@@ -301,10 +299,9 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
             }
             
             if (id->data != NULL) {
-                id->data = (void*)kmrealloc(id->data, item->entry.size);
-            } else {
-                id->data = (void*)kmalloc(item->entry.size);
+                if (id->data != NULL) kmfree(id->data);
             }
+            id->data = (void*)kmalloc(item->entry.size);
             id->alloc_size = item->entry.size;
 
             memcpy(id->data, item->entry.data, item->entry.size);

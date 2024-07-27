@@ -559,7 +559,6 @@ int64_t vfs_close(vfs_handle_t handle)
         goto fail;
 
     fd->inode->refcount--;
-    kmfree(fd);
 
     task_t *t = sched_get_current_task();
     if (t != NULL) {
@@ -575,6 +574,8 @@ int64_t vfs_close(vfs_handle_t handle)
             fd->inode->fs->rmnode(fd->tnode);
         }
     }
+
+    kmfree(fd);
 
     lock_release(&vfs_lock);
     return 0;

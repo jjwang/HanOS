@@ -47,10 +47,12 @@ task_t *task_make(
     addrspace_t *as = create_addrspace();
 
     if (mode == TASK_USER_MODE) {
-        ntask->kstack_limit = (void*)kmalloc(STACK_SIZE);
+        ntask->kstack_limit = (void*)kmalloc_chunk(
+            STACK_SIZE, __func__, __LINE__);
         ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
 
-        ntask->ustack_limit = (void*)VIRT_TO_PHYS(kmalloc(STACK_SIZE));
+        ntask->ustack_limit = (void*)VIRT_TO_PHYS(kmalloc_chunk(
+            STACK_SIZE, __func__, __LINE__));
         ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
 
         klogi("TASK: %s task id %d (0x%x) kstack 0x%x ustack 0x%x\n",
@@ -84,7 +86,7 @@ task_t *task_make(
         ntask_regs->cs = DEFAULT_UMODE_CODE;
         ntask_regs->ss = DEFAULT_UMODE_DATA;
     } else {
-        ntask->kstack_limit = kmalloc(STACK_SIZE);
+        ntask->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
         ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
 
         ntask->ustack_limit = NULL;
@@ -196,7 +198,8 @@ task_t *task_fork(task_t *tp)
 
     for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
-        uint64_t ptr = VIRT_TO_PHYS(kmalloc(m.np * PAGE_SIZE));
+        uint64_t ptr = VIRT_TO_PHYS(kmalloc_chunk(
+            m.np * PAGE_SIZE, __func__, __LINE__));
         memcpy((void*)PHYS_TO_VIRT(ptr), (void*)PHYS_TO_VIRT(m.paddr),
                m.np * PAGE_SIZE);
         if ((uint64_t)tp->ustack_limit == (uint64_t)m.vaddr) {
@@ -218,7 +221,7 @@ task_t *task_fork(task_t *tp)
     tc->tid = curr_tid;
     tc->ptid = tp->tid;
 
-    tc->kstack_limit = kmalloc(STACK_SIZE);
+    tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
     memcpy(tc->kstack_limit, tp->kstack_limit, STACK_SIZE);
 
     uint64_t offset = 0;
@@ -288,7 +291,7 @@ void task_free(task_t *t)
     for (size_t i = 0; i < mmap_num; i++) {
         mem_map_t m = vec_at(&t->mmap_list, i); 
         vmm_unmap(t->addrspace, m.vaddr, m.np);
-        kmfree((void*)PHYS_TO_VIRT(m.paddr));
+        kmfree_chunk((void*)PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
     }
     vec_erase_all(&t->mmap_list);
     vec_erase_all(&t->child_list);
@@ -318,7 +321,7 @@ void task_free(task_t *t)
     }
     vec_erase_all(&t->addrspace->mem_list);
 
-    kmfree((void*)t->addrspace->PML4);
+    kmfree_chunk((void*)t->addrspace->PML4, __func__, __LINE__);
     kmfree((void*)t->addrspace);
 
     /*
