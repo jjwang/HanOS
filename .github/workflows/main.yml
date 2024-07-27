@@ -2,7 +2,7 @@ on: [push]
 name: Generate LoC badge
 
 jobs:
-  loc_counter_job:
+  hanos_loc_counter_job:
     runs-on: ubuntu-latest
     name: Generate LoC badge
     steps:
@@ -16,6 +16,11 @@ jobs:
           directory: ./
           badge: ./output/badge.svg
           ignore: '.git/|.github/|doc/|attic/|release/|screenshot/|sysroot/|README.md|README.zh-cn.md|LICENSE'
+
+      - name: Print the output
+        run: |
+          echo "Scanned: ${{ steps.badge.outputs.counted_files }}";
+          echo "Line Count: ${{ steps.badge.outputs.total_lines }}";
 
       - name: Deploy to image-data branch
         uses: peaceiris/actions-gh-pages@v3
