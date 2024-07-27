@@ -931,10 +931,11 @@ void _putchar(char character)
 int fprintf(int fd, const char *fmt, ...)
 {
     char charbuff[256] = {0};
-    va_list ap;
+    va_list va;
 
-    va_start(ap, fmt);
-    snprintf_(charbuff, sizeof(charbuff) - 1, fmt, ap);
+    va_start(va, fmt);
+    vsnprintf_(charbuff, sizeof(charbuff) - 1, fmt, va);
+    va_end(va);
 
     int ret = sys_write(fd, charbuff, strlen(charbuff));
     charbuff[0] = '\0';

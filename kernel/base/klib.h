@@ -14,9 +14,20 @@
  */
 #pragma once
 
-#define MIN(x, y)                   ((x) < (y) ? (x) : (y))
-#define MAX(x, y)                   ((x) > (y) ? (x) : (y))
+#include <sys/panic.h>
 
-#define DIV_ROUNDUP(a, b)           (((a) + ((b) - 1)) / (b))
-#define ALIGNUP(x, a)               (DIV_ROUNDUP(x, a) * a)
+#define MIN(x, y)               ((x) < (y) ? (x) : (y))
+#define MAX(x, y)               ((x) > (y) ? (x) : (y))
+
+#define ROUND_DOWN(v, n)        ((v) - ((v) % (n)))
+#define ROUND_UP(v, n)          ROUND_DOWN((v) + (n) - 1, n)
+
+#define DIV_ROUNDUP(a, b)       (((a) + ((b) - 1)) / (b))
+#define ALIGNUP(x, a)           (DIV_ROUNDUP(x, a) * a)
+
+#define ASSERT(x)               { \
+                                    if(!(x)) \
+                                        kpanic("%s() ASSERT failed in %s:%d\n",  \
+                                               __func__, __FILE__, __LINE__); \
+                                }
 

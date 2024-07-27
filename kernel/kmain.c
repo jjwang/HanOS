@@ -18,6 +18,7 @@
     Feb 19, 2022  Added CLI task which supports some simple commands.
     May 21, 2022  Changed boot protocol to limine with corresponding
                   modifications.
+    Jul 13, 2024  Added SLAB-based memory allocator.
 
 @endverbatim
 
@@ -35,6 +36,7 @@
 #include <base/image.h>
 #include <base/klog.h>
 #include <mm/mm.h>
+#include <mm/alloc.h>
 #include <sys/gdt.h>
 #include <sys/idt.h>
 #include <sys/isr_base.h>
@@ -249,6 +251,8 @@ void kmain(void)
     gdt_init(NULL);
 
     pmm_init(mm_request.response, hhdm_request.response->offset);
+    alloc_init();
+
     vmm_init(mm_request.response, kernel_addr_request.response);
 
 #if BSP_CORE_ONLY

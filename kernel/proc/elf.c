@@ -66,7 +66,7 @@ int64_t elf_load(
     vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READ);
     if (f != VFS_INVALID_HANDLE) {
         elf_len = vfs_tell(f);
-        elf_buff = (uint8_t*)kmalloc(elf_len);
+        elf_buff = (uint8_t*)kmalloc_chunk(elf_len, __func__, __LINE__);
         if (elf_buff != NULL) {
             size_t readlen = vfs_read(f, elf_len, elf_buff);
             if (debug_info && readlen >= 3) {
@@ -114,7 +114,7 @@ int64_t elf_load(
               sizeof(elf_phdr_t));
     }
 
-    phdr = kmalloc(hdr.phnum * sizeof(elf_phdr_t));
+    phdr = kmalloc_chunk(hdr.phnum * sizeof(elf_phdr_t), __func__, __LINE__);
     if (!phdr) goto err_exit;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
 
@@ -124,7 +124,8 @@ int64_t elf_load(
 
     vec_push_back(&task->mmap_list, m); 
 
-    phaddr = (uint64_t*)kmalloc(hdr.phnum * sizeof(uint64_t));
+    phaddr = (uint64_t*)kmalloc_chunk(
+        hdr.phnum * sizeof(uint64_t), __func__, __LINE__);
     if (phaddr == NULL)                 goto err_exit;
     aux->phaddr = (uint64_t)phaddr;
 
@@ -193,7 +194,8 @@ int64_t elf_load(
         size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
         size_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
-        uint64_t addr = VIRT_TO_PHYS(kmalloc(page_count * PAGE_SIZE));
+        uint64_t addr = VIRT_TO_PHYS(kmalloc_chunk(
+            page_count * PAGE_SIZE, __func__, __LINE__));
         if (!addr) {
             kpanic("ELF(%s): cannot alloc %d bytes memory",
                    path_name, page_count * PAGE_SIZE);
@@ -243,7 +245,7 @@ int64_t elf_load(
         /* Need to free in some other places */
     }
 
-    shdr = kmalloc(hdr.shnum * sizeof(elf_shdr_t));
+    shdr = kmalloc_chunk(hdr.shnum * sizeof(elf_shdr_t), __func__, __LINE__);
     if (!shdr) goto err_exit;
 
     memset(shdr, 0, hdr.shnum * sizeof(elf_shdr_t));
