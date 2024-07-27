@@ -446,7 +446,8 @@ void vmm_init(
 {
     size_t i;
 
-    kaddrspace.PML4 = kmalloc(PAGE_SIZE * 8);
+    kaddrspace.PML4 = (void*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
+    klogd("VMM: PML4 of kernel address space - 0x%x\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
     /* We only need to map all memories as below for kernel task, so we do not
@@ -536,7 +537,7 @@ addrspace_t *create_addrspace(void)
 
     memset(as, 0, sizeof(addrspace_t));
 
-    as->PML4 = kmalloc(PAGE_SIZE * 8);
+    as->PML4 = kmalloc_chunk(PAGE_SIZE * 8, __func__, __LINE__);
     if (!as->PML4) {
         kmfree(as);
         return NULL;

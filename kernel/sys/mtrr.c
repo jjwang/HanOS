@@ -69,6 +69,7 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
           + 11                  /* 11 fixed MTRRs */
           + 1                   /* 1 default type MTRR */
         ) * sizeof(uint64_t));
+        klogd("CPU %d: save mtrrs to 0x%x\n", cpu_id, saved_mtrrs);
     }
 
     /* save variable range MTRRs */
