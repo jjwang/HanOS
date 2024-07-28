@@ -45,7 +45,10 @@ typedef struct {
 #define FENCE_BASE                      0x100000
 #define FENCE_COUNT                     16
 
-pci_device_t pci_get_gfx_device(void);
+bool pci_get_gfx_device(pci_device_t *gfx_dev);
+
+bool gfx_init(void);
+void gfx_start(void);
 
 #define gfx_ind(pci, reg)           mmio_ind((uint8_t*)pci->mmio_bar + reg)
 #define gfx_outd(pci, reg, val)     mmio_outd((uint8_t*)pci->mmio_bar + reg, val)

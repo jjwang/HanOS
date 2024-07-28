@@ -14,6 +14,28 @@
 #define GTT_ENTRY_GFX_DATA_TYPE         (1 << 3)
 #define GTT_ENTRY_ADDR(x)               ((x) | ((x >> 28) & 0xff0))
 
+/* 3. GFX MMIO - MCHBAR Aperture */
+#define GFX_MCHBAR                      0x140000
+
+/* Vol 1. Part 3. Memory Interface and Commands for the Render Engine */
+/* 1.1.1.1 ARB_MODE – Arbiter Mode Control register */
+
+#define ARB_MODE                        0x04030     /* R/W */
+
+#define ARB_MODE_GGTAGDR                (1 << 0)    /* GTT Accesses GDR */
+#define ARB_MODE_CCGDREN                (1 << 1)    /* Color Cache GDR Enable Bit */
+#define ARB_MODE_DCGDREN                (1 << 2)    /* Depth Cache GDR Enable Bit */
+#define ARB_MODE_TCGDREN                (1 << 3)    /* Texture Cache GDR Enable Bit */
+#define ARB_MODE_VMC_GDR_EN             (1 << 4)    /* VMC GDR Enable */
+#define ARB_MODE_AS4TS                  (1 << 5)    /* Address Swizzling for Tiled Surfaces */
+#define ARB_MODE_CDPS                   (1 << 8)    /* Color/Depth Port Share Bit */
+#define ARB_MODE_GAMPD_GDR              (1 << 9)    /* GAM PD GDR */
+#define ARB_MODE_BLB_GDR                (1 << 10)   /* BLB GDR */
+#define ARB_MODE_STC_GDR                (1 << 11)   /* STC GDR */
+#define ARB_MODE_HIZ_GDR                (1 << 12)   /* HIZ GDR */
+#define ARB_MODE_DC_GDR                 (1 << 13)   /* DC GDR */
+#define ARB_MODE_GAM2BGTTT              (1 << 14)   /* GAM to Bypass GTT Translation */
+
 /* Vol 3. Part 1. VGA and Extended VGA Registers */
 /* 1.2.1 Sequencer Index */
 
@@ -75,12 +97,67 @@
 
 #define VGA_DISABLE                     (1 << 31)
 
-/* Registers not in the Spec (Found in Linux Driver) */
+/* 3.7.1 ARB_CTL-Display Arbitration Control 1 */
+
+#define ARB_CTL                         0x45000     /* R/W */
+
+#define ARB_CTL_HP_DATA_REQUEST_LIMIT_MASK          0x7f
+#define ARB_CTL_HP_PAGE_BREAK_LIMIT_SHIFT           8
+#define ARB_CTL_HP_PAGE_BREAK_LIMIT_MASK            0x1f
+#define ARB_CTL_TILED_ADDRESS_SWIZZLING             (1 << 13)
+#define ARB_CTL_TLB_REQUEST_IN_FLIGHT_LIMIT_SHIFT   16
+#define ARB_CTL_TLB_REQUEST_IN_FLIGHT_LIMIT_MASK    0x7
+#define ARB_CTL_TLB_REQUEST_LIMIT_SHIFT             20
+#define ARB_CTL_TLB_REQUEST_LIMIT_MASK              0x7
+#define ARB_CTL_LP_WRITE_REQUEST_LIMIT_SHIFT        24
+#define ARB_CTL_LP_WRITE_REQUEST_LIMIT_MASK         0x3
+#define ARB_CTL_HP_QUEUE_WATERMARK_SHIFT            26
+#define ARB_CTL_HP_QUEUE_WATERMARK_MASK             0x7
+
+/* 2.16.2-3 Address Decode Channel Registers */
+
+#define MAD_DIMM_CH0                    0x5004
+#define MAD_DIMM_CH1                    0x5008
+
+#define MAD_DIMM_A_SIZE_SHIFT           0
+#define MAD_DIMM_A_SIZE_MASK            0xff
+#define MAD_DIMM_B_SIZE_SHIFT           8
+#define MAD_DIMM_B_SIZE_MASK            0xff
+#define MAD_DIMM_AB_SIZE_MASK           0xffff
+#define MAD_DIMM_A_SELECT               (1 << 16)
+#define MAD_DIMM_A_DUAL_RANK            (1 << 17)
+#define MAD_DIMM_B_DUAL_RANK            (1 << 18)
+#define MAD_DIMM_A_X16                  (1 << 19)
+#define MAD_DIMM_B_X16                  (1 << 20)
+#define MAD_DIMM_RANK_INTERLEAVE        (1 << 21)
+#define MAD_DIMM_ENH_INTERLEAVE         (1 << 22)
+#define MAD_DIMM_ECC_MODE               (3 << 24) 
+
 /* Force Wake */
-/* Bring the card out of D6 state */
 
 #define ECOBUS                          0xA180
 #define FORCE_WAKE_MT                   0xA188 
-#define FORCE_WAKE                      0xA18C 
-#define FORCE_WAKE_MT_ACK               0x130040 
-#define FORCE_WAKE_ACK                  0x130090 
+#define FORCE_WAKE                      0xA18C
+/* GTSP1, Address: 130044h-130047h
+ * 15:0 Multiple Force Wake GT programs this field with the multiple force wake
+ * status. Software reads this field to find the status. Refer to MULTIFORCEWAKE
+ * 0xA188 register description for the usage.
+ */
+#define FORCE_WAKE_MT_ACK               0x130044 
+/* Intel® Open Source HD Graphics, Intel Iris™ Graphics, and Intel Iris™ Pro
+ * Graphics
+ * Volume 2c: Command Reference: Registers
+ * Part 1 – Registers A through L
+ * GTFORCEAWAKE, P941, Address: 130090h-130093h
+ * This field is no longer used. The multiple force wake mechanism has replaced
+ * it. Refer to MULTIFORCEWAKE 0xA188 register description for the usage.
+ */
+#define FORCE_WAKE_ACK                  0x130090
+
+/* Tile Ctrl - control register for cpu gtt access */
+
+#define TILE_CTL                         0x101000     /* R/W */
+
+#define TILE_CTL_SWIZZLE                (1 << 0)
+#define TILE_CTL_TLB_PREFETCH_DISABLE   (1 << 2)
+#define TILE_CTL_BACKSNOOP_DISABLE      (1 << 3) 

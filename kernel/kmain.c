@@ -279,6 +279,7 @@ void kmain(void)
 
     klogi("Init PCI...\n");
     pci_init();
+    gfx_init();
 
     klogi("Init APIC...\n");
     apic_init();
