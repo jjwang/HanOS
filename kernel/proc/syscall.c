@@ -64,7 +64,7 @@ int64_t k_runcmd(char *cmd)
 {
     if (strcmp(cmd, "lspci") == 0) {
         pci_list();
-        pci_get_gfx_device();
+        gfx_start();
         return 0;
     } else {
         cpu_set_errno(EINVAL);
