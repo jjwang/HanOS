@@ -312,6 +312,29 @@ void gfx_mem_enable_swizzle(gfx_pci_t *pci)
     kprintf("ARB_MODE: 0x%08x\n", gfx_ind(pci, ARB_MODE));
 }
 
+uint64_t gfx_addr(gfx_mem_manager_t *mgr, void *phy_addr)
+{
+    return (uint64_t)((uint8_t*)phy_addr - mgr->gfx_mem_base);
+}
+
+bool gfx_alloc(
+    gfx_mem_manager_t *mgr, gfx_object_t *obj,
+    uint64_t size, uint64_t align)
+{
+    /* Align memory request */
+    volatile uint8_t *cpu_addr = mgr->gfx_mem_next;
+    uint64_t offset = (uint64_t)cpu_addr & (align - 1);
+    if (offset) {
+        cpu_addr += align - offset;
+    }
+
+    mgr->gfx_mem_next = cpu_addr + size;
+    obj->cpu_addr = cpu_addr;
+    obj->gfx_addr = cpu_addr - mgr->gfx_mem_base;
+
+    return true;
+}
+
 void gfx_start(void)
 {
     bool ret = false;

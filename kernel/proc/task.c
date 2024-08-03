@@ -25,6 +25,7 @@
 #include <sys/cpu.h>
 #include <sys/hpet.h>
 #include <sys/apic.h>
+#include <sys/panic.h>
 
 static task_id_t curr_tid = 1;
 
@@ -44,9 +45,13 @@ task_t *task_make(
     ntask->isforked = false;
 
     task_regs_t *ntask_regs = NULL;
-    addrspace_t *as = create_addrspace();
+
+    /* All kernel tasks share the same address space */
+    addrspace_t *as = NULL;
 
     if (mode == TASK_USER_MODE) {
+        as = create_addrspace();
+
         ntask->kstack_limit = (void*)kmalloc_chunk(
             STACK_SIZE, __func__, __LINE__);
         ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
@@ -177,7 +182,9 @@ void task_debug(task_t *t, bool force)
 
 task_t *task_fork(task_t *tp)
 {
-    size_t i;
+    if (tp->mode != TASK_USER_MODE) {
+        kpanic("Task: cannot fork kernel task %d\n", tp->tid);
+    }
 
     task_debug(tp, false);
 
@@ -196,6 +203,7 @@ task_t *task_fork(task_t *tp)
     klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
           len, tp->tid, curr_tid);
 
+    size_t i;
     for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
         uint64_t ptr = VIRT_TO_PHYS(kmalloc_chunk(
@@ -287,6 +295,10 @@ norm_exit:
 
 void task_free(task_t *t)
 {
+    if (t->mode != TASK_USER_MODE) {
+        kpanic("Task: cannot free kernel task %d\n", t->tid);
+    }
+
     size_t mmap_num = vec_length(&t->mmap_list);
     for (size_t i = 0; i < mmap_num; i++) {
         mem_map_t m = vec_at(&t->mmap_list, i); 
@@ -300,10 +312,6 @@ void task_free(task_t *t)
     klogi("task_idle: dead task tid %d free mmap number %d\n",
           t->tid, mmap_num);
 
-    /* Free memory when creating a new task */
-    if (t->mode == TASK_USER_MODE) {
-        /* Notes that ustack memory is already free in mmap_list */
-    }
     kmfree_chunk((void*)t->kstack_limit, __func__, __LINE__);
 
     size_t mem_num = vec_length(&t->addrspace->mem_list);

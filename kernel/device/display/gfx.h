@@ -23,7 +23,7 @@ typedef struct {
 } gfx_gtt_t;
 
 typedef struct {
-    uint8_t *cpu_addr;
+    volatile uint8_t *cpu_addr;
     volatile uint64_t gfx_addr;
 } gfx_object_t;
 

@@ -251,7 +251,8 @@ int64_t ttyfs_write(vfs_inode_t* this, size_t offset, size_t len,
     id->isize   = 0;
     
     /* Output to the terminal */
-    char *msg = (char*)kmalloc(len + 1);
+    char msg_buff[3] = {0};
+    char *msg = (len > 1) ? (char*)kmalloc(len + 1) : msg_buff;
     if (msg != NULL) {
         msg[len] = '\0';
         memcpy(msg, buff, len);
@@ -264,7 +265,7 @@ int64_t ttyfs_write(vfs_inode_t* this, size_t offset, size_t len,
 
         cursor_visible = CURSOR_INVISIBLE;
 
-        kmfree(msg);
+        if (len > 1) kmfree(msg);
         wlen = len;
     }
 
