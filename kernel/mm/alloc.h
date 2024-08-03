@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 
-#define ALLOC_MAX_SIZE     524288
+#define ALLOC_MAX_SIZE     65536
 
 void alloc_init();
 void *alloc(size_t s);

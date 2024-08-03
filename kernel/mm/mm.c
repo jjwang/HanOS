@@ -160,17 +160,14 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
     }
 
     memset(kmem_info.bitmap, 0, bm_size);
-    klogi("Memory bitmap address: 0x%x\n", kmem_info.bitmap);
+    klogi("Memory bitmap address: 0x%x, size: %d\n", kmem_info.bitmap, bm_size);
 
     /* now populate the bitmap */
     for (size_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
-
-        if (entry->base + entry->length <= 0x100000)
-            continue;
-
-        if (entry->type == LIMINE_MEMMAP_USABLE)
+        if (entry->type == LIMINE_MEMMAP_USABLE) {
             pmm_free(entry->base, NUM_PAGES(entry->length), __func__, __LINE__);
+        }
     }
 
     /* mark the bitmap as used */
@@ -467,13 +464,9 @@ void vmm_init(
      * TODO: need to locate the root cause of UEFI booting issue.
      *
      */
-    vmm_map(NULL, MEM_VIRT_OFFSET, 0,
-            MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256 * 2),
-            VMM_FLAGS_USERMODE);
-
     size_t np = NUM_PAGES(kmem_info.phys_limit);
     for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
-        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_USERMODE);
+        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
@@ -498,28 +491,19 @@ void vmm_init(
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
             /* vmm_map: do nothing */
-        } else if (entry->type != LIMINE_MEMMAP_RESERVED) {
-            /* Maybe the reserved memory is corrupt */
-            /*
-             * Only memory entry with bitmap storage is visible for all tasks.
-             *
-             * If all entries are visible for all tasks, Page Fault exception
-             * occurs on real hardware when we only use BSP core. It takes a
-             * long time to locate the root cause.
-             */
+        } else if (entry->type == LIMINE_MEMMAP_USABLE) {
             bool is_kernel_loc = false;
             if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
                 && VIRT_TO_PHYS(kmem_info.bitmap) < entry->base + entry->length)
             {
                 is_kernel_loc = true;
             }
-            vmm_map(is_kernel_loc ? NULL : &kaddrspace,
-                    PHYS_TO_VIRT(entry->base), entry->base,
+            vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("Mapped 0x%9x to 0x%x(len: %d, #%d, %s)\n",
-                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, i,
-                  is_kernel_loc ? "all tasks [bitmap]" : "kernel only");
+            klogi("Mapped 0x%9x to 0x%x(len: %d, type %d, #%d, %s)\n",
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, entry->type,
+                  i, is_kernel_loc ? "all tasks [bitmap]" : "kernel only");
         }
     }
 
