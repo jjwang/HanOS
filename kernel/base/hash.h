@@ -1,6 +1,6 @@
 #pragma once
 
-#define HT_ARRAY_SIZE           128
+#define HT_DEFAULT_ARRAY_SIZE       128
 
 typedef struct {
    int64_t  key;
@@ -8,7 +8,8 @@ typedef struct {
 } ht_item_t;
 
 typedef struct {
-    ht_item_t array[HT_ARRAY_SIZE];
+    uint64_t size;
+    ht_item_t *array;
 } ht_t;
 
 void ht_init(ht_t *ht);
