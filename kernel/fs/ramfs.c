@@ -427,7 +427,7 @@ int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* bu
 
     memcpy(((uint8_t*)id->data) + offset, buff, len);
 
-    klogi("RAMFS: write %d to 0x%x with offset %d (%d -> %d)\n",
+    klogd("RAMFS: write %d to 0x%x with offset %d (%d -> %d)\n",
           len, id->data, offset, old_size, this->size);
 
     return 0;
