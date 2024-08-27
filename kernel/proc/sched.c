@@ -588,7 +588,9 @@ task_t *sched_execve(
                    tp == NULL ? NULL : tp->addrspace);
 
     if (tp != NULL) {
-        for (size_t i = 0; i < vec_length(&tp->dup_list); i++) {
+        uint64_t i;
+
+        for (i = 0; i < vec_length(&tp->dup_list); i++) {
             file_dup_t dup = vec_at(&tp->dup_list, i);  
             vec_push_back(&tc->dup_list, dup);
             klogd("SCHED: fh pair for tid %d's child task %d - (%d, %d)\n",
@@ -597,7 +599,7 @@ task_t *sched_execve(
 
         /* Increase refcount of all open files */
         memcpy(&tc->openfiles, &tp->openfiles, sizeof(ht_t));
-        for (i = 0; i < HT_ARRAY_SIZE; i++) {
+        for (i = 0; i < tc->openfiles.size; i++) {
             if (tc->openfiles.array[i].key == -1
                 || tc->openfiles.array[i].data == NULL)
             {

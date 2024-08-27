@@ -485,24 +485,39 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
 int64_t k_close(int64_t fh)
 {
     task_t *t = sched_get_current_task();
-    klogd("k_close: close file handle %d\n", fh);
+    cpu_set_errno(0);
 
-    if (fh == STDIN || fh == STDOUT || fh == STDERR) {
-        return 0;
-    }
+    klogd("k_close: close file handle %d\n", fh);
 
     if (t != NULL) {
         lock_lock(&vfs_lock);
         /* Check whether there is file redirection */
         for (size_t i = 0; i < vec_length(&t->dup_list); i++) {
-            file_dup_t dup = vec_at(&t->dup_list, i); 
+            file_dup_t dup = vec_at(&t->dup_list, i);
             if (dup.newfh == fh) {
+                /* Close original file and delete from dup list */
+                if (dup.fh != STDIN && dup.fh != STDOUT && dup.fh != STDERR) {
+                    klogd("k_close: close dup file handle %d\n", dup.fh);
+                    vfs_close(dup.fh);
+                }
                 vec_erase(&t->dup_list, i);
                 break;
-            }   
+            }
+            if (dup.fh == fh) {
+                lock_release(&vfs_lock);
+                /* Do not close if mapping to another file handle */
+                klogd("k_close: do not close dup file handle %d <- %d\n",
+                      fh, dup.newfh);
+                cpu_set_errno(EINVAL);
+                return -1;
+            } 
         }
         lock_release(&vfs_lock);
     }
+
+    if (fh == STDIN || fh == STDOUT || fh == STDERR) {
+        return 0;
+    }    
  
     return vfs_close(fh);
 }
@@ -511,6 +526,8 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
 {
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
+
+    klogd("k_read: read %d from file handle %d\n", count, fh);
 
     if (fh == STDIN) {
         bool found = false;
@@ -532,6 +549,7 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
             lock_release(&vfs_lock);
         }
         if (found) {
+            klogd("k_read: read from handle %d instead of %d\n", oldfh, fh);
             int64_t ret = vfs_read(oldfh, count, buf);
             return ret;
         } else {

@@ -254,7 +254,7 @@ task_t *task_fork(task_t *tp)
 
     /* Increase refcount of all open files */
     memcpy(&tc->openfiles, &tp->openfiles, sizeof(ht_t));
-    for (i = 0; i < HT_ARRAY_SIZE; i++) {
+    for (i = 0; i < tc->openfiles.size; i++) {
         if (tc->openfiles.array[i].key == -1
             || tc->openfiles.array[i].data == NULL)
         {

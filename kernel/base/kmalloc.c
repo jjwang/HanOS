@@ -18,6 +18,7 @@
 
 #include <base/kmalloc.h>
 #include <base/klog.h>
+#include <base/klib.h>
 #include <sys/panic.h>
 #include <mm/mm.h>
 #include <mm/alloc.h>
@@ -30,7 +31,7 @@ void *kmalloc_core(uint64_t size, const char *func, size_t line)
 {
 #if SLAB_ALLOCATOR_USED != 0
     if (size >= ALLOC_MAX_SIZE) {
-        klogw("kmalloc: %s:%d needs %d bytes memory (>= %d)\n",
+        klogd("kmalloc: %s:%d needs %d bytes memory (>= %d)\n",
               func, line, size, ALLOC_MAX_SIZE);
         return kmalloc_chunk(size, func, line);
     }
@@ -76,7 +77,7 @@ void kmfree_core(void *addr, const char *func, size_t line)
 #if SLAB_ALLOCATOR_USED != 0
     size_t *buf = (size_t*)addr;
     if (*(buf - 1) >= ALLOC_MAX_SIZE) {
-        klogw("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
+        klogd("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
               func, line, ALLOC_MAX_SIZE);
         return kmfree_chunk(addr, func, line);
     }
@@ -104,16 +105,21 @@ void kmfree_chunk(void *addr, const char *func, size_t line)
 void *kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
 {
     if (newsize >= ALLOC_MAX_SIZE) {
-        kpanic("kmalloc: cannot realloc %d bytes (>= %d)\n",
-               newsize, ALLOC_MAX_SIZE);
+        klogd("kmalloc: realloc %d bytes (>= %d)\n",
+              newsize, ALLOC_MAX_SIZE);
     }
 
 #if SLAB_ALLOCATOR_USED != 0
     if (!addr)
         return kmalloc_core(newsize, func, line);
 
-    void *buf = realloc(addr, newsize);
-    return buf;
+    size_t *buf = (size_t*)addr;
+    void *newaddr = kmalloc_core(newsize, func, line);
+    if (newaddr != NULL) {
+        memcpy(newaddr, addr, MIN(*(buf - 1), newsize));
+    }
+    kmfree_core(addr, func, line);
+    return newaddr;
 #else
     return kmrealloc_chunk(addr, newsize, func, line);
 #endif
