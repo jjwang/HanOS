@@ -308,10 +308,8 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
 
             uint8_t *buff = (uint8_t*)id->data;
             if (item->entry.size >= 2) {
-                memory_metadata_t *d =
-                    (memory_metadata_t*)((uint8_t*)id->data - PAGE_SIZE);
-                klogd("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...MAGIC 0x%x] with %d bytes\n",
-                      path, id->data, buff[0], buff[1], d->magic, item->entry.size);
+                klogd("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...] with %d bytes\n",
+                      path, id->data, buff[0], buff[1], item->entry.size);
             }
 
             break;
@@ -366,12 +364,10 @@ int64_t ramfs_read(vfs_inode_t *this, size_t offset, size_t len, void *buff)
         memcpy(buff, ((uint8_t*)id->data) + offset, len);
         if (len >= 2) {
             uint8_t *ptr = (uint8_t*)id->data;
-            memory_metadata_t *d =
-                (memory_metadata_t*)((uint8_t*)id->data - PAGE_SIZE);
             task_t *t = sched_get_current_task();
-            klogd("RAMFS: read %d bytes [0x%2x 0x%2x...MAGIC 0x%x] from 0x%x with "
+            klogd("RAMFS: read %d bytes [0x%2x 0x%2x...] from 0x%x with "
                   "offset %d and return %d in task %d\n",
-                  len, ptr[0], ptr[1], d->magic, id->data, offset, retlen,
+                  len, ptr[0], ptr[1], id->data, offset, retlen,
                   (t != NULL) ? t->tid : 0);
         }
     } else {
