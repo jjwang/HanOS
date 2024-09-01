@@ -72,6 +72,36 @@ int64_t k_runcmd(char *cmd)
     }
 }
 
+int64_t k_getentropy(void *buffer, uint64_t length)
+{
+    cpu_set_errno(0);
+
+    if (length > 256 || buffer == NULL) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
+    }
+
+    uint8_t* ret_buf = (uint8_t*)buffer;
+    while (length >= 8) {
+        uint64_t value = (uint64_t)((rand(1337, 0, 0x8FFFFFFF) % 65535)
+                        * (hpet_get_nanos() % 65535));
+        *((uint64_t*)(ret_buf)) = value;
+        ret_buf += 8;
+        length -= 8;
+    }
+
+    if (length > 0) {
+        uint64_t value = (uint64_t)((rand(1337, 0, 0x8FFFFFFF) % 65535)
+                        * (hpet_get_nanos() % 65535));
+        memcpy(ret_buf, &value, length);
+    }
+    return 0;
+ err_exit:
+    klogd("k_getentropy: return error with buffer 0x%x and length %d\n",
+          buffer, length);
+    return -1;
+}
+
 /*
  * Need to use prot parameter - PROT_READ (0x01), PROT_WRITE (0x02),
  * PROT_EXEC (0x04).
@@ -1364,6 +1394,7 @@ syscall_ptr_t syscall_funcs[] = {
     (syscall_ptr_t)k_not_implemented,
     [SYSCALL_CHMOD]         = (syscall_ptr_t)k_chmod,           /* 39 */
     [SYSCALL_RUNCMD]        = (syscall_ptr_t)k_runcmd,
+    [SYSCALL_GETENTROPY]    = (syscall_ptr_t)k_getentropy,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented
 };
