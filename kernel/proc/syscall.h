@@ -39,6 +39,7 @@
 #define SYSCALL_UNLINK      36
 #define SYSCALL_CHMOD       39
 #define SYSCALL_RUNCMD      40
+#define SYSCALL_GETENTROPY  41
 
 /* Standard I/O devices */
 #define STDIN               0
