@@ -39,8 +39,3 @@
 
 `qemu-system-x86_64 -enable-kvm -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
 
-## 屏幕快照
-- 2023年10月17日：用户空间shell演示
-
-![Cool~~~](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0005-shell.gif)
-
