@@ -38,9 +38,3 @@
 
 - Execute "doxygen Doxygen" in root folder and "make" in "latex" folder to generate manual.pdf. 
 
-## Screenshots
-- Oct 17, 2023: Userspace Shell Demo
-
-![Cool~~~](https://raw.githubusercontent.com/jjwang/HanOS/main/screenshot/0005-shell.gif)
-
-
