@@ -125,7 +125,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
                     for (size_t k = 0; k < vec_length(&tp->child_list); k++) {
                         task_id_t tid_child = vec_at(&tp->child_list, k); 
                         if (tid_child == t->tid) {
-                            vec_erase(&tp->child_list, k)
+                            vec_erase(&tp->child_list, k);
                             if (vec_length(&tp->child_list) == 0
                                 && tp->status == TASK_DYING)
                             {
@@ -203,7 +203,6 @@ void do_context_switch(void* stack, int64_t mode)
             }
             vec_push_back(&tasks_active, curr);
         }
-
     }
     tasks_running[cpu_id] = NULL;
     curr = NULL;
@@ -598,15 +597,16 @@ task_t *sched_execve(
         }
 
         /* Increase refcount of all open files */
-        memcpy(&tc->openfiles, &tp->openfiles, sizeof(ht_t));
-        for (i = 0; i < tc->openfiles.size; i++) {
-            if (tc->openfiles.array[i].key == -1
-                || tc->openfiles.array[i].data == NULL)
+        ht_init(&tc->openfiles, tp->openfiles.size);
+        for (i = 0; i < tp->openfiles.size; i++) {
+            if (tp->openfiles.array[i].key == -1
+                || tp->openfiles.array[i].data == NULL)
             {
                 continue;
             }
             vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
-            memcpy(nd, tc->openfiles.array[i].data, sizeof(vfs_node_desc_t));
+            memcpy(nd, tp->openfiles.array[i].data, sizeof(vfs_node_desc_t));
+            tc->openfiles.array[i] = tp->openfiles.array[i];
             tc->openfiles.array[i].data = nd; 
             nd->inode->refcount++;
             klogd("SCHED: copy fd %d from tid %d to tid %d\n",

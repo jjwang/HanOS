@@ -11,7 +11,7 @@ static int64_t ht_hashcode(ht_t *ht, int64_t key)
     return key % ht->size;
 }
 
-void ht_init_core(ht_t *ht, uint64_t size)
+void ht_init(ht_t *ht, uint64_t size)
 {
     ht->size = size;
     ht->array = (ht_item_t*)kmalloc(ht->size * sizeof(ht_item_t));
@@ -19,11 +19,6 @@ void ht_init_core(ht_t *ht, uint64_t size)
         ht->array[i].key = -1;
         ht->array[i].data = NULL;
     }
-}
-
-void ht_init(ht_t *ht)
-{
-    ht_init_core(ht, HT_DEFAULT_ARRAY_SIZE);
 }
 
 void *ht_search(ht_t *ht, int64_t key)
@@ -69,6 +64,8 @@ bool ht_insert_core(ht_t *ht, int64_t key, void *data, bool allow_realloc)
         /* At most loop the table twice */
         if (++loop_count >= ht->size * 2) {
             /* TODO: we should increase the hash table size here */
+            if (allow_realloc) {
+            }
             kpanic("hash: current size %d is not enough\n", ht->size);
             return false;
         }
