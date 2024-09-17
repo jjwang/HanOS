@@ -41,6 +41,7 @@
 #include <sys/smp.h>
 #include <mm/mm.h>
 #include <fs/vfs.h>
+#include <proc/signal.h>
 
 #define DEFAULT_KMODE_CODE      0b00101000 /* 0x28 */
 #define DEFAULT_KMODE_DATA      0b00110000 /* 0x30 */
@@ -203,7 +204,7 @@ typedef struct {
     vfs_handle_t    newfh;
 } file_dup_t;
  
-typedef struct {
+typedef struct _task_t {
     void            *tstack_top;
     void            *tstack_limit;
 
@@ -237,6 +238,12 @@ typedef struct {
 
     char            cwd[VFS_MAX_PATH_LEN];
     char            name[64];
+
+    struct {
+        lock_t      lock;
+        sigaction_t actions[NSIG];
+        sigset_t    mask;
+    } signals;
 } task_t;
 
 task_t* task_make(

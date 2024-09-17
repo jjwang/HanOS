@@ -17,6 +17,7 @@
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <proc/eventbus.h>
+#include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
 #include <fs/ttyfs.h>
@@ -55,21 +56,82 @@ int64_t k_debug_log(char *message)
         *s = '\0';
     }
 
-    klogd("debug: %s[0x%x]\n", message, message);
+    klogd("debug: %s [message buffer: 0x%x]\n", message, message);
 
     return strlen(message);
 }
 
+int64_t k_sigprocmask(int64_t how, sigset_t *set, sigset_t *oldset)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }   
+
+    cpu_set_errno(0);
+
+    sigset_t new, old;
+
+    if (set != NULL) {
+        if (how != SIG_BLOCK && how != SIG_UNBLOCK && how != SIG_SETMASK) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        memcpy(&new, set, sizeof(sigset_t));
+    }
+    
+    klogi("k_sigprocmask: how %d from old 0x%x to new 0x%x\n",
+          how, oldset, set);
+
+    signal_changemask(t, how, set ? &new : NULL, oldset ? &old : NULL);
+
+    if (oldset != NULL) memcpy(oldset, &old, sizeof(sigset_t));
+
+    return 0;
+}
+
+int64_t k_sigaction(int64_t signal, sigaction_t *new, sigaction_t *old)
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    if (signal >= NSIG || signal < 0 || signal == SIGKILL || signal == SIGSTOP
+        || t == NULL)
+    {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    sigaction_t newtmp, oldtmp;
+    if (new != NULL) {
+        memcpy(&newtmp, new, sizeof(sigaction_t));
+
+        if ((newtmp.flags & SA_RESTORER) == 0) {
+            /* How to handle? cpu_set_errno(EINVAL) */
+        }
+    }
+
+    klogd("k_sigaction: signal %d from old 0x%x to new 0x%x\n",
+          signal, old, new);
+
+    signal_action(t, signal, new ? &newtmp : NULL, old ? &oldtmp : NULL);
+
+    if (old != NULL) memcpy(old, &oldtmp, sizeof(sigaction_t));
+
+    return 0;
+}
+
 int64_t k_runcmd(char *cmd)
 {
-    if (strcmp(cmd, "lspci") == 0) {
+    if (strcmp(cmd, "lspci") == 0) { 
         pci_list();
         gfx_start();
         return 0;
     } else {
         cpu_set_errno(EINVAL);
         return -1;
-    }
+    }    
 }
 
 int64_t k_getentropy(void *buffer, uint64_t length)
@@ -528,7 +590,12 @@ int64_t k_close(int64_t fh)
                 /* Close original file and delete from dup list */
                 if (dup.fh != STDIN && dup.fh != STDOUT && dup.fh != STDERR) {
                     klogd("k_close: close dup file handle %d\n", dup.fh);
+                    /* BUGFIX: we must release vfs_lock here before calling
+                     * vfs_close() to avoid dead lock.
+                     */
+                    lock_release(&vfs_lock);
                     vfs_close(dup.fh);
+                    lock_lock(&vfs_lock);
                 }
                 vec_erase(&t->dup_list, i);
                 break;
@@ -579,8 +646,9 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
             lock_release(&vfs_lock);
         }
         if (found) {
-            klogd("k_read: read from handle %d instead of %d\n", oldfh, fh);
             int64_t ret = vfs_read(oldfh, count, buf);
+            klogd("k_read: read from handle %d instead of %d"
+                  " and return %d bytes\n", oldfh, fh, ret);
             return ret;
         } else {
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
@@ -1018,7 +1086,7 @@ int64_t k_pipe(int32_t *fh, uint32_t flags)
     fh[0] = vfs_open(path, VFS_MODE_READ);
     fh[1] = vfs_open(path, VFS_MODE_WRITE);
 
-    klogd("k_pipe: return reading port %d and writing port %d\n", fh[0], fh[1]);
+    klogi("k_pipe: return reading port %d and writing port %d\n", fh[0], fh[1]);
 
     return 0;
 
@@ -1098,21 +1166,20 @@ int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
             task_id_t tid_child = vec_at(&(t->child_list), i);
             task_status_t status_child = sched_get_task_status(tid_child);
             if (status_child == TASK_DEAD) {
-                klogw("     tid %d : child tid %d DEAD\n", t->tid, tid_child);
-                return tid_child;
+                klogw("    tid %d : child tid %d DEAD\n", t->tid, tid_child);
             } else if (status_child != TASK_UNKNOWN) {
                 all_dead = false;
-                klogv("     tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
+                klogv("    tid %d : child tid %d ACTIVE\n", t->tid, tid_child);
             }
         }
-  
+
+        sched_sleep(100);
+
         if (!all_dead) {
-            sched_sleep(100);
             klogv("k_waitpid: tid %d waiting pid 0x%x returns with "
                   "active children\n", t->tid, pid);
             return 0;
         } else {
-            sched_sleep(100);
             klogd("k_waitpid: tid %d waiting pid 0x%x returns without "
                   "children\n", t->tid, pid);
             cpu_set_errno(ECHILD);
@@ -1395,6 +1462,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_CHMOD]         = (syscall_ptr_t)k_chmod,           /* 39 */
     [SYSCALL_RUNCMD]        = (syscall_ptr_t)k_runcmd,
     [SYSCALL_GETENTROPY]    = (syscall_ptr_t)k_getentropy,
+    [SYSCALL_SIGPROCMASK]   = (syscall_ptr_t)k_sigprocmask,     /* 42 */
+    [SYSCALL_SIGACTION]     = (syscall_ptr_t)k_sigaction,
     (syscall_ptr_t)k_not_implemented,
     (syscall_ptr_t)k_not_implemented
 };

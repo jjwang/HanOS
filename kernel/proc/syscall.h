@@ -40,6 +40,8 @@
 #define SYSCALL_CHMOD       39
 #define SYSCALL_RUNCMD      40
 #define SYSCALL_GETENTROPY  41
+#define SYSCALL_SIGPROCMASK 42
+#define SYSCALL_SIGACTION   43
 
 /* Standard I/O devices */
 #define STDIN               0

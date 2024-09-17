@@ -285,16 +285,19 @@ int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
      * 2. Return directly if remaining length is zero except tty device
      */
     if (fd->seek_pos + len > inode->size
-        && strcmp(fd->inode->fs->name, "ttyfs") != 0)
+        && strcmp(fd->inode->fs->name, "ttyfs") != 0
+        && strcmp(fd->inode->fs->name, "pipefs") != 0)
     {
         len = inode->size - fd->seek_pos;
         if (len == 0)
             goto end;
     }
 
-    int64_t status = fd->inode->fs->read(fd->inode, fd->seek_pos, len, buff);
-    if (status == -1)
+    int64_t ret = fd->inode->fs->read(fd->inode, fd->seek_pos, len, buff);
+    if (ret < 0)    /* Error occurs */
         len = 0;
+    else            /* Actual reading length */ 
+        len = ret;
 
     fd->seek_pos += len;
 end:
@@ -550,15 +553,17 @@ fail:
 
 int64_t vfs_close(vfs_handle_t handle)
 {
-    klogv("VFS: close file handle %d\n", handle);
-
     lock_lock(&vfs_lock);
 
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
-    if (!fd)
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    if (!nd)
         goto fail;
 
-    fd->inode->refcount--;
+    if (strcmp(nd->path, "/dev/tty") != 0) {
+        klogv("VFS: close file handle %d\n", handle);
+    }
+
+    nd->inode->refcount--;
 
     task_t *t = sched_get_current_task();
     if (t != NULL) {
@@ -568,14 +573,14 @@ int64_t vfs_close(vfs_handle_t handle)
     }
 
     /* Remove this file if needed */
-    if (fd->inode->refcount == 0 && fd->tnode->st.st_nlink == 0) {
-        if (fd->inode->fs->rmnode != NULL) {
-            klogd("VFS: close \"%s\" and remove tnode\n", fd->path);
-            fd->inode->fs->rmnode(fd->tnode);
+    if (nd->inode->refcount == 0 && nd->tnode->st.st_nlink == 0) {
+        if (nd->inode->fs->rmnode != NULL) {
+            klogd("VFS: close \"%s\" and remove tnode\n", nd->path);
+            nd->inode->fs->rmnode(nd->tnode);
         }
     }
 
-    kmfree(fd);
+    kmfree(nd);
 
     lock_release(&vfs_lock);
     return 0;
@@ -586,18 +591,18 @@ fail:
 
 int64_t vfs_refresh(vfs_handle_t handle)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
-    if (!fd)
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    if (!nd)
         return -1; 
 
     lock_lock(&vfs_lock);
-    fd->inode->fs->refresh(fd->inode);
+    nd->inode->fs->refresh(nd->inode);
     for (size_t i = 0; ; i++) {
         vfs_dirent_t de;
-        if (fd->inode->fs->getdent(fd->inode, i, &de)) break;
+        if (nd->inode->fs->getdent(nd->inode, i, &de)) break;
 
         char path[VFS_MAX_PATH_LEN] = {0};
-        strcpy(path, fd->path);
+        strcpy(path, nd->path);
         strcat(path, "/");
         strcat(path, de.name);
         vfs_tnode_t* tn = vfs_path_to_node(path, CREATE, de.type);
@@ -612,14 +617,14 @@ int64_t vfs_refresh(vfs_handle_t handle)
 /* Get next directory entry */
 int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
     int64_t status;
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
-    if (!fd)
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    if (!nd)
         return -1;
 
     lock_lock(&vfs_lock);
 
     /* Can only traverse folders */
-    if (!IS_TRAVERSABLE(fd->inode)) {
+    if (!IS_TRAVERSABLE(nd->inode)) {
         kloge("Node not traversable\n");
         status = -1;
         goto done;
@@ -628,20 +633,20 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
     /* Need to make sure that we alreay load all children here */
 
     /* We've reached the end */
-    if (fd->seek_pos >= fd->inode->child.len) {
+    if (nd->seek_pos >= nd->inode->child.len) {
         status = 0;
         goto done;
     }
 
     /* Initialize the dirent */
-    vfs_tnode_t* entry = vec_at(&(fd->inode->child), fd->seek_pos);
+    vfs_tnode_t* entry = vec_at(&(nd->inode->child), nd->seek_pos);
     dirent->type = entry->inode->type;
     memcpy(dirent->name, entry->name, sizeof(entry->name));
     memcpy(&dirent->tm, &entry->inode->tm, sizeof(tm_t));
 
     /* We're done here, advance the offset */
     status = 1;
-    fd->seek_pos++;
+    nd->seek_pos++;
 
 done:
     lock_release(&vfs_lock);

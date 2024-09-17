@@ -67,18 +67,18 @@ int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
 
     if (id->size == 0 || len == 0) return 0;
 
-    klogd("PIPEFS: read %d bytes to buffer 0x%x\n", len, buff);
-
-    lock_lock(&pipe_lock);
+    klogd("PIPEFS: read %d bytes from 0x%x (PIPE) to 0x%x with %d bytes\n",
+          len, id->buff, buff, id->size);
 
     /* We do not use offset here */
     (void)offset;
 
-    /* Below codes depend on the conduction checking at beginning */
+    lock_lock(&pipe_lock);
+
     rlen = id->size;
     if (rlen > len) rlen = len;
     memcpy(buff, id->buff, rlen);
-    
+        
     if (id->size - rlen > 0) {
         char val = ((char*)id->buff)[id->size - 1];
         memcpy(id->buff, &(id->buff[rlen]), id->size - rlen);
@@ -89,8 +89,10 @@ int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     }
     id->size -= rlen;
 
-    /* Update start and size of input buffer */
     lock_release(&pipe_lock);
+
+    klogd("PIPEFS: read %d bytes to 0x%x and return %d bytes\n",
+          len, buff, rlen);
 
     return rlen;
 }
@@ -101,7 +103,8 @@ int64_t pipefs_write(vfs_inode_t* this, size_t offset, size_t len,
     pipefs_ident_t *id = this->ident;
     size_t wlen = 0;
 
-    klogd("PIPEFS: write %d bytes to buffer 0x%x\n", len, buff);
+    klogd("PIPEFS: write %d bytes from %x (PIPE) to 0x%x with %d bytes\n",
+          len, id->buff, buff, id->size);
 
     lock_lock(&pipe_lock);
 
