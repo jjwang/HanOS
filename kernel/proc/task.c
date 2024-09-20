@@ -127,7 +127,7 @@ task_t *task_make(
     strcpy(ntask->cwd, "/");
     strncpy(ntask->name, name, sizeof(ntask->name));
 
-    ht_init(&ntask->openfiles, HT_DEFAULT_ARRAY_SIZE);
+    ht_init(&ntask->open_files_table, HT_DEFAULT_ARRAY_SIZE);
 
     klogi("TASK: Create tid %d with name \"%s\" (task 0x%x)\n",
           ntask->tid, name, ntask);
@@ -253,20 +253,20 @@ task_t *task_fork(task_t *tp)
     }
 
     /* Increase refcount of all open files */
-    ht_init(&tc->openfiles, tp->openfiles.size);
-    for (i = 0; i < tp->openfiles.size; i++) {
-        if (tp->openfiles.array[i].key == -1
-            || tp->openfiles.array[i].data == NULL)
+    ht_init(&tc->open_files_table, tp->open_files_table.size);
+    for (i = 0; i < tp->open_files_table.size; i++) {
+        if (tp->open_files_table.array[i].key == -1
+            || tp->open_files_table.array[i].data == NULL)
         {
             continue;
         }
         vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
-        memcpy(nd, tp->openfiles.array[i].data, sizeof(vfs_node_desc_t));
-        tc->openfiles.array[i].key = tp->openfiles.array[i].key;
-        tc->openfiles.array[i].data = nd; 
+        memcpy(nd, tp->open_files_table.array[i].data, sizeof(vfs_node_desc_t));
+        tc->open_files_table.array[i].key = tp->open_files_table.array[i].key;
+        tc->open_files_table.array[i].data = nd; 
         nd->inode->refcount++;
         klogd("TASK: copy fd %d from tid %d to tid %d\n",
-              tc->openfiles.array[i].key, tp->tid, tc->tid);
+              tc->open_files_table.array[i].key, tp->tid, tc->tid);
     }
 
     task_debug(tc, false);
