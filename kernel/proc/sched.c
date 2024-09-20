@@ -597,20 +597,20 @@ task_t *sched_execve(
         }
 
         /* Increase refcount of all open files */
-        ht_init(&tc->openfiles, tp->openfiles.size);
-        for (i = 0; i < tp->openfiles.size; i++) {
-            if (tp->openfiles.array[i].key == -1
-                || tp->openfiles.array[i].data == NULL)
+        ht_init(&tc->open_files_table, tp->open_files_table.size);
+        for (i = 0; i < tp->open_files_table.size; i++) {
+            if (tp->open_files_table.array[i].key == -1
+                || tp->open_files_table.array[i].data == NULL)
             {
                 continue;
             }
             vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
-            memcpy(nd, tp->openfiles.array[i].data, sizeof(vfs_node_desc_t));
-            tc->openfiles.array[i] = tp->openfiles.array[i];
-            tc->openfiles.array[i].data = nd; 
+            memcpy(nd, tp->open_files_table.array[i].data, sizeof(vfs_node_desc_t));
+            tc->open_files_table.array[i] = tp->open_files_table.array[i];
+            tc->open_files_table.array[i].data = nd; 
             nd->inode->refcount++;
             klogd("SCHED: copy fd %d from tid %d to tid %d\n",
-                  tc->openfiles.array[i].key, tp->tid, tc->tid);
+                  tc->open_files_table.array[i].key, tp->tid, tc->tid);
         } 
     }
 
