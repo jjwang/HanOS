@@ -529,7 +529,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     /* Add to current task */
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        ht_insert(&(t->openfiles), fh, nd);
+        ht_insert(&(t->open_files_table), fh, nd);
     } else {
         kloge("VFS: cannot insert \"%s\" because of invalid task\n", path);
     }
@@ -567,7 +567,7 @@ int64_t vfs_close(vfs_handle_t handle)
 
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        ht_delete(&(t->openfiles), handle);
+        ht_delete(&(t->open_files_table), handle);
     } else {
         kloge("VFS: cannot remove file %d because of invalid task\n", handle);
     }

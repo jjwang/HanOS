@@ -76,7 +76,7 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->openfiles), handle);
+        vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->open_files_table), handle);
         if (nd != NULL) return nd;
         klogw("VFS: cannot locate %d (0x%x) in file list of task %d, "
               "maybe we need to increase hash table's size.\n",
