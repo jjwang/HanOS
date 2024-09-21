@@ -1,11 +1,17 @@
 /**-----------------------------------------------------------------------------
 
  @file    lock.h
- @brief   Definition of lock related data structures and functions
+ @brief   Definition of spin lock related data structures and functions
  @details
  @verbatim
 
-  e.g., lock new, lock and release.
+  Busy waiting is a technique in which a process repeatedly checks to see if a
+  condition is true (from Wikipedia).
+
+  Spinlock uses the above technique for the purpose of checking if a lock is
+  available.
+  
+  Three functions are implemented here: init (new), acquire (lock) and release.
 
  @endverbatim
 
@@ -17,7 +23,8 @@
 #include <stdint.h>
 
 typedef volatile struct {
-    int lock;
+    uint32_t lock;          /* The value is zero if-and-only-if the lock is
+                             * in the unlocked stated */
     uint64_t rflags;
 } lock_t;
 
@@ -27,5 +34,4 @@ typedef volatile struct {
 
 void lock_lock_impl(lock_t *s, const char *fn, const int ln);
 void lock_release_impl(lock_t *s, const char *fn, const int ln);
-
 
