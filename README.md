@@ -2,7 +2,7 @@
 
 [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) | [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
-![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
+![](https://img.shields.io/github/license/jjwang/HanOS) ![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
 
 ## Design as below
 
