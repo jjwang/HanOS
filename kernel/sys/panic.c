@@ -25,7 +25,7 @@
 
 static int symbols_get_index(uint64_t addr)
 {
-    for (int i = 0; _kernel_symtab[i].addr < UINT64_MAX; i++)
+    for (uint64_t i = 0; _kernel_symtab[i].addr < UINT64_MAX; i++)
         if (_kernel_symtab[i].addr < addr && _kernel_symtab[i + 1].addr >= addr)
             return i;
 
@@ -40,7 +40,7 @@ void dump_backtrace()
     klog_lock();
 
     klogu("\nStacktrace:\n");
-    for (size_t i = 0; ; i++) {
+    for (uint64_t i = 0; ; i++) {
         uint64_t func_addr = *(rbp_val + 1);
         rbp_val = (uint64_t*)*rbp_val;
         if (func_addr == (uint64_t)NULL || rbp_val == NULL) 

@@ -34,11 +34,14 @@ bool bmp_load_from_file(image_t *image, char *fn)
         return false;
     }
 
-    size_t bmp_size = vfs_tell(fh);
+    uint64_t bmp_size = vfs_tell(fh);
     uint8_t *bmp_buff = kmalloc(bmp_size);
 
     if (bmp_buff != NULL) {
         vfs_read(fh, bmp_size, bmp_buff);
+    } else {
+        kloge("bmp: cannot malloc %d bytes\n", bmp_size);
+        return false;
     }
 
     vfs_close(fh);

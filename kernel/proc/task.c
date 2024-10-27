@@ -199,11 +199,11 @@ task_t *task_fork(task_t *tp)
     tc->isforked = true;
     tc->addrspace = create_addrspace();
 
-    size_t len = vec_length(&(tp->mmap_list));
+    uint64_t len = vec_length(&(tp->mmap_list));
     klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
           len, tp->tid, curr_tid);
 
-    size_t i;
+    uint64_t i;
     for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
         uint64_t ptr = VIRT_TO_PHYS(kmalloc_chunk(
@@ -300,8 +300,8 @@ void task_free(task_t *t)
         kpanic("Task: cannot free kernel task %d\n", t->tid);
     }
 
-    size_t mmap_num = vec_length(&t->mmap_list);
-    for (size_t i = 0; i < mmap_num; i++) {
+    uint64_t mmap_num = vec_length(&t->mmap_list);
+    for (uint64_t i = 0; i < mmap_num; i++) {
         mem_map_t m = vec_at(&t->mmap_list, i); 
         vmm_unmap(t->addrspace, m.vaddr, m.np);
         kmfree_chunk((void*)PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
@@ -315,8 +315,8 @@ void task_free(task_t *t)
 
     kmfree_chunk((void*)t->kstack_limit, __func__, __LINE__);
 
-    size_t mem_num = vec_length(&t->addrspace->mem_list);
-    for (size_t i = 0; i < mem_num; i++) {
+    uint64_t mem_num = vec_length(&t->addrspace->mem_list);
+    for (uint64_t i = 0; i < mem_num; i++) {
         /*
          * Maybe it was already freed in unmap(), but it is also
          * OK freed here because pmm_free will not crash.

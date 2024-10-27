@@ -477,7 +477,7 @@ void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint
 
         /* Transfer the data! */
         uint16_t* od = (uint16_t*)source;
-        for (size_t idx = 0; idx < 256; idx++) {
+        for (uint64_t idx = 0; idx < 256; idx++) {
             port_outw(bus + ATA_REG_DATA, od[idx]);
         }
         source += 512;

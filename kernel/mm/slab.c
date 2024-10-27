@@ -276,7 +276,7 @@ void slab_free(scache_t *cache, void *addr)
 }
 
 scache_t *slab_newcache(
-    size_t size, size_t alignment,
+    uint64_t size, uint64_t alignment,
     void (*ctor)(scache_t *, void *),
     void (*dtor)(scache_t *, void *))
 {
@@ -294,7 +294,7 @@ scache_t *slab_newcache(
 
     cache->size = size;
     cache->alignment = alignment;
-    size_t freeptrsize = size < SLAB_INDIRECT_CUTOFF ? sizeof(void **) : 0;
+    uint64_t freeptrsize = size < SLAB_INDIRECT_CUTOFF ? sizeof(void **) : 0;
     cache->truesize = ROUND_UP(size + freeptrsize, alignment);
     cache->ctor = ctor;
     cache->dtor = dtor;
@@ -312,10 +312,10 @@ scache_t *slab_newcache(
     return cache;
 }
 
-static size_t purge(scache_t *cache, size_t maxcount)
+static uint64_t purge(scache_t *cache, uint64_t maxcount)
 {
     slab_t *slab = cache->empty;
-    for (size_t done = 0; done < maxcount; ++done) {
+    for (uint64_t done = 0; done < maxcount; ++done) {
         if (slab == NULL)
             return done;
 
@@ -344,7 +344,7 @@ void slab_freecache(scache_t *cache) {
     ASSERT(cache->partial == NULL);
     ASSERT(cache->full == NULL);
 
-    purge(cache, (size_t)-1);
+    purge(cache, (uint64_t)-1);
 
     slab_free(&selfcache, cache);
 

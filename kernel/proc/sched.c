@@ -57,18 +57,18 @@ void sched_debug(bool showlog)
 {
     lock_lock(&sched_lock);
 
-    size_t task_num = vec_length(&tasks_active);
+    uint64_t task_num = vec_length(&tasks_active);
 
     if (showlog)
         klogd("SCHED: Totally %d active tasks\n", task_num);
 
-    for (size_t i = 0; i < task_num; i++) {
+    for (uint64_t i = 0; i < task_num; i++) {
         task_t *t  = vec_at(&tasks_active, i);
         if (t->tid < 1)
             kpanic("SCHED: task list corrupted (%d 0x%x)\n", showlog, t);
     }
 
-    for (size_t k = 0; k < CPU_MAX; k++) {
+    for (uint64_t k = 0; k < CPU_MAX; k++) {
         if (tasks_running[k] != NULL && tasks_running[k] != tasks_idle[k]) {
             if (showlog) {
                 klogd("SCHED: CPU %d has running task "
@@ -105,8 +105,8 @@ _Noreturn void task_idle_proc(task_id_t tid)
 
         /* Step 1.1: Find a dead task */
         lock_lock(&sched_lock);
-        size_t task_num = vec_length(&tasks_active);
-        size_t i;
+        uint64_t task_num = vec_length(&tasks_active);
+        uint64_t i;
         if (task_num > 0) {
             for (i = 0; i < task_num; i++) {
                 t = vec_at(&tasks_active, i);
@@ -122,7 +122,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
             for (i = 0; i < task_num; i++) {
                 task_t *tp = vec_at(&tasks_active, i); 
                 if (t->ptid == tp->tid) {
-                    for (size_t k = 0; k < vec_length(&tp->child_list); k++) {
+                    for (uint64_t k = 0; k < vec_length(&tp->child_list); k++) {
                         task_id_t tid_child = vec_at(&tp->child_list, k); 
                         if (tid_child == t->tid) {
                             vec_erase(&tp->child_list, k);
@@ -352,7 +352,7 @@ static task_status_t sched_get_task_status_impl(task_id_t tid)
     task_status_t status = TASK_UNKNOWN;
     bool has_child = false; 
 
-    size_t i;
+    uint64_t i;
     for (i = 0; i < vec_length(&tasks_active); i++) {
         task_t *t = vec_at(&tasks_active, i); 
         if (t) {
@@ -428,9 +428,9 @@ void sched_exit(int64_t status)
         if (curr->tid < 1) {
             kpanic("SCHED: %s meets corrupted tid\n", __func__);
         }
-        size_t len = vec_length(&(curr->child_list));
+        uint64_t len = vec_length(&(curr->child_list));
         bool all_children_dead = true;
-        for (size_t i = 0; i < len; i++) {
+        for (uint64_t i = 0; i < len; i++) {
             task_id_t tid_child = vec_at(&(curr->child_list), i);
             task_status_t status_child = sched_get_task_status_impl(tid_child);
             if (status_child != TASK_DEAD) {
@@ -453,7 +453,7 @@ bool sched_resume_event(event_t event)
     bool ret = false;
 
     lock_lock(&sched_lock);
-    for (size_t i = 0; i < vec_length(&tasks_active); i++) {
+    for (uint64_t i = 0; i < vec_length(&tasks_active); i++) {
         task_t *t = vec_at(&tasks_active, i);
         if (t) {
             if (t->status == TASK_SLEEPING
@@ -630,10 +630,10 @@ task_t *sched_execve(
     if (cwd != NULL) strcpy(tc->cwd, cwd);
 
     uint8_t *sa = (uint8_t*)tc->tstack_top;
-    size_t nenv = 0, nargs = 0;
+    uint64_t nenv = 0, nargs = 0;
 
     if (argv != NULL && envp != NULL) {
-        size_t i = 0;
+        uint64_t i = 0;
         const char *e;
         for (i = 0; ; i++) {
             e = envp[i];
@@ -693,7 +693,7 @@ task_t *sched_execve(
 
     if (argv != NULL && envp != NULL) {
         stack -= nenv;
-        for (size_t i = 0; i < nenv; i++) {
+        for (uint64_t i = 0; i < nenv; i++) {
             sa -= strlen(envp[i]) + 1;
             stack[i] = (uint64_t)sa;
         }
@@ -704,7 +704,7 @@ task_t *sched_execve(
 
     if (argv != NULL && envp != NULL) {
         stack -= nargs;
-        for (size_t i = 0; i < nargs; i++) {
+        for (uint64_t i = 0; i < nargs; i++) {
             sa -= strlen(argv[i]) + 1;
             stack[i] = (uint64_t)sa;
         }

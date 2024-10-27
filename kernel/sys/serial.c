@@ -39,8 +39,8 @@ void serial_write(char a)
 
 void serial_puts(char *s)
 {
-    size_t len = strlen(s);
-    for (size_t i = 0; i < len; i++) {
+    uint64_t len = strlen(s);
+    for (uint64_t i = 0; i < len; i++) {
         serial_write(s[i]);
     }
 }

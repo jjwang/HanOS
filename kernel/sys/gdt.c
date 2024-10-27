@@ -29,7 +29,7 @@
 #include <sys/smp.h>
 
 static gdt_table_t gdt_list[CPU_MAX] = {0};
-static size_t gdt_num = 0;
+static uint64_t gdt_num = 0;
 
 static void gdt_make_entry(
     gdt_entry_t* gate,
