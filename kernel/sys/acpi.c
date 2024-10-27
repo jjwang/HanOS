@@ -31,7 +31,7 @@ acpi_sdt_t* acpi_get_sdt(const char* sign)
     uint64_t len = (sdt->hdr.length
             - sizeof(acpi_sdt_hdr_t)) / (use_xsdt ? 8 : 4);
 
-    for (size_t i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++) {
         acpi_sdt_t* table = (acpi_sdt_t*)PHYS_TO_VIRT(
                    (use_xsdt ? ((uint64_t*)sdt->data)[i] : ((uint32_t*)sdt->data)[i]));
         if (memcmp(table->hdr.sign, sign, strlen(sign))) {

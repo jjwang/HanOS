@@ -157,7 +157,7 @@ typedef struct {
     vfs_node_type_t type;
     tm_t tm;
     char name[VFS_MAX_NAME_LEN];
-    size_t size;
+    uint64_t size;
 } vfs_dirent_t;
 
 /* Details about FS format */
@@ -170,11 +170,11 @@ typedef struct vfs_fsinfo_t {
     vfs_tnode_t* (*open)(vfs_inode_t *this, const char *path);
     int64_t (*mknode)(vfs_tnode_t *this);
     int64_t (*rmnode)(vfs_tnode_t *this);
-    int64_t (*read)(vfs_inode_t *this, size_t offset, size_t len, void *buff);
-    int64_t (*write)(vfs_inode_t *this, size_t offset, size_t len, const void *buff);
+    int64_t (*read)(vfs_inode_t *this, uint64_t offset, uint64_t len, void *buff);
+    int64_t (*write)(vfs_inode_t *this, uint64_t offset, uint64_t len, const void *buff);
     int64_t (*sync)(vfs_inode_t *this);
     int64_t (*refresh)(vfs_inode_t *this);
-    int64_t (*getdent)(vfs_inode_t *this, size_t pos, vfs_dirent_t *dirent);
+    int64_t (*getdent)(vfs_inode_t *this, uint64_t pos, vfs_dirent_t *dirent);
     int64_t (*ioctl)(vfs_inode_t *this, int64_t request, int64_t arg);
 } vfs_fsinfo_t;
 
@@ -188,7 +188,7 @@ struct vfs_tnode_t {
 struct vfs_inode_t {
     vfs_node_type_t type;           /* File type */
     char link[VFS_MAX_NAME_LEN];    /* Target file if file is symlink */
-    size_t size;                    /* File size */
+    uint64_t size;                  /* File size */
     uint32_t perms;                 /* File permission, modified by chmod */
     uint32_t uid;                   /* User id */
     uint32_t refcount;              /* Reference count, used by symlink */
@@ -204,9 +204,9 @@ typedef struct {
     vfs_tnode_t *tnode;
     vfs_inode_t *inode;
     vfs_openmode_t mode;
-    size_t seek_pos;
+    uint64_t seek_pos;
     vfs_tnode_t *curr_dir_ent;
-    size_t curr_dir_idx;
+    uint64_t curr_dir_idx;
 } vfs_node_desc_t;
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
@@ -219,10 +219,10 @@ void vfs_debug();
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
 int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
-int64_t vfs_tell(vfs_handle_t handle);
-int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence);
-int64_t vfs_read(vfs_handle_t handle, size_t len, void *buff);
-int64_t vfs_write(vfs_handle_t handle, size_t len, const void *buff);
+uint64_t vfs_tell(vfs_handle_t handle);
+int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence);
+int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff);
+int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff);
 int64_t vfs_unlink(char *path);
 int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms);
 int64_t vfs_refresh(vfs_handle_t handle);

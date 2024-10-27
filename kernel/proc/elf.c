@@ -20,7 +20,7 @@ extern lock_t sched_lock;
 
 int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
 {
-    for (size_t i = 0; i < hdr->shnum; i++) {
+    for (uint64_t i = 0; i < hdr->shnum; i++) {
         if (shdr[i].type == SHT_SYMTAB) {
             return i;
         }
@@ -35,7 +35,7 @@ void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
     elf_sym_t *syms = (elf_sym_t*)(src + shdr_sym->offset);
     const char* strings = src + shdr[shdr_sym->link].offset;
     
-    for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+    for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
         if (strcmp(name, strings + syms[i].name) == 0) {
             return dst + syms[i].value;
         }
@@ -49,7 +49,7 @@ int64_t elf_load(
     task_t *task, const char *path_name, uint64_t *entry, auxval_t *aux)
 {
     uint8_t *elf_buff = NULL;
-    size_t elf_len = 0;
+    uint64_t elf_len = 0;
 
     bool has_dynamic_linking = false;
     auxval_t dynamic_aux = {0};
@@ -68,7 +68,7 @@ int64_t elf_load(
         elf_len = vfs_tell(f);
         elf_buff = (uint8_t*)kmalloc_chunk(elf_len, __func__, __LINE__);
         if (elf_buff != NULL) {
-            size_t readlen = vfs_read(f, elf_len, elf_buff);
+            uint64_t readlen = vfs_read(f, elf_len, elf_buff);
             if (debug_info && readlen >= 3) {
                 klogd("ELF(%s): read %d bytes [0x%02x 0x%02x 0x%02x ...] "
                       "from %s(%d)\n", path_name, readlen,
@@ -135,7 +135,7 @@ int64_t elf_load(
 
     vec_push_back(&task->mmap_list, m); 
 
-    for (size_t i = 0; i < hdr.phnum; i++) {
+    for (uint64_t i = 0; i < hdr.phnum; i++) {
         phaddr[i] = (uint64_t)NULL;
 
         if (phdr[i].type == PT_INTERP && phdr[i].filesz > 0
@@ -191,8 +191,8 @@ int64_t elf_load(
             }
         }
 
-        size_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
-        size_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
+        uint64_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
+        uint64_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
         uint64_t addr = VIRT_TO_PHYS(kmalloc_chunk(
             page_count * PAGE_SIZE, __func__, __LINE__));
@@ -202,7 +202,7 @@ int64_t elf_load(
         }
         phaddr[i] = addr;
 
-        size_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+        uint64_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
         if(phdr[i].flags & PF_W) {
             pf |= VMM_FLAG_READWRITE;
         }
@@ -260,7 +260,7 @@ int64_t elf_load(
 
     char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
     if (debug_info) {
-        for (size_t k = 0; k < hdr.shnum; k++) {
+        for (uint64_t k = 0; k < hdr.shnum; k++) {
             klogd("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
                   path_name, k, shdr[k].addr, shdr[k].type,
                   &header_strs[shdr[k].name], shdr[k].offset, shdr[k].size);
@@ -291,7 +291,7 @@ int64_t elf_load(
                   shdr_sym, syms, strings);
         }
 
-        for (size_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+        for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
             if (strcmp("main", strings + syms[i].name) == 0) {
                 klogd("ELF(%s): Found entry function (main) with len %d, "
                       "session idx %d, value 0x%x\n",

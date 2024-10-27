@@ -186,7 +186,7 @@ void gfx_init_mem_manager(gfx_pci_t* pci, gfx_gtt_t* gtt, gfx_mem_manager_t *mgr
     mgr->priv.top        = ((uint64_t)gtt->num_total_entries) << GTT_PAGE_SHIFT;
 
     /* Clear all fence registers (provide linear access to mem to cpu) */
-    for (size_t fence_num = 0; fence_num < FENCE_COUNT; fence_num++) {
+    for (uint64_t fence_num = 0; fence_num < FENCE_COUNT; fence_num++) {
         gfx_outl(pci, FENCE_BASE + sizeof(uint64_t) * fence_num, 0);
     }
 
@@ -235,7 +235,7 @@ bool pci_get_gfx_device(pci_device_t *gfx_dev)
     bool found = false;
 
     /* Find Intel HD graphics device */
-    for (size_t i = 0; i < vec_length(&pci_devices); i++) {
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         dev = vec_at(&pci_devices, i); 
         if ((dev.vendor_id != VENDOR_INTEL) ||
             (dev.device_id != DEVICE_HD5500 && dev.device_id != DEVICE_HD520))

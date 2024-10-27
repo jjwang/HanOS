@@ -52,7 +52,7 @@ vfs_tnode_t vfs_root = {0};
 vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 
 /* New file handle */
-static size_t vfs_next_handle = VFS_MIN_HANDLE; 
+static uint64_t vfs_next_handle = VFS_MIN_HANDLE; 
 
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
@@ -86,7 +86,7 @@ static void dumpnodes_helper(vfs_tnode_t* from, int lvl)
     kprintf(" %d: [%s] -> %x inode (%d refs)\n", lvl, from->name, from->inode, from->inode->refcount);
 
     if (IS_TRAVERSABLE(from->inode))
-        for (size_t i = 0; i < from->inode->child.len; i++)
+        for (uint64_t i = 0; i < from->inode->child.len; i++)
             dumpnodes_helper(vec_at(&(from->inode->child), i), lvl + 1);
 }
 
@@ -104,7 +104,7 @@ void vfs_register_fs(vfs_fsinfo_t* fs)
 
 vfs_fsinfo_t* vfs_get_fs(char* name)
 {
-    for (size_t i = 0; i < vfs_fslist.len; i++)
+    for (uint64_t i = 0; i < vfs_fslist.len; i++)
         if (strncmp(name, vfs_fslist.data[i]->name, sizeof(((vfs_fsinfo_t) { 0 }).name)) == 0)
             return vfs_fslist.data[i];
 
@@ -255,7 +255,7 @@ fail:
 }
 
 /* Get the length of a file */
-int64_t vfs_tell(vfs_handle_t handle)
+uint64_t vfs_tell(vfs_handle_t handle)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
 
@@ -269,7 +269,7 @@ int64_t vfs_tell(vfs_handle_t handle)
 }
 
 /* Read specified number of bytes from a file */
-int64_t vfs_read(vfs_handle_t handle, size_t len, void* buff)
+int64_t vfs_read(vfs_handle_t handle, uint64_t len, void* buff)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
     if (!fd) {
@@ -348,7 +348,7 @@ fail:
 }
 
 /* Write specified number of bytes to file */
-int64_t vfs_write(vfs_handle_t handle, size_t len, const void *buff)
+int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 {
     vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
     if (!nd)
@@ -385,7 +385,7 @@ int64_t vfs_write(vfs_handle_t handle, size_t len, const void *buff)
 }
 
 /* Seek to specified position in file */
-int64_t vfs_seek(vfs_handle_t handle, size_t pos, int64_t whence)
+int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 {
     vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
     if (!fd)
@@ -597,7 +597,7 @@ int64_t vfs_refresh(vfs_handle_t handle)
 
     lock_lock(&vfs_lock);
     nd->inode->fs->refresh(nd->inode);
-    for (size_t i = 0; ; i++) {
+    for (uint64_t i = 0; ; i++) {
         vfs_dirent_t de;
         if (nd->inode->fs->getdent(nd->inode, i, &de)) break;
 

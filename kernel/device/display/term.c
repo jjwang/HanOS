@@ -150,12 +150,12 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
 
             if (mode >= 0)
             {
-                for (size_t y = term_act->cursor_y * FONT_HEIGHT;
+                for (uint64_t y = term_act->cursor_y * FONT_HEIGHT;
                      y < MIN((term_act->cursor_y + 1) * FONT_HEIGHT,
                              term_act->fb.height);
                      y++)
                 {
-                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                    for (uint64_t x = 0; x < term_act->fb.width; x++) {
                         if (!(mode == 0 && x >= term_act->cursor_x * FONT_WIDTH))
                             continue;
                         if (!(mode == 1 && x < term_act->cursor_x * FONT_WIDTH))
@@ -175,8 +175,8 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                 goto err;
             }
             if (term_act->cparams[0] == 0) {
-                for (size_t y = 0; y < term_act->fb.height; y++) {
-                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                for (uint64_t y = 0; y < term_act->fb.height; y++) {
+                    for (uint64_t x = 0; x < term_act->fb.width; x++) {
                         if (y >= term_act->cursor_y * FONT_HEIGHT
                             && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
                         {
@@ -188,8 +188,8 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                     }
                 }
             } else if (term_act->cparams[0] == 1) {
-                for (size_t y = 0; y < term_act->fb.height; y++) {
-                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                for (uint64_t y = 0; y < term_act->fb.height; y++) {
+                    for (uint64_t x = 0; x < term_act->fb.width; x++) {
                         if (y >= term_act->cursor_y * FONT_HEIGHT
                             && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
                         {   
@@ -201,8 +201,8 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                     }   
                 }   
             } else if (term_act->cparams[0] == 2) {
-                for (size_t y = 0; y < term_act->fb.height; y++) {   
-                    for (size_t x = 0; x < term_act->fb.width; x++) {
+                for (uint64_t y = 0; y < term_act->fb.height; y++) {   
+                    for (uint64_t x = 0; x < term_act->fb.width; x++) {
                         fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
                     }   
                 }   
@@ -215,7 +215,7 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                 term_act->bold = false;
             }
 
-            size_t idx = 0;
+            uint64_t idx = 0;
             if (term_act->cparamcount > 0) idx = term_act->cparamcount - 1;
             if (term_act->cparams[term_act->cparamcount - 1] == 0) {
                 term_act->fgcolor = DEFAULT_FGCOLOR;
@@ -310,18 +310,18 @@ void term_scroll(term_info_t* term_act)
         return;
     }
 
-    for (size_t y = 0; y < (term_act->cursor_y - 1) * FONT_HEIGHT; y++) {
-        for (size_t x = 0; x < term_act->fb.width; x++) {
+    for (uint64_t y = 0; y < (term_act->cursor_y - 1) * FONT_HEIGHT; y++) {
+        for (uint64_t x = 0; x < term_act->fb.width; x++) {
             uint32_t c = fb_getpixel(&(term_act->fb), x, y + FONT_HEIGHT);
             fb_putpixel(&(term_act->fb), x, y, c);
         }
     }
 
-    for (size_t y = (term_act->cursor_y - 1) * FONT_HEIGHT;
+    for (uint64_t y = (term_act->cursor_y - 1) * FONT_HEIGHT;
          y < term_act->fb.height;
          y++)
     {
-        for (size_t x = 0; x < term_act->fb.width; x++) {
+        for (uint64_t x = 0; x < term_act->fb.width; x++) {
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
         }
     }
@@ -396,8 +396,8 @@ void term_clear(int mode)
                term_act->fb.width * term_act->fb.height * 4);
     }
 
-    for (size_t y = 0; y < term_act->fb.height; y++)
-        for (size_t x = 0; x < term_act->fb.width; x++)
+    for (uint64_t y = 0; y < term_act->fb.height; y++)
+        for (uint64_t x = 0; x < term_act->fb.width; x++)
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
 
     term_act->cursor_x = 0;
@@ -563,7 +563,7 @@ void term_init(struct limine_framebuffer* s)
     
     term_lock = lock_new();
 
-    for (size_t i = 0; i <= 1; i++) {
+    for (uint64_t i = 0; i <= 1; i++) {
         term_act = ((i == 0) ? &term_info : &term_cli);
 
         fb_init(&(term_act->fb), s);

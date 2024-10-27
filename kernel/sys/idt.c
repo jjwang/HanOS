@@ -111,7 +111,7 @@ void idt_init()
     port_outb(PIC1_DATA, 0xFF);
     port_outb(PIC2_DATA, 0xFF);
 
-    for(size_t i = 0; i < IDT_ENTRIES; i++) {
+    for(uint64_t i = 0; i < IDT_ENTRIES; i++) {
         memset(&idt[i], 0, sizeof(idt_entry_t));
     }
 

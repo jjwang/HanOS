@@ -28,9 +28,9 @@
 
 #define vec_struct(type)                                            \
     struct {                                                        \
-        size_t len;                                                 \
-        size_t capacity;                                            \
-        type*  data;                                                \
+        uint64_t len;                                                 \
+        uint64_t capacity;                                            \
+        type*    data;                                                \
     }
 
 #define vec_extern(type, name)      extern vec_struct(type) name
@@ -68,7 +68,7 @@
 
 #define vec_erase_val(vec, val)                                     \
     {                                                               \
-        for(size_t __i = 0; __i < (vec)->len; __i++) {              \
+        for(int64_t __i = 0; __i < (vec)->len; __i++) {              \
             if (vec_at(vec, __i) == (val)) {                        \
                 vec_erase(vec, __i);                                \
                 break;                                              \

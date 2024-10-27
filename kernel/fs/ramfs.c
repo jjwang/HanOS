@@ -33,8 +33,8 @@ vfs_fsinfo_t ramfs = {
 
 /* Identifying information for a node */
 typedef struct {
-    size_t alloc_size;
-    void *data;
+    uint64_t alloc_size;
+    void     *data;
 } ramfs_ident_t;
 
 static ramfs_ident_t *create_ident()
@@ -44,7 +44,7 @@ static ramfs_ident_t *create_ident()
     return id;
 }
 
-static uint32_t oct2bin(unsigned char *str, size_t size)
+static uint32_t oct2bin(unsigned char *str, uint64_t size)
 {
     int n = 0;
     unsigned char *c = str;
@@ -86,7 +86,7 @@ void ramfs_init(void *address, uint64_t size)
         if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FOLDER) {
             char dname[VFS_MAX_PATH_LEN] = "/";
             strcat(dname, file->name);
-            size_t dlen = strlen(dname);
+            uint64_t dlen = strlen(dname);
             if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
 
             vfs_tnode_t *tnode = vfs_path_to_node
@@ -120,7 +120,7 @@ void ramfs_init(void *address, uint64_t size)
                  || ustar_type_to_vfs_type(file->type) == VFS_NODE_SYMLINK) {
             char dname[VFS_MAX_PATH_LEN] = "/";
             strcat(dname, file->name);
-            size_t dlen = strlen(dname);
+            uint64_t dlen = strlen(dname);
             int64_t name_index = 0;
 
             for (name_index = dlen - 1; name_index >= 0; name_index--) {
@@ -230,7 +230,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
 
     /* TODO: Need to remove '.' in full path name here */
 
-    size_t pathlen = strlen(pathname), i;
+    uint64_t pathlen = strlen(pathname), i;
     i = 0;
     for (; i + 4 < pathlen; i++) {
         if (path[i] == '/' && path[i + 1] == '.' && path[i + 2] == '.' 
@@ -268,7 +268,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     bool islink = false;
     char linkpath[VFS_MAX_PATH_LEN] = {0};
 
-    for (size_t i = 0; i < vec_length(&ramfs.filelist); i++) {
+    for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
         ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i); 
         if (strcmp(item->path, path) == 0 && strlen(path) > 0) {
             if (item->type == VFS_NODE_SYMLINK) {
@@ -317,7 +317,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     }
  
     if (islink) {
-        for (size_t i = 0; i < vec_length(&ramfs.filelist); i++) {
+        for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
             ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i);
             if (strcmp(item->path, linkpath) == 0) {
                 if (item->type != VFS_NODE_FILE) {
@@ -353,11 +353,11 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     return tnode;
 }
 
-int64_t ramfs_read(vfs_inode_t *this, size_t offset, size_t len, void *buff)
+int64_t ramfs_read(vfs_inode_t *this, uint64_t offset, uint64_t len, void *buff)
 {
     ramfs_ident_t *id = (ramfs_ident_t*)this->ident;
 
-    size_t retlen = len;
+    uint64_t retlen = len;
     if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
     if (offset > id->alloc_size) retlen = 0;
     if (retlen > 0) {
@@ -392,9 +392,9 @@ int64_t ramfs_rmnode(vfs_tnode_t *this)
     kmfree(id);
 
     vfs_inode_t *parent = this->parent;
-    size_t child_num = vec_length(&parent->child);
+    uint64_t child_num = vec_length(&parent->child);
     if (child_num > 0) {
-        for (size_t i = 0; i < child_num; i++) {
+        for (uint64_t i = 0; i < child_num; i++) {
             vfs_tnode_t *t = vec_at(&parent->child, i); 
             if (t == this) {
                 vec_erase(&parent->child, i); 
@@ -407,10 +407,10 @@ err_exit:
     return -1;
 }
 
-int64_t ramfs_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff)
+int64_t ramfs_write(vfs_inode_t* this, uint64_t offset, uint64_t len, const void* buff)
 {
     ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
-    size_t old_size = this->size;
+    uint64_t old_size = this->size;
 
     if (offset + len > this->size) {
         this->size = offset + len;
@@ -467,10 +467,10 @@ int64_t ramfs_refresh(vfs_inode_t* this)
     return 0;
 }
 
-int64_t ramfs_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
+int64_t ramfs_getdent(vfs_inode_t* this, uint64_t pos, vfs_dirent_t* dirent)
 {
-    size_t num = 0;
-    for (size_t i = 0; i < vec_length(&ramfs.filelist); i++) {
+    uint64_t num = 0;
+    for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
         ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i);
         if ((uint64_t)item->parent != (uint64_t)this) continue;
         if (num == pos) {

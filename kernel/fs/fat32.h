@@ -122,7 +122,7 @@ typedef struct {
     uint32_t file_size_bytes;
 
     uint32_t dir_entry_cluster;
-    size_t dir_entry_index;
+    uint64_t dir_entry_index;
 } fat32_entry_t;
 
 typedef struct {
@@ -132,7 +132,7 @@ typedef struct {
     fat32_entry_t entry; 
 
     uint32_t* fat;
-    size_t fat_len;
+    uint64_t fat_len;
 } fat32_ident_t;
 
 typedef struct {
@@ -147,11 +147,11 @@ extern vfs_fsinfo_t fat32;
 vfs_inode_t* fat32_mount(vfs_inode_t* at);
 vfs_tnode_t* fat32_open(vfs_inode_t* this, const char* path);
 int64_t fat32_mknode(vfs_tnode_t* this);
-int64_t fat32_read(vfs_inode_t* this, size_t offset, size_t len, void* buff);
-int64_t fat32_write(vfs_inode_t* this, size_t offset, size_t len, const void* buff);
+int64_t fat32_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void* buff);
+int64_t fat32_write(vfs_inode_t* this, uint64_t offset, uint64_t len, const void* buff);
 int64_t fat32_sync(vfs_inode_t* this);
 int64_t fat32_refresh(vfs_inode_t* this);
-int64_t fat32_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent);
+int64_t fat32_getdent(vfs_inode_t* this, uint64_t pos, vfs_dirent_t* dirent);
 
 static inline uint32_t fat32_get_next_cluster(
         uint32_t cluster, uint32_t *fat, uint32_t fat_len)
@@ -164,7 +164,7 @@ static inline uint32_t fat32_get_next_cluster(
 
 static inline uint32_t fat32_get_free_cluster(uint32_t *fat, uint32_t fat_len)
 {
-    for (size_t i = 0; i < fat_len; i++) {
+    for (uint64_t i = 0; i < fat_len; i++) {
         if (fat[i] == 0) return i;
     }
     return 0;

@@ -51,24 +51,24 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
         fb->swapbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
     }
 
-    for (size_t y = 0; y < fb->height; y++) {
-        for (size_t x = 0; x < fb->width; x++) {
-            size_t x2, y2;
+    for (uint64_t y = 0; y < fb->height; y++) {
+        for (uint64_t x = 0; x < fb->width; x++) {
+            uint64_t x2, y2;
 
             /* Determine the best-fit point's (x, y) in original bitmap */
             if (img->img_width == fb->width && img->img_height == fb->height) {
                 x2 = x;
                 y2 = y;
             } else {
-                size_t x_new, y_new, x_rb, y_rb;
+                uint64_t x_new, y_new, x_rb, y_rb;
                 x_new = x * 100 * img->img_width / fb->width;
                 y_new = y * 100 * img->img_height / fb->height;
                 x2 = MAX(MIN(DIV_ROUNDUP(x_new, 100), img->img_width), 1);
                 y2 = MAX(MIN(DIV_ROUNDUP(y_new, 100), img->img_height), 1);
 
                 uint64_t max_dist = (100 ^ 4), cur_dist;
-                for (size_t k = 0; k < 2; k++) {
-                    for (size_t m = 0; m < 2; m++) {
+                for (uint64_t k = 0; k < 2; k++) {
+                    for (uint64_t m = 0; m < 2; m++) {
                         cur_dist = ((x_new - (x_rb - k) * 100) ^ 2)
                             + ((y_new - (y_rb - m) * 100) ^ 2);
                         if (cur_dist < max_dist) {
@@ -80,7 +80,7 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
                 }
             }
 
-            size_t off = img->pitch * (img->img_height - 1 - y2);
+            uint64_t off = img->pitch * (img->img_height - 1 - y2);
             uint8_t *img_pixel = (uint8_t*)img->img + off + x2 * img->bpp / 8;
             uint8_t r, g, b;
             uint8_t shift = 2;
@@ -106,8 +106,8 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
     font_psf1_t *term_font = bold ? &term_font_bold : &term_font_norm;
     uint32_t offset = ((uint32_t)ch) * term_font->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-    for (size_t i = 0; i < FONT_HEIGHT; i++) {
-        for (size_t k = 0; k < FONT_WIDTH; k++) {
+    for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
+        for (uint64_t k = 0; k < FONT_WIDTH; k++) {
             if (i < term_font->charsize
                 && (term_font->data[offset + i] & masks[k]))
             {
@@ -124,16 +124,16 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
     if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
 
     char *logo = "HNK";
-    size_t len = strlen(logo);
+    uint64_t len = strlen(logo);
     uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
     uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
-    for (size_t idx = 0; idx < len; idx++) {
+    for (uint64_t idx = 0; idx < len; idx++) {
         uint32_t offset = ((uint32_t)logo[idx]) * term_font_bold.charsize; 
         static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-        for(size_t i = 0; i < term_font_bold.charsize; i++) {
-            for(size_t k = 0; k < 8; k++) {
-                for(size_t m = 1; m < LOGO_SCALE; m++) {
-                    for(size_t n = 1; n < LOGO_SCALE; n++) {
+        for(uint64_t i = 0; i < term_font_bold.charsize; i++) {
+            for(uint64_t k = 0; k < 8; k++) {
+                for(uint64_t m = 1; m < LOGO_SCALE; m++) {
+                    for(uint64_t n = 1; n < LOGO_SCALE; n++) {
                         uint32_t bg_img_color = bgcolor;
                         if (fb->bgbuffer != NULL) {
                             bg_img_color = ((uint32_t*)(fb->bgbuffer + fb->pitch * y + x * 4))[0];
@@ -151,9 +151,9 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
     char desc_str[64] = "- Microkernel-based General Purpose OS Kernel for x86-64 v";
     strcat(desc_str, VERSION);
     strcat(desc_str, " -");
-    size_t desc_len = strlen(desc_str);   
+    uint64_t desc_len = strlen(desc_str);   
     x = (fb->width - 8 * desc_len) / 2;
-    for (size_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
+    for (uint64_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
         fb_putch(fb, x + 8 * desc_idx, (fb->height + 16 * LOGO_SCALE) / 2,
             COLOR_GREY, bgcolor, desc_str[desc_idx], false);
     }
@@ -219,8 +219,8 @@ void fb_refresh(fb_info_t *fb)
             memcpy(fb->swapbuffer, fb->bgbuffer, len);
             uint32_t *src = (uint32_t*)fb->backbuffer;
             uint32_t *dst = (uint32_t*)fb->swapbuffer;
-            size_t pt_num = len / 4;
-            for (size_t i = 0; i < pt_num; i++) {
+            uint64_t pt_num = len / 4;
+            for (uint64_t i = 0; i < pt_num; i++) {
                 if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
             }
             memcpy(fb->addr, fb->swapbuffer, len);

@@ -63,20 +63,20 @@ typedef struct [[gnu::packed]] {
  * stack for the syscall, an address to store the process stack temporarily.
  */
 typedef struct [[gnu::packed]] {
-    int64_t errno;
-    tss_t tss;
+    int64_t  errno;
+    tss_t    tss;
     uint16_t cpu_id;
     uint16_t lapic_id;
-    bool is_bsp;
-    size_t fpu_storage_size;
-    void (*fpu_save)(void *);
-    void (*fpu_restore)(void *);
+    bool     is_bsp;
+    uint64_t fpu_storage_size;
+    void     (*fpu_save)(void *);
+    void     (*fpu_restore)(void *);
     uint16_t proc_id;
-    uint8_t reserved;
+    uint8_t  reserved;
 } cpu_t;
 
 typedef struct {
-    cpu_t cpus[CPU_MAX];
+    cpu_t    cpus[CPU_MAX];
     uint16_t num_cpus;
 } smp_info_t;
 

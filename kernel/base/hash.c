@@ -15,7 +15,7 @@ void ht_init(ht_t *ht, uint64_t size)
 {
     ht->size = size;
     ht->array = (ht_item_t*)kmalloc(ht->size * sizeof(ht_item_t));
-    for (size_t i = 0; i < ht->size; i++) {
+    for (uint64_t i = 0; i < ht->size; i++) {
         ht->array[i].key = -1;
         ht->array[i].data = NULL;
     }
