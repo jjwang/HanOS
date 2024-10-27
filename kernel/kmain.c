@@ -312,7 +312,7 @@ void kmain(void)
         }
     } else if (fb->edid_size == 0) {
         klogi("Framebuffer: totally %d video modes\n", fb->mode_count);
-        for (size_t i = 0; i < fb->mode_count; i++) {
+        for (uint64_t i = 0; i < fb->mode_count; i++) {
             struct limine_video_mode *mode = fb->modes[i];
             klogd("             %d (width) * %d (height), %d (bpp), %d (pitch)\n",
                   mode->width, mode->height, mode->bpp, mode->pitch);
@@ -329,7 +329,7 @@ void kmain(void)
     klogi("Init INITRD...\n");
     struct limine_module_response *module_response = module_request.response;
     if (module_response != NULL) {
-        for (size_t i = 0; i < module_response->module_count; i++) {
+        for (uint64_t i = 0; i < module_response->module_count; i++) {
             struct limine_file *module = module_response->modules[i];
             klogi("Module %d path   : %s\n", i, module->path);
             klogi("Module %d cmdline: %s\n", i, module->cmdline);

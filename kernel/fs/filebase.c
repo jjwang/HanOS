@@ -106,7 +106,7 @@ vfs_tnode_t *vfs_path_to_node(
 
     /* TODO: Need to remove '.' in full path name here */
 
-    size_t pathlen = strlen(path), i;
+    uint64_t pathlen = strlen(path), i;
 
     i = 0;
     for (; i + 4 < pathlen; i++) {
@@ -134,7 +134,7 @@ vfs_tnode_t *vfs_path_to_node(
     }
 
     pathlen = strlen(path);
-    size_t curr_index;
+    uint64_t curr_index;
     bool foundnode = true;
     for (curr_index = 0; curr_index < pathlen;) {
         /* Extract next token from the path */

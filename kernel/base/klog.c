@@ -162,7 +162,7 @@ static void klog_putint(int mode, int64_t n, int width, bool zero_filling)
     if (n == 0)
         klog_putch(mode, '0');
 
-    size_t div = 1, temp = n;
+    uint64_t div = 1, temp = n;
     while (temp > 0) {
         temp /= 10;
         div *= 10;
@@ -195,7 +195,7 @@ void klog_init()
 
 void klog_vprintf_core(int mode, const char* s, va_list args)
 {
-    for (size_t i = 0; s[i] != '\0'; i++) {
+    for (uint64_t i = 0; s[i] != '\0'; i++) {
         switch (s[i]) {
         case '%': {
             uint32_t arg_width = 0;

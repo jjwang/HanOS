@@ -25,9 +25,9 @@
 
 #define SLAB_ALLOCATOR_USED         1
 
-size_t kmalloc_checkno = 0;
+uint64_t kmalloc_checkno = 0;
 
-void *kmalloc_core(uint64_t size, const char *func, size_t line)
+void *kmalloc_core(uint64_t size, const char *func, uint64_t line)
 {
 #if SLAB_ALLOCATOR_USED != 0
     if (size >= ALLOC_MAX_SIZE) {
@@ -43,7 +43,7 @@ void *kmalloc_core(uint64_t size, const char *func, size_t line)
 #endif
 }
 
-void *kmalloc_chunk(uint64_t size, const char *func, size_t line)
+void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
 {
     memory_metadata_t *alloc = (memory_metadata_t*)
         PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0, func, line));
@@ -66,16 +66,16 @@ void *kmalloc_chunk(uint64_t size, const char *func, size_t line)
 
     alloc->lineno = line;
 
-    size_t *buf = (size_t*)(((uint8_t*)alloc) + PAGE_SIZE);
+    uint64_t *buf = (uint64_t*)(((uint8_t*)alloc) + PAGE_SIZE);
     *(buf - 1) = size;
 
     return ((uint8_t*)alloc) + PAGE_SIZE;
 }
 
-void kmfree_core(void *addr, const char *func, size_t line)
+void kmfree_core(void *addr, const char *func, uint64_t line)
 {
 #if SLAB_ALLOCATOR_USED != 0
-    size_t *buf = (size_t*)addr;
+    uint64_t *buf = (uint64_t*)addr;
     if (*(buf - 1) >= ALLOC_MAX_SIZE) {
         klogd("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
               func, line, ALLOC_MAX_SIZE);
@@ -88,7 +88,7 @@ void kmfree_core(void *addr, const char *func, size_t line)
 #endif
 }
 
-void kmfree_chunk(void *addr, const char *func, size_t line)
+void kmfree_chunk(void *addr, const char *func, uint64_t line)
 {
     (void)func;
 
@@ -102,7 +102,7 @@ void kmfree_chunk(void *addr, const char *func, size_t line)
     }
 }
 
-void *kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
+void *kmrealloc_core(void *addr, uint64_t newsize, const char *func, uint64_t line)
 {
     if (newsize >= ALLOC_MAX_SIZE) {
         klogd("kmalloc: realloc %d bytes (>= %d)\n",
@@ -113,7 +113,7 @@ void *kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
     if (!addr)
         return kmalloc_core(newsize, func, line);
 
-    size_t *buf = (size_t*)addr;
+    uint64_t *buf = (uint64_t*)addr;
     void *newaddr = kmalloc_core(newsize, func, line);
     if (newaddr != NULL) {
         memcpy(newaddr, addr, MIN(*(buf - 1), newsize));
@@ -125,7 +125,7 @@ void *kmrealloc_core(void *addr, size_t newsize, const char *func, size_t line)
 #endif
 }
 
-void *kmrealloc_chunk(void *addr, size_t newsize, const char *func, size_t line)
+void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func, uint64_t line)
 {
     void *ret_addr = NULL;
 

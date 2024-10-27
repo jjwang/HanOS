@@ -60,10 +60,10 @@ vfs_tnode_t *pipefs_open(vfs_inode_t *this, const char *path)
     return tnode;
 }
 
-int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
+int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff)
 {
     pipefs_ident_t *id = this->ident;
-    size_t rlen = 0;
+    uint64_t rlen = 0;
 
     if (id->size == 0 || len == 0) return 0;
 
@@ -97,11 +97,10 @@ int64_t pipefs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     return rlen;
 }
 
-int64_t pipefs_write(vfs_inode_t* this, size_t offset, size_t len,
+int64_t pipefs_write(vfs_inode_t* this, uint64_t offset, uint64_t len,
                     const void* buff)
 {
     pipefs_ident_t *id = this->ident;
-    size_t wlen = 0;
 
     klogd("PIPEFS: write %d bytes from %x (PIPE) to 0x%x with %d bytes\n",
           len, id->buff, buff, id->size);
@@ -112,7 +111,10 @@ int64_t pipefs_write(vfs_inode_t* this, size_t offset, size_t len,
     (void)offset;
 
     /* Output to the buffer */
-    wlen = PIPE_BUFFER_SIZE - id->size;
+    uint64_t wlen = 0;
+    if (PIPE_BUFFER_SIZE > id->size) {
+        wlen = PIPE_BUFFER_SIZE - id->size;
+    }
     if (wlen > len) wlen = len;
     memcpy(&(id->buff[id->size]), buff, wlen);
 
@@ -137,9 +139,9 @@ int64_t pipefs_rmnode(vfs_tnode_t *this)
     kmfree(id);
 
     vfs_inode_t *parent = this->parent;
-    size_t child_num = vec_length(&parent->child);
+    uint64_t child_num = vec_length(&parent->child);
     if (child_num > 0) {
-        for (size_t i = 0; i < child_num; i++) {
+        for (uint64_t i = 0; i < child_num; i++) {
             vfs_tnode_t *t = vec_at(&parent->child, i); 
             if (t == this) {
                 vec_erase(&parent->child, i); 

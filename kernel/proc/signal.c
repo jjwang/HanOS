@@ -35,7 +35,7 @@ int32_t signal_defaultactions[NSIG] = {
     [SIGWINCH] = SIG_ACTION_IGN
 };
 
-void signal_action(task_t *t, int signal, sigaction_t *new, sigaction_t *old)
+void signal_action(task_t *t, int64_t signal, sigaction_t *new, sigaction_t *old)
 {
     if (!((signal) < NSIG && (signal) >= 0)) return;
     if (t == NULL) return;
@@ -53,7 +53,7 @@ void signal_action(task_t *t, int signal, sigaction_t *new, sigaction_t *old)
     lock_release(&t->signals.lock);
 }
 
-void signal_changemask(task_t *t, int how, sigset_t *new, sigset_t *old)
+void signal_changemask(task_t *t, int64_t how, sigset_t *new, sigset_t *old)
 {
     if (t == NULL) return;
     lock_lock(&t->signals.lock);

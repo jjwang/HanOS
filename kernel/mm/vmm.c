@@ -138,7 +138,7 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     pd[pde] = 0;
     pmm_free(VIRT_TO_PHYS(pt), 8, __func__, __LINE__);
 
-    size_t mem_num, i;
+    int64_t mem_num, i;
     mem_num = vec_length(&as->mem_list);
     for (i = 0; i < mem_num; i++) {
         uint64_t m = vec_at(&as->mem_list, i);
@@ -215,8 +215,8 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np)
 {
     if (addrspace == NULL) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
-        size_t len = vec_length(&global_mmap_list);
-        for (size_t i = 0; i < len; i++) {
+        int64_t len = vec_length(&global_mmap_list);
+        for (int64_t i = 0; i < len; i++) {
             mem_map_t m = vec_at(&global_mmap_list, i); 
             if (m.vaddr == vaddr) {
                 vec_erase(&global_mmap_list, i); 
@@ -225,7 +225,7 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np)
         }   
     }
 
-    for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
+    for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
         unmap_page(addrspace, vaddr + i); 
 
     if (debug_info) {
@@ -245,7 +245,7 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
         vec_push_back(&global_mmap_list, mm);
     }
 
-    for (size_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
+    for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(addrspace, vaddr + i, paddr + i, flags);
     }
 
@@ -260,8 +260,6 @@ void vmm_init(
     struct limine_memmap_response* map,
     struct limine_kernel_address_response* kernel)
 {
-    size_t i;
-
     kaddrspace.PML4 = (void*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
     klogd("VMM: PML4 of kernel address space - 0x%x\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
@@ -283,14 +281,14 @@ void vmm_init(
      * TODO: need to locate the root cause of UEFI booting issue.
      *
      */
-    size_t np = NUM_PAGES(kmem_info.phys_limit);
-    for (i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
+    uint64_t np = NUM_PAGES(kmem_info.phys_limit);
+    for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
             kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
-    for (i = 0; i < map->entry_count; i++) {
+    for (uint64_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
@@ -349,8 +347,8 @@ addrspace_t *create_addrspace(void)
 
     as->lock = lock_new();
 
-    size_t len = vec_length(&global_mmap_list);
-    for (size_t i = 0; i < len; i++) {
+    int64_t len = vec_length(&global_mmap_list);
+    for (int64_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&global_mmap_list, i);
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
     }

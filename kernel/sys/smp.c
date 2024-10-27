@@ -201,7 +201,7 @@ void smp_init()
     memset(&(smp_info->cpus[0]), 0, sizeof(cpu_t));
 
     smp_info->cpus[0].cpu_id = 0;
-    for (size_t i = 0; i < cpunum; i++) {
+    for (uint64_t i = 0; i < cpunum; i++) {
         if (apic_read_reg(APIC_REG_ID) == lapics[i]->apic_id) {
             smp_info->cpus[0].lapic_id = lapics[i]->apic_id;
             smp_info->cpus[0].proc_id = lapics[i]->proc_id;
@@ -222,8 +222,8 @@ void smp_init()
     /* loop through the lapic's present and initialize them one by one */
     (void)ap_boot_counter;
 #if !BSP_CORE_ONLY
-    for (size_t i = 0; i < cpunum; i++) {
-        size_t coreid = 0;
+    for (uint64_t i = 0; i < cpunum; i++) {
+        uint64_t coreid = 0;
         if (apic_read_reg(APIC_REG_ID) != lapics[i]->apic_id) {
             coreid = smp_info->num_cpus;
         } else {
@@ -262,10 +262,10 @@ void smp_init()
         sched_sleep(10);
 
         bool success = false;
-        for (size_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
+        for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
             apic_send_ipi(lapics[i]->apic_id, SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE, APIC_IPI_TYPE_STARTUP);
             /* check if cpu has started */
-            for (size_t j = 0; j < 20; j++) {
+            for (uint64_t j = 0; j < 20; j++) {
                 int counter_curr = *ap_boot_counter;
                 if (counter_curr != counter_prev) {
                     success = true;

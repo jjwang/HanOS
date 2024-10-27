@@ -200,7 +200,7 @@ uint64_t k_vm_map(uint64_t *hint, uint64_t length, uint64_t prot,
         goto err_exit;
     }
 
-    size_t pf = VMM_FLAGS_USERMODE;
+    uint64_t pf = VMM_FLAGS_USERMODE;
     uint64_t ptr = (uint64_t)hint;
     uint64_t np = NUM_PAGES(length);
 
@@ -249,7 +249,7 @@ err_exit:
     return -1;
 }
 
-int64_t k_vm_unmap(void *ptr, size_t size)
+int64_t k_vm_unmap(void *ptr, uint64_t size)
 {
     /* Need to implement memory free */
     cpu_set_errno(0);
@@ -332,13 +332,13 @@ int get_full_path(int64_t dirfh, const char *path, char *full_path)
             /* Change full path to parent folder */
             bool succ = false;
             if (strlen(full_path) > 0) {
-                size_t fpl = strlen(full_path);
+                uint64_t fpl = strlen(full_path);
                 if (fpl > 0 && full_path[fpl - 1] == '/') {
                     full_path[fpl - 1] = '\0';
                 }
                 fpl = strlen(full_path);
                 if (fpl > 0) {
-                    for (size_t i = fpl - 1; ; i--) {
+                    for (uint64_t i = fpl - 1; ; i--) {
                         if (full_path[i] == '/') {
                             full_path[(i > 0) ? i : (i + 1)] = '\0';
                             succ = true;
@@ -358,7 +358,7 @@ int get_full_path(int64_t dirfh, const char *path, char *full_path)
             /* Do nothing */
         } else {
             /* Make sure the parent path name ends with '/' */
-            size_t fpl = strlen(full_path);
+            uint64_t fpl = strlen(full_path);
             if (fpl > 0) {
                 if (full_path[fpl - 1] != '/') strcat(full_path, "/");
             } else {
@@ -391,7 +391,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         return -1;
     } else {
         /* Check whether folder exists or not, e.g. filename is "1/txt" */
-        size_t len = strlen(full_path);
+        uint64_t len = strlen(full_path);
         if (len == 0) {
             kloge("k_openat: full path of \"%s\" is null\n", path);
             cpu_set_errno(EINVAL);
@@ -505,7 +505,7 @@ int64_t k_unlink(char *path)
         return -1;
     } else {
         /* Check whether folder exists or not, e.g. filename is "1/txt" */
-        size_t len = strlen(full_path);
+        uint64_t len = strlen(full_path);
         if (len == 0) {
             cpu_set_errno(EINVAL);
             return -1;
@@ -537,7 +537,7 @@ int64_t k_unlink(char *path)
     }
 
     vfs_inode_t *pi = tnode->parent;
-    for (size_t i = 0; i < vec_length(&(pi->child)); i++) {
+    for (uint64_t i = 0; i < vec_length(&(pi->child)); i++) {
         if (vec_at(&(pi->child), i) == tnode) {
             if (tnode->inode->refcount == 0) {
                 vec_erase(&(pi->child), i);
@@ -584,7 +584,7 @@ int64_t k_close(int64_t fh)
     if (t != NULL) {
         lock_lock(&vfs_lock);
         /* Check whether there is file redirection */
-        for (size_t i = 0; i < vec_length(&t->dup_list); i++) {
+        for (uint64_t i = 0; i < vec_length(&t->dup_list); i++) {
             file_dup_t dup = vec_at(&t->dup_list, i);
             if (dup.newfh == fh) {
                 /* Close original file and delete from dup list */
@@ -619,7 +619,7 @@ int64_t k_close(int64_t fh)
     return vfs_close(fh);
 }
 
-int64_t k_read(int64_t fh, void* buf, size_t count)
+int64_t k_read(int64_t fh, void* buf, uint64_t count)
 {
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
@@ -632,7 +632,7 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
         if (t != NULL) {
             lock_lock(&vfs_lock);
             /* Check whether it is redirected from some file */
-            for (size_t i; i < vec_length(&t->dup_list); i++) {
+            for (uint64_t i; i < vec_length(&t->dup_list); i++) {
                 file_dup_t dup = vec_at(&t->dup_list, i);
                 if (dup.newfh == fh) {
                     oldfh = dup.fh;
@@ -674,7 +674,7 @@ int64_t k_read(int64_t fh, void* buf, size_t count)
 static task_id_t last_write_task_id = 0;
 static uint64_t last_write_ticks = 0;
 
-int64_t k_write(int64_t fh, const void* buf, size_t count)
+int64_t k_write(int64_t fh, const void* buf, uint64_t count)
 {
     task_t *t = sched_get_current_task();
     uint64_t ticks = sched_get_ticks();
@@ -687,7 +687,7 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
         if (t != NULL) {
             lock_lock(&vfs_lock);
             /* Check whether it is redirected from some file */
-            for (size_t i; i < vec_length(&t->dup_list); i++) {
+            for (uint64_t i; i < vec_length(&t->dup_list); i++) {
                 file_dup_t dup = vec_at(&t->dup_list, i); 
                 if (dup.newfh == fh) {
                     oldfh = dup.fh;
@@ -708,7 +708,7 @@ int64_t k_write(int64_t fh, const void* buf, size_t count)
             return ret;
         } else {
             if (debug_info) {
-                for (size_t i = 0; i < count; i++) {
+                for (uint64_t i = 0; i < count; i++) {
                     char c = ((char*)buf)[i];
                     if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')
                         || (c >= 'A' && c <= 'Z') || c == '[')
@@ -932,13 +932,13 @@ int64_t k_chdir(char *dir)
     char parent[VFS_MAX_PATH_LEN] = {0};
     char currdir[VFS_MAX_PATH_LEN] = {0};
 
-    size_t k = 0;
-    size_t len = strlen(dir);
+    uint64_t k = 0;
+    uint64_t len = strlen(dir);
 
     strcpy(fullpath, t->cwd);
 
     /* Note that "i" will loop to last character "\0" */
-    for (size_t i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++) {
         if (dir[i] != '/') {
             currdir[k++] = dir[i];
             if (i != len - 1) continue;
@@ -959,7 +959,7 @@ int64_t k_chdir(char *dir)
             /* It is root folder based */
             strcpy(fullpath, "/");
         } else {
-            size_t fpl = strlen(fullpath);
+            uint64_t fpl = strlen(fullpath);
             if (fpl > 0) {
                 if (fullpath[fpl - 1] != '/') strcat(fullpath, "/");
             }
@@ -1075,7 +1075,7 @@ int64_t k_pipe(int32_t *fh, uint32_t flags)
     char path[VFS_MAX_PATH_LEN] = {0};
     strcpy(path, "/dev/pipe/");
 
-    size_t len = strlen(path);
+    uint64_t len = strlen(path);
     itoa(rand(sched_get_ticks() % 1000, 1, 1000),
          &path[len], VFS_MAX_PATH_LEN - len - 1,
          10);
@@ -1160,9 +1160,9 @@ int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
         cpu_set_errno(0);
 
         bool all_dead = true;
-        size_t len = vec_length(&(t->child_list));
+        uint64_t len = vec_length(&(t->child_list));
 
-        for (size_t i = 0; i < len; i++) {
+        for (uint64_t i = 0; i < len; i++) {
             task_id_t tid_child = vec_at(&(t->child_list), i);
             task_status_t status_child = sched_get_task_status(tid_child);
             if (status_child == TASK_DEAD) {
@@ -1194,12 +1194,12 @@ int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
 
         cpu_set_errno(0);
 
-        size_t retry_times = 0;
+        uint64_t retry_times = 0;
         while(true) {
             bool all_dead = true;
-            size_t len = vec_length(&(t->child_list));
+            uint64_t len = vec_length(&(t->child_list));
 
-            for (size_t i = 0; i < len; i++) {
+            for (uint64_t i = 0; i < len; i++) {
                 task_id_t tid_child = vec_at(&(t->child_list), i);
                 task_status_t status_child = sched_get_task_status(tid_child);
                 if (status_child != TASK_UNKNOWN && status_child != TASK_DEAD
@@ -1227,7 +1227,7 @@ int64_t k_waitpid(int64_t pid, int32_t *status, int32_t flags)
         }
     } else {
         /* Retry for 20 times */
-        for (size_t i = 0; ; i++) {
+        for (uint64_t i = 0; ; i++) {
             task_status_t status = sched_get_task_status(pid);
             if (status != TASK_DEAD && status != TASK_UNKNOWN) {
                 sched_sleep(100);
@@ -1252,7 +1252,7 @@ void k_exit(int64_t status)
     sched_exit(status);
 }
 
-int k_getcwd(char *buffer, size_t size)
+int k_getcwd(char *buffer, uint64_t size)
 {
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
@@ -1272,7 +1272,7 @@ int k_getcwd(char *buffer, size_t size)
         goto err_exit;
     }
 
-    size_t len = strlen(t->cwd);
+    uint64_t len = strlen(t->cwd);
     if (len < size - 1) {
         strcpy(buffer, t->cwd);
     } else {
@@ -1353,7 +1353,7 @@ cleanup:
     return ret;
 }
 
-int64_t k_readlink(int64_t dirfh, const char *path, void *buffer, size_t max_size)
+int64_t k_readlink(int64_t dirfh, const char *path, void *buffer, uint64_t max_size)
 {
     cpu_set_errno(0);
 
@@ -1365,7 +1365,7 @@ int64_t k_readlink(int64_t dirfh, const char *path, void *buffer, size_t max_siz
     if (tnode == NULL)                          goto err_exit;
     if (tnode->inode->type != VFS_NODE_SYMLINK) goto err_exit;
 
-    if ((size_t)strlen(tnode->inode->link) < max_size) {
+    if ((uint64_t)strlen(tnode->inode->link) < max_size) {
         klogd("k_readlink: %s -> %s\n", full_path, tnode->inode->link);
         strcpy(buffer, tnode->inode->link);
     } else {

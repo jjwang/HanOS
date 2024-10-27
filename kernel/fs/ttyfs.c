@@ -161,7 +161,7 @@ vfs_tnode_t* ttyfs_open(vfs_inode_t *this, const char *path)
     return vfs_path_to_node(path, CREATE, VFS_NODE_FOLDER);;
 }
 
-int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
+int64_t ttyfs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff)
 {
     ttyfs_ident_t *id = this->ident;
 
@@ -234,7 +234,7 @@ int64_t ttyfs_read(vfs_inode_t* this, size_t offset, size_t len, void *buff)
     return rlen;
 }
 
-int64_t ttyfs_write(vfs_inode_t* this, size_t offset, size_t len,
+int64_t ttyfs_write(vfs_inode_t* this, uint64_t offset, uint64_t len,
                     const void* buff)
 {
     ttyfs_ident_t *id = this->ident;
@@ -288,7 +288,7 @@ int64_t ttyfs_refresh(vfs_inode_t* this)
     return 0;
 }
 
-int64_t ttyfs_getdent(vfs_inode_t* this, size_t pos, vfs_dirent_t* dirent)
+int64_t ttyfs_getdent(vfs_inode_t* this, uint64_t pos, vfs_dirent_t* dirent)
 {
     (void)this;
     (void)pos;

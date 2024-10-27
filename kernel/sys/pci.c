@@ -295,15 +295,15 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
 
 void pci_scan_bus(uint8_t bus_id)
 {
-    for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
+    for (uint64_t dev = 0; dev < MAX_DEVICE; dev++) {
         pci_scan_device(bus_id, dev);
     }
 }
 
 void pci_init(void)
 {
-    for (size_t bus_id = 0; bus_id < MAX_BUS; bus_id++) {
-        for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
+    for (uint64_t bus_id = 0; bus_id < MAX_BUS; bus_id++) {
+        for (uint64_t dev = 0; dev < MAX_DEVICE; dev++) {
             pci_scan_device(bus_id, dev);
         }
     }
@@ -314,7 +314,7 @@ void pci_init(void)
 
 void pci_list(void)
 {
-    for (size_t i = 0; i < vec_length(&pci_devices); i++) {
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i); 
         kprintf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
                 dev.bus, dev.device, dev.func, dev.vendor_id, dev.device_id,

@@ -213,7 +213,7 @@ static inline uint64_t mmio_inl(void *p)
 }
 
 static inline void mmio_inn(
-    void *dst, const volatile void *src, size_t bytes)
+    void *dst, const volatile void *src, uint64_t bytes)
 {
     volatile uint8_t *s = (volatile uint8_t *)src;
     uint8_t *d = (uint8_t *)dst;
@@ -233,7 +233,7 @@ static inline void mmio_inn(
 #define CPUID_TSC_DEADLINE  (1 << 24)
 #define CPUID_MTRR          (1 << 12)
 
-void cpu_init(size_t cpuno);
+void cpu_init(uint64_t cpuno);
 char *cpu_get_model_name();
 
 typedef struct {

@@ -7,8 +7,8 @@
 
 typedef struct {
     void            *base;
-    int             flags;
-    size_t          size;
+    int64_t         flags;
+    uint64_t        size;
 } stack_t;
 
 typedef struct {
@@ -154,5 +154,5 @@ typedef struct {
 
 typedef struct _task_t task_t;  /* Definition in task.h */
 
-void signal_action(task_t *t, int signal, sigaction_t *new, sigaction_t *old);
-void signal_changemask(task_t *t, int how, sigset_t *new, sigset_t *old);
+void signal_action(task_t *t, int64_t signal, sigaction_t *new, sigaction_t *old);
+void signal_changemask(task_t *t, int64_t how, sigset_t *new, sigset_t *old);

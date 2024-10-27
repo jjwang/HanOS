@@ -57,7 +57,7 @@ static bool bitmap_isfree(uint64_t addr, uint64_t numpages)
 }
 
 void pmm_free(uint64_t addr, uint64_t numpages,
-    const char *func, size_t line)
+    const char *func, int64_t line)
 {
     for (uint64_t i = addr; i < addr + (numpages * PAGE_SIZE); i += PAGE_SIZE) {
         if (!bitmap_isfree(i, 1))
@@ -84,7 +84,7 @@ bool pmm_alloc(uint64_t addr, uint64_t numpages)
 }
 
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr, 
-    const char *func, size_t line)
+    const char *func, int64_t line)
 {
     for (uint64_t i = baseaddr; i < kmem_info.phys_limit; i += PAGE_SIZE) {
         if (pmm_alloc(i, numpages)) {
@@ -112,7 +112,7 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
 
     klogv("Physical memory's entry number: %d\n", map->entry_count);
 
-    for (size_t i = 0; i < map->entry_count; i++) {
+    for (uint64_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
         if (entry->type == LIMINE_MEMMAP_USABLE
@@ -131,7 +131,7 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
     /* look for a good place to keep our bitmap */
     uint64_t bm_size = kmem_info.phys_limit / (PAGE_SIZE * BMP_PAGES_PER_BYTE);
     bool gotit = false;
-    for (size_t i = 0; i < map->entry_count; i++) {
+    for (uint64_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
 
         if (entry->type != LIMINE_MEMMAP_USABLE) {
@@ -151,7 +151,7 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
     klogi("Memory bitmap address: 0x%x, size: %d\n", kmem_info.bitmap, bm_size);
 
     /* now populate the bitmap */
-    for (size_t i = 0; i < map->entry_count; i++) {
+    for (uint64_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry* entry = map->entries[i];
         if (entry->type == LIMINE_MEMMAP_USABLE) {
             pmm_free(entry->base, NUM_PAGES(entry->length), __func__, __LINE__);
@@ -187,7 +187,7 @@ void pmm_dump_usage(void)
 
 #ifdef ENABLE_MEM_DEBUG
     kprintf("Checking #%d\n", kmalloc_checkno);
-    size_t np = MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256);
+    int64_t np = MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256);
     for (uint64_t addr = 0; addr < np * PAGE_SIZE; addr += PAGE_SIZE) {
         if (bitmap_isfree(addr, 1)) continue;
         memory_metadata_t *alloc = (memory_metadata_t*)PHYS_TO_VIRT(addr);

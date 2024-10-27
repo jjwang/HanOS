@@ -71,7 +71,7 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     return false;
 }
 
-void cpu_init(size_t cpuno)
+void cpu_init(uint64_t cpuno)
 {
     uint64_t patval, vcr0, vcr4;
 
