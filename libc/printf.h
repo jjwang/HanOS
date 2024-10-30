@@ -84,8 +84,8 @@ int sprintf_(char* buffer, const char* format, ...);
  */
 #define snprintf  snprintf_
 #define vsnprintf vsnprintf_
-int  snprintf_(char* buffer, size_t count, const char* format, ...);
-int vsnprintf_(char* buffer, size_t count, const char* format, va_list va);
+int  snprintf_(char* buffer, uint64_t count, const char* format, ...);
+int vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va);
 
 
 /**
