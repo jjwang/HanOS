@@ -16,7 +16,7 @@ static command_help_t help_msg[] = {
 
 void main(int argc, char *argv[])
 {
-    for (size_t i = 0; ;i++) {
+    for (int i = 0; ; i++) {
         if (strlen(_shell_helptab[i].command) == 0) break;
         printf("%s\t%s\n", &(_shell_helptab[i].command[7]),
                _shell_helptab[i].desc);
