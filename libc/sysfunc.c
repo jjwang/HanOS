@@ -127,7 +127,7 @@ int sys_openat(int dirfd, const char *path, int flags)
     return ret;
 }
 
-int sys_getcwd(char *buffer, size_t size)
+int sys_getcwd(char *buffer, uint64_t size)
 {
     int ret, errno;
     SYSCALL2(SYSCALL_GETCWD, buffer, size);
@@ -170,7 +170,7 @@ int sys_close(int fd)
     return ret;
 }
 
-int sys_read(int fd, void *buf, size_t count)
+int sys_read(int fd, void *buf, uint64_t count)
 {
     int64_t ret;
     int errno;
@@ -178,7 +178,7 @@ int sys_read(int fd, void *buf, size_t count)
     return ret;
 }
 
-int sys_write(int fd, const void *buf, size_t count)
+int sys_write(int fd, const void *buf, uint64_t count)
 {
     int64_t ret;
     int errno;

@@ -13,7 +13,7 @@
  */
 #include <libc/string.h>
 
-void* memcpy(void *dest, const void *src, size_t len)
+void* memcpy(void *dest, const void *src, uint64_t len)
 {
     asm volatile("mov %[len], %%rcx;"
                  "mov %[src], %%rsi;"
@@ -26,14 +26,14 @@ void* memcpy(void *dest, const void *src, size_t len)
     return dest;
 }
 
-void memset(void *addr, uint8_t val, size_t len)
+void memset(void *addr, uint8_t val, uint64_t len)
 {
     uint8_t *a = (uint8_t*)addr;
     for (uint64_t i = 0; i < len; i++)
         a[i] = val;
 }
 
-bool memcmp(const void *s1, const void *s2, size_t len)
+bool memcmp(const void *s1, const void *s2, uint64_t len)
 {
     for (uint64_t i = 0; i < len; i++) {
         uint8_t a = ((uint8_t*)s1)[i];
@@ -60,15 +60,15 @@ int strlen(const char *s)
 
 int strcmp(const char *a, const char *b)
 {   
-    for (size_t i = 0;; i++) {
+    for (uint64_t i = 0;; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
             return a[i] - b[i];
     }
 }
 
-int strncmp(const char *a, const char *b, size_t len)
+int strncmp(const char *a, const char *b, uint64_t len)
 {
-    for (size_t i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
             return a[i] - b[i];
     }   
@@ -77,7 +77,7 @@ int strncmp(const char *a, const char *b, size_t len)
 
 char *strcpy(char *__restrict dest, const char *src)
 {
-    size_t i;
+    uint64_t i;
     for (i = 0;; i++) {
         dest[i] = src[i];
         if (src[i] == '\0')
@@ -86,9 +86,9 @@ char *strcpy(char *__restrict dest, const char *src)
     return dest + i;
 }
 
-char *strncpy(char *__restrict dest, const char *src, size_t len)
+char *strncpy(char *__restrict dest, const char *src, uint64_t len)
 {
-    size_t i;
+    uint64_t i;
     for (i = 0; i < len; i++) {
         dest[i] = src[i];
         if (src[i] == '\0')
@@ -99,7 +99,7 @@ char *strncpy(char *__restrict dest, const char *src, size_t len)
 
 int strcat(char *dest, const char *src)
 {
-    size_t i, dest_len = strlen(dest);
+    uint64_t i, dest_len = strlen(dest);
     for (i = dest_len;; i++) {
         dest[i] = src[i - dest_len];
         if (src[i - dest_len] == '\0')
@@ -110,11 +110,11 @@ int strcat(char *dest, const char *src)
 
 uint64_t strtol(char *s, num_sys_t type)
 {
-    size_t len = strlen(s);
+    uint64_t len = strlen(s);
     uint64_t val = 0;
     uint8_t max_single_num = ((type == OCT) ? 7 : 9);
 
-    for (size_t i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++) {
         if (s[i] >= '0' && s[i] <= ('0' + max_single_num)) {
             val = val * (max_single_num + 1) + s[i] - '0';
         }
@@ -137,8 +137,8 @@ char *strchr(const char *s, int c)
 
 char *strlwr(char *s)
 {
-    size_t len = strlen(s);
-    for (size_t i = 0; i < len; i++) {
+    uint64_t len = strlen(s);
+    for (uint64_t i = 0; i < len; i++) {
         if (s[i] >= 'A' && s[i] <= 'Z') {
             s[i] = s[i] - 'A' + 'a';
         }
@@ -148,8 +148,8 @@ char *strlwr(char *s)
 
 char *strupr(char *s)
 {
-    size_t len = strlen(s);
-    for (size_t i = 0; i < len; i++) {
+    uint64_t len = strlen(s);
+    for (uint64_t i = 0; i < len; i++) {
         if (s[i] >= 'a' && s[i] <= 'z') {
             s[i] = s[i] - 'a' + 'A';
         }   
