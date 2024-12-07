@@ -21,7 +21,7 @@ run-hdd-uefi: ovmf $(HDD_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -bios ovmf/OVMF.fd -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=$(HDD_IMAGE)
 
 limine:
-	git clone https://github.com/limine-bootloader/limine.git --branch=v7.x-binary --depth=1
+	git clone https://github.com/limine-bootloader/limine.git --branch=v8.x-binary --depth=1
 	make -C limine
 
 ovmf:
@@ -44,7 +44,7 @@ $(ISO_IMAGE): limine initrd kernel
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
-		limine.cfg limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
+		limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
 	xorriso -as mkisofs -b limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
 		--efi-boot limine-uefi-cd.bin \
@@ -55,9 +55,9 @@ $(ISO_IMAGE): limine initrd kernel
 
 $(HDD_IMAGE): limine initrd kernel
 	rm -rf initrd.tar
-	@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
+	#@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
 	mkdir -p initrd/etc initrd/usr initrd/root
-	cp -rf sysroot/* initrd
+	#cp -rf sysroot/* initrd
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	rm -f $(HDD_IMAGE)
 	dd if=/dev/zero bs=1M count=0 seek=64 of=$(HDD_IMAGE)
@@ -65,7 +65,7 @@ $(HDD_IMAGE): limine initrd kernel
 	./limine/limine bios-install $(HDD_IMAGE)
 	mformat -i $(HDD_IMAGE)@@1M
 	mmd -i $(HDD_IMAGE)@@1M ::/EFI ::/EFI/BOOT
-	mcopy -i $(HDD_IMAGE)@@1M kernel/hanos.elf initrd.tar limine.cfg limine/limine-bios.sys ::/
+	mcopy -i $(HDD_IMAGE)@@1M kernel/hanos.elf initrd.tar limine.conf limine/limine-bios.sys ::/
 	mcopy -i $(HDD_IMAGE)@@1M limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
 
 clean:
