@@ -91,19 +91,24 @@ int64_t k_sigprocmask(int64_t how, sigset_t *set, sigset_t *oldset)
     return 0;
 }
 
-int64_t k_sigaction(int64_t signal, sigaction_t *new, sigaction_t *old)
+int64_t k_sigaction(int64_t s, sigaction_t *new, sigaction_t *old)
 {
     task_t *t = sched_get_current_task();
+    int64_t signal = (int64_t)((int32_t)s);
+
     cpu_set_errno(0);
 
     if (signal >= NSIG || signal < 0 || signal == SIGKILL || signal == SIGSTOP
         || t == NULL)
     {
+        klogd("k_sigaction: signal %d from old 0x%x to new 0x%x "
+              "and return -1 for invalid parameters\n",
+              signal, old, new);
         cpu_set_errno(EINVAL);
         return -1;
     }
 
-    sigaction_t newtmp, oldtmp;
+    sigaction_t newtmp = {0}, oldtmp = {0};
     if (new != NULL) {
         memcpy(&newtmp, new, sizeof(sigaction_t));
 
@@ -298,7 +303,7 @@ int get_full_path(int64_t dirfh, const char *path, char *full_path)
         }
     } else if ((int32_t)dirfh >= (int32_t)0) {
         /* Get the parent path name from dirfh */
-        vfs_node_desc_t *tnode = vfs_handle_to_fd((vfs_handle_t)dirfh);
+        vfs_node_desc_t *tnode = vfs_handle_to_fd((vfs_handle_t)dirfh, __func__);
         if (tnode != NULL) {
             if (path[0] == '.') strcpy(full_path, tnode->path);
         } else {
@@ -826,7 +831,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
         return 0;
     }
  
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     cpu_set_errno(0);
 
     if (fd != NULL) {
@@ -987,7 +992,7 @@ err_exit:
 int64_t k_readdir(int64_t handle, uint64_t buff)
 {
     dirent_t *de = (dirent_t*)buff;
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     int64_t errno = 0;
 
     cpu_set_errno(errno);

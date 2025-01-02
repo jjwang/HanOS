@@ -72,15 +72,14 @@ void vfs_free_nodes(vfs_tnode_t *tnode)
 }
 
 /* Return the node descriptor for a handle */
-vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle)
+vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
         vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->open_files_table), handle);
         if (nd != NULL) return nd;
-        klogw("VFS: cannot locate %d (0x%x) in file list of task %d, "
-              "maybe we need to increase hash table's size.\n",
-              handle, handle, t->tid);
+        klogw("VFS: %s() cannot locate %d (0x%x) in file list of task %d\n",
+              func, handle, handle, t->tid);
     }
     return NULL;
 }

@@ -327,7 +327,7 @@ void sched_sleep(time_t millis)
         hpet_sleep(millis);
         return;
     }
- 
+
     lock_lock(&sched_lock);
 
     uint16_t cpu_id = cpu->cpu_id;
