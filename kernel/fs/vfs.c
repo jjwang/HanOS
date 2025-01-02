@@ -54,6 +54,8 @@ vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 /* New file handle */
 static uint64_t vfs_next_handle = VFS_MIN_HANDLE; 
 
+extern char pipe_eof_magic_word[];
+
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
 {
@@ -180,7 +182,7 @@ int64_t vfs_create(char* path, vfs_node_type_t type)
 /* Changes permissions of node */
 int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1;
 
@@ -199,7 +201,7 @@ int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
 
 int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1; 
 
@@ -257,7 +259,7 @@ fail:
 /* Get the length of a file */
 uint64_t vfs_tell(vfs_handle_t handle)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
 
     if (!fd) {
         kloge("VFS: cannot get fd for file %d\n", handle); 
@@ -271,7 +273,7 @@ uint64_t vfs_tell(vfs_handle_t handle)
 /* Read specified number of bytes from a file */
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void* buff)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
     if (!fd) {
         return 0;
     }
@@ -350,7 +352,7 @@ fail:
 /* Write specified number of bytes to file */
 int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 {
-    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle, __func__);
     if (!nd)
         return 0;
 
@@ -387,7 +389,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 /* Seek to specified position in file */
 int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1;
 
@@ -553,16 +555,24 @@ fail:
 
 int64_t vfs_close(vfs_handle_t handle)
 {
+    bool istty = false;
+
     lock_lock(&vfs_lock);
 
-    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle, __func__);
     if (!nd)
         goto fail;
 
-    if (strcmp(nd->path, "/dev/tty") != 0) {
-        klogv("VFS: close file handle %d\n", handle);
+    if (strcmp(nd->path, "/dev/tty") == 0) istty = true;
+    if (strncmp(nd->path, "/dev/pipe", 9) == 0) {
+        if ((nd->mode & VFS_MODE_WRITE) && nd->seek_pos > 0) {
+            klogi("VFS: write EOF to %s with seek position %d\n",
+                  nd->path, nd->seek_pos);
+            lock_release(&vfs_lock);
+            vfs_write(handle, 4, pipe_eof_magic_word);
+            lock_lock(&vfs_lock);
+        }
     }
-
     nd->inode->refcount--;
 
     task_t *t = sched_get_current_task();
@@ -583,6 +593,10 @@ int64_t vfs_close(vfs_handle_t handle)
     kmfree(nd);
 
     lock_release(&vfs_lock);
+
+    if (!istty) {
+        klogv("VFS: close file handle %d\n", handle);
+    }
     return 0;
 fail:
     lock_release(&vfs_lock);
@@ -591,7 +605,7 @@ fail:
 
 int64_t vfs_refresh(vfs_handle_t handle)
 {
-    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle, __func__);
     if (!nd)
         return -1; 
 
@@ -617,7 +631,7 @@ int64_t vfs_refresh(vfs_handle_t handle)
 /* Get next directory entry */
 int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
     int64_t status;
-    vfs_node_desc_t *nd = vfs_handle_to_fd(handle);
+    vfs_node_desc_t *nd = vfs_handle_to_fd(handle, __func__);
     if (!nd)
         return -1;
 

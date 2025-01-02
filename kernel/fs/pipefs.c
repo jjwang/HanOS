@@ -29,12 +29,16 @@ vfs_fsinfo_t pipefs = {
     .ioctl = NULL
 };
 
-lock_t pipe_lock;
+lock_t pipe_lock = {0};
+extern lock_t vfs_lock;
+
+char pipe_eof_magic_word[5] = {0xFF, 0x0E, 0x00, 0x0F, 0x00}; 
 
 /* Identifying information for a node */
 typedef struct {
     char    buff[PIPE_BUFFER_SIZE];
     int64_t size;
+    bool    closed;
 } pipefs_ident_t;
 
 static pipefs_ident_t *create_ident()
@@ -65,10 +69,20 @@ int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff
     pipefs_ident_t *id = this->ident;
     uint64_t rlen = 0;
 
-    if (id->size == 0 || len == 0) return 0;
-
-    klogd("PIPEFS: read %d bytes from 0x%x (PIPE) to 0x%x with %d bytes\n",
-          len, id->buff, buff, id->size);
+    if (len == 0 || id->closed) {
+        klogd("PIPEFS: read %d bytes to 0x%x and return 0 bytes\n",
+              len, buff);
+        return 0;
+    }
+    
+    /* According to standard pipe implementation, the task should be blocked
+     * here until there are data available.
+     */
+    while (id->size == 0) {
+        lock_release(&vfs_lock);
+        sched_sleep(0);
+        lock_lock(&vfs_lock);
+    }
 
     /* We do not use offset here */
     (void)offset;
@@ -78,7 +92,7 @@ int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff
     rlen = id->size;
     if (rlen > len) rlen = len;
     memcpy(buff, id->buff, rlen);
-        
+    
     if (id->size - rlen > 0) {
         char val = ((char*)id->buff)[id->size - 1];
         memcpy(id->buff, &(id->buff[rlen]), id->size - rlen);
@@ -89,10 +103,22 @@ int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff
     }
     id->size -= rlen;
 
+    if (rlen >= 4) {
+        if (((char*)buff)[rlen - 4] == pipe_eof_magic_word[0]) {
+            if (   ((char*)buff)[rlen - 3] == pipe_eof_magic_word[1]
+                && ((char*)buff)[rlen - 2] == pipe_eof_magic_word[2]
+                && ((char*)buff)[rlen - 1] == pipe_eof_magic_word[3])
+            {
+                id->closed = true;
+                rlen -= 4;
+            }
+        }
+    }
+
     lock_release(&pipe_lock);
 
-    klogd("PIPEFS: read %d bytes to 0x%x and return %d bytes\n",
-          len, buff, rlen);
+    klogd("PIPEFS: read %d bytes to 0x%x and return %d bytes (%02x)\n",
+          len, buff, rlen, (rlen > 0 ? ((char*)buff)[rlen - 1] : 0));
 
     return rlen;
 }
@@ -102,8 +128,9 @@ int64_t pipefs_write(vfs_inode_t* this, uint64_t offset, uint64_t len,
 {
     pipefs_ident_t *id = this->ident;
 
-    klogd("PIPEFS: write %d bytes from %x (PIPE) to 0x%x with %d bytes\n",
-          len, id->buff, buff, id->size);
+    klogd("PIPEFS: write %d bytes from %x to %x (PIPE) whose size is "
+          "%d bytes and %d refcount\n",
+          len, buff, id->buff, id->size, this->refcount);
 
     lock_lock(&pipe_lock);
 
@@ -112,9 +139,21 @@ int64_t pipefs_write(vfs_inode_t* this, uint64_t offset, uint64_t len,
 
     /* Output to the buffer */
     uint64_t wlen = 0;
-    if (PIPE_BUFFER_SIZE > id->size) {
-        wlen = PIPE_BUFFER_SIZE - id->size;
+
+    /* According to standard pipe implementation, the task should be blocked
+     * here until there are rooms available in the pipe.
+     */
+    while (true) {
+        if (PIPE_BUFFER_SIZE > id->size) {
+            wlen = PIPE_BUFFER_SIZE - id->size;
+        }
+        if (wlen > 0) break;
+
+        lock_release(&vfs_lock);
+        sched_sleep(0);
+        lock_lock(&vfs_lock);
     }
+
     if (wlen > len) wlen = len;
     memcpy(&(id->buff[id->size]), buff, wlen);
 
