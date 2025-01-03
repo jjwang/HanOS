@@ -1254,6 +1254,17 @@ void k_exit(int64_t status)
     if (t != NULL) {
         klogi("k_exit: task %d exit with status %d\n", t->tid, status);
     }
+
+    /* Close all open files */
+    lock_lock(&sched_lock);
+    for (uint64_t i = 0; i < t->open_files_table.size; i++) {
+        if (t->open_files_table.array[i].key >= 0) {
+            vfs_close(t->open_files_table.array[i].key);
+        }
+    }
+    lock_release(&sched_lock);
+
+    /* Exit from scheduler */
     sched_exit(status);
 }
 
