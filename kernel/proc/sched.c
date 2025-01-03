@@ -604,11 +604,11 @@ task_t *sched_execve(
             {
                 continue;
             }
-            vfs_node_desc_t* nd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
-            memcpy(nd, tp->open_files_table.array[i].data, sizeof(vfs_node_desc_t));
+            vfs_node_desc_t* fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+            memcpy(fd, tp->open_files_table.array[i].data, sizeof(vfs_node_desc_t));
             tc->open_files_table.array[i] = tp->open_files_table.array[i];
-            tc->open_files_table.array[i].data = nd; 
-            nd->inode->refcount++;
+            tc->open_files_table.array[i].data = fd; 
+            fd->inode->refcount++;
             klogd("SCHED: copy fd %d from tid %d to tid %d\n",
                   tc->open_files_table.array[i].key, tp->tid, tc->tid);
         } 
