@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    rm.c
+ @brief   Implementation of the 'rm' command for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the 'rm' command which is used to
+  remove files or directories in the HanOS operating system. It includes the
+  main function that processes command-line arguments and calls the sys_unlink
+  system function to delete specified files. Error handling is included for
+  file deletion operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 

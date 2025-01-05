@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ls.c
+ @brief   Implementation of the 'ls' command for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the 'ls' command which is used to
+  list the contents of a specified directory. It includes functions for formatting
+  directory names and reading directory entries. The command displays file names,
+  types, inode numbers, and sizes. Error handling is included for directory
+  operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 

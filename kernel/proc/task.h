@@ -204,7 +204,7 @@ typedef struct {
     vfs_handle_t    newfh;
 } file_dup_t;
  
-typedef struct _task_t {
+typedef struct task_t {
     void            *tstack_top;
     void            *tstack_limit;
 

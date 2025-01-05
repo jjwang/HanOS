@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    elf.c
+ @brief   Implementation of ELF file loading and handling functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions required to load and handle
+  ELF (Executable and Linkable Format) files within the HanOS Kernel. It includes
+  functions to read ELF headers, program headers, section headers, and symbols.
+  It also handles memory mapping and dynamic linking where necessary.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 
 #include <proc/elf.h>

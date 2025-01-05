@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ata.c
+ @brief   Implementation of ATA (Advanced Technology Attachment) device handling
+ @details
+ @verbatim
+
+  This file contains the implementation of functions for handling ATA devices
+  within the HanOS kernel. It includes functions for initializing and detecting
+  ATA and ATAPI devices, performing PIO read and write operations, and reading
+  partition maps. Additionally, it provides utility functions for interacting
+  with ATA registers and handling device-specific operations such as soft
+  resets and polling for device status.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 
 #include <sys/pci.h>

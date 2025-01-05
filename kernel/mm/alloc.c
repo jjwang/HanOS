@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    alloc.c
+ @brief   Implementation of memory allocation functions
+ @details
+ @verbatim
+
+  This file contains the implementation of memory allocation functions for the
+  HanOS kernel. The allocator uses a slab allocation mechanism to manage memory
+  with different cache sizes. Functions for initializing the allocator, as well
+  as allocating, reallocating, and freeing memory are provided. Each allocation
+  includes metadata for capacity and size, and optionally a poison value for
+  debugging purposes.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <mm/mm.h>
 #include <mm/alloc.h>
 #include <mm/slab.h>

@@ -1,3 +1,22 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ata.h
+ @brief   ATA (Advanced Technology Attachment) definitions
+ @details
+ @verbatim
+
+  This file contains the type definitions, constants, and function declarations
+  for handling ATA devices within the HanOS kernel. It includes definitions for
+  ATA status and error codes, command codes, identification fields, and
+  register addresses. It also defines structures for representing IDE channels,
+  devices, partitions, and ATA identity information, as well as function
+  prototypes for initializing ATA devices and performing PIO read and write
+  operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define ATA_SR_BSY              0x80

@@ -1,8 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    klib.h
- @brief   Definition of fundamental data structures, macros and functions for
-          the kernel
+ @brief   Definition of fundamental data structures, macros and functions
  @details
  @verbatim
 

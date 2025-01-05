@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    image.h
+ @brief   Image handling definitions
+ @details
+ @verbatim
+
+  This file contains the type definitions and function declarations for image
+  handling within the HanOS kernel. It includes the structure definition for
+  representing an image and a function prototype for loading a BMP image from
+  a file.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>

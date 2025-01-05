@@ -1,4 +1,5 @@
 /**-----------------------------------------------------------------------------
+
  @file    mtrr.h
  @brief   Definition of MTRR macros and save/restore functions
  @details
@@ -8,6 +9,7 @@
   modified values.
 
  @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #pragma once

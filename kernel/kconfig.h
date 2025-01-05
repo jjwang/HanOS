@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    kconfig.h
+ @brief   Kernel configuration header
+ @details
+ @verbatim
+
+  This header file contains configuration macros and type definitions used in 
+  the HanOS kernel. It includes standard headers and defines various
+  configuration options and default values for the kernel.
+
+@endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stddef.h>

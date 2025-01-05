@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    keycode.h
+ @brief   Keycode definitions for keyboard driver
+ @details
+ @verbatim
+
+  This file contains the keycode definitions and function declarations used in
+  the HanOS keyboard driver. It defines constants for common keyboard keys such
+  as arrow keys, backspace, caps lock, enter, control, shift, and tab. It also
+  declares a function for converting scancode inputs into ASCII characters
+  considering the shift and caps lock states.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define KB_ARROW_UP     72

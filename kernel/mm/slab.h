@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    slab.h
+ @brief   Slab allocator definitions
+ @details
+ @verbatim
+
+  This file contains the type definitions and function declarations for the
+  slab allocator used in the HanOS kernel. It defines structures for representing
+  slabs and slab caches, and provides function prototypes for allocating and
+  freeing memory from these caches. Additionally, it includes functions for
+  creating and destroying slab caches, each with customizable constructors and
+  destructors for initializing and cleaning up objects.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stddef.h>

@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    signal.h
+ @brief   Definitions for signal handling
+ @details
+ @verbatim
+
+  This file contains the definitions and structures used for signal handling
+  within the HanOS kernel. It includes definitions for signal sets, signal
+  actions, and various signal-related constants. The functions provided allow
+  for setting signal actions, changing signal masks, and managing signals
+  within tasks.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>
@@ -152,7 +169,7 @@ typedef struct {
 #define SIG_ACTION_STOP 3
 #define SIG_ACTION_CONT 4
 
-typedef struct _task_t task_t;  /* Definition in task.h */
+typedef struct task_t task_t;   /* Definition in task.h */
 
 void signal_action(task_t *t, int64_t signal, sigaction_t *new, sigaction_t *old);
 void signal_changemask(task_t *t, int64_t how, sigset_t *new, sigset_t *old);

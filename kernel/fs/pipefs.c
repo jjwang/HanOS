@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    pipefs.c
+ @brief   Implementation of PipeFS functions
+ @details
+ @verbatim
+
+  This file contains the implementation of the PipeFS, a simple filesystem for
+  handling pipe files within the HanOS Kernel. It provides functions for
+  mounting, creating, removing, opening, reading, and writing pipe files. The
+  PipeFS is designed to facilitate inter-process communication by using pipes
+  as a means to transfer data between processes.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 #include <libc/errno.h>
 #include <libc/stdio.h>

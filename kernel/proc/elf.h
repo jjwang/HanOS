@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    elf.h
+ @brief   Definitions for ELF file format structures and constants
+ @details
+ @verbatim
+
+  This file contains definitions for the structures and constants used to
+  interpret and manipulate ELF (Executable and Linkable Format) files within
+  the HanOS Kernel. It includes definitions for ELF headers, program headers,
+  section headers, and other related data structures.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

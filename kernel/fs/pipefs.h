@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    pipefs.h
+ @brief   Definition of PipeFS related data structures and functions
+ @details
+ @verbatim
+
+  PipeFS is a simple file system designed to handle pipe files within the HanOS
+  Kernel. It provides basic file system operations such as mounting, creating,
+  removing, opening, reading, and writing pipe files. This file defines the
+  necessary data structures and function prototypes used by PipeFS.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <fs/vfs.h>

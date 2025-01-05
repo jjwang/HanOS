@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    sysfunc.c
+ @brief   Implementation of system call functions
+ @details
+ @verbatim
+
+  This file contains the implementation of system call functions for HanOS.
+  It includes various system call wrappers that provide interfaces for common
+  operations such as file handling, process management, memory allocation,
+  and logging. These functions utilize inline assembly to perform the actual
+  system calls.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
