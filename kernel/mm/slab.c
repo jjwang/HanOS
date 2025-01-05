@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    slab.c
+ @brief   Implementation of slab allocator
+ @details
+ @verbatim
+
+  This file contains the implementation of a slab allocator for managing
+  memory allocation in the HanOS kernel. It defines functions for creating and
+  managing slab caches, allocating and freeing memory from these caches, and
+  initializing and destructing objects within slabs. The slab allocator
+  optimizes memory usage by dividing memory into small, fixed-size chunks and
+  reusing them efficiently.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <base/klib.h>
 #include <base/lock.h>
 #include <base/klog.h>

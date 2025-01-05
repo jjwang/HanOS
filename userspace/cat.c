@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    cat.c
+ @brief   Implementation of the 'cat' command for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the 'cat' command which is used to
+  concatenate and display files on the standard output. It includes the main
+  function to handle command-line arguments and the cat function for reading
+  from a file descriptor and writing to standard output. Error handling is
+  included for read and write operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 

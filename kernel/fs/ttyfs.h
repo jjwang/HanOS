@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ttyfs.h
+ @brief   Definition of TTYFS related data structures and functions
+ @details
+ @verbatim
+
+  TTYFS is a simple filesystem designed to handle TTY (teletypewriter) files
+  within the HanOS Kernel. It provides basic file system operations such as
+  mounting, creating, opening, reading, writing, and syncing TTY files. This
+  file defines the necessary data structures and function prototypes used by
+  TTYFS.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <fs/vfs.h>

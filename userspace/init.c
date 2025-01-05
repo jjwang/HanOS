@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    init.c
+ @brief   Initialization process for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the initialization process for the
+  HanOS userspace. It includes the main function that continuously starts the
+  shell (hansh) by forking and executing the shell program. The init process is
+  responsible for ensuring that the shell is always running and handles the
+  necessary process management.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 
 #include <libc/string.h>

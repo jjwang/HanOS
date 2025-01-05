@@ -1,3 +1,22 @@
+/**-----------------------------------------------------------------------------
+
+ @file    echo.c
+ @brief   Implementation of the 'echo' command for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the 'echo' command which is used to
+  display a specified string. It includes the main function to handle
+command-line
+  arguments and output them to the standard output, separated by spaces and
+followed
+  by a newline. This command is useful for displaying messages or concatenating
+  command-line arguments.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 
 #include <libc/string.h>

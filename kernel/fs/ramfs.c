@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ramfs.c
+ @brief   Implementation of RAMFS functions
+ @details
+ @verbatim
+
+  This file contains the implementation of the RAMFS, a simple filesystem that
+  resides entirely in memory. It provides functions for mounting, creating,
+  removing, opening, reading, writing, and syncing files. The RAMFS is designed
+  to facilitate fast in-memory file operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 
 #include <fs/ramfs.h>

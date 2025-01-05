@@ -76,8 +76,8 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        vfs_node_desc_t* nd = (vfs_node_desc_t*)ht_search(&(t->open_files_table), handle);
-        if (nd != NULL) return nd;
+        vfs_node_desc_t* fd = (vfs_node_desc_t*)ht_search(&(t->open_files_table), handle);
+        if (fd != NULL) return fd;
         klogw("VFS: %s() cannot locate %d (0x%x) in file list of task %d\n",
               func, handle, handle, t->tid);
     }

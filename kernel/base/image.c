@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    image.c
+ @brief   Implementation of image handling functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions for handling images within
+  the HanOS kernel. It includes the function for loading BMP images from a file
+  into an image structure. The BMP loading function reads the file, parses the
+  BMP header, and extracts the image data for use within the kernel.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 
 #include <fs/vfs.h>

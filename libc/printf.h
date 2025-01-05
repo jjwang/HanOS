@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    printf.h
+ @brief   printf, sprintf and snprintf implementation for HanOS standard library
+
+ **-----------------------------------------------------------------------------
+ */
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany

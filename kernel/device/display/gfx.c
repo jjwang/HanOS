@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gfx.c
+ @brief   Implementation of graphics device handling
+ @details
+ @verbatim
+
+  This file contains the implementation of functions for handling graphics
+  devices within the HanOS kernel. It includes functions for initializing PCI
+  graphics devices, configuring graphics translation tables (GTT), managing
+  graphics memory, and enabling specific graphics features. It also includes
+  functions for entering and exiting force wake states and for allocating
+  graphics memory objects.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <3rd-party/boot/limine.h>
 #include <stdint.h>
 #include <sys/cpu.h>

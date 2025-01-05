@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ramfs.h
+ @brief   Definition of RAMFS related data structures and functions
+ @details
+ @verbatim
+
+  RAMFS is a simple filesystem that resides entirely in memory. It provides
+  basic file system operations such as mounting, creating, removing, opening,
+  reading, writing, and syncing files. This file defines the necessary data
+  structures and function prototypes used by RAMFS.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <fs/vfs.h>

@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    wc.c
+ @brief   Implementation of the 'wc' command for HanOS userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the 'wc' command which is used to
+  print newline, word, and byte counts for files or standard input in the
+  HanOS operating system. It includes functions for reading and counting
+  characters, words, and lines. The command processes input and outputs the
+  counts to the standard output. Error handling is included for file operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 

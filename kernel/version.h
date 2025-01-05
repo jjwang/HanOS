@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    version.h
+ @brief   Definition of version information
+ @details
+ @verbatim
+
+  This file defines the version information for the HanOS Kernel. The version
+  information is broken down into major, minor, and patch levels. These values
+  are combined to form a version string that can be used to identify the
+  specific version of the kernel.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define major      0

@@ -1,3 +1,22 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ctype.c
+ @brief   Implementation of character type and conversion functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions for character type checking
+  and conversion in the HanOS standard library. The functions include checks for
+  alphanumeric characters, alphabetic characters, blank characters, control
+  characters, digits, graphical characters, lowercase characters, printable
+  characters, punctuation, whitespace characters, uppercase characters, and
+  hexadecimal digits. Additionally, it provides functions to convert characters
+  to lowercase and uppercase.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/ctype.h>
 
 int isalnum(int c)

@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    signal.c
+ @brief   Implementation of signal handling functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions required to handle signals
+  within the HanOS kernel. It includes functions to set signal actions, change
+  signal masks, and manage the default actions for various signals. The signal
+  handling mechanism allows tasks to handle asynchronous events such as interrupts,
+  exceptions, and inter-process communication.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <base/klog.h>
 #include <proc/signal.h>
 #include <proc/task.h>

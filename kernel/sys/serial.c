@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    serial.c
+ @brief   Implementation of serial port communication functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions to initialize and use the
+  serial port for communication in the HanOS kernel. It sets up the serial port
+  with the specified baud rate and configuration, and provides functions to
+  write individual characters and strings to the serial port. The initialization
+  function ensures the serial port is properly configured before any data is sent.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <sys/cpu.h>
 #include <sys/serial.h>
 #include <libc/string.h>

@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    hash.c
+ @brief   Implementation of a simple hash table
+ @details
+ @verbatim
+
+  This file contains the implementation of a simple hash table used within
+  the HanOS kernel. It includes functions for initializing the hash table,
+  searching for a key, inserting a key-value pair, and deleting a key.
+  The hash table uses open addressing for collision resolution.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdbool.h>
 
 #include <libc/stdio.h>
