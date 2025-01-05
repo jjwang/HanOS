@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    sysfunc.h
+ @brief   System call function declarations and related macros
+ @details
+ @verbatim
+
+  This file contains the declarations of system call functions and related
+  macros used in the HanOS operating system. It includes definitions for
+  various file descriptor constants, access modes, and flags. The system call
+  functions provide interfaces for common operations such as file handling,
+  process management, and memory allocation.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <libc/stdio.h>

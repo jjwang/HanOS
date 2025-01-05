@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    hansh.c
+ @brief   Implementation of the HanOS shell (hansh) for userspace
+ @details
+ @verbatim
+
+  This file provides the implementation of the HanOS shell (hansh) which is used
+  to execute user commands in the HanOS operating system. It includes functions
+  for parsing and executing commands, handling input and output redirection,
+  and managing processes. The shell supports command execution, piping, background
+  processes, and command lists.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stddef.h>
 #include <stdint.h>
 

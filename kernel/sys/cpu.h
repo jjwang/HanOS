@@ -1,4 +1,5 @@
 /**-----------------------------------------------------------------------------
+
  @file    cpu.h
  @brief   Definition of CPU related data structures and macros
  @details
@@ -8,6 +9,7 @@
   specific registers and port input & output.
 
  @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #pragma once

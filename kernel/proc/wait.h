@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    wait.h
+ @brief   Definitions for process wait options and macros
+ @details
+ @verbatim
+
+  This file contains definitions and macros used for process waiting options
+  within the HanOS kernel. The macros provided are used to determine the status
+  of a process that has been waited on, including whether it has exited, was
+  stopped, continued, or terminated by a signal. These definitions are essential
+  for handling process synchronization and management in the kernel.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define WCONTINUED  1

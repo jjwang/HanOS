@@ -1,5 +1,21 @@
-/* Ref: Page 2994 in Intel® 64 and IA-32 Architectures Software Developer’s
- * Manual Combined Volumes: 1, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 4
+/**-----------------------------------------------------------------------------
+
+ @file    syscall.c
+ @brief   Implementation of system calls
+ @details
+ @verbatim
+
+  This file contains the implementation of system calls within the HanOS kernel.
+  System calls provide an interface for user space applications to request services
+  from the kernel. This file defines various system call handlers, including those
+  for file operations, process management, memory management, and signal handling.
+
+  Ref: Page 2994 in Intel® 64 and IA-32 Architectures Software Developer’s Manual
+  Combined Volumes: 1, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 4
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
  */
 #include <libc/string.h>
 #include <libc/errno.h>

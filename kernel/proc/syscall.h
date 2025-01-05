@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    syscall.h
+ @brief   Definitions and declarations for system calls
+ @details
+ @verbatim
+
+  This file contains the definitions and declarations for system calls within
+  the HanOS kernel. System calls provide an interface for user space applications
+  to request services from the operating system kernel. The file includes
+  syscall numbers, macros, and function prototypes necessary for implementing
+  and handling system calls.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define SYSCALL_DEBUGLOG    0

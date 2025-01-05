@@ -1,3 +1,19 @@
+/**-----------------------------------------------------------------------------
+
+ @file    ttyfs.c
+ @brief   Implementation of TTYFS functions
+ @details
+ @verbatim
+
+  This file contains the implementation of the TTYFS (Teletypewriter Filesystem),
+  a simple filesystem designed to handle TTY files within the HanOS Kernel. It
+  provides functions for mounting, creating, opening, reading, writing, and
+  syncing TTY files, as well as handling IO control operations.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <libc/string.h>
 #include <libc/errno.h>
 #include <libc/stdio.h>

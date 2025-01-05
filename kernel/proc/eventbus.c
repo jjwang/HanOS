@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    eventbus.c
+ @brief   Implementation of the event bus system
+ @details
+ @verbatim
+
+  This file contains the implementation of the event bus system used in the HanOS
+  kernel. The event bus allows tasks to publish and subscribe to events, enabling
+  inter-task communication and event-driven execution. The functions provided
+  facilitate publishing events, subscribing to events, and dispatching events to
+  their respective handlers. The event bus is designed to handle specific types of
+  events, such as key press events.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <sys/hpet.h>
 #include <base/vector.h>
 #include <base/lock.h>

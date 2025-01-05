@@ -1,3 +1,20 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gfx_reg.h
+ @brief   Graphics device register definitions
+ @details
+ @verbatim
+
+  This file contains the definitions of various registers and constants used
+  for handling graphics devices within the HanOS kernel. It includes bit masks
+  and shifts for manipulating register values, as well as addresses for memory
+  mapped I/O registers related to graphics memory management, GTT (Graphics
+  Translation Table), and display control.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define MASKED_ENABLE(x)                (((x) << 16) | (x))

@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    errno.h
+ @brief   Error number definitions for HanOS standard library
+ @details
+ @verbatim
+
+  This file defines a set of error numbers (errno) used in the HanOS standard
+  library. These error numbers represent various error conditions that might
+  be encountered during system and library calls. Each error number is
+  associated with a specific type of error, such as file not found, permission
+  denied, or out of memory. These definitions help standardize error handling
+  across the operating system and its libraries.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #define EDOM            1       /* Math argument out of domain of func */

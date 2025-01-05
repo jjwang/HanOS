@@ -1,3 +1,21 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gfx.h
+ @brief   Graphics device handling definitions
+ @details
+ @verbatim
+
+  This file contains the type definitions and function declarations for handling
+  graphics devices within the HanOS kernel. It includes structures for
+  representing PCI graphics devices, graphics translation tables (GTT), graphics
+  objects, and memory ranges. Additionally, it provides function prototypes for
+  initializing and starting the graphics system, as well as macros for
+  interacting with memory-mapped I/O registers of the graphics device.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 typedef struct {

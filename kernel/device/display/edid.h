@@ -1,3 +1,22 @@
+/**-----------------------------------------------------------------------------
+
+ @file    edid.h
+ @brief   EDID (Extended Display Identification Data) definitions
+ @details
+ @verbatim
+
+  This file contains the type definitions related to EDID (Extended Display
+  Identification Data) used within the HanOS kernel. The EDID data structure
+  provides detailed information about a display device's capabilities. This
+  includes the manufacturer ID, serial number, week and year of manufacture,
+  EDID version and revision, video input type, display size, gamma factor,
+  power management features, chromaticity coordinates, established timings,
+  standard timings, and detailed timings.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 typedef struct [[gnu::packed]] {
