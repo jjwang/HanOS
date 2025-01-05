@@ -6,12 +6,9 @@
  @verbatim
 
   This file provides the declarations for standard input/output functions and
-  definitions for file system structures and constants used in HanOS. It
-includes
-  definitions for standard file descriptors (STDIN, STDOUT, STDERR), the
-end-of-file
-  marker (EOF), and file system structures such as timespec_t, dirent_t, and
-stat_t.
+  definitions for file system structures and constants used in HanOS. It includes
+  definitions for standard file descriptors (STDIN, STDOUT, STDERR), the end-of-file
+  marker (EOF), and file system structures such as timespec_t, dirent_t, and stat_t.
   Additionally, it defines various file types and modes.
 
  @endverbatim
