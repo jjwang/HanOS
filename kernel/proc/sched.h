@@ -5,7 +5,9 @@
  @details
  @verbatim
 
-  Include Context Switching, Scheduling Algorithms etc.
+  This header file provides the definitions for scheduling-related functions 
+  used in the HanOS kernel. It includes declarations for context switching, 
+  scheduling algorithms, task management, and various scheduler utilities.
 
  @endverbatim
 

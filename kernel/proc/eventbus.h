@@ -6,8 +6,7 @@
  @verbatim
 
   This file contains the definitions for the event bus system used in the HanOS
-  kernel. The event bus allows tasks to publish and subscribe to events,
-enabling
+  kernel. The event bus allows tasks to publish and subscribe to events, enabling
   inter-task communication and event-driven execution. The functions provided
   facilitate publishing events, subscribing to events, and dispatching events to
   their respective handlers.

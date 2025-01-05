@@ -5,7 +5,11 @@
  @details
  @verbatim
 
-  e.g., localtime...
+  This file provides the implementation of various time-related functions used
+  in the HanOS kernel. It includes functions to determine if a year is a leap
+  year, calculate the day of the week, determine the number of days in a month,
+  convert time values to a structured format, and convert structured time back
+  to a time value.
 
  @endverbatim
 

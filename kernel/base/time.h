@@ -5,7 +5,10 @@
  @details
  @verbatim
 
-  e.g., time value, time zone and time information.
+  This header file provides the definitions for time-related data structures
+  and functions used in the HanOS kernel. It includes macros for time
+  conversions, type definitions for representing time and time zones, and a 
+  function prototype for converting time values to a structured format.
 
  @endverbatim
 

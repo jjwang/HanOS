@@ -5,10 +5,14 @@
  @details
  @verbatim
 
-  Context Switching, Scheduling Algorithms etc.
+  This file provides the implementation of the scheduler for the HanOS kernel.
+  It handles context switching, scheduling algorithms, and task management.
+  The scheduler is responsible for switching tasks based on system clock ticks
+  and other scheduling criteria. It also provides mechanisms for task creation,
+  task state management, and synchronization.
 
   History:
-  Apr 20, 2022 - 1. Redesign the task queue based on vector data structue.
+  Apr 20, 2022 - 1. Redesign the task queue based on vector data structure.
                  2. Scheduler starts working after all processors are launched
                     to avoid GPF exception.
 
