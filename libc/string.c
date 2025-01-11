@@ -15,13 +15,44 @@
 
 void* memcpy(void *dest, const void *src, uint64_t len)
 {
-    asm volatile("mov %[len], %%rcx;"
-                 "mov %[src], %%rsi;"
-                 "mov %[dest], %%rdi;"
-                 "rep movsb;"
-                 :   
-                 : [len] "g"(len), [src] "g"(src), [dest] "g"(dest)
-                 : "memory", "rcx", "rsi", "rdi");
+    /* Q = 8 bytes at a time
+     * D = 4 bytes at a time
+     * W = 2 bytes at a time
+     * B = 1 byte  at a time
+     */
+    if (len % 8 == 0) {
+        asm volatile("mov %[len], %%rcx;"
+                     "mov %[src], %%rsi;"
+                     "mov %[dest], %%rdi;"
+                     "rep movsq;"
+                     :   
+                     : [len] "g"(len / 8), [src] "g"(src), [dest] "g"(dest)
+                     : "memory", "rcx", "rsi", "rdi");
+    } else if (len % 4 == 0) {
+        asm volatile("mov %[len], %%rcx;"
+                     "mov %[src], %%rsi;"
+                     "mov %[dest], %%rdi;"
+                     "rep movsd;"
+                     :   
+                     : [len] "g"(len / 4), [src] "g"(src), [dest] "g"(dest)
+                     : "memory", "rcx", "rsi", "rdi");
+    } else if (len % 2 == 0) {
+        asm volatile("mov %[len], %%rcx;"
+                     "mov %[src], %%rsi;"
+                     "mov %[dest], %%rdi;"
+                     "rep movsw;"
+                     :   
+                     : [len] "g"(len / 2), [src] "g"(src), [dest] "g"(dest)
+                     : "memory", "rcx", "rsi", "rdi");
+    } else {
+        asm volatile("mov %[len], %%rcx;"
+                     "mov %[src], %%rsi;"
+                     "mov %[dest], %%rdi;"
+                     "rep movsb;"
+                     :   
+                     : [len] "g"(len), [src] "g"(src), [dest] "g"(dest)
+                     : "memory", "rcx", "rsi", "rdi");
+    }
 
     return dest;
 }
