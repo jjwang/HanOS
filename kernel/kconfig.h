@@ -21,11 +21,11 @@
 #define LAUNCHER_CLI            true
 #define BSP_CORE_ONLY           true
 
-#undef  ENABLE_KLOG_DEBUG
-#undef  ENABLE_MEM_DEBUG
-#undef  ENABLE_BASH
+#define ENABLE_KLOG_DEBUG       false
+#define ENABLE_MEM_DEBUG        false
+#define ENABLE_BASH             false
 
-#ifndef ENABLE_BASH
+#if !ENABLE_BASH
 #define DEFAULT_SHELL_APP       "/bin/init"
 #else
 #define DEFAULT_SHELL_APP       "/usr/bin/bash"

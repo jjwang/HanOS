@@ -153,8 +153,11 @@ _Noreturn void kshell(task_id_t tid)
     }
 #endif
 
+    klog_refresh(TERM_MODE_INFO);
+    klog_refresh(TERM_MODE_CLI);
+
     kprintf("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
-            VERSION);
+             VERSION);
 
     char *cpu_model_name = cpu_get_model_name();
     if (strlen(cpu_model_name) > 0) {
@@ -181,7 +184,7 @@ _Noreturn void kshell(task_id_t tid)
     }   
 
     /* Start all programs */
-#ifdef ENABLE_BASH
+#if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = { 
         "HOME=/root",

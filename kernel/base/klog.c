@@ -240,7 +240,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
 
     cpu_t* cpu = smp_get_current_cpu(false);
 
-#ifndef ENABLE_KLOG_DEBUG
+#if !ENABLE_KLOG_DEBUG
     if (level <= KLOG_LEVEL_DEBUG)   return;
 #else
     if (level <= KLOG_LEVEL_VERBOSE) return;
@@ -320,7 +320,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         if (klog_info.start >= KLOG_BUFFER_SIZE)
             klog_info.start = 0;
 
-#ifndef LAUNCHER_CLI
+#if !LAUNCHER_CLI
         term_putch(TERM_MODE_INFO, logout.buff[i]);
 #endif
         klog_putchar_times++;
@@ -357,7 +357,7 @@ void kprintf(const char *s, ...)
         if (klog_cli.start >= KLOG_BUFFER_SIZE)
             klog_cli.start = 0;
 
-#ifdef LAUNCHER_CLI
+#if LAUNCHER_CLI
         term_putch(TERM_MODE_CLI, logout.buff[i]);
 #endif
         klog_putchar_times++;
