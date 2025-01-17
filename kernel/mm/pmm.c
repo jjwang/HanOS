@@ -185,7 +185,7 @@ void pmm_dump_usage(void)
             f / 1024, f / (1024 * 1024),
             u / 1024, u / (1024 * 1024));
 
-#ifdef ENABLE_MEM_DEBUG
+#if ENABLE_MEM_DEBUG
     kprintf("Checking #%d\n", kmalloc_checkno);
     int64_t np = MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256);
     for (uint64_t addr = 0; addr < np * PAGE_SIZE; addr += PAGE_SIZE) {
