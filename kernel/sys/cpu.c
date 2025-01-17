@@ -5,9 +5,11 @@
  @details
  @verbatim
 
-   Important CPU initializations are:
-   * Write Combining : Write this bit to speed up framebuffer read/write speed.
-   * SSE & SSE2      : They should be enabled by default for x86-64 arch.
+  This file provides the implementation for initializing the CPUs in the HanOS 
+  kernel. It includes important CPU initializations such as enabling write 
+  combining to speed up framebuffer read/write speeds and enabling SSE and SSE2 
+  for x86-64 architecture. The file also contains functions for checking CPU 
+  features, setting up control registers, and retrieving CPU model information.
 
  @endverbatim
 
@@ -128,6 +130,15 @@ void cpu_init(uint64_t cpuno)
     vcr4 |= 1 << 9;
     vcr4 |= 1 << 10; 
     write_cr("cr4", vcr4);
+
+    /* Set NE (Numeric Error) in CR0 and reset x87 FPU */
+    asm volatile(
+        "fninit;"
+        "mov %%cr0, %%rax;"
+        "or $0b100000, %%rax;"
+        "mov %%rax, %%cr0;"
+        : : : "rax"
+    );
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(1, 0, &a, &b, &c, &d);

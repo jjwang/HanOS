@@ -207,11 +207,6 @@ _Noreturn void kshell(task_id_t tid)
     }
 }
 
-void screen_write(char c)
-{
-    (void)c;
-}
-
 /* This is HanOS kernel's entry point. */
 void kmain(void)
 {
