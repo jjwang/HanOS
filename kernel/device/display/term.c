@@ -5,8 +5,10 @@
  @details
  @verbatim
 
-  A framebuffer based terminal was implemented. As the first step, it
-  mainly supports information display.
+  This file provides the implementation of a framebuffer-based terminal for the
+  HanOS kernel. The terminal primarily supports information display and includes
+  functions for handling terminal commands, managing the display, and rendering
+  text and graphics on the screen.
 
  @endverbatim
 
@@ -38,12 +40,12 @@ static const uint32_t font_colors[9] = {
 };
 
 static term_info_t term_info = {0};
+static term_info_t term_cli = {0};
+
 static int term_active_mode = TERM_MODE_UNKNOWN; 
 static uint8_t term_cursor = 0;
 static lock_t term_lock = {0};
 static bool term_need_redraw = false;
-
-static term_info_t term_cli = {0};
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 

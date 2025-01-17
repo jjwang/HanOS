@@ -5,8 +5,9 @@
  @details
  @verbatim
 
-  A kernel-level log system was implemented. As the first step, it
-  mainly supports information display.
+  This header file provides the definitions for kernel log functions used in the
+  HanOS kernel. It includes declarations for initializing the log system, 
+  printing log messages at various levels, and managing log buffers.
 
  @endverbatim
 
@@ -21,7 +22,7 @@
 #include <device/display/term.h>
 #include <base/lock.h>
 
-#define KLOG_BUFFER_SIZE       (UINT16_MAX + 1)
+#define KLOG_BUFFER_SIZE       (4096 * 4)
 
 typedef enum {
     KLOG_LEVEL_VERBOSE,
