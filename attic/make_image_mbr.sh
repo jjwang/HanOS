@@ -47,7 +47,7 @@ sudo mkdir -p img_mount/EFI/BOOT/
 LIMINE_TMP_CFG=$(mktemp)
 
 sudo rm -rf "$LIMINE_TMP_CFG"
-sudo cat <<EOF > "$LIMINE_TMP_CFG"
+cat <<EOF | sudo tee "$LIMINE_TMP_CFG" > /dev/null
 # Timeout in seconds that Limine will use before automatically booting.
 TIMEOUT=5
 EDITOR_ENABLED=no
