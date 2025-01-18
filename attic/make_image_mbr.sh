@@ -27,11 +27,11 @@ echo "==> Mounting and formatting the image (might request your password)..."
 USED_LOOPBACK=$(sudo losetup -Pf --show ./release/hdd.img)
 
 # Format the MBR partition as FAT32
-sudo mkfs.fat -F 32 ${USED_LOOPBACK}p1
+sudo mkfs.fat -F 32 "${USED_LOOPBACK}p1"
 
 # Mount the partition itself
 mkdir -p img_mount
-sudo mount ${USED_LOOPBACK}p1 img_mount
+sudo mount "${USED_LOOPBACK}p1" img_mount
 
 # Copy the relevant files over
 echo ""
@@ -46,8 +46,8 @@ sudo mkdir -p img_mount/EFI/BOOT/
 
 LIMINE_TMP_CFG=$(mktemp)
 
-sudo rm -rf $LIMINE_TMP_CFG
-sudo cat <<EOF >$LIMINE_TMP_CFG
+sudo rm -rf "$LIMINE_TMP_CFG"
+sudo cat <<EOF > "$LIMINE_TMP_CFG"
 # Timeout in seconds that Limine will use before automatically booting.
 TIMEOUT=5
 EDITOR_ENABLED=no
@@ -65,7 +65,7 @@ KASLR=no
 EOF
 
 sudo cp -v kernel/hanos.elf initrd.tar img_mount/
-sudo cp -v $LIMINE_TMP_CFG img_mount/limine.cfg
+sudo cp -v "$LIMINE_TMP_CFG" img_mount/limine.cfg
 sudo rm -rf $LIMINE_TMP_CFG
 
 {
@@ -79,7 +79,7 @@ echo "==> Finishing up..."
 sync
 sudo umount img_mount
 sudo rm -rf img_mount
-sudo losetup -d ${USED_LOOPBACK}
+sudo losetup -d "${USED_LOOPBACK}"
 
 echo "-----------"
 echo "==> Done!"
