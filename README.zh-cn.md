@@ -2,7 +2,10 @@
 
 [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) | [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
-![](https://img.shields.io/github/license/jjwang/HanOS) ![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
+![](https://img.shields.io/github/license/jjwang/HanOS)
+![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
+[![Codacy
+Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 ## 设计思想
 
