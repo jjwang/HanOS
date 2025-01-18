@@ -66,7 +66,7 @@ EOF
 
 sudo cp -v kernel/hanos.elf initrd.tar img_mount/
 sudo cp -v "$LIMINE_TMP_CFG" img_mount/limine.cfg
-sudo rm -rf $LIMINE_TMP_CFG
+sudo rm -rf "$LIMINE_TMP_CFG"
 
 {
     sudo cp -v limine/limine-bios.sys img_mount/
