@@ -1325,7 +1325,7 @@ int k_getrusage(int64_t who, uint64_t usage) {
      * gcc to know the purpose of this function call.
      */
     klogw("SYSCALL: get 0x%x rusage\n", who);
-    memset(u, sizeof(rusage_t), 0);
+    memset(u, 0, sizeof(rusage_t));
 
     return 0;
 }

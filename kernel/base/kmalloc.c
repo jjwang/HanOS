@@ -54,7 +54,7 @@ void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
     }
 
     /* TODO: for final release, this should be removed to improve speed */
-    memset(alloc, size + PAGE_SIZE, 0);
+    memset(alloc, 0, size + PAGE_SIZE);
 
     alloc->magic = MEM_MAGIC_NUM;
     alloc->checkno = kmalloc_checkno;
