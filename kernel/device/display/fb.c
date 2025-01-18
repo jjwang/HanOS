@@ -199,7 +199,7 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
     fb->backbuffer_len = fb->height * fb->pitch;
     fb->backbuffer = fb->addr;
 
-    memset(&(fb->img_bg), sizeof(image_t), 0);;
+    memset(&(fb->img_bg), 0, sizeof(image_t));
 
     for(uint32_t x = 0; x < fb->width; x++) {
         for(uint32_t y = 0; y < fb->height; y++) {
