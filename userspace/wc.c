@@ -56,7 +56,7 @@ void wc(int fd, char *name)
         }
         buf[n] = '\0';
         if (strlen(buf) + strlen(out) < sizeof(out) - 1) {
-            strcat(out, buf);
+            strncat(out, buf, sizeof(out));
             outmore = false;
         } else {
             outmore = true;

@@ -160,7 +160,8 @@ typedef struct {
     int64_t ru_nivcsw;      /* involuntary context switches */
 } rusage_t;
 
-int get_full_path(int64_t dirfh, const char *path, char *full_path);
+int get_full_path(
+    int64_t dirfh, const char *path, char *full_path, uint64_t full_path_size);
 
 /*
  * System Calls are used to call a kernel service from user land. The goal is to

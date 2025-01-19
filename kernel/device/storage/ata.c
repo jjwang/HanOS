@@ -380,7 +380,7 @@ static int ata_device_detect(ata_device_t * dev) {
         char devname[64];
         char devchar[2] = {ata_drive_char, '\0'};
         strcpy((char *)&devname, "/dev/hd");
-        strcat((char *)&devname, (char *)&devchar);
+        strncat((char *)&devname, (char *)&devchar, sizeof(devname));
 
         vfs_tnode_t* tnode = vfs_path_to_node(devname, CREATE, VFS_NODE_BLOCK_DEVICE);
         vfs_inode_t* inode = vfs_alloc_inode(VFS_NODE_BLOCK_DEVICE, 0777, 0, NULL, tnode);
@@ -404,7 +404,7 @@ static int ata_device_detect(ata_device_t * dev) {
         char devname[64];
         char devchar[2] = {(char)('1' + cdrom_number), '\0'};
         strcpy((char *)&devname, "/dev/cdrom");
-        strcat((char *)&devname, (char *)&devchar);
+        strncat((char *)&devname, (char *)&devchar, sizeof(devname));
 
         vfs_tnode_t* tnode = vfs_path_to_node(devname, CREATE, VFS_NODE_BLOCK_DEVICE);
         vfs_inode_t* inode = vfs_alloc_inode(VFS_NODE_BLOCK_DEVICE, 0777, 0, NULL, tnode);
@@ -537,7 +537,7 @@ int ata_read_partition_map(ata_device_t* dev, char* devname)
                 partition_name[1] = '\0';
 
                 strcpy(partition_path, "/disk/");
-                strcat(partition_path, partition_name);
+                strncat(partition_path, partition_name, sizeof(partition_path));
 
                 vfs_path_to_node(partition_path, CREATE, VFS_NODE_FOLDER);
                 vfs_mount(devname, partition_path, "fat32");

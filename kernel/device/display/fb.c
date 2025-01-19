@@ -149,8 +149,8 @@ void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor)
     }
 
     char desc_str[64] = "- Microkernel-based General Purpose OS Kernel for x86-64 v";
-    strcat(desc_str, VERSION);
-    strcat(desc_str, " -");
+    strncat(desc_str, VERSION, sizeof(desc_str));
+    strncat(desc_str, " -", sizeof(desc_str));
     uint64_t desc_len = strlen(desc_str);   
     x = (fb->width - 8 * desc_len) / 2;
     for (uint64_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {

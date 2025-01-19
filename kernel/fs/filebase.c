@@ -93,7 +93,7 @@ vfs_tnode_t *vfs_path_to_node(
 
     /*  Only work with absolute paths */
     if (pathname[0] != '/') {
-        if (get_full_path(VFS_FDCWD, pathname, tmpbuff) < 0) {
+        if (get_full_path(VFS_FDCWD, pathname, tmpbuff, sizeof(tmpbuff)) < 0) {
             kloge("'%s' is not a valid path\n", pathname);
             return NULL;
         }

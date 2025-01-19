@@ -106,7 +106,7 @@ void runcmd(struct cmd *cmd)
         if (pathname[0] != '/') {
             strcpy(pathname, "/bin/");
         }
-        strcat(pathname, ecmd->argv[0]);
+        strncat(pathname, ecmd->argv[0], sizeof(pathname));
         sys_libc_log("hansh: start to execute process for current task\n");
         if (sys_exec(pathname, ecmd->argv) < 0) {
             fprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);

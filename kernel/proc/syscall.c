@@ -303,7 +303,8 @@ err_exit:
     return (uint64_t)NULL;
 }
 
-int get_full_path(int64_t dirfh, const char *path, char *full_path)
+int get_full_path(
+    int64_t dirfh, const char *path, char *full_path, uint64_t full_path_size)
 {
     /* Clean the full path buffer */
     full_path[0] = '\0';
@@ -381,11 +382,12 @@ int get_full_path(int64_t dirfh, const char *path, char *full_path)
             /* Make sure the parent path name ends with '/' */
             uint64_t fpl = strlen(full_path);
             if (fpl > 0) {
-                if (full_path[fpl - 1] != '/') strcat(full_path, "/");
+                if (full_path[fpl - 1] != '/')
+                    strncat(full_path, "/", full_path_size);
             } else {
                 strcpy(full_path, "/");
             }
-            strcat(full_path, curr);
+            strncat(full_path, curr, full_path_size);
         }
 
         /* Move to next folder */
@@ -406,7 +408,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     cpu_set_errno(0);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    if (get_full_path(dirfh, path, full_path) < 0) {
+    if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
         kloge("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
@@ -432,7 +434,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
                 return -1;
             }
         }
-        if (get_full_path(dirfh, path, full_path) < 0) {
+        if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
             kloge("k_openat: full path of \"%s\" cannot be got\n", path);
             cpu_set_errno(EINVAL);
             return -1;
@@ -521,7 +523,7 @@ int64_t k_unlink(char *path)
     klogi("k_unlink: %s\n", path);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    if (get_full_path(VFS_FDCWD, path, full_path) < 0) {
+    if (get_full_path(VFS_FDCWD, path, full_path, sizeof(full_path)) < 0) {
         cpu_set_errno(EINVAL);
         return -1;
     } else {
@@ -545,7 +547,7 @@ int64_t k_unlink(char *path)
                 return -1;
             }
         }
-        if (get_full_path(VFS_FDCWD, path, full_path) < 0) {
+        if (get_full_path(VFS_FDCWD, path, full_path, sizeof(full_path)) < 0) {
             cpu_set_errno(EINVAL);
             return -1;
         }
@@ -813,7 +815,7 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf, int64_t flag
     (void)flags;
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    if (get_full_path(dirfh, path, full_path) < 0) {
+    if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
         return -1;
     }
 
@@ -871,7 +873,7 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode, uint64_t fla
     cpu_set_errno(0);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    if (get_full_path(dirfh, path, full_path) < 0) {
+    if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
         cpu_set_errno(EBADF);
         return -1; 
     }
@@ -982,9 +984,10 @@ int64_t k_chdir(char *dir)
         } else {
             uint64_t fpl = strlen(fullpath);
             if (fpl > 0) {
-                if (fullpath[fpl - 1] != '/') strcat(fullpath, "/");
+                if (fullpath[fpl - 1] != '/')
+                    strncat(fullpath, "/", sizeof(fullpath));
             }
-            strcat(fullpath, currdir);
+            strncat(fullpath, currdir, sizeof(fullpath));
         }
 
         /* Set "currdir" to zero length */
@@ -1390,7 +1393,7 @@ int64_t k_readlink(int64_t dirfh, const char *path, void *buffer, uint64_t max_s
     cpu_set_errno(0);
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
-    get_full_path(dirfh, path, full_path);
+    get_full_path(dirfh, path, full_path, sizeof(full_path));
 
     vfs_tnode_t* tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
 

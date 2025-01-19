@@ -170,7 +170,8 @@ static inline uint32_t fat32_get_free_cluster(uint32_t *fat, uint32_t fat_len)
     return 0;
 }
 
-static inline void fat32_get_short_filename(char* file_name_and_ext, char* fname)
+static inline void fat32_get_short_filename(
+    char* file_name_and_ext, char* fname, uint32_t fname_size)
 {
     int64_t i;
     char fn[9] = {0}, ext[4] = {0};
@@ -198,8 +199,8 @@ static inline void fat32_get_short_filename(char* file_name_and_ext, char* fname
 
     strcpy(fname, fn);
     if (strlen(ext) > 0) {
-        strcat(fname, ".");
-        strcat(fname, ext);
+        strncat(fname, ".", fname_size);
+        strncat(fname, ext, fname_size);
     }
 }
 

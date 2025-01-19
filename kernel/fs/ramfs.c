@@ -101,7 +101,7 @@ void ramfs_init(void *address, uint64_t size)
         ustar_file_t* file = (ustar_file_t*)ptr;
         if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FOLDER) {
             char dname[VFS_MAX_PATH_LEN] = "/";
-            strcat(dname, file->name);
+            strncat(dname, file->name, sizeof(dname));
             uint64_t dlen = strlen(dname);
             if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
 
@@ -135,7 +135,7 @@ void ramfs_init(void *address, uint64_t size)
         } else if(ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE
                  || ustar_type_to_vfs_type(file->type) == VFS_NODE_SYMLINK) {
             char dname[VFS_MAX_PATH_LEN] = "/";
-            strcat(dname, file->name);
+            strncat(dname, file->name, sizeof(dname));
             uint64_t dlen = strlen(dname);
             int64_t name_index = 0;
 
@@ -300,7 +300,8 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
                             break;
                         }
                     }
-                    strcat(linkpath, (char*)item->entry.data);
+                    strncat(linkpath, (char*)item->entry.data,
+                            sizeof(linkpath));
                 }
                 klogd("RAMFS: symlink %s, target %s\n",
                       item->path, linkpath);
