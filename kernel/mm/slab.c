@@ -324,7 +324,7 @@ scache_t *slab_newcache(
 
     memset((void*)&cache->lock, 0, sizeof(lock_t));
 
-    klogi("slab: new cache: size %d align %d true size %d obj count %d\n",
+    klogd("slab: new cache: size %d align %d true size %d obj count %d\n",
         cache->size, cache->alignment, cache->truesize, cache->slabobjcount);
 
     return cache;

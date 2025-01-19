@@ -114,7 +114,7 @@ int fat32_write_entry(vfs_inode_t* this, fat32_entry_t *src)
     de[index].file_size_bytes = src->file_size_bytes;;
 
     char fn[VFS_MAX_NAME_LEN] = {0};
-    fat32_get_short_filename(de[index].file_name_and_ext, fn);
+    fat32_get_short_filename(de[index].file_name_and_ext, fn, sizeof(fn));
     klogv("FAT32: Modify directory entry of %s (%d:%d) to length %d\n",
           fn, cluster, index, src->file_size_bytes);
 
@@ -331,7 +331,8 @@ int64_t fat32_refresh(vfs_inode_t* this)
             /* Then short file name should be consistent with long name */
             fe  = (fat_dir_entry_t*)(temp_buffer + i * sizeof(fat_dir_entry_t));
             if (strlen(fn) == 0) {
-                fat32_get_short_filename ((char*)fe->file_name_and_ext, fn);
+                fat32_get_short_filename((char*)fe->file_name_and_ext, fn,
+                                         sizeof(fn));
             }
             if (!(lfn_meet && lfn_checksum ==
                     fat32_checksum((char*)fe->file_name_and_ext)))

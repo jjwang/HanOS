@@ -617,8 +617,8 @@ int64_t vfs_refresh(vfs_handle_t handle)
 
         char path[VFS_MAX_PATH_LEN] = {0};
         strcpy(path, fd->path);
-        strcat(path, "/");
-        strcat(path, de.name);
+        strncat(path, "/", sizeof(path));
+        strncat(path, de.name, sizeof(path));
         vfs_tnode_t* tn = vfs_path_to_node(path, CREATE, de.type);
         memcpy(&tn->inode->tm, &de.tm, sizeof(tm_t));
         tn->inode->size = de.size;
