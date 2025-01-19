@@ -22,7 +22,7 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
-#define DIRSIZE     256
+#define DIRSIZE     1024
 
 static command_help_t help_msg[] = {
     {"<help> ls",       "List the contents of a specified directory."},
@@ -86,7 +86,7 @@ void ls(char *path)
             if(de.d_ino == 0)
                 continue;
             memcpy(p, de.d_name, sizeof(de.d_name));
-            p[sizeof(de.d_name)] = 0;
+            *(p + sizeof(de.d_name)) = 0;
             if(sys_stat(buf, &st) < 0) {
                 fprintf(STDERR, "ls: cannot stat %s\n", buf);
                 continue;

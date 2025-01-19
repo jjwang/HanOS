@@ -76,9 +76,9 @@ bool memcmp(const void *s1, const void *s2, uint64_t len)
     return true;
 }
 
-int strlen(const char *s)
+int64_t strlen(const char *s)
 {
-    int len;
+    int64_t len;
 
     len = 0;
     while(s[len] != '\0') {
@@ -89,7 +89,7 @@ int strlen(const char *s)
 }
 
 
-int strcmp(const char *a, const char *b)
+int64_t strcmp(const char *a, const char *b)
 {   
     for (uint64_t i = 0;; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
@@ -97,7 +97,7 @@ int strcmp(const char *a, const char *b)
     }
 }
 
-int strncmp(const char *a, const char *b, uint64_t len)
+int64_t strncmp(const char *a, const char *b, uint64_t len)
 {
     for (uint64_t i = 0; i < len; i++) {
         if (a[i] != b[i] || a[i] == '\0' || b[i] == '\0')
@@ -128,7 +128,7 @@ char *strncpy(char *__restrict dest, const char *src, uint64_t len)
     return dest + i;
 }
 
-int strcat(char *dest, const char *src)
+int64_t strcat(char *dest, const char *src)
 {
     uint64_t i, dest_len = strlen(dest);
     for (i = dest_len;; i++) {
@@ -136,6 +136,20 @@ int strcat(char *dest, const char *src)
         if (src[i - dest_len] == '\0')
             break;
     }
+    return i;
+}
+
+int64_t strncat(char *dest, const char *src, uint64_t dest_size)
+{
+    uint64_t i, dest_len = strlen(dest);
+    for (i = dest_len; ; i++) {
+        dest[i] = src[i - dest_len];
+        if (src[i - dest_len] == '\0')
+            break;
+        if (i >= dest_size - 1)
+            break;
+    }
+    dest[i] = '\0';
     return i;
 }
 
