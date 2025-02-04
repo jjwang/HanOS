@@ -100,7 +100,7 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
     return 0;
 }
 
-void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
+void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
 {
     if (higher_half != PHYS_TO_VIRT(0x0)) {
         kpanic("pmm_init: cannot handle high half region 0x%x\n", higher_half);
@@ -112,8 +112,47 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
 
     klogv("Physical memory's entry number: %d\n", map->entry_count);
 
+    /* Only use memory less than MAX_MEM_USABLE_SIZE for all kernel and user
+     * tasks.
+     */
+    uint64_t tsize = 0;     /* Total usable size according to maximum limit */
+    uint64_t lmsize = 0;    /* Last minimum usable size */
+    while (true) {
+        uint64_t cmsize = 0;    /* Current minimum usable size */
+        uint64_t cmidx = 0;
+        for (uint64_t i = 0; i < map->entry_count; i++) {
+            struct limine_memmap_entry *entry = map->entries[i];
+            if (entry->type != LIMINE_MEMMAP_USABLE) continue;
+            if ((cmsize == 0 || entry->length < cmsize)
+                && entry->length > lmsize)
+            {
+                cmsize = entry->length;
+                cmidx = i;
+            }
+        }
+        if (cmsize == 0) break;
+
+        lmsize = cmsize;
+        struct limine_memmap_entry *entry = map->entries[cmidx];
+        klogd("PMM: usable memory - 0x%x:%d\n", entry->base, entry->length);
+
+        if (tsize + entry->length > MAX_MEM_USABLE_SIZE
+            && tsize < MAX_MEM_USABLE_SIZE)
+        {
+            entry->length = MAX_MEM_USABLE_SIZE - tsize;
+            tsize += entry->length;
+            klogd("     -> %d\n", entry->length);
+        } else if (tsize + entry->length < MAX_MEM_USABLE_SIZE) {
+            /* Do nothing */
+            tsize += entry->length;
+        } else {
+            entry->type = LIMINE_MEMMAP_RESERVED;
+            klogd("     -> Reserved\n");
+        }
+    }
+
     for (uint64_t i = 0; i < map->entry_count; i++) {
-        struct limine_memmap_entry* entry = map->entries[i];
+        struct limine_memmap_entry *entry = map->entries[i];
 
         if (entry->type == LIMINE_MEMMAP_USABLE
             || entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE
@@ -132,7 +171,7 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
     uint64_t bm_size = kmem_info.phys_limit / (PAGE_SIZE * BMP_PAGES_PER_BYTE);
     bool gotit = false;
     for (uint64_t i = 0; i < map->entry_count; i++) {
-        struct limine_memmap_entry* entry = map->entries[i];
+        struct limine_memmap_entry *entry = map->entries[i];
 
         if (entry->type != LIMINE_MEMMAP_USABLE) {
             continue;
@@ -152,7 +191,7 @@ void pmm_init(struct limine_memmap_response* map, uint64_t higher_half)
 
     /* now populate the bitmap */
     for (uint64_t i = 0; i < map->entry_count; i++) {
-        struct limine_memmap_entry* entry = map->entries[i];
+        struct limine_memmap_entry *entry = map->entries[i];
         if (entry->type == LIMINE_MEMMAP_USABLE) {
             pmm_free(entry->base, NUM_PAGES(entry->length), __func__, __LINE__);
         }

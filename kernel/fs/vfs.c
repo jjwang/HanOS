@@ -81,7 +81,7 @@ ino_t vfs_new_ino_id(void)
     return ino_id; 
 }
 
-static void dumpnodes_helper(vfs_tnode_t* from, int lvl)
+static void dumpnodes_helper(vfs_tnode_t *from, int lvl)
 {
     for (int i = 0; i < 1 + lvl; i++)
         kprintf(" ");
@@ -99,16 +99,21 @@ void vfs_debug()
     kprintf("Dumping done.\n");
 }
 
-void vfs_register_fs(vfs_fsinfo_t* fs)
+void vfs_register_fs(vfs_fsinfo_t *fs)
 {
     vec_push_back(&vfs_fslist, fs);
 }
 
-vfs_fsinfo_t* vfs_get_fs(char* name)
+vfs_fsinfo_t* vfs_get_fs(char *name)
 {
     for (uint64_t i = 0; i < vfs_fslist.len; i++)
-        if (strncmp(name, vfs_fslist.data[i]->name, sizeof(((vfs_fsinfo_t) { 0 }).name)) == 0)
+    {
+        if (strncmp(name, vfs_fslist.data[i]->name,
+                    sizeof(((vfs_fsinfo_t){0}).name)) == 0)
+        {
             return vfs_fslist.data[i];
+        }
+    }
 
     kloge("Filesystem %s not found\n", name);
     return NULL;
@@ -151,12 +156,12 @@ void vfs_init()
 }
 
 /* Creates a node with specified type */
-int64_t vfs_create(char* path, vfs_node_type_t type)
+int64_t vfs_create(char *path, vfs_node_type_t type)
 {
     int64_t status = 0;
     lock_lock(&vfs_lock);
 
-    vfs_tnode_t* tnode = vfs_path_to_node(path, CREATE, type);
+    vfs_tnode_t *tnode = vfs_path_to_node(path, CREATE, type);
     if (tnode == NULL) {
         status = -1;
     } else {
@@ -182,7 +187,7 @@ int64_t vfs_create(char* path, vfs_node_type_t type)
 /* Changes permissions of node */
 int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1;
 
@@ -201,7 +206,7 @@ int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms)
 
 int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1; 
 
@@ -213,17 +218,17 @@ int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
 }
 
 /* Mounts a block device with specified filesystem at a path */
-int64_t vfs_mount(char* device, char* path, char* fsname)
+int64_t vfs_mount(char *device, char *path, char *fsname)
 {
     lock_lock(&vfs_lock);
 
     /* Get the fs info */
-    vfs_fsinfo_t* fs = vfs_get_fs(fsname);
+    vfs_fsinfo_t *fs = vfs_get_fs(fsname);
     if (!fs)
         goto fail;
 
     /* Get the block device if needed */
-    vfs_tnode_t* dev = NULL;
+    vfs_tnode_t *dev = NULL;
     if (!fs->istemp) {
         dev = vfs_path_to_node(device, NO_CREATE, 0);
         if (!dev)
@@ -235,7 +240,7 @@ int64_t vfs_mount(char* device, char* path, char* fsname)
     }
 
     /* Get the node where it is to be mounted (should be an empty folder) */
-    vfs_tnode_t* at = vfs_path_to_node(path, NO_CREATE, 0);
+    vfs_tnode_t *at = vfs_path_to_node(path, NO_CREATE, 0);
     if (!at)
         goto fail;
     if (at->inode->type != VFS_NODE_FOLDER || at->inode->child.len != 0) {
@@ -259,28 +264,28 @@ fail:
 /* Get the length of a file */
 uint64_t vfs_tell(vfs_handle_t handle)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
 
     if (!fd) {
         kloge("VFS: cannot get fd for file %d\n", handle); 
         return 0;
     } else {
-        vfs_inode_t* inode = fd->inode;
+        vfs_inode_t *inode = fd->inode;
         return inode->size;
     }
 }
 
 /* Read specified number of bytes from a file */
-int64_t vfs_read(vfs_handle_t handle, uint64_t len, void* buff)
+int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd) {
         return 0;
     }
 
     lock_lock(&vfs_lock);
 
-    vfs_inode_t* inode = fd->inode;
+    vfs_inode_t *inode = fd->inode;
 
     /*
      * 1. Truncate if asking for more data than available
@@ -317,7 +322,7 @@ int64_t vfs_unlink(char *path)
     lock_lock(&vfs_lock);
 
     /* Find the node and set st_nlink parameter */
-    vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0); 
+    vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0); 
     if (!req) {
         klogd("VFS: Cannot find tnode for %s\n", path);
         goto fail;
@@ -363,7 +368,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
     }
 
     lock_lock(&vfs_lock);
-    vfs_inode_t* inode = fd->inode;
+    vfs_inode_t *inode = fd->inode;
 
     /* Expand file if writing more data than its size */
     if (fd->seek_pos + len > inode->size) {
@@ -389,7 +394,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 /* Seek to specified position in file */
 int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 {
-    vfs_node_desc_t* fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1;
 
@@ -483,7 +488,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     lock_lock(&vfs_lock);
 
     /* Find the node */
-    vfs_tnode_t* req = vfs_path_to_node(path, NO_CREATE, 0);
+    vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
     if (!req) {
         klogd("VFS: Cannot find inode for %s\n", path);
         vfs_tnode_t* pn = NULL;
@@ -512,7 +517,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     req->inode->refcount++;
 
     /* Create node descriptor */
-    vfs_node_desc_t* fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+    vfs_node_desc_t *fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
     memset(fd, 0, sizeof(vfs_node_desc_t));
 
     strcpy(fd->path, path);
@@ -629,7 +634,7 @@ int64_t vfs_refresh(vfs_handle_t handle)
 }
 
 /* Get next directory entry */
-int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t* dirent) {
+int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent) {
     int64_t status;
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)

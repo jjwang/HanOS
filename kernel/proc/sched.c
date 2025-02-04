@@ -688,7 +688,7 @@ task_t *sched_execve(
     stack[0] = 22;  /* AT_PHNUM */
     stack[1] = aux.phnum;
 
-    klogi("SCHED: tid %d aux stack 0x%x (ori 0x%x), entry 0x%x, phdr 0x%x, "
+    klogi("SCHED: tid %d aux stack 0x%x (RSP 0x%x), entry 0x%x, phdr 0x%x, "
           "phentsize %d, phnum %d\n", tc->tid, stack, tc_regs->rsp, aux.entry,
           aux.phdr, aux.phentsize, aux.phnum);
 

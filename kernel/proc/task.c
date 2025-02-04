@@ -276,7 +276,7 @@ task_t *task_fork(task_t *tp)
      * Note that if we open mem debug option, hpet is already visible for
      * all kernel tasks.
      */
-#ifndef ENABLE_MEM_DEBUG
+#if !ENABLE_MEM_DEBUG
     vmm_map(tc->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
 
