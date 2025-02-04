@@ -232,7 +232,7 @@ static inline uint32_t fat32_get_long_filename(
         fat32_name_copy(&fname[11], lfne->name3, 2);
         fname[13] = '\0';
 
-        strcat(fname, fn_temp);
+        strncat(fname, fn_temp, sizeof(fname));
 
         if (first) entry_num = idx;
         if (idx == 1 && count == entry_num) return count;

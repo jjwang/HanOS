@@ -21,6 +21,7 @@
 #include <libc/stdio.h>
 #include <libc/string.h>
 #include <libc/sysfunc.h>
+#include <libc/printf.h>
 
 /* Parsed command representation */
 /* Currently we only support EXEC */
@@ -102,11 +103,8 @@ void runcmd(struct cmd *cmd)
         ecmd = (struct execcmd*)cmd;
         if(ecmd->argv[0] == 0)
             sys_exit(1);
-        strcpy(pathname, "");
-        if (pathname[0] != '/') {
-            strcpy(pathname, "/bin/");
-        }
-        strncat(pathname, ecmd->argv[0], sizeof(pathname));
+        snprintf(pathname, sizeof(pathname), "%s%s",
+                 (pathname[0] != '/') ? "/bin/" : "", ecmd->argv[0]);
         sys_libc_log("hansh: start to execute process for current task\n");
         if (sys_exec(pathname, ecmd->argv) < 0) {
             fprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
