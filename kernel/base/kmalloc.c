@@ -23,13 +23,13 @@
 #include <mm/mm.h>
 #include <mm/alloc.h>
 
-#define SLAB_ALLOCATOR_USED         1
+#define SLAB_ALLOCATOR_USED         true
 
 uint64_t kmalloc_checkno = 0;
 
 void *kmalloc_core(uint64_t size, const char *func, uint64_t line)
 {
-#if SLAB_ALLOCATOR_USED != 0
+#if SLAB_ALLOCATOR_USED
     if (size >= ALLOC_MAX_SIZE) {
         klogd("kmalloc: %s:%d needs %d bytes memory (>= %d)\n",
               func, line, size, ALLOC_MAX_SIZE);
@@ -74,14 +74,13 @@ void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
 
 void kmfree_core(void *addr, const char *func, uint64_t line)
 {
-#if SLAB_ALLOCATOR_USED != 0
+#if SLAB_ALLOCATOR_USED
     uint64_t *buf = (uint64_t*)addr;
     if (*(buf - 1) >= ALLOC_MAX_SIZE) {
         klogd("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
               func, line, ALLOC_MAX_SIZE);
         return kmfree_chunk(addr, func, line);
     }
- 
     free(addr);
 #else
     return kmfree_chunk(addr, func, line);
@@ -109,7 +108,7 @@ void *kmrealloc_core(void *addr, uint64_t newsize, const char *func, uint64_t li
               newsize, ALLOC_MAX_SIZE);
     }
 
-#if SLAB_ALLOCATOR_USED != 0
+#if SLAB_ALLOCATOR_USED
     if (!addr)
         return kmalloc_core(newsize, func, line);
 

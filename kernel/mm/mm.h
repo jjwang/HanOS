@@ -88,9 +88,10 @@ uint64_t pmm_get_total_memory(void);
 #define PAGE_TABLE_ENTRIES      512
 
 typedef struct {
-    uint64_t *PML4;
+    uint64_t    *PML4;
     vec_struct(uint64_t) mem_list;
-    lock_t    lock;
+    lock_t      lock;
+    bool        initialized;
 } addrspace_t;
 
 extern addrspace_t kaddrspace;
