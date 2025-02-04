@@ -18,12 +18,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define LAUNCHER_CLI            true
-#define BSP_CORE_ONLY           true
+#define LAUNCHER_CLI            true    /* default: true  */
+#define BSP_CORE_ONLY           true    /* default: true  */
 
-#define ENABLE_KLOG_DEBUG       false
-#define ENABLE_MEM_DEBUG        false
-#define ENABLE_BASH             false
+#define ENABLE_KLOG_DEBUG       false   /* default: false */
+#define ENABLE_MEM_DEBUG        false   /* default: false */
+#define ENABLE_BASH             false   /* default: false */
 
 #if !ENABLE_BASH
 #define DEFAULT_SHELL_APP       "/bin/init"

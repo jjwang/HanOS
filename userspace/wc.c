@@ -21,6 +21,7 @@
 #include <libc/stdio.h>
 #include <libc/string.h>
 #include <libc/sysfunc.h>
+#include <libc/printf.h>
 
 static command_help_t help_msg[] = { 
     {"<help> wc",       "Print newline, word, and byte counts."},
@@ -56,7 +57,7 @@ void wc(int fd, char *name)
         }
         buf[n] = '\0';
         if (strlen(buf) + strlen(out) < sizeof(out) - 1) {
-            strncat(out, buf, sizeof(out));
+            strcat(out, buf);
             outmore = false;
         } else {
             outmore = true;

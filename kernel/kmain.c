@@ -133,6 +133,9 @@ _Noreturn void kshell(task_id_t tid)
     (void)tid;
 
     /* If we want to trigger an exception, uncomment below code */
+    /* TODO: note that below codes cannot print exception messages. We need to
+     * find out the reason.
+     */
     if (false) {
         int y = 0, x = 128, z;
         z = x / y;

@@ -193,8 +193,9 @@ struct vfs_inode_t {
     uint32_t uid;                   /* User id */
     uint32_t refcount;              /* Reference count, used by symlink */
     tm_t tm;
-    vfs_fsinfo_t* fs;
-    void* ident;
+    vfs_fsinfo_t *fs;
+    void *ident;
+    lock_t ilock;
     vfs_tnode_t* mountpoint;
     vec_struct(vfs_tnode_t*) child;
 };
@@ -213,7 +214,7 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
 
 void vfs_init();
 void vfs_register_fs(vfs_fsinfo_t *fs);
-vfs_fsinfo_t* vfs_get_fs(char *name);
+vfs_fsinfo_t *vfs_get_fs(char *name);
 void vfs_debug();
 
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);

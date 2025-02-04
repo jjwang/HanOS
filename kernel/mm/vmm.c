@@ -21,9 +21,7 @@
 #include <stdint.h>
 
 #include <kconfig.h>
-
 #include <libc/string.h>
-
 #include <sys/cpu.h>
 #include <sys/panic.h>
 #include <mm/mm.h>
@@ -31,6 +29,7 @@
 #include <base/kmalloc.h>
 #include <base/klib.h>
 #include <base/vector.h>
+#include <base/lock.h>
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 
@@ -38,6 +37,8 @@ extern mem_info_t kmem_info;
 
 addrspace_t kaddrspace = {0};
 static bool debug_info = false;
+static lock_t mmap_lock = {0};
+
 vec_new_static(mem_map_t, global_mmap_list);
 
 static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
@@ -297,30 +298,29 @@ void vmm_init(
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("Mapped kernel 0x%9x to 0x%x (len: %d, #%d)\n",
+            klogi("[K] Mapped kernel 0x%9x to 0x%x (len: %d, #%d)\n",
                   entry->base, vaddr, entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
+            klogi("[F] Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
             /* vmm_map: do nothing */
         } else if (entry->type == LIMINE_MEMMAP_USABLE) {
-            bool is_kernel_loc = false;
+            bool is_mem_bitmap_loc = false;
             if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
                 && VIRT_TO_PHYS(kmem_info.bitmap) < entry->base + entry->length)
             {
-                is_kernel_loc = true;
+                is_mem_bitmap_loc = true;
             }
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
-                    NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT);
-            klogi("Mapped 0x%9x to 0x%x(len: %d, type %d, #%d, %s)\n",
+                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+            klogi("[U] Mapped 0x%9x to 0x%x(len: %d, type %d, #%d, %s)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length, entry->type,
-                  i, is_kernel_loc ? "all tasks [bitmap]" : "kernel only");
+                  i, is_mem_bitmap_loc ? "all tasks [bitmap]" : "kernel only");
         }
     }
 
@@ -330,6 +330,8 @@ void vmm_init(
 
 addrspace_t *create_addrspace(void)
 {
+    klogd("VMM: create a new address space\n");
+
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
     if (!as) {
         kpanic("VMM: cannot allocate addrspace\n");
@@ -342,16 +344,25 @@ addrspace_t *create_addrspace(void)
     if (!as->PML4) {
         kmfree(as);
         return NULL;
-    } 
+    }
+
+    lock_lock(&mmap_lock);
+
     memset(as->PML4, 0, PAGE_SIZE * 8); 
 
     as->lock = lock_new();
 
-    int64_t len = vec_length(&global_mmap_list);
-    for (int64_t i = 0; i < len; i++) {
+    uint64_t len = vec_length(&global_mmap_list);
+    uint64_t tp = 0;
+    for (uint64_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&global_mmap_list, i);
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
+        tp += m.np;
     }
+
+    lock_release(&mmap_lock);
+
+    klogd("VMM: creating address space 0x%x (%d pages) finished\n", as, tp);
 
     return as; 
 }

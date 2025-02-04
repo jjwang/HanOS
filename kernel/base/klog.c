@@ -320,9 +320,8 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         if (klog_info.start >= KLOG_BUFFER_SIZE)
             klog_info.start = 0;
 
-#if !LAUNCHER_CLI
         term_putch(TERM_MODE_INFO, logout.buff[i]);
-#endif
+
         klog_putchar_times++;
 
         i++;
