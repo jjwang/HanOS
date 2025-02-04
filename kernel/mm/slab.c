@@ -34,7 +34,7 @@
 #define GET_SLAB(x)             (slab_t *)(ROUND_DOWN((uintptr_t)x, PAGE_SIZE) \
                                 + SLAB_PAGE_OFFSET)
 
-#define SLAB_DEBUG              1
+#define SLAB_DEBUG              0
 
 /* the cache responsible for allocating all others */
 static bool selfcacheinit = false;

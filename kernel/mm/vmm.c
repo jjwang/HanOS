@@ -36,8 +36,8 @@
 extern mem_info_t kmem_info;
 
 addrspace_t kaddrspace = {0};
+
 static bool debug_info = false;
-static lock_t mmap_lock = {0};
 
 vec_new_static(mem_map_t, global_mmap_list);
 
@@ -94,6 +94,8 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pt[pte] = MAKE_TABLE_ENTRY(paddr & ~(0xfff), flags);
 
+    if (!as->initialized) return;
+
     uint64_t cr3val;
     read_cr("cr3", &cr3val);
     if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
@@ -111,26 +113,28 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
 
     uint64_t *pml4 = as->PML4;
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
-        return;
+        goto done;
 
     uint64_t *pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
-        return;
+        goto done;
 
     uint64_t *pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
     if (!(pd[pde] & VMM_FLAG_PRESENT))
-        return;
+        goto done;
 
     uint64_t *pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
     if (!(pt[pte] & VMM_FLAG_PRESENT))
-        return;
+        goto done;
 
     pt[pte] = 0;
 
-    uint64_t cr3val;
-    read_cr("cr3", &cr3val);
-    if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
-        asm volatile("invlpg (%0)" ::"r"(vaddr));
+    if (as->initialized) {
+        uint64_t cr3val;
+        read_cr("cr3", &cr3val);
+        if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
+            asm volatile("invlpg (%0)" ::"r"(vaddr));
+    }
 
     for (int i = 0; i < 512 * 8; i++)
         if (pt[i] != 0)
@@ -324,6 +328,7 @@ void vmm_init(
         }
     }
 
+    kaddrspace.initialized = true;
     write_cr("cr3", VIRT_TO_PHYS(kaddrspace.PML4));
     klogi("VMM initialization finished\n");
 }
@@ -346,8 +351,6 @@ addrspace_t *create_addrspace(void)
         return NULL;
     }
 
-    lock_lock(&mmap_lock);
-
     memset(as->PML4, 0, PAGE_SIZE * 8); 
 
     as->lock = lock_new();
@@ -360,9 +363,8 @@ addrspace_t *create_addrspace(void)
         tp += m.np;
     }
 
-    lock_release(&mmap_lock);
-
-    klogd("VMM: creating address space 0x%x (%d pages) finished\n", as, tp);
+    as->initialized = true;
+    klogd("VMM: creating address space 0x%x finished\n", as);
 
     return as; 
 }

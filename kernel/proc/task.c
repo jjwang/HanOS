@@ -22,6 +22,7 @@
 #include <proc/sched.h>
 #include <base/kmalloc.h>
 #include <base/klog.h>
+#include <base/lock.h>
 #include <sys/cpu.h>
 #include <sys/hpet.h>
 #include <sys/apic.h>
