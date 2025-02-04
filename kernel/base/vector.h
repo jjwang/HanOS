@@ -26,8 +26,8 @@
 
 #define VECTOR_RESIZE_FACTOR        4
 
-#define vec_struct(type)                                            \
-    struct {                                                        \
+#define vec_struct(type)                                              \
+    struct {                                                          \
         uint64_t len;                                                 \
         uint64_t capacity;                                            \
         type*    data;                                                \
@@ -55,11 +55,21 @@
     {                                                               \
         memcpy(&((vec)->data[index]), &((vec)->data[index + 1]),    \
                sizeof((vec)->data[0]) * (vec)->len - index - 1);    \
+        memset(&((vec)->data[(vec)->len - 1]), 0,                   \
+               sizeof((vec)->data[0]));                             \
         (vec)->len--;                                               \
+        if ((vec)->len == 0) {                                      \
+            (vec)->capacity = 0;                                    \
+            if ((vec)->data != NULL) kmfree((vec)->data);           \
+            (vec)->data = NULL;                                     \
+        }                                                           \
     }
 
 #define vec_erase_all(vec)                                          \
     {                                                               \
+        if ((vec)->len > 0)                                         \
+            memset((vec)->data, 0,                                  \
+                   sizeof((vec)->data[0]) * (vec)->len);            \
         (vec)->len = 0;                                             \
         (vec)->capacity = 0;                                        \
         if ((vec)->data != NULL) kmfree((vec)->data);               \
@@ -68,7 +78,7 @@
 
 #define vec_erase_val(vec, val)                                     \
     {                                                               \
-        for(int64_t __i = 0; __i < (vec)->len; __i++) {              \
+        for(int64_t __i = 0; __i < (vec)->len; __i++) {             \
             if (vec_at(vec, __i) == (val)) {                        \
                 vec_erase(vec, __i);                                \
                 break;                                              \
