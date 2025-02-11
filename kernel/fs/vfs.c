@@ -54,7 +54,7 @@ vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 /* New file handle */
 static uint64_t vfs_next_handle = VFS_MIN_HANDLE; 
 
-extern char pipe_eof_magic_word[];
+extern uint8_t pipe_eof_magic_word[];
 
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
@@ -568,9 +568,12 @@ int64_t vfs_close(vfs_handle_t handle)
     if (!fd)
         goto fail;
 
+    /* TODO: We should use the corresponding implemention in each driver
+     * to replace this urgly code block.
+     */
     if (strcmp(fd->path, "/dev/tty") == 0) istty = true;
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
-        if ((fd->mode & VFS_MODE_WRITE) && fd->seek_pos > 0) {
+        if (fd->mode & VFS_MODE_WRITE) {
             klogi("VFS: write EOF to %s with seek position %d\n",
                   fd->path, fd->seek_pos);
             lock_release(&vfs_lock);

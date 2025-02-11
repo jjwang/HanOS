@@ -1272,17 +1272,21 @@ void k_exit(int64_t status)
     task_t *t = sched_get_current_task();
     if (t != NULL) {
         klogi("k_exit: task %d exit with status %d\n", t->tid, status);
+    } else {
+        goto normal_exit;
     }
 
     /* Close all open files */
     lock_lock(&sched_lock);
     for (uint64_t i = 0; i < t->open_files_table.size; i++) {
-        if (t->open_files_table.array[i].key >= 0) {
-            vfs_close(t->open_files_table.array[i].key);
+        int64_t fh = t->open_files_table.array[i].key;
+        if (fh >= 0) {
+            vfs_close(fh);
         }
     }
     lock_release(&sched_lock);
 
+normal_exit:
     /* Exit from scheduler */
     sched_exit(status);
 }
@@ -1340,6 +1344,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     if (t != NULL) cwd = t->cwd;
 
     if (sched_execve(path, argv, envp, cwd) != NULL) {
+        klogi("k_execve: run \"%s\" and exit from task %d\n", path, t->tid);
         sched_exit(0);
         cpu_set_errno(0);
         return 0;
