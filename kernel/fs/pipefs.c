@@ -49,7 +49,7 @@ vfs_fsinfo_t pipefs = {
 lock_t pipe_lock = {0};
 extern lock_t vfs_lock;
 
-char pipe_eof_magic_word[5] = {0xFF, 0x0E, 0x00, 0x0F, 0x00}; 
+uint8_t pipe_eof_magic_word[5] = {0xFF, 0x0E, 0x00, 0x0F, 0x00}; 
 
 /* Identifying information for a node */
 typedef struct {
@@ -103,12 +103,19 @@ int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff
 
     /* We do not use offset here */
     (void)offset;
+    uint8_t tempbuff[4] = {0};
 
     lock_lock(&pipe_lock);
 
     rlen = id->size;
     if (rlen > len) rlen = len;
-    memcpy(buff, id->buff, rlen);
+
+    if (rlen > 4) {
+        memcpy(buff, id->buff, rlen - 4);
+        memcpy(tempbuff, (uint8_t*)id->buff + rlen - 4, 4);
+    } else {
+        memcpy(buff, id->buff, rlen);
+    }
     
     if (id->size - rlen > 0) {
         char val = ((char*)id->buff)[id->size - 1];
@@ -121,15 +128,18 @@ int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff
     id->size -= rlen;
 
     if (rlen >= 4) {
-        if (((char*)buff)[rlen - 4] == pipe_eof_magic_word[0]) {
-            if (   ((char*)buff)[rlen - 3] == pipe_eof_magic_word[1]
-                && ((char*)buff)[rlen - 2] == pipe_eof_magic_word[2]
-                && ((char*)buff)[rlen - 1] == pipe_eof_magic_word[3])
+        bool need_copy = true;
+        if (tempbuff[0] == pipe_eof_magic_word[0]) {
+            if (   tempbuff[1] == pipe_eof_magic_word[1]
+                && tempbuff[2] == pipe_eof_magic_word[2]
+                && tempbuff[3] == pipe_eof_magic_word[3])
             {
                 id->closed = true;
+                need_copy = false;
                 rlen -= 4;
             }
         }
+        if (need_copy) memcpy(buff + rlen - 4, tempbuff, 4);
     }
 
     lock_release(&pipe_lock);
