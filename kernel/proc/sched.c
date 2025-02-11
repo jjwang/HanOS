@@ -496,7 +496,7 @@ event_t sched_wait_event(event_t event)
     lock_release(&sched_lock);
 
     force_context_switch();
-
+ 
     return curr->wakeup_event;
 }
 
