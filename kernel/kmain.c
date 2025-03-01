@@ -193,7 +193,8 @@ _Noreturn void kshell(task_id_t tid)
         "HOME=/root",
         "TIME_STYLE=posix-long-iso",
         "PATH=/usr/bin:/bin",
-        "TERM=hanos",
+        "SHELL=/usr/bin/bash",
+        "TERM=xterm-color",
         NULL
     };  
 
