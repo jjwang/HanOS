@@ -28,6 +28,7 @@
 #include <fs/ttyfs.h>
 #include <fs/pipefs.h>
 #include <base/klog.h>
+#include <base/klib.h>
 #include <base/kmalloc.h>
 #include <base/lock.h>
 #include <base/vector.h>
@@ -386,6 +387,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 
     /* Set file size to stat data structure */
     fd->tnode->st.st_size = fd->inode->size;
+    fd->tnode->st.st_blocks = DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
 
     lock_release(&vfs_lock);
     return (int64_t)len;
@@ -529,6 +531,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     /* If this is a symlink, we should set the real file size */
     /* TODO: Need to consider in the future */
     fd->tnode->st.st_size = req->inode->size;
+    fd->tnode->st.st_blocks = DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
 
     /* Return the handle */
     vfs_handle_t fh = vfs_next_handle++;
