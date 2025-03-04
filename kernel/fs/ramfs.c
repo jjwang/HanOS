@@ -215,6 +215,7 @@ void ramfs_init(void *address, uint64_t size)
             } else {
                 tnode->st.st_size = 0;
             }
+            tnode->st.st_blocks = DIV_ROUNDUP(tnode->st.st_size, VFS_BLOCK_SIZE);
 
             vec_push_back(&ramfs.filelist, (void*)item);
 

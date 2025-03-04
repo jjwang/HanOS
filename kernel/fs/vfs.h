@@ -30,6 +30,7 @@
 /* Some limits */
 #define VFS_MAX_PATH_LEN    4096
 #define VFS_MAX_NAME_LEN    256
+#define VFS_BLOCK_SIZE      512
 
 #define VFS_FDCWD           -100
 #define VFS_INVALID_HANDLE  -1

@@ -1045,7 +1045,7 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
     }
 
     strcpy(de->d_name, fd->curr_dir_ent->name);
-   
+
     de->d_ino = fd->curr_dir_ent->st.st_ino;
     de->d_off = 0;
     de->d_reclen = sizeof(dirent_t);
