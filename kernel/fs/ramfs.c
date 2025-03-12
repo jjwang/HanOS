@@ -364,7 +364,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     if (tnode != NULL && islink) tnode->inode->size = id->alloc_size;
 
     task_t *t = sched_get_current_task();
-    klogi("RAMFS: finish opening %s and return 0x%x (data 0x%x) in task %d\n",
+    klogd("RAMFS: finish opening %s and return 0x%x (data 0x%x) in task %d\n",
           path, (tnode != NULL) ? tnode->inode : NULL, id->data,
           (t != NULL) ? t->tid : 0);
 
