@@ -142,7 +142,7 @@ int64_t ttyfs_ioctl(vfs_inode_t *this, int64_t request, int64_t arg)
     if (request == TIOCGWINSZ) {        /* 0x5413 */
         winsize_t *ws = (winsize_t*)arg;
         term_get_winsize(ws);
-        klogi("ttyfs_ioctl: TIOCGWINSZ returns row %d col %d\n",
+        klogd("ttyfs_ioctl: TIOCGWINSZ returns row %d col %d\n",
               ws->row, ws->col);
         ret = 0;
     } else if (request == TIOCSWINSZ) { /* 0x5413 */

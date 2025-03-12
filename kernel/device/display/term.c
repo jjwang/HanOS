@@ -517,9 +517,15 @@ void term_putch(int mode, uint8_t c)
         term_act = &term_cli;
     }
 
-    if (term_act->state == STATE_UNKNOWN) {
+    if (term_act->state == STATE_UNKNOWN || c == 0xFF) {
         return;
     }   
+
+    if (term_act->skip_left != 0 && term_act->state == STATE_IDLE
+        && c == '\033')
+    {
+        term_act->skip_left = 0;
+    }
 
     if ((c & 0b10000000) && term_act->skip_left == 0
         && term_act->state == STATE_IDLE)
