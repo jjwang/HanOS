@@ -445,6 +445,22 @@ void sched_exit(int64_t status)
         if (all_children_dead) { /* This also includes no-children situation*/
             curr->status = TASK_DEAD;
         }
+
+        for (uint64_t i = 0; i < curr->open_files_table.size; i++) {
+            if (curr->open_files_table.array[i].key == -1
+                || curr->open_files_table.array[i].data == NULL)
+            {
+                continue;
+            }
+            klogd("sched_exit: dead task tid %d close file handle %d\n",
+                  curr->tid, curr->open_files_table.array[i].key);
+            vfs_close(curr->open_files_table.array[i].key);
+        }
+        if (curr->open_files_table.array != NULL) {
+            kmfree(curr->open_files_table.array);
+            curr->open_files_table.array = NULL;
+        }
+        curr->open_files_table.size = 0;
     }   
 
     lock_release(&sched_lock);
@@ -613,6 +629,14 @@ task_t *sched_execve(
             tc->open_files_table.array[i] = tp->open_files_table.array[i];
             tc->open_files_table.array[i].data = fd; 
             fd->inode->refcount++;
+            if (fd->mode == VFS_MODE_READ) {
+                fd->inode->readcount++;
+            } else if (fd->mode == VFS_MODE_WRITE) {
+                fd->inode->writecount++;
+            } else {
+                fd->inode->readcount++;
+                fd->inode->writecount++;
+            }
             klogd("SCHED: copy fd %d from tid %d to tid %d\n",
                   tc->open_files_table.array[i].key, tp->tid, tc->tid);
         } 

@@ -266,6 +266,14 @@ task_t *task_fork(task_t *tp)
         tc->open_files_table.array[i].key = tp->open_files_table.array[i].key;
         tc->open_files_table.array[i].data = fd; 
         fd->inode->refcount++;
+        if (fd->mode == VFS_MODE_READ) {
+            fd->inode->readcount++;
+        } else if (fd->mode == VFS_MODE_WRITE) {
+            fd->inode->writecount++;
+        } else {
+            fd->inode->readcount++;
+            fd->inode->writecount++;
+        }
         klogd("TASK: copy fd %d from tid %d to tid %d\n",
               tc->open_files_table.array[i].key, tp->tid, tc->tid);
     }
@@ -311,7 +319,7 @@ void task_free(task_t *t)
     vec_erase_all(&t->child_list);
     vec_erase_all(&t->dup_list);
 
-    klogi("task_idle: dead task tid %d free mmap number %d\n",
+    klogi("task_free: dead task tid %d free mmap number %d\n",
           t->tid, mmap_num);
 
     kmfree_chunk((void*)t->kstack_limit, __func__, __LINE__);
@@ -330,6 +338,8 @@ void task_free(task_t *t)
         pmm_free(m, 8, __func__, __LINE__);
     }
     vec_erase_all(&t->addrspace->mem_list);
+
+    /* TODO: check unclosed file handles */
 
     kmfree_chunk((void*)t->addrspace->PML4, __func__, __LINE__);
     kmfree((void*)t->addrspace);

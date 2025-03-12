@@ -55,8 +55,6 @@ vec_new_static(vfs_fsinfo_t*, vfs_fslist);
 /* New file handle */
 static uint64_t vfs_next_handle = VFS_MIN_HANDLE; 
 
-extern uint8_t pipe_eof_magic_word[];
-
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
 {
@@ -86,7 +84,8 @@ static void dumpnodes_helper(vfs_tnode_t *from, int lvl)
 {
     for (int i = 0; i < 1 + lvl; i++)
         kprintf(" ");
-    kprintf(" %d: [%s] -> %x inode (%d refs)\n", lvl, from->name, from->inode, from->inode->refcount);
+    kprintf(" %d: [%s] -> %x inode (%d refs)\n",
+            lvl, from->name, from->inode, from->inode->refcount);
 
     if (IS_TRAVERSABLE(from->inode))
         for (uint64_t i = 0; i < from->inode->child.len; i++)
@@ -485,8 +484,6 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 {
-    klogv("VFS: open %s with mode 0x%8x\n", path, mode);
-
     lock_lock(&vfs_lock);
 
     /* Find the node */
@@ -511,12 +508,20 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     } else {
         /* OK, move forward to open the file */
         if (req->inode->fs != NULL) {
-            klogv("VFS: inode for %s already exists\n", path);
             req = req->inode->fs->open(req->inode, path);
+            klogv("VFS: inode for %s already exists\n", path);
         }
     }
 
     req->inode->refcount++;
+    if (mode == VFS_MODE_READ) {
+        req->inode->readcount++;
+    } else if (mode == VFS_MODE_WRITE) {
+        req->inode->writecount++;
+    } else {
+        req->inode->readcount++;
+        req->inode->writecount++;
+    }
 
     /* Create node descriptor */
     vfs_node_desc_t *fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
@@ -546,7 +551,10 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 
     lock_release(&vfs_lock);
 
-    if (strcmp(path, "/dev/tty") != 0) {
+    if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
+        klogi("VFS: Open %s with mode 0x%x and return handle %d, task id %d\n",
+               path, mode, fh, t != NULL ? t->tid : 0);
+    } else if (strcmp(path, "/dev/tty") != 0) {
         klogd("VFS: Open %s with mode 0x%x and return handle %d, "
               "nd = 0x%x, inode = 0x%x\n", path, mode, fh, fd, fd->inode);
     } else {
@@ -576,15 +584,30 @@ int64_t vfs_close(vfs_handle_t handle)
      */
     if (strcmp(fd->path, "/dev/tty") == 0) istty = true;
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
-        if (fd->mode & VFS_MODE_WRITE) {
-            klogi("VFS: write EOF to %s with seek position %d\n",
-                  fd->path, fd->seek_pos);
+        if ((fd->mode & VFS_MODE_WRITE) && fd->inode->writecount == 1) {
+            klogi("VFS: fh %d write EOF to %s with seek position %d\n",
+                  handle, fd->path, fd->seek_pos);
             lock_release(&vfs_lock);
-            vfs_write(handle, 4, pipe_eof_magic_word);
+
+            uint8_t magic_word[4] = {(VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
+                                     (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
+                                     (VFS_EOF_MAGIC_WORD >>  8) & 0xFF,
+                                      VFS_EOF_MAGIC_WORD        & 0xFF};
+            vfs_write(handle, 4, magic_word);
+
             lock_lock(&vfs_lock);
         }
     }
+
     fd->inode->refcount--;
+    if (fd->mode == VFS_MODE_READ) {
+        fd->inode->readcount--;
+    } else if (fd->mode == VFS_MODE_WRITE) {
+        fd->inode->writecount--;
+    } else {
+        fd->inode->readcount--;
+        fd->inode->writecount--;
+    }
 
     task_t *t = sched_get_current_task();
     if (t != NULL) {
@@ -602,7 +625,6 @@ int64_t vfs_close(vfs_handle_t handle)
     }
 
     kmfree(fd);
-
     lock_release(&vfs_lock);
 
     if (!istty) {

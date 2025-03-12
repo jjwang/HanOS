@@ -97,7 +97,7 @@ int64_t k_sigprocmask(int64_t how, sigset_t *set, sigset_t *oldset)
         memcpy(&new, set, sizeof(sigset_t));
     }
     
-    klogi("k_sigprocmask: how %d from old 0x%x to new 0x%x\n",
+    klogd("k_sigprocmask: how %d from old 0x%x to new 0x%x\n",
           how, oldset, set);
 
     signal_changemask(t, how, set ? &new : NULL, oldset ? &old : NULL);
@@ -409,14 +409,14 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     char full_path[VFS_MAX_PATH_LEN] = {0};
     if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
-        kloge("k_openat: cannot get full path for \"%s\"\n", path);
+        klogv("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
     } else {
         /* Check whether folder exists or not, e.g. filename is "1/txt" */
         uint64_t len = strlen(full_path);
         if (len == 0) {
-            kloge("k_openat: full path of \"%s\" is null\n", path);
+            klogv("k_openat: full path of \"%s\" is null\n", path);
             cpu_set_errno(EINVAL);
             return -1;
         }
@@ -429,13 +429,13 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         if (strlen(full_path) > 0) {
             vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
             if (tnode == NULL) {
-                kloge("k_openat: directory \"%s\" doesn't exist\n", full_path);
+                klogv("k_openat: directory \"%s\" doesn't exist\n", full_path);
                 cpu_set_errno(ENOENT);
                 return -1;
             }
         }
         if (get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
-            kloge("k_openat: full path of \"%s\" cannot be got\n", path);
+            klogv("k_openat: full path of \"%s\" cannot be got\n", path);
             cpu_set_errno(EINVAL);
             return -1;
         }
@@ -467,7 +467,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     if (flags & O_CREAT) {
         int64_t ret = vfs_create(full_path, VFS_NODE_FILE);
         if (ret < 0) {
-            kloge("k_openat: creating file for \"%s\" failed\n", path);
+            klogv("k_openat: creating file for \"%s\" failed\n", path);
             cpu_set_errno(EEXIST);
             return ret;
         } else {
@@ -479,7 +479,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         }   
     }
 
-    klogi("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
+    klogd("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path, flags);
     return vfs_open(full_path, openmode);
 }
 

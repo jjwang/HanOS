@@ -32,9 +32,11 @@
 #define VFS_MAX_NAME_LEN    256
 #define VFS_BLOCK_SIZE      512
 
+/* Some definitions */
 #define VFS_FDCWD           -100
 #define VFS_INVALID_HANDLE  -1
 #define VFS_MIN_HANDLE      100
+#define VFS_EOF_MAGIC_WORD  0xFF0E000F
 
 /* Options for file seek */
 #define SEEK_CUR            1
@@ -193,6 +195,8 @@ struct vfs_inode_t {
     uint32_t perms;                 /* File permission, modified by chmod */
     uint32_t uid;                   /* User id */
     uint32_t refcount;              /* Reference count, used by symlink */
+    uint32_t readcount;
+    uint32_t writecount;
     tm_t tm;
     vfs_fsinfo_t *fs;
     void *ident;

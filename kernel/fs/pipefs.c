@@ -27,7 +27,7 @@
 #include <sys/panic.h>
 #include <mm/mm.h>
 
-#define PIPE_BUFFER_SIZE    4096
+#define PIPE_BUFFER_SIZE    64000
 
 /* Filesystem information */
 vfs_fsinfo_t pipefs = {
@@ -46,16 +46,12 @@ vfs_fsinfo_t pipefs = {
     .ioctl = NULL
 };
 
-lock_t pipe_lock = {0};
 extern lock_t vfs_lock;
-
-uint8_t pipe_eof_magic_word[5] = {0xFF, 0x0E, 0x00, 0x0F, 0x00}; 
 
 /* Identifying information for a node */
 typedef struct {
-    char    buff[PIPE_BUFFER_SIZE];
+    uint8_t buff[PIPE_BUFFER_SIZE];
     int64_t size;
-    bool    closed;
 } pipefs_ident_t;
 
 static pipefs_ident_t *create_ident()
@@ -63,6 +59,102 @@ static pipefs_ident_t *create_ident()
     pipefs_ident_t *id = (pipefs_ident_t*)kmalloc(sizeof(pipefs_ident_t));
     memset(id, 0, sizeof(pipefs_ident_t));
     return id;
+}
+
+static int64_t pipe_buff_write(
+    pipefs_ident_t *id, const uint8_t *input, uint64_t len)
+{
+    if (id->size + 4 + len > PIPE_BUFFER_SIZE) {
+        return -1; /* Buffer overflow */
+    }
+
+    /* Write the length as a 4-byte int */
+    id->buff[id->size + 3] = (len >> 24) & 0xFF;
+    id->buff[id->size + 2] = (len >> 16) & 0xFF;
+    id->buff[id->size + 1] = (len >>  8) & 0xFF;
+    id->buff[id->size    ] = len         & 0xFF;
+
+    /* Write the data */
+    memcpy(id->buff + id->size + 4, input, len);
+
+    /* Update the size */
+    id->size += 4 + len;
+    return len;
+}
+
+static bool pipe_is_eof(pipefs_ident_t *id)
+{
+    if (id->size == 0) {
+        return false;
+    }
+
+    /* Read the length of the next data block */
+    uint64_t data_len = (id->buff[3] << 24) |
+                        (id->buff[2] << 16) |
+                        (id->buff[1] <<  8) |
+                         id->buff[0];
+    uint8_t magic_word[4] = {(VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
+                             (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
+                             (VFS_EOF_MAGIC_WORD >>  8) & 0xFF,
+                              VFS_EOF_MAGIC_WORD        & 0xFF};
+
+    if (   data_len == 4
+        && id->buff[4] == magic_word[0] && id->buff[5] == magic_word[1]
+        && id->buff[6] == magic_word[2] && id->buff[7] == magic_word[3])
+    {
+        return true;
+    }
+
+    return false;
+}
+
+static int64_t pipe_buff_read(
+    pipefs_ident_t *id, uint8_t *output, size_t max_len)
+{
+    if (id->size == 0) {
+        return -1; /* Nothing to read */
+    }
+
+    /* Read the length of the next data block */
+    uint64_t data_len = (id->buff[3] << 24) |
+                        (id->buff[2] << 16) |
+                        (id->buff[1] <<  8) |
+                         id->buff[0];
+    
+    if (pipe_is_eof(id)) {
+        return 0;
+    }
+
+    if (max_len >= data_len) {
+        /* Read the entire data block */
+        memcpy(output, id->buff + 4, data_len);
+
+        /* Move the remaining data to the beginning of the buffer */
+        memcpy(id->buff, id->buff + 4 + data_len, id->size - 4 - data_len);
+        
+        /* Update the size */
+        id->size -= 4 + data_len;
+
+        return data_len;
+    } else {
+        /* Read only max_len bytes */
+        memcpy(output, id->buff + 4, max_len);
+
+        /* Move the remaining data to the beginning of the buffer */
+        memcpy(id->buff + 4, id->buff + 4 + max_len, id->size - 4 - max_len);
+        
+        /* Update the new length of the truncated data block */
+        uint64_t remaining_len = data_len - max_len;
+        id->buff[3] = (remaining_len >> 24) & 0xFF;
+        id->buff[2] = (remaining_len >> 16) & 0xFF;
+        id->buff[1] = (remaining_len >>  8) & 0xFF;
+        id->buff[0] = remaining_len         & 0xFF;
+
+        /* Update the size */
+        id->size -= max_len;
+
+        return max_len;
+    }
 }
 
 void pipefs_init(void)
@@ -84,68 +176,35 @@ vfs_tnode_t *pipefs_open(vfs_inode_t *this, const char *path)
 int64_t pipefs_read(vfs_inode_t* this, uint64_t offset, uint64_t len, void *buff)
 {
     pipefs_ident_t *id = this->ident;
-    uint64_t rlen = 0;
 
-    if (len == 0 || id->closed) {
-        klogd("PIPEFS: read %d bytes to 0x%x and return 0 bytes\n",
-              len, buff);
+    if (len == 0) {
+        klogd("PIPEFS: read %d bytes to 0x%x and return 0 bytes [status: %s]\n",
+              len, buff, (pipe_is_eof(id) ? "EOF" : "normal"));
         return 0;
+    } else {
+        klogd("PIPEFS: try to read %d bytes from 0x%x with %d bytes to 0x%x\n",
+              len, id->buff, id->size, buff);
     }
-    
+
+    /* We do not use offset here */
+    (void)offset;
+ 
     /* According to standard pipe implementation, the task should be blocked
      * here until there are data available.
      */
-    while (id->size == 0) {
+    int64_t rlen = 0;
+    while (true) {
+        rlen = pipe_buff_read(id, buff, len);
+        if (rlen >= 0) break;
+    
         lock_release(&vfs_lock);
         sched_sleep(0);
         lock_lock(&vfs_lock);
     }
 
-    /* We do not use offset here */
-    (void)offset;
-    uint8_t tempbuff[4] = {0};
-
-    lock_lock(&pipe_lock);
-
-    rlen = id->size;
-    if (rlen > len) rlen = len;
-
-    if (rlen > 4) {
-        memcpy(buff, id->buff, rlen - 4);
-        memcpy(tempbuff, (uint8_t*)id->buff + rlen - 4, 4);
-    } else {
-        memcpy(buff, id->buff, rlen);
-    }
-    
-    if (id->size - rlen > 0) {
-        char val = ((char*)id->buff)[id->size - 1];
-        memcpy(id->buff, &(id->buff[rlen]), id->size - rlen);
-        if (((char*)id->buff)[id->size - rlen - 1] != val) {
-            kpanic("pipefs: corruption in memcpy() while reading %d bytes from " \
-                   "%d bytes buffer\n", rlen, id->size);
-        }
-    }
-    id->size -= rlen;
-
-    if (rlen >= 4) {
-        bool need_copy = true;
-        if (tempbuff[0] == pipe_eof_magic_word[0]) {
-            if (   tempbuff[1] == pipe_eof_magic_word[1]
-                && tempbuff[2] == pipe_eof_magic_word[2]
-                && tempbuff[3] == pipe_eof_magic_word[3])
-            {
-                id->closed = true;
-                need_copy = false;
-                rlen -= 4;
-            }
-        }
-        if (need_copy) memcpy(buff + rlen - 4, tempbuff, 4);
-    }
-
-    lock_release(&pipe_lock);
-
-    klogd("PIPEFS: read %d bytes to 0x%x and return %d bytes (%02x)\n",
-          len, buff, rlen, (rlen > 0 ? ((char*)buff)[rlen - 1] : 0));
+    klogd("PIPEFS: read %d bytes from 0x%x to 0x%x and return %d"
+          " bytes [%02x]\n", len, id->buff, buff, rlen,
+          (rlen > 0 ? ((char*)buff)[rlen - 1] : 0));
 
     return rlen;
 }
@@ -156,37 +215,33 @@ int64_t pipefs_write(vfs_inode_t* this, uint64_t offset, uint64_t len,
     pipefs_ident_t *id = this->ident;
 
     klogd("PIPEFS: write %d bytes from %x to %x (PIPE) whose size is "
-          "%d bytes and %d refcount\n",
-          len, buff, id->buff, id->size, this->refcount);
+          "%d bytes, refcount %d, readcount %d, writecount %d "
+          "[%02x %02x %02x %02x]\n", len, buff, id->buff, id->size,
+          this->refcount, this->readcount, this->writecount,
+          (len >= 4 ? ((char*)buff)[len - 4] : 0),
+          (len >= 4 ? ((char*)buff)[len - 3] : 0),
+          (len >= 4 ? ((char*)buff)[len - 2] : 0),
+          (len >= 4 ? ((char*)buff)[len - 1] : 0));
 
-    lock_lock(&pipe_lock);
+    if (pipe_is_eof(id)) {
+        id->size = 0;
+    }
 
     /* We do not use offset here */
     (void)offset;
 
-    /* Output to the buffer */
-    uint64_t wlen = 0;
-
     /* According to standard pipe implementation, the task should be blocked
      * here until there are rooms available in the pipe.
      */
+    int64_t wlen = 0;
     while (true) {
-        if (PIPE_BUFFER_SIZE > id->size) {
-            wlen = PIPE_BUFFER_SIZE - id->size;
-        }
-        if (wlen > 0) break;
+        wlen = pipe_buff_write(id, buff, len);
+        if (wlen >= 0) break;
 
         lock_release(&vfs_lock);
         sched_sleep(0);
         lock_lock(&vfs_lock);
     }
-
-    if (wlen > len) wlen = len;
-    memcpy(&(id->buff[id->size]), buff, wlen);
-
-    id->size += wlen;
-
-    lock_release(&pipe_lock);
 
     return wlen;
 }
