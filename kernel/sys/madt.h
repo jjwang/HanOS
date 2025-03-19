@@ -20,13 +20,13 @@
 #include <sys/acpi.h>
 
 /* MADT Record Header */
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint8_t type;
     uint8_t len;
 } madt_record_hdr_t;
 
 /* Local APIC */
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     madt_record_hdr_t hdr;
 
     uint8_t proc_id;
@@ -35,7 +35,7 @@ typedef struct [[gnu::packed]] {
 } madt_record_lapic_t;
 
 /* I/O APIC */
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     madt_record_hdr_t hdr;
 
     uint8_t id;
@@ -45,7 +45,7 @@ typedef struct [[gnu::packed]] {
 } madt_record_ioapic_t;
 
 /* Interrupt Source Override */
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     madt_record_hdr_t hdr;
 
     uint8_t bus_src;
@@ -55,7 +55,7 @@ typedef struct [[gnu::packed]] {
 } madt_record_iso_t;
 
 /* Non Maskable Interrupt */
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     madt_record_hdr_t hdr;
 
     uint8_t proc_id;
@@ -63,7 +63,7 @@ typedef struct [[gnu::packed]] {
     uint8_t lint;
 } madt_record_nmi_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     acpi_sdt_hdr_t hdr;
 
     uint32_t lapic_addr;
@@ -84,6 +84,6 @@ typedef struct [[gnu::packed]] {
 void madt_init();
 uint32_t madt_get_num_ioapic();
 uint32_t madt_get_num_lapic();
-madt_record_ioapic_t** madt_get_ioapics();
-madt_record_lapic_t** madt_get_lapics();
+madt_record_ioapic_t **madt_get_ioapics();
+madt_record_lapic_t **madt_get_lapics();
 uint64_t madt_get_lapic_base();

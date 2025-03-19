@@ -27,7 +27,7 @@
 #include <sys/serial.h>
 #include <3rd-party/boot/limine.h>
 
-static const uint32_t font_colors[9] = { 
+static const uint32_t font_colors[9] = {
     COLOR_BLACK,
     COLOR_RED,
     COLOR_GREEN,
@@ -39,21 +39,23 @@ static const uint32_t font_colors[9] = {
     DEFAULT_FGCOLOR,
 };
 
-static term_info_t term_info = {0};
-static term_info_t term_cli = {0};
+static term_info_t term_info = { 0 };
+static term_info_t term_cli = { 0 };
 
-static int term_active_mode = TERM_MODE_UNKNOWN; 
+static int term_active_mode = TERM_MODE_UNKNOWN;
 static uint8_t term_cursor = 0;
-static lock_t term_lock = {0};
+static lock_t term_lock = { 0 };
+
 static bool term_need_redraw = false;
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
 #define CHECK_ACTIVE_TERM()     { if (term_act == NULL) kpanic("Active terminal does not exist"); }
 
-void term_get_winsize(winsize_t *ws)
+void term_get_winsize(winsize_t * ws)
 {
-    if (ws == NULL) return;
+    if (ws == NULL)
+        return;
 
     if (term_cli.state == STATE_IDLE) {
         ws->col = term_cli.width;
@@ -63,28 +65,28 @@ void term_get_winsize(winsize_t *ws)
     }
 }
 
-bool term_set_winsize(winsize_t *ws)
+bool term_set_winsize(winsize_t * ws)
 {
-    if (ws == NULL) return false;
+    if (ws == NULL)
+        return false;
 
     if (term_cli.state == STATE_IDLE) {
         if (ws->col != term_cli.width || ws->row != term_cli.height
             || ws->xpixel != term_cli.fb.width
-            || ws->ypixel != term_cli.fb.height)
-        {
+            || ws->ypixel != term_cli.fb.height) {
             kpanic("Can't support specified terminal window size");
         }
     }
 
-    return false; 
+    return false;
 }
 
-bool term_set_bg_image(image_t *img)
+bool term_set_bg_image(image_t * img)
 {
     return fb_set_bg_image(&(term_cli.fb), img);
 }
 
-bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
+bool term_parse_cmd(term_info_t * term_act, uint8_t byte)
 {
     CHECK_ACTIVE_TERM();
 
@@ -141,31 +143,35 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
              */
             int mode = -1;
             if (term_act->cparamcount == 0
-                || (term_act->cparamcount == 1 && term_act->cparams[0] == 0))
-            {
+                || (term_act->cparamcount == 1
+                    && term_act->cparams[0] == 0)) {
                 mode = 0;
-            } else if (term_act->cparamcount == 1 && term_act->cparams[0] == 1) {
+            } else if (term_act->cparamcount == 1
+                       && term_act->cparams[0] == 1) {
                 mode = 1;
-            } else if (term_act->cparamcount == 1 && term_act->cparams[0] == 2) {
+            } else if (term_act->cparamcount == 1
+                       && term_act->cparams[0] == 2) {
                 mode = 2;
             }
 
-            if (mode >= 0)
-            {
+            if (mode >= 0) {
                 for (uint64_t y = term_act->cursor_y * FONT_HEIGHT;
                      y < MIN((term_act->cursor_y + 1) * FONT_HEIGHT,
-                             term_act->fb.height);
-                     y++)
-                {
+                             term_act->fb.height); y++) {
                     for (uint64_t x = 0; x < term_act->fb.width; x++) {
-                        if (!(mode == 0 && x >= term_act->cursor_x * FONT_WIDTH))
+                        if (!
+                            (mode == 0
+                             && x >= term_act->cursor_x * FONT_WIDTH))
                             continue;
-                        if (!(mode == 1 && x < term_act->cursor_x * FONT_WIDTH))
+                        if (!
+                            (mode == 1
+                             && x < term_act->cursor_x * FONT_WIDTH))
                             continue;
-                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
-                    }   
-                }   
-            } 
+                        fb_putpixel(&(term_act->fb), x, y,
+                                    term_act->bgcolor);
+                    }
+                }
+            }
             goto succ;
         } else if (byte == 'J') {
             /* \033[J or \033[0J | ED | clear the screen from cursor to the end
@@ -182,11 +188,13 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                         if (y >= term_act->cursor_y * FONT_HEIGHT
                             && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
                         {
-                            if (x < term_act->cursor_x * FONT_WIDTH) continue;
+                            if (x < term_act->cursor_x * FONT_WIDTH)
+                                continue;
                         } else if (y < term_act->cursor_y * FONT_HEIGHT) {
                             continue;
                         }
-                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
+                        fb_putpixel(&(term_act->fb), x, y,
+                                    term_act->bgcolor);
                     }
                 }
             } else if (term_act->cparams[0] == 1) {
@@ -194,20 +202,25 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
                     for (uint64_t x = 0; x < term_act->fb.width; x++) {
                         if (y >= term_act->cursor_y * FONT_HEIGHT
                             && y < (term_act->cursor_y + 1) * FONT_HEIGHT)
-                        {   
-                            if (x >= term_act->cursor_x * FONT_WIDTH) continue;
-                        } else if (y >= (term_act->cursor_y + 1) * FONT_HEIGHT) {
+                        {
+                            if (x >= term_act->cursor_x * FONT_WIDTH)
+                                continue;
+                        } else if (y >=
+                                   (term_act->cursor_y +
+                                    1) * FONT_HEIGHT) {
                             continue;
-                        }   
-                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
-                    }   
-                }   
+                        }
+                        fb_putpixel(&(term_act->fb), x, y,
+                                    term_act->bgcolor);
+                    }
+                }
             } else if (term_act->cparams[0] == 2) {
-                for (uint64_t y = 0; y < term_act->fb.height; y++) {   
+                for (uint64_t y = 0; y < term_act->fb.height; y++) {
                     for (uint64_t x = 0; x < term_act->fb.width; x++) {
-                        fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
-                    }   
-                }   
+                        fb_putpixel(&(term_act->fb), x, y,
+                                    term_act->bgcolor);
+                    }
+                }
             }
             goto succ;
         } else if (byte == 'm') {
@@ -218,20 +231,24 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
             }
 
             uint64_t idx = 0;
-            if (term_act->cparamcount > 0) idx = term_act->cparamcount - 1;
+            if (term_act->cparamcount > 0)
+                idx = term_act->cparamcount - 1;
             if (term_act->cparams[term_act->cparamcount - 1] == 0) {
                 term_act->fgcolor = DEFAULT_FGCOLOR;
                 term_act->bgcolor = DEFAULT_BGCOLOR;
             } else if (term_act->cparams[idx] >= 30
                        && term_act->cparams[idx] <= 37) {
-                term_act->fgcolor = font_colors[term_act->cparams[idx] - 30];
+                term_act->fgcolor =
+                    font_colors[term_act->cparams[idx] - 30];
                 term_act->bgcolor = DEFAULT_BGCOLOR;
             } else if (term_act->cparams[idx] >= 30
                        && term_act->cparams[idx] <= 37) {
-                term_act->fgcolor = font_colors[term_act->cparams[idx] - 30];
+                term_act->fgcolor =
+                    font_colors[term_act->cparams[idx] - 30];
             } else if (term_act->cparams[idx] >= 40
                        && term_act->cparams[idx] <= 47) {
-                term_act->bgcolor = font_colors[term_act->cparams[idx] - 40];
+                term_act->bgcolor =
+                    font_colors[term_act->cparams[idx] - 40];
             }
             goto succ;
         } else if (byte >= '0' && byte <= '9') {
@@ -242,8 +259,7 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
         }
     } else if (term_act->state == STATE_HYPERLINK_HEADER) {
         if (byte == ';' && term_act->cparamcount == 2) {
-            if (term_act->cparams[0] == '8' && term_act->cparams[1] == ';')
-            {
+            if (term_act->cparams[0] == '8' && term_act->cparams[1] == ';') {
                 term_act->state = STATE_HYPERLINK_URL;
             } else if (term_act->cparams[1] == ';') {
                 goto err;
@@ -262,21 +278,21 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
         } else {
             /* Skip URL display */
             return true;
-        }   
+        }
     } else if (term_act->state == STATE_HYPERLINK_TEXT) {
         if (byte == '\033') {
             term_act->cparams[0] = 0;
-            term_act->cparamcount = 0; 
+            term_act->cparamcount = 0;
             term_act->state = STATE_HYPERLINK_TAIL;
         } else {
-            /* Display URL title*/
+            /* Display URL title */
             return false;
         }
     } else if (term_act->state == STATE_HYPERLINK_TAIL) {
         if (byte == '\007' && term_act->cparamcount == 4) {
             if (term_act->cparams[0] == ']' && term_act->cparams[1] == '8'
-                && term_act->cparams[2] == ';' && term_act->cparams[3] == ';')
-            {
+                && term_act->cparams[2] == ';'
+                && term_act->cparams[3] == ';') {
                 goto succ;
             } else {
                 /* Exit from hyperlink state machine */
@@ -293,18 +309,18 @@ bool term_parse_cmd(term_info_t* term_act, uint8_t byte)
     }
     return true;
 
-err:
+  err:
     term_act->state = STATE_IDLE;
     term_act->cparamcount = 0;
     return false;
 
-succ:
+  succ:
     term_act->state = STATE_IDLE;
     term_act->cparamcount = 0;
     return true;
 }
 
-void term_scroll(term_info_t* term_act)
+void term_scroll(term_info_t * term_act)
 {
     CHECK_ACTIVE_TERM();
 
@@ -320,9 +336,7 @@ void term_scroll(term_info_t* term_act)
     }
 
     for (uint64_t y = (term_act->cursor_y - 1) * FONT_HEIGHT;
-         y < term_act->fb.height;
-         y++)
-    {
+         y < term_act->fb.height; y++) {
         for (uint64_t x = 0; x < term_act->fb.width; x++) {
             fb_putpixel(&(term_act->fb), x, y, term_act->bgcolor);
         }
@@ -341,7 +355,7 @@ int term_get_mode(void)
 
 void term_refresh(int mode)
 {
-    term_info_t* term_act;
+    term_info_t *term_act;
 
     lock_lock(&term_lock);
 
@@ -349,8 +363,9 @@ void term_refresh(int mode)
         term_act = &term_info;
     } else {
         term_act = &term_cli;
-        if( term_cursor != 0) {
-            if (term_act->state != STATE_UNKNOWN && mode == term_active_mode) {
+        if (term_cursor != 0) {
+            if (term_act->state != STATE_UNKNOWN
+                && mode == term_active_mode) {
                 fb_refresh(&(term_act->fb));
             }
             uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
@@ -381,7 +396,7 @@ void term_refresh(int mode)
 
 void term_clear(int mode)
 {
-    term_info_t* term_act;
+    term_info_t *term_act;
 
     if (mode == TERM_MODE_INFO) {
         term_act = &term_info;
@@ -415,10 +430,10 @@ void term_print(int mode, uint8_t c)
 
     if (mode == TERM_MODE_INFO && term_get_mode() != TERM_MODE_INFO) {
         return;
-    }   
+    }
 #endif
 
-    term_info_t* term_act;
+    term_info_t *term_act;
 
     if (mode == TERM_MODE_INFO) {
         term_act = &term_info;
@@ -428,8 +443,10 @@ void term_print(int mode, uint8_t c)
 
     if (c == '\b') {
         term_print(mode, ' ');
-        if (term_act->cursor_x > 0) term_act->cursor_x--;
-        if (term_act->cursor_x > 0) term_act->cursor_x--;
+        if (term_act->cursor_x > 0)
+            term_act->cursor_x--;
+        if (term_act->cursor_x > 0)
+            term_act->cursor_x--;
         return;
     }
 
@@ -468,7 +485,8 @@ void term_print(int mode, uint8_t c)
             }
             fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH,
                      term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, c, term_act->bold);
+                     term_act->fgcolor, term_act->bgcolor, c,
+                     term_act->bold);
             term_act->cursor_x++;
         } else {
             if (term_act->cursor_x >= term_act->width - 1) {
@@ -484,21 +502,25 @@ void term_print(int mode, uint8_t c)
             /* uint8_t c3[3] = {term_act->lastch, c, 0}; */
 
             term_act->lastch = 0;
-            fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, '?', false);
-            fb_putch(&(term_act->fb), (term_act->cursor_x + 1) * FONT_WIDTH, term_act->cursor_y * FONT_HEIGHT,
-                     term_act->fgcolor, term_act->bgcolor, '?', false);
+            fb_putch(&(term_act->fb), term_act->cursor_x * FONT_WIDTH,
+                     term_act->cursor_y * FONT_HEIGHT, term_act->fgcolor,
+                     term_act->bgcolor, '?', false);
+            fb_putch(&(term_act->fb),
+                     (term_act->cursor_x + 1) * FONT_WIDTH,
+                     term_act->cursor_y * FONT_HEIGHT, term_act->fgcolor,
+                     term_act->bgcolor, '?', false);
             term_act->cursor_x += 2;
         }
     }
 
-    while(1) {
+    while (1) {
         if (term_act->cursor_x >= term_act->width) {
             term_act->cursor_x = 0;
             term_act->cursor_y++;
         }
         if (term_act->cursor_y >= term_act->height
-            && !(term_act->cursor_y == term_act->height && term_act->cursor_x == 0)) {
+            && !(term_act->cursor_y == term_act->height
+                 && term_act->cursor_x == 0)) {
             term_scroll(term_act);
             term_act->cursor_y--;
         } else {
@@ -509,7 +531,7 @@ void term_print(int mode, uint8_t c)
 
 void term_putch(int mode, uint8_t c)
 {
-    term_info_t* term_act;
+    term_info_t *term_act;
 
     if (mode == TERM_MODE_INFO) {
         term_act = &term_info;
@@ -519,27 +541,23 @@ void term_putch(int mode, uint8_t c)
 
     if (term_act->state == STATE_UNKNOWN || c == 0xFF) {
         return;
-    }   
+    }
 
     if (term_act->skip_left != 0 && term_act->state == STATE_IDLE
-        && c == '\033')
-    {
+        && c == '\033') {
         term_act->skip_left = 0;
     }
 
-    if ((c & 0b10000000) && term_act->skip_left == 0
-        && term_act->state == STATE_IDLE)
-    {
+    if ((c & 0x80) && term_act->skip_left == 0
+        && term_act->state == STATE_IDLE) {
         /* TODO: currently we do not display utf-8 string. But in the future
          * we should support utf-8 string.
          */
-        if (c & 0b11110000) {
+        if (c & 0xF0) {
             term_act->skip_left = 2;
-        } else if (c & 0b11100000) {
+        } else if (c & 0xE0) {
             term_act->skip_left = 1;
-        } else if (c & 0b11000000) {
-            term_act->skip_left = 0;
-        } else if (c & 0b11000000) {
+        } else if (c & 0xC0) {
             term_act->skip_left = 0;
         }
         return;
@@ -560,15 +578,15 @@ void term_putch(int mode, uint8_t c)
         term_act->last_qu_char = false;
         if (term_parse_cmd(term_act, c))
             return;
-    }   
+    }
 
     term_print(mode, c);
 }
 
-void term_init(struct limine_framebuffer* s)
+void term_init(struct limine_framebuffer *s)
 {
-    term_info_t* term_act;
-    
+    term_info_t *term_act;
+
     term_lock = lock_new();
 
     for (uint64_t i = 0; i <= 1; i++) {
@@ -590,9 +608,10 @@ void term_init(struct limine_framebuffer* s)
         term_clear((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
         term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
 
-        klogi("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n", 
-                i, (uint64_t)term_act, term_act->fb.width,
-                term_act->fb.height, term_act->fb.pitch, term_act->fb.addr);
+        klogi
+            ("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n",
+             i, (uint64_t) term_act, term_act->fb.width,
+             term_act->fb.height, term_act->fb.pitch, term_act->fb.addr);
     }
 }
 
@@ -631,4 +650,3 @@ void term_switch(int mode)
 {
     term_active_mode = mode;
 }
-

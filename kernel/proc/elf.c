@@ -34,7 +34,7 @@ static bool debug_info = false;
 
 extern lock_t sched_lock;
 
-int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
+int elf_find_symbol_table(elf_hdr_t * hdr, elf_shdr_t * shdr)
 {
     for (uint64_t i = 0; i < hdr->shnum; i++) {
         if (shdr[i].type == SHT_SYMTAB) {
@@ -45,12 +45,12 @@ int elf_find_symbol_table(elf_hdr_t *hdr, elf_shdr_t *shdr)
     return -1;
 }
 
-void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
-    const char *src, char *dst)
+void *elf_find_sym(const char *name, elf_shdr_t * shdr,
+                   elf_shdr_t * shdr_sym, const char *src, char *dst)
 {
-    elf_sym_t *syms = (elf_sym_t*)(src + shdr_sym->offset);
-    const char* strings = src + shdr[shdr_sym->link].offset;
-    
+    elf_sym_t *syms = (elf_sym_t *) (src + shdr_sym->offset);
+    const char *strings = src + shdr[shdr_sym->link].offset;
+
     for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
         if (strcmp(name, strings + syms[i].name) == 0) {
             return dst + syms[i].value;
@@ -61,14 +61,14 @@ void *elf_find_sym(const char *name, elf_shdr_t *shdr, elf_shdr_t *shdr_sym,
 }
 
 /* Need to free aux->phaddr after calling elf_load()  ... */
-int64_t elf_load(
-    task_t *task, const char *path_name, uint64_t *entry, auxval_t *aux)
+int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
+                 auxval_t * aux)
 {
     uint8_t *elf_buff = NULL;
     uint64_t elf_len = 0;
 
     bool has_dynamic_linking = false;
-    auxval_t dynamic_aux = {0};
+    auxval_t dynamic_aux = { 0 };
 
     elf_phdr_t *phdr = NULL;
     elf_shdr_t *shdr = NULL;
@@ -77,12 +77,12 @@ int64_t elf_load(
     mem_map_t m;
     m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
 
-    const char* fn = path_name;
+    const char *fn = path_name;
     /* TODO: Need to review const description */
-    vfs_handle_t f = vfs_open((char*)fn, VFS_MODE_READ);
+    vfs_handle_t f = vfs_open((char *) fn, VFS_MODE_READ);
     if (f != VFS_INVALID_HANDLE) {
         elf_len = vfs_tell(f);
-        elf_buff = (uint8_t*)kmalloc_chunk(elf_len, __func__, __LINE__);
+        elf_buff = (uint8_t *) kmalloc_chunk(elf_len, __func__, __LINE__);
         if (elf_buff != NULL) {
             uint64_t readlen = vfs_read(f, elf_len, elf_buff);
             if (debug_info && readlen >= 3) {
@@ -96,30 +96,37 @@ int64_t elf_load(
                       "read data (len: %d)\n", fn, elf_len);
             }
 
-            m.vaddr = (uint64_t)elf_buff;
+            m.vaddr = (uint64_t) elf_buff;
             m.paddr = VIRT_TO_PHYS(elf_buff);
             m.np = NUM_PAGES(elf_len);
 
-            vec_push_back(&task->mmap_list, m); 
+            vec_push_back(&task->mmap_list, m);
         }
         vfs_close(f);
     } else {
         kloge("VFS: open \"%s\" failed\n", fn);
     }
 
-    if (elf_buff == NULL)               goto err_exit;
+    if (elf_buff == NULL)
+        goto err_exit;
 
-    elf_hdr_t hdr = {0};
+    elf_hdr_t hdr = { 0 };
     memcpy(&hdr, elf_buff, sizeof(elf_hdr_t));
 
-    if (hdr.magic != ELF_MAGIC)         goto err_exit;
-    if (hdr.elf[EI_CLASS] != 0x02)      goto err_exit;
-    if (hdr.elf[EI_DATA] != BITS_LE)    goto err_exit;
-    if (hdr.elf[EI_OSABI] != ABI_SYSV)  goto err_exit;
-    if (hdr.machine != ARCH_X86_64)     goto err_exit;
+    if (hdr.magic != ELF_MAGIC)
+        goto err_exit;
+    if (hdr.elf[EI_CLASS] != 0x02)
+        goto err_exit;
+    if (hdr.elf[EI_DATA] != BITS_LE)
+        goto err_exit;
+    if (hdr.elf[EI_OSABI] != ABI_SYSV)
+        goto err_exit;
+    if (hdr.machine != ARCH_X86_64)
+        goto err_exit;
 
     aux->entry = hdr.entry;
-    if (hdr.type == ET_SHARED) aux->entry += RTDL_ADDR;
+    if (hdr.type == ET_SHARED)
+        aux->entry += RTDL_ADDR;
     aux->phdr = 0;
     aux->phnum = hdr.phnum;
     aux->phentsize = hdr.phentsize;
@@ -130,36 +137,40 @@ int64_t elf_load(
               sizeof(elf_phdr_t));
     }
 
-    phdr = kmalloc_chunk(hdr.phnum * sizeof(elf_phdr_t), __func__, __LINE__);
-    if (!phdr) goto err_exit;
+    phdr =
+        kmalloc_chunk(hdr.phnum * sizeof(elf_phdr_t), __func__, __LINE__);
+    if (!phdr)
+        goto err_exit;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
 
-    m.vaddr = (uint64_t)phdr;
+    m.vaddr = (uint64_t) phdr;
     m.paddr = VIRT_TO_PHYS(phdr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(elf_phdr_t));
 
-    vec_push_back(&task->mmap_list, m); 
+    vec_push_back(&task->mmap_list, m);
 
-    phaddr = (uint64_t*)kmalloc_chunk(
-        hdr.phnum * sizeof(uint64_t), __func__, __LINE__);
-    if (phaddr == NULL)                 goto err_exit;
-    aux->phaddr = (uint64_t)phaddr;
+    phaddr =
+        (uint64_t *) kmalloc_chunk(hdr.phnum * sizeof(uint64_t), __func__,
+                                   __LINE__);
+    if (phaddr == NULL)
+        goto err_exit;
+    aux->phaddr = (uint64_t) phaddr;
 
-    m.vaddr = (uint64_t)phaddr;
+    m.vaddr = (uint64_t) phaddr;
     m.paddr = VIRT_TO_PHYS(phaddr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(uint64_t));
 
-    vec_push_back(&task->mmap_list, m); 
+    vec_push_back(&task->mmap_list, m);
 
     for (uint64_t i = 0; i < hdr.phnum; i++) {
-        phaddr[i] = (uint64_t)NULL;
+        phaddr[i] = (uint64_t) NULL;
 
         if (phdr[i].type == PT_INTERP && phdr[i].filesz > 0
-            && !has_dynamic_linking)
-        {
-            char *rdtl_path = (char*)kmalloc(phdr[i].filesz + 1);
+            && !has_dynamic_linking) {
+            char *rdtl_path = (char *) kmalloc(phdr[i].filesz + 1);
             if (rdtl_path != NULL) {
-                memcpy(rdtl_path, &(elf_buff[phdr[i].offset]), phdr[i].filesz);
+                memcpy(rdtl_path, &(elf_buff[phdr[i].offset]),
+                       phdr[i].filesz);
                 rdtl_path[phdr[i].filesz] = '\0';
                 if (debug_info) {
                     klogd("ELF(%s): %d hdr has dynamic linking from %s\n",
@@ -179,7 +190,8 @@ int64_t elf_load(
                       path_name, i, phdr[i].paddr, phdr[i].vaddr);
             }
             aux->phdr = phdr[i].vaddr;
-            if (hdr.type == ET_SHARED) aux->phdr += RTDL_ADDR;
+            if (hdr.type == ET_SHARED)
+                aux->phdr += RTDL_ADDR;
             continue;
         }
 
@@ -192,7 +204,7 @@ int64_t elf_load(
         }
 
         /* In the below part of this loop, only PT_LOAD will be processed. */
-        if (debug_info ) {
+        if (debug_info) {
             if (IS_TEXT(phdr[i])) {
                 klogd("ELF(%s): %d hdr is text program header <<<\n",
                       path_name, i);
@@ -208,10 +220,12 @@ int64_t elf_load(
         }
 
         uint64_t misalign = phdr[i].vaddr & (PAGE_SIZE - 1);
-        uint64_t page_count = DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
+        uint64_t page_count =
+            DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
-        uint64_t addr = VIRT_TO_PHYS(kmalloc_chunk(
-            page_count * PAGE_SIZE, __func__, __LINE__));
+        uint64_t addr =
+            VIRT_TO_PHYS(kmalloc_chunk
+                         (page_count * PAGE_SIZE, __func__, __LINE__));
         if (!addr) {
             kpanic("ELF(%s): cannot alloc %d bytes memory",
                    path_name, page_count * PAGE_SIZE);
@@ -219,12 +233,13 @@ int64_t elf_load(
         phaddr[i] = addr;
 
         uint64_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
-        if(phdr[i].flags & PF_W) {
+        if (phdr[i].flags & PF_W) {
             pf |= VMM_FLAG_READWRITE;
         }
 
         uint64_t virt = phdr[i].vaddr - misalign;
-        if (hdr.type == ET_SHARED) virt += RTDL_ADDR;
+        if (hdr.type == ET_SHARED)
+            virt += RTDL_ADDR;
 
         vmm_map(task->addrspace, virt, addr, page_count, pf);
 
@@ -232,7 +247,7 @@ int64_t elf_load(
          * It is better if we set initialized data to zero which is also a NULL
          * pointer.
          */
-        memset((void*)PHYS_TO_VIRT(addr), 0, PAGE_SIZE * page_count);
+        memset((void *) PHYS_TO_VIRT(addr), 0, PAGE_SIZE * page_count);
 
         if (debug_info) {
             klogd("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
@@ -250,8 +265,8 @@ int64_t elf_load(
 
         vec_push_back(&task->mmap_list, m1);
 
-        memcpy((void*)PHYS_TO_VIRT(addr + misalign), elf_buff + phdr[i].offset,
-               phdr[i].filesz);
+        memcpy((void *) PHYS_TO_VIRT(addr + misalign),
+               elf_buff + phdr[i].offset, phdr[i].filesz);
 
         if (debug_info) {
             klogd("ELF(%s): %d hdr's task binary file size %d "
@@ -261,25 +276,28 @@ int64_t elf_load(
         /* Need to free in some other places */
     }
 
-    shdr = kmalloc_chunk(hdr.shnum * sizeof(elf_shdr_t), __func__, __LINE__);
-    if (!shdr) goto err_exit;
+    shdr =
+        kmalloc_chunk(hdr.shnum * sizeof(elf_shdr_t), __func__, __LINE__);
+    if (!shdr)
+        goto err_exit;
 
     memset(shdr, 0, hdr.shnum * sizeof(elf_shdr_t));
-    m.vaddr = (uint64_t)shdr;
+    m.vaddr = (uint64_t) shdr;
     m.paddr = VIRT_TO_PHYS(shdr);
     m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
 
-    vec_push_back(&task->mmap_list, m); 
+    vec_push_back(&task->mmap_list, m);
 
-    aux->shdr = (uint64_t)shdr;
+    aux->shdr = (uint64_t) shdr;
     memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));
 
-    char *header_strs = (char*)&elf_buff[shdr[hdr.shstrndx].offset];
+    char *header_strs = (char *) &elf_buff[shdr[hdr.shstrndx].offset];
     if (debug_info) {
         for (uint64_t k = 0; k < hdr.shnum; k++) {
             klogd("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
                   path_name, k, shdr[k].addr, shdr[k].type,
-                  &header_strs[shdr[k].name], shdr[k].offset, shdr[k].size);
+                  &header_strs[shdr[k].name], shdr[k].offset,
+                  shdr[k].size);
         }
         klogd("ELF(%s): dumping headers finished\n", path_name);
     }
@@ -291,35 +309,42 @@ int64_t elf_load(
               symbol_table_index, symbol_table_index);
     }
 
-    if ((uint32_t)symbol_table_index != (uint32_t)0xFFFFFFFF) {
-        elf_shdr_t *shdr_sym = (elf_shdr_t*)(shdr + symbol_table_index);
-        elf_sym_t *syms = (elf_sym_t*)((uint8_t*)elf_buff + shdr_sym->offset);
+    if ((uint32_t) symbol_table_index != (uint32_t) 0xFFFFFFFF) {
+        elf_shdr_t *shdr_sym = (elf_shdr_t *) (shdr + symbol_table_index);
+        elf_sym_t *syms =
+            (elf_sym_t *) ((uint8_t *) elf_buff + shdr_sym->offset);
 
         if (debug_info) {
-            klogd("ELF(%s): shdr=0x%x (%d*%d), shdr_sym->link=%d\n", path_name,
-                  shdr, hdr.shnum, sizeof(elf_shdr_t), shdr_sym->link);
+            klogd("ELF(%s): shdr=0x%x (%d*%d), shdr_sym->link=%d\n",
+                  path_name, shdr, hdr.shnum, sizeof(elf_shdr_t),
+                  shdr_sym->link);
         }
- 
-        const char *strings = (char*)elf_buff + shdr[shdr_sym->link].offset;
+
+        const char *strings =
+            (char *) elf_buff + shdr[shdr_sym->link].offset;
 
         if (debug_info) {
-            klogd("ELF(%s): shdr_sym=0x%x, syms=0x%x, strings=0x%x\n", path_name,
-                  shdr_sym, syms, strings);
+            klogd("ELF(%s): shdr_sym=0x%x, syms=0x%x, strings=0x%x\n",
+                  path_name, shdr_sym, syms, strings);
         }
 
-        for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t); i += 1) {
+        for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t);
+             i += 1) {
             if (strcmp("main", strings + syms[i].name) == 0) {
                 klogd("ELF(%s): Found entry function (main) with len %d, "
                       "session idx %d, value 0x%x\n",
-                      path_name, syms[i].size, syms[i].shndx, syms[i].value);
+                      path_name, syms[i].size, syms[i].shndx,
+                      syms[i].value);
             }
         }
     }
 
     if (has_dynamic_linking) {
-        if (entry != NULL) *entry = dynamic_aux.entry;
+        if (entry != NULL)
+            *entry = dynamic_aux.entry;
     } else {
-        if (entry != NULL) *entry = aux->entry;
+        if (entry != NULL)
+            *entry = aux->entry;
     }
 
     klogd("ELF(%s): Read header with phnum %d, shnum %d, entry 0x%x\n",
@@ -328,14 +353,17 @@ int64_t elf_load(
     /* It is time to free phdr, phaddr, shdr and elf_buff when task is dead. */
     return 0;
 
-err_exit:
+  err_exit:
     kloge("ELF(%s): File header error\n", path_name);
 
-    if (phdr)       kmfree(phdr);
-    if (phaddr)     kmfree(phaddr);
-    if (shdr)       kmfree(shdr);
-    if (elf_buff)   kmfree(elf_buff);
+    if (phdr)
+        kmfree(phdr);
+    if (phaddr)
+        kmfree(phaddr);
+    if (shdr)
+        kmfree(shdr);
+    if (elf_buff)
+        kmfree(elf_buff);
 
     return -1;
 }
-

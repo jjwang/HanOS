@@ -23,13 +23,13 @@
 #include <fs/vfs.h>
 
 typedef struct {
-    void            *base;
-    int64_t         flags;
-    uint64_t        size;
+    void *base;
+    int64_t flags;
+    uint64_t size;
 } stack_t;
 
 typedef struct {
-    uint64_t        sig;
+    uint64_t sig;
 } sigset_t;
 
 #define SIGNAL_GET(sigset, signal)      \
@@ -51,13 +51,13 @@ typedef struct {
 #define SA_RESETHAND    0x80000000
 #define SA_RESTORER     0x04000000
 
-#define NSIG            64  /* 64 instead of 65 here */
+#define NSIG            64      /* 64 instead of 65 here */
 
 typedef struct {
-    void            *address;
-    sigset_t        mask;
-    int             flags;
-    void            (*restorer)(void);
+    void *address;
+    sigset_t mask;
+    int flags;
+    void (*restorer)(void);
 } sigaction_t;
 
 #define POLL_IN         1
@@ -68,8 +68,8 @@ typedef struct {
 #define POLL_HUP        6
 
 union sigval {
-    int             sival_int;
-    void            *sival_ptr;
+    int sival_int;
+    void *sival_ptr;
 };
 
 typedef long clock_t;
@@ -154,7 +154,7 @@ typedef struct {
 #define SIGSEGV         11
 #define SIGTERM         15
 #define SIGPROF         27
-#define SIGIO           29  /* Same with SIGPOLL? */
+#define SIGIO           29      /* Same with SIGPOLL? */
 #define SIGPWR          30
 #define SIGRTMIN        35
 #define SIGRTMAX        64
@@ -171,5 +171,7 @@ typedef struct {
 
 typedef struct task_t task_t;   /* Definition in task.h */
 
-void signal_action(task_t *t, int64_t signal, sigaction_t *new, sigaction_t *old);
-void signal_changemask(task_t *t, int64_t how, sigset_t *new, sigset_t *old);
+void signal_action(task_t * t, int64_t signal, sigaction_t * new,
+                   sigaction_t * old);
+void signal_changemask(task_t * t, int64_t how, sigset_t * new,
+                       sigset_t * old);

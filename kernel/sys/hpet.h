@@ -22,14 +22,14 @@
 
 #include <sys/acpi.h>
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     acpi_sdt_hdr_t hdr;
 
     uint8_t hardware_rev_id;
-    uint8_t comparator_count : 5;
-    uint8_t counter_size : 1;
-    uint8_t reserved : 1;
-    uint8_t legacy_replace : 1;
+    uint8_t comparator_count:5;
+    uint8_t counter_size:1;
+    uint8_t reserved:1;
+    uint8_t legacy_replace:1;
     uint16_t pci_vendor_id;
 
     acpi_gas_t base_addr;
@@ -39,14 +39,14 @@ typedef struct [[gnu::packed]] {
     uint8_t page_protection;
 } hpet_sdt_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     volatile uint64_t config_and_capabilities;
     volatile uint64_t comparator_value;
     volatile uint64_t fsb_interrupt_route;
     volatile uint64_t unused;
 } hpet_timer_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     volatile uint64_t general_capabilities;
     volatile uint64_t unused0;
     volatile uint64_t general_configuration;

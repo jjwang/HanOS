@@ -29,4 +29,3 @@
 #define dot        "."
 
 #define VERSION    (major2 dot minor2 dot patch2)
-

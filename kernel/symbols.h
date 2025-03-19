@@ -18,7 +18,7 @@
 
 typedef struct {
     uint64_t addr;
-    char* name;
+    char *name;
 } symbol_t;
 
 extern const symbol_t _kernel_symtab[];

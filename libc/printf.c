@@ -1,3 +1,5 @@
+/* *INDENT-OFF* */  
+
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany
@@ -943,3 +945,4 @@ int fprintf(int fd, const char *fmt, ...)
     return ret;
 }
 
+/* *INDENT-ON* */

@@ -54,24 +54,24 @@ typedef struct {
     uint64_t vaddr;
     uint64_t paddr;
     uint64_t flags;
-    uint64_t np; 
+    uint64_t np;
 } mem_map_t;
 
-void pmm_init(struct limine_memmap_response* map, uint64_t higher_half);
+void pmm_init(struct limine_memmap_response *map, uint64_t higher_half);
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
-    const char *func, int64_t line);
+                 const char *func, int64_t line);
 void pmm_free(uint64_t addr, uint64_t numpages,
-    const char *func, int64_t line);
+              const char *func, int64_t line);
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_dump_usage(void);
 uint64_t pmm_get_total_memory(void);
 
-#define VMM_FLAG_PRESENT        (1 << 0)    /* P   */
-#define VMM_FLAG_READWRITE      (1 << 1)    /* R/W */
-#define VMM_FLAG_USER           (1 << 2)    /* U/S */
-#define VMM_FLAG_WRITETHROUGH   (1 << 3)    /* PWT */
-#define VMM_FLAG_CACHE_DISABLE  (1 << 4)    /* PCD */
-#define VMM_FLAG_PAT            (1 << 7)    /* PAT */
+#define VMM_FLAG_PRESENT        (1 << 0)        /* P   */
+#define VMM_FLAG_READWRITE      (1 << 1)        /* R/W */
+#define VMM_FLAG_USER           (1 << 2)        /* U/S */
+#define VMM_FLAG_WRITETHROUGH   (1 << 3)        /* PWT */
+#define VMM_FLAG_CACHE_DISABLE  (1 << 4)        /* PCD */
+#define VMM_FLAG_PAT            (1 << 7)        /* PAT */
 
 #define VMM_FLAGS_DEFAULT       (VMM_FLAG_PRESENT | VMM_FLAG_READWRITE)
 
@@ -88,23 +88,20 @@ uint64_t pmm_get_total_memory(void);
 #define PAGE_TABLE_ENTRIES      512
 
 typedef struct {
-    uint64_t    *PML4;
-    vec_struct(uint64_t) mem_list;
-    lock_t      lock;
-    bool        initialized;
+    uint64_t *PML4;
+     vec_struct(uint64_t) mem_list;
+    lock_t lock;
+    bool initialized;
 } addrspace_t;
 
 extern addrspace_t kaddrspace;
 
-void vmm_init(
-    struct limine_memmap_response* map,
-    struct limine_kernel_address_response* kernel);
+void vmm_init(struct limine_memmap_response *map,
+              struct limine_kernel_address_response *kernel);
 
-void vmm_map(
-    addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-    uint64_t np, uint64_t flags);
-void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np);
-uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr);
+void vmm_map(addrspace_t * addrspace, uint64_t vaddr, uint64_t paddr,
+             uint64_t np, uint64_t flags);
+void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np);
+uint64_t vmm_get_paddr(addrspace_t * addrspace, uint64_t vaddr);
 
 addrspace_t *create_addrspace(void);
-

@@ -34,5 +34,3 @@
 #define WSTOPSIG(x)     (((x) & 0x00FF0000) >> 16)
 #define WTERMSIG(x)     (((x) & 0xFF000000) >> 24)
 #define WCOREDUMP(x)    ((x) & WCOREFLAG)
-
-

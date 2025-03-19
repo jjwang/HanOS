@@ -52,9 +52,8 @@ typedef struct {
     uint8_t mouse_cycle;
     uint8_t last_keypress;
     bool key_pressed[KEY_COUNT];
-    uint8_t* ptr_to_update;
+    uint8_t *ptr_to_update;
 } keyboard_t;
 
 void keyboard_init();
 uint8_t keyboard_get_key();
-

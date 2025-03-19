@@ -49,9 +49,9 @@ void pit_init(void)
 
     port_outb(0x43, 0x36);
     port_io_wait();
-    port_outb(0x40, (uint8_t)(x & 0x00ff));
+    port_outb(0x40, (uint8_t) (x & 0x00ff));
     port_io_wait();
-    port_outb(0x40, (uint8_t)((x & 0xff00) >> 8));
+    port_outb(0x40, (uint8_t) ((x & 0xff00) >> 8));
     port_io_wait();
 
     exc_register_handler(IRQ0, pit_callback);
@@ -61,12 +61,13 @@ void pit_init(void)
     irq_clear_mask(0);
 }
 
-void pit_wait(uint64_t ms) 
+void pit_wait(uint64_t ms)
 {
     volatile uint64_t target_ticks = pit_ticks + ms;
 
     while (true) {
-        if (pit_ticks >= target_ticks) break;
+        if (pit_ticks >= target_ticks)
+            break;
         asm volatile ("nop;");
     }
 }

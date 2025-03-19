@@ -61,14 +61,14 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
     uint64_t ia32_mtrrcap = read_msr(0xfe);
 
     uint8_t var_reg_count = ia32_mtrrcap & 0xff;
-    klogd("CPU %d: variable register count is %d\n", cpu_id, var_reg_count);
+    klogd("CPU %d: variable register count is %d\n", cpu_id,
+          var_reg_count);
 
     if (saved_mtrrs == NULL) {
-        saved_mtrrs = (uint64_t*)kmalloc((
-            (var_reg_count * 2) /* variable MTRRs, 2 MSRs each */
-          + 11                  /* 11 fixed MTRRs */
-          + 1                   /* 1 default type MTRR */
-        ) * sizeof(uint64_t));
+        saved_mtrrs = (uint64_t *) kmalloc(((var_reg_count * 2) /* variable MTRRs, 2 MSRs each */
+                                            +11 /* 11 fixed MTRRs */
+                                            + 1 /* 1 default type MTRR */
+                                           ) * sizeof(uint64_t));
         klogd("CPU %d: save mtrrs to 0x%x\n", cpu_id, saved_mtrrs);
     }
 
@@ -77,19 +77,20 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
         saved_mtrrs[i] = read_msr(0x200 + i);
         saved_mtrrs[i + 1] = read_msr(0x200 + i + 1);
 
-        uint64_t ia32_mttrphysbase = saved_mtrrs[i]; 
-        uint64_t ia32_mttrphysmask = saved_mtrrs[i + 1]; 
+        uint64_t ia32_mttrphysbase = saved_mtrrs[i];
+        uint64_t ia32_mttrphysmask = saved_mtrrs[i + 1];
         bool valid = (ia32_mttrphysmask & 0x800) ? true : false;
         uint64_t phys_base = ia32_mttrphysbase & 0x000FFFFFFFFFF000;
         uint64_t phys_mask = ia32_mttrphysmask & 0x000FFFFFFFFFF000;
         uint8_t type = ia32_mttrphysbase & 0xFF;
         uint64_t mask_target = phys_mask & 0xB0000000;
         if (valid) {
-            klogi("CPU %d: variable MTRR #%d - type %d, %s, mask base 0x%x,"
-                  " target 0x%x\n",
-                  cpu_id, i / 2, type, (valid ? "valid" : "invalid"),
-                  phys_base & phys_mask, mask_target);
-            if ((phys_base & phys_mask) == (uint64_t)framebuffer) {
+            klogi
+                ("CPU %d: variable MTRR #%d - type %d, %s, mask base 0x%x,"
+                 " target 0x%x\n", cpu_id, i / 2, type,
+                 (valid ? "valid" : "invalid"), phys_base & phys_mask,
+                 mask_target);
+            if ((phys_base & phys_mask) == (uint64_t) framebuffer) {
                 klogw("MTRR: set framebuffer 0x%x to WRITE COMBINING\n",
                       framebuffer);
                 saved_mtrrs[i] = saved_mtrrs[i] & 0xFFFFFFFFFFFFF000;
@@ -130,7 +131,7 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
           (fenable ? "enabled" : "disabled"), deftype);
 
     /* make sure that the saved MTRR default has MTRRs off */
-    saved_mtrrs[var_reg_count * 2 + 11] &= ~((uint64_t)1 << 11);
+    saved_mtrrs[var_reg_count * 2 + 11] &= ~((uint64_t) 1 << 11);
 }
 
 void mtrr_restore(uint16_t cpu_id)
@@ -143,7 +144,8 @@ void mtrr_restore(uint16_t cpu_id)
     uint8_t var_reg_count = ia32_mtrrcap & 0xff;
 
     if (saved_mtrrs == NULL) {
-        kpanic("CPU %d: Attempted restore MTRR without prior save\n", cpu_id);
+        kpanic("CPU %d: Attempted restore MTRR without prior save\n",
+               cpu_id);
     }
 
     /* according to the Intel SDM 12.11.7.2 "MemTypeSet() Function",
@@ -151,21 +153,21 @@ void mtrr_restore(uint16_t cpu_id)
 
     /* save old cr0 and then enable the CD flag and disable the NW flag */
     uintptr_t old_cr0;
-    asm volatile ("mov %%cr0, %0" : "=r"(old_cr0) :: "memory");
-    uintptr_t new_cr0 = (old_cr0 | (1 << 30)) & ~((uintptr_t)1 << 29);
-    asm volatile ("mov %0, %%cr0" :: "r"(new_cr0) : "memory");
+    asm volatile ("mov %%cr0, %0":"=r" (old_cr0)::"memory");
+    uintptr_t new_cr0 = (old_cr0 | (1 << 30)) & ~((uintptr_t) 1 << 29);
+    asm volatile ("mov %0, %%cr0"::"r" (new_cr0):"memory");
 
     /* then invalidate the caches */
-    asm volatile ("wbinvd" ::: "memory");
+    asm volatile ("wbinvd":::"memory");
 
     /* do a cr3 read/write to flush the TLB */
     uintptr_t cr3;
-    asm volatile ("mov %%cr3, %0" : "=r"(cr3) :: "memory");
-    asm volatile ("mov %0, %%cr3" :: "r"(cr3) : "memory");
+    asm volatile ("mov %%cr3, %0":"=r" (cr3)::"memory");
+    asm volatile ("mov %0, %%cr3"::"r" (cr3):"memory");
 
     /* disable the MTRRs */
     uint64_t mtrr_def = read_msr(0x2ff);
-    mtrr_def &= ~((uint64_t)1 << 11);
+    mtrr_def &= ~((uint64_t) 1 << 11);
     write_msr(0x2ff, mtrr_def);
 
     /* restore variable range MTRRs */
@@ -198,13 +200,12 @@ void mtrr_restore(uint16_t cpu_id)
     write_msr(0x2ff, mtrr_def);
 
     /* do a cr3 read/write to flush the TLB */
-    asm volatile ("mov %%cr3, %0" : "=r"(cr3) :: "memory");
-    asm volatile ("mov %0, %%cr3" :: "r"(cr3) : "memory");
+    asm volatile ("mov %%cr3, %0":"=r" (cr3)::"memory");
+    asm volatile ("mov %0, %%cr3"::"r" (cr3):"memory");
 
     /* then invalidate the caches */
-    asm volatile ("wbinvd" ::: "memory");
+    asm volatile ("wbinvd":::"memory");
 
     /* restore old value of cr0 */
-    asm volatile ("mov %0, %%cr0" :: "r"(old_cr0) : "memory");
+    asm volatile ("mov %0, %%cr0"::"r" (old_cr0):"memory");
 }
-

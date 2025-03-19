@@ -26,10 +26,10 @@
 #include <proc/syscall.h>
 
 /* Allocate a tnode in memory */
-vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
-                             vfs_inode_t* parent)
+vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t * inode,
+                             vfs_inode_t * parent)
 {
-    vfs_tnode_t* tnode = (vfs_tnode_t*)kmalloc(sizeof(vfs_tnode_t));
+    vfs_tnode_t *tnode = (vfs_tnode_t *) kmalloc(sizeof(vfs_tnode_t));
 
     memset(tnode, 0, sizeof(vfs_tnode_t));
     memcpy(tnode->name, name, sizeof(tnode->name));
@@ -44,26 +44,19 @@ vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t *inode,
 
 /* Allocate an inode in memory */
 vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
-                             uint32_t uid, vfs_fsinfo_t* fs,
-                             vfs_tnode_t* mountpoint)
+                             uint32_t uid, vfs_fsinfo_t * fs,
+                             vfs_tnode_t * mountpoint)
 {
-    vfs_inode_t* inode = (vfs_inode_t*)kmalloc(sizeof(vfs_inode_t));
+    vfs_inode_t *inode = (vfs_inode_t *) kmalloc(sizeof(vfs_inode_t));
     memset(inode, 0, sizeof(vfs_inode_t));
     *inode = (vfs_inode_t) {
-        .type = type,
-        .perms = perms,
-        .uid = uid,
-        .fs = fs,
-        .ident = NULL,
-        .mountpoint = mountpoint,
-        .refcount = 0,
-        .size = 0
-    };
+    .type = type,.perms = perms,.uid = uid,.fs = fs,.ident =
+            NULL,.mountpoint = mountpoint,.refcount = 0,.size = 0};
     return inode;
 }
 
 /* Free a tnode, and the inode if needed */
-void vfs_free_nodes(vfs_tnode_t *tnode)
+void vfs_free_nodes(vfs_tnode_t * tnode)
 {
     vfs_inode_t *inode = tnode->inode;
     if (inode->refcount <= 0)
@@ -76,24 +69,28 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        vfs_node_desc_t* fd = (vfs_node_desc_t*)ht_search(&(t->open_files_table), handle);
-        if (fd != NULL) return fd;
-        klogw("VFS: %s() cannot locate %d (0x%x) in file list of task %d\n",
-              func, handle, handle, t->tid);
+        vfs_node_desc_t *fd =
+            (vfs_node_desc_t *) ht_search(&(t->open_files_table), handle);
+        if (fd != NULL)
+            return fd;
+        klogw
+            ("VFS: %s() cannot locate %d (0x%x) in file list of task %d\n",
+             func, handle, handle, t->tid);
     }
     return NULL;
 }
 
 /* Convert a path to a node, creates the node if required */
-vfs_tnode_t *vfs_path_to_node(
-    const char *pathname, uint8_t mode, vfs_node_type_t create_type)
+vfs_tnode_t *vfs_path_to_node(const char *pathname, uint8_t mode,
+                              vfs_node_type_t create_type)
 {
     char tmpbuff[VFS_MAX_PATH_LEN], path[VFS_MAX_PATH_LEN];
     vfs_tnode_t *curr = &vfs_root;
 
     /*  Only work with absolute paths */
     if (pathname[0] != '/') {
-        if (get_full_path(VFS_FDCWD, pathname, tmpbuff, sizeof(tmpbuff)) < 0) {
+        if (get_full_path(VFS_FDCWD, pathname, tmpbuff, sizeof(tmpbuff)) <
+            0) {
             kloge("'%s' is not a valid path\n", pathname);
             return NULL;
         }
@@ -110,8 +107,7 @@ vfs_tnode_t *vfs_path_to_node(
     i = 0;
     for (; i + 4 < pathlen; i++) {
         if (path[i] == '/' && path[i + 1] == '.' && path[i + 2] == '.'
-            && path[i + 3] == '/')
-        {
+            && path[i + 3] == '/') {
             bool foundparent = false;
             for (int64_t k = i - 1; k >= 0; k--) {
                 if (path[k] == '/') {
@@ -126,7 +122,7 @@ vfs_tnode_t *vfs_path_to_node(
                 return NULL;
             }
         }
-    } 
+    }
 
     if (strlen(pathname) != strlen(path)) {
         klogw("VFS: \"%s\" -> \"%s\"\n", pathname, path);
@@ -145,14 +141,15 @@ vfs_tnode_t *vfs_path_to_node(
         tmpbuff[i] = '\0';
         curr_index += i + 1;
 
-        if (strcmp(tmpbuff, ".") == 0) continue;
+        if (strcmp(tmpbuff, ".") == 0)
+            continue;
 
         /* Search for token in children of current node */
         foundnode = false;
         if (!IS_TRAVERSABLE(curr->inode))
             break;
         for (i = 0; i < curr->inode->child.len; i++) {
-            vfs_tnode_t* child = vec_at(&(curr->inode->child), i);
+            vfs_tnode_t *child = vec_at(&(curr->inode->child), i);
             if (strncmp(child->name, tmpbuff, sizeof(child->name)) == 0) {
                 foundnode = true;
                 curr = child;
@@ -162,7 +159,8 @@ vfs_tnode_t *vfs_path_to_node(
         /* We need to break here to fixing /usr/local/include -> /usr/include
          * issue.
          */
-        if (!foundnode) break;
+        if (!foundnode)
+            break;
     }
 
     /* Should we create the node */
@@ -176,17 +174,19 @@ vfs_tnode_t *vfs_path_to_node(
         /* Create the node if CREATE was specified and
          * the node to be created is the last one in the path
          */
-        if (mode & CREATE && curr_index > pathlen && IS_TRAVERSABLE(curr->inode)) {
-            vfs_inode_t* new_inode = vfs_alloc_inode(
-                create_type, 0/*777*/, 0, curr->inode->fs, curr->inode->mountpoint);
+        if (mode & CREATE && curr_index > pathlen
+            && IS_TRAVERSABLE(curr->inode)) {
+            vfs_inode_t *new_inode =
+                vfs_alloc_inode(create_type, 0 /*777 */ , 0,
+                                curr->inode->fs, curr->inode->mountpoint);
 
             uint64_t now_sec = hpet_get_nanos() / 1000000000;
 
             time_t boot_time = cmos_boot_time();
             time_t now_time = now_sec + boot_time;
             localtime(&now_time, &(new_inode->tm));
-            
-            vfs_tnode_t* new_tnode = 
+
+            vfs_tnode_t *new_tnode =
                 vfs_alloc_tnode(tmpbuff, new_inode, curr->inode);
 
             vec_push_back(&(curr->inode->child), new_tnode);
@@ -195,13 +195,12 @@ vfs_tnode_t *vfs_path_to_node(
                 new_tnode->inode->fs = curr->inode->fs;
             }
             if (strncmp(path, "usr/local", 9) == 0
-                || strncmp(path, "/usr/bin", 8) == 0)
-            {
+                || strncmp(path, "/usr/bin", 8) == 0) {
                 klogd("VFS: Create \"%s\" node\n", path);
             }
 
             /* Set the file mode and type */
-            switch(create_type) {
+            switch (create_type) {
             case VFS_NODE_FOLDER:
                 new_tnode->st.st_mode |= S_IFDIR;
                 new_tnode->st.st_nlink = 1;

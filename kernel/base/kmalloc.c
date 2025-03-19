@@ -45,7 +45,7 @@ void *kmalloc_core(uint64_t size, const char *func, uint64_t line)
 
 void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
 {
-    memory_metadata_t *alloc = (memory_metadata_t*)
+    memory_metadata_t *alloc = (memory_metadata_t *)
         PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0, func, line));
 
     if (alloc == NULL) {
@@ -61,21 +61,22 @@ void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
     alloc->numpages = NUM_PAGES(size);
     alloc->size = size;
 
-    char *fn_tail = strncpy(alloc->filename, func, sizeof(alloc->filename) - 1);
+    char *fn_tail =
+        strncpy(alloc->filename, func, sizeof(alloc->filename) - 1);
     *fn_tail = '\0';
 
     alloc->lineno = line;
 
-    uint64_t *buf = (uint64_t*)(((uint8_t*)alloc) + PAGE_SIZE);
+    uint64_t *buf = (uint64_t *) (((uint8_t *) alloc) + PAGE_SIZE);
     *(buf - 1) = size;
 
-    return ((uint8_t*)alloc) + PAGE_SIZE;
+    return ((uint8_t *) alloc) + PAGE_SIZE;
 }
 
 void kmfree_core(void *addr, const char *func, uint64_t line)
 {
 #if SLAB_ALLOCATOR_USED
-    uint64_t *buf = (uint64_t*)addr;
+    uint64_t *buf = (uint64_t *) addr;
     if (*(buf - 1) >= ALLOC_MAX_SIZE) {
         klogd("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
               func, line, ALLOC_MAX_SIZE);
@@ -89,10 +90,10 @@ void kmfree_core(void *addr, const char *func, uint64_t line)
 
 void kmfree_chunk(void *addr, const char *func, uint64_t line)
 {
-    (void)func;
+    (void) func;
 
     memory_metadata_t *d =
-        (memory_metadata_t*)((uint8_t*)addr - PAGE_SIZE);
+        (memory_metadata_t *) ((uint8_t *) addr - PAGE_SIZE);
 
     /* Only free when magic number is correct */
     if (d->magic == MEM_MAGIC_NUM) {
@@ -101,18 +102,18 @@ void kmfree_chunk(void *addr, const char *func, uint64_t line)
     }
 }
 
-void *kmrealloc_core(void *addr, uint64_t newsize, const char *func, uint64_t line)
+void *kmrealloc_core(void *addr, uint64_t newsize, const char *func,
+                     uint64_t line)
 {
     if (newsize >= ALLOC_MAX_SIZE) {
         klogd("kmalloc: realloc %d bytes (>= %d)\n",
               newsize, ALLOC_MAX_SIZE);
     }
-
 #if SLAB_ALLOCATOR_USED
     if (!addr)
         return kmalloc_core(newsize, func, line);
 
-    uint64_t *buf = (uint64_t*)addr;
+    uint64_t *buf = (uint64_t *) addr;
     void *newaddr = kmalloc_core(newsize, func, line);
     if (newaddr != NULL) {
         memcpy(newaddr, addr, MIN(*(buf - 1), newsize));
@@ -124,7 +125,8 @@ void *kmrealloc_core(void *addr, uint64_t newsize, const char *func, uint64_t li
 #endif
 }
 
-void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func, uint64_t line)
+void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func,
+                      uint64_t line)
 {
     void *ret_addr = NULL;
 
@@ -134,7 +136,7 @@ void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func, uint64_t l
     }
 
     memory_metadata_t *d =
-        (memory_metadata_t*)((uint8_t*)addr - PAGE_SIZE);
+        (memory_metadata_t *) ((uint8_t *) addr - PAGE_SIZE);
 
     if (NUM_PAGES(d->size) == NUM_PAGES(newsize)) {
         d->size = newsize;
@@ -143,7 +145,8 @@ void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func, uint64_t l
         d->magic = MEM_MAGIC_NUM;
         /* Do not modify d->checkno */
 
-        char *fn_tail = strncpy(d->filename, func, sizeof(d->filename) - 1); 
+        char *fn_tail =
+            strncpy(d->filename, func, sizeof(d->filename) - 1);
         *fn_tail = '\0';
 
         d->lineno = line;
@@ -163,7 +166,6 @@ void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func, uint64_t l
     kmfree_chunk(addr, func, line);
     ret_addr = new;
 
-normal_exit:
+  normal_exit:
     return ret_addr;
 }
-

@@ -24,4 +24,3 @@
 
 void mtrr_save(uint16_t cpu_id, void *framebuffer);
 void mtrr_restore(uint16_t cpu_id);
-

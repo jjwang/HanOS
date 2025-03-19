@@ -43,4 +43,3 @@ typedef struct {
     uint64_t actual_res_x;
     uint64_t actual_res_y;
 } computer_info_t;
-

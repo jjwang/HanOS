@@ -38,64 +38,71 @@ vec_new(pci_device_t, pci_devices);
 static void pci_scan_bus(uint8_t bus_id);
 static void pci_scan_device(uint8_t bus_id, uint8_t dev_id);
 
-static pci_device_desc_t device_table[] =
-{
+static pci_device_desc_t device_table[] = {
     /* Intel */
-    {0x8086, 0x0154, "3rd Gen Core processor DRAM Controller"},
-    {0x8086, 0x0166, "3rd Gen Core processor Graphics Controller"},
-    {0x8086, 0x0A04, "Haswell-ULT DRAM Controller"},
-    {0x8086, 0x0A0C, "Haswell-ULT HD Audio Controller"},
-    {0x8086, 0x0A16, "Haswell-ULT Integrated Graphics Controller"},
-    {0x8086, 0x153A, "Ethernet Connection I217-LM"},
-    {0x8086, 0x100E, "Gigabit Ethernet Controller"},
-    {0x8086, 0x10D3, "82574L Gigabit Network Connection"},
-    {0x8086, 0x10EA, "82577LM Gigabit Network Connection"},
-    {0x8086, 0x1237, "440FX - 82441FX PMC"},
-    {0x8086, 0x1570, "Ethernet Connection I219-V"},
-    {0x8086, 0x1604, "Broadwell-U Host Bridge -OPI"},
-    {0x8086, 0x160C, "Broadwell-U Audio Controller"},
-    {0x8086, 0x1616, "HD Graphics 5500"},
-    {0x8086, 0x1904, "Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers"},
-    {0x8086, 0x1911, "Xeon E3-1200 v5/v6 / E3-1500 v5 / 6th/7th/8th Gen Core Processor Gaussian Mixture Model"}, 
-    {0x8086, 0x1916, "Skylake GT2 [HD Graphics 520]"},
-    {0x8086, 0x9D2F, "Sunrise Point-LP USB 3.0 xHCI Controller"},
-    {0x8086, 0x9D03, "Sunrise Point-LP SATA Controller [AHCI mode]"},
-    {0x8086, 0x9D13, "Sunrise Point-LP PCI Express Root Port #4"},
-    {0x8086, 0x9D14, "Sunrise Point-LP PCI Express Root Port #5"},
-    {0x8086, 0x9D18, "Sunrise Point-LP PCI Express Root Port #9"},
-    {0x8086, 0x9D31, "Sunrise Point-LP Thermal subsystem"},
-    {0x8086, 0x9D3A, "Sunrise Point-LP CSME HECI #1"},
-    {0x8086, 0x9D21, "Sunrise Point-LP PMC, "},
-    {0x8086, 0x9D23, "Sunrise Point-LP SMBus"},
-    {0x8086, 0x9D48, "Sunrise Point-LP LPC Controller"},
-    {0x8086, 0x9D70, "Sunrise Point-LP HD Audio"},
-    {0x8086, 0x1C20, "6 Series/C200 Series Chipset Family High Definition Audio Controller"},
-    {0x8086, 0x2922, "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller"},
-    {0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller"},
-    {0x8086, 0x7000, "82371SB PIIX3 ISA"},
-    {0x8086, 0x7010, "82371SB PIIX3 IDE"},
-    {0x8086, 0x7110, "82371AB/EB/MB PIIX4 ISA"},
-    {0x8086, 0x7111, "82371AB/EB/MB PIIX4 IDE"},
-    {0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI"},
-    {0x8086, 0x7192, "440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled)"},
+    { 0x8086, 0x0154, "3rd Gen Core processor DRAM Controller" },
+    { 0x8086, 0x0166, "3rd Gen Core processor Graphics Controller" },
+    { 0x8086, 0x0A04, "Haswell-ULT DRAM Controller" },
+    { 0x8086, 0x0A0C, "Haswell-ULT HD Audio Controller" },
+    { 0x8086, 0x0A16, "Haswell-ULT Integrated Graphics Controller" },
+    { 0x8086, 0x153A, "Ethernet Connection I217-LM" },
+    { 0x8086, 0x100E, "Gigabit Ethernet Controller" },
+    { 0x8086, 0x10D3, "82574L Gigabit Network Connection" },
+    { 0x8086, 0x10EA, "82577LM Gigabit Network Connection" },
+    { 0x8086, 0x1237, "440FX - 82441FX PMC" },
+    { 0x8086, 0x1570, "Ethernet Connection I219-V" },
+    { 0x8086, 0x1604, "Broadwell-U Host Bridge -OPI" },
+    { 0x8086, 0x160C, "Broadwell-U Audio Controller" },
+    { 0x8086, 0x1616, "HD Graphics 5500" },
+    { 0x8086, 0x1904,
+     "Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers"
+     },
+    { 0x8086, 0x1911,
+     "Xeon E3-1200 v5/v6 / E3-1500 v5 / 6th/7th/8th Gen Core Processor Gaussian Mixture Model"
+     },
+    { 0x8086, 0x1916, "Skylake GT2 [HD Graphics 520]" },
+    { 0x8086, 0x9D2F, "Sunrise Point-LP USB 3.0 xHCI Controller" },
+    { 0x8086, 0x9D03, "Sunrise Point-LP SATA Controller [AHCI mode]" },
+    { 0x8086, 0x9D13, "Sunrise Point-LP PCI Express Root Port #4" },
+    { 0x8086, 0x9D14, "Sunrise Point-LP PCI Express Root Port #5" },
+    { 0x8086, 0x9D18, "Sunrise Point-LP PCI Express Root Port #9" },
+    { 0x8086, 0x9D31, "Sunrise Point-LP Thermal subsystem" },
+    { 0x8086, 0x9D3A, "Sunrise Point-LP CSME HECI #1" },
+    { 0x8086, 0x9D21, "Sunrise Point-LP PMC, " },
+    { 0x8086, 0x9D23, "Sunrise Point-LP SMBus" },
+    { 0x8086, 0x9D48, "Sunrise Point-LP LPC Controller" },
+    { 0x8086, 0x9D70, "Sunrise Point-LP HD Audio" },
+    { 0x8086, 0x1C20,
+     "6 Series/C200 Series Chipset Family High Definition Audio Controller"
+     },
+    { 0x8086, 0x2922,
+     "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller" },
+    { 0x8086, 0x29C0, "82G33/G31/P35/P31 Express DRAM Controller" },
+    { 0x8086, 0x7000, "82371SB PIIX3 ISA" },
+    { 0x8086, 0x7010, "82371SB PIIX3 IDE" },
+    { 0x8086, 0x7110, "82371AB/EB/MB PIIX4 ISA" },
+    { 0x8086, 0x7111, "82371AB/EB/MB PIIX4 IDE" },
+    { 0x8086, 0x7113, "82371AB/EB/MB PIIX4 ACPI" },
+    { 0x8086, 0x7192,
+     "440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled)" },
     /* Realtek */
-    {0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter"},
+    { 0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter" },
     /* QEMU */
-    {0x1234, 0x1111, "QEMU Virtual Video Controller"},
+    { 0x1234, 0x1111, "QEMU Virtual Video Controller" },
     /* VirtualBox */
-    {0x80EE, 0xBEEF, "VirtualBox Graphics Adapter"},
-    {0x80EE, 0xCAFE, "VirtualBox Guest Service"},
+    { 0x80EE, 0xBEEF, "VirtualBox Graphics Adapter" },
+    { 0x80EE, 0xCAFE, "VirtualBox Guest Service" },
     /* Hyper-V */
-    {0x1414, 0x5353, "Hyper-V virtual VGA"},
+    { 0x1414, 0x5353, "Hyper-V virtual VGA" },
     /* End */
-    {0,      0,      "Unknown device"}
+    { 0, 0, "Unknown device" }
 };
 
 static const char unknown_device_desc[] = "Unknown device";
 
-const char *pci_device_id_to_string(pci_device_t *device)
+const char *pci_device_id_to_string(pci_device_t * device)
 {
-    for(uint64_t i = 0; ; i++) {
+    for (uint64_t i = 0;; i++) {
         /* Reach the last line */
         if (device_table[i].vendor_id == 0) {
             return unknown_device_desc;
@@ -109,8 +116,8 @@ const char *pci_device_id_to_string(pci_device_t *device)
     return unknown_device_desc;
 }
 
-static void pci_read_bar(
-    uint32_t id, uint32_t index, uint32_t *address, uint32_t *mask)
+static void pci_read_bar(uint32_t id, uint32_t index, uint32_t * address,
+                         uint32_t * mask)
 {
     uint32_t reg = PCI_CONFIG_BAR0 + index * sizeof(uint32_t);
 
@@ -125,7 +132,7 @@ static void pci_read_bar(
     pci_outd(id, reg, *address);
 }
 
-void pci_get_bar(pci_bar_t *bar, uint32_t id, uint32_t index)
+void pci_get_bar(pci_bar_t * bar, uint32_t id, uint32_t index)
 {
     /* Read pci bar register */
     uint32_t addr_low;
@@ -139,17 +146,18 @@ void pci_get_bar(pci_bar_t *bar, uint32_t id, uint32_t index)
         pci_read_bar(id, index + 1, &addr_high, &mask_high);
 
         bar->u.address =
-            (void *)(((uintptr_t)addr_high << 32) | (addr_low & ~0xf));
-        bar->size = ~(((uint64_t)mask_high << 32) | (mask_low & ~0xf)) + 1;
+            (void *) (((uintptr_t) addr_high << 32) | (addr_low & ~0xf));
+        bar->size =
+            ~(((uint64_t) mask_high << 32) | (mask_low & ~0xf)) + 1;
         bar->flags = addr_low & 0xf;
     } else if (addr_low & PCI_BAR_IO) {
         /* I/O register */
-        bar->u.port = (uint16_t)(addr_low & ~0x3);
-        bar->size = (uint16_t)(~(mask_low & ~0x3) + 1);
+        bar->u.port = (uint16_t) (addr_low & ~0x3);
+        bar->size = (uint16_t) (~(mask_low & ~0x3) + 1);
         bar->flags = addr_low & 0x3;
     } else {
         /* 32-bit mmio */
-        bar->u.address = (void *)(uintptr_t)(addr_low & ~0xf);
+        bar->u.address = (void *) (uintptr_t) (addr_low & ~0xf);
         bar->size = ~(mask_low & ~0xf) + 1;
         bar->flags = addr_low & 0xf;
     }
@@ -177,15 +185,15 @@ uint16_t pci_inw(uint32_t id, uint32_t offset)
 
     port_outd(PCI_PORT_ADDR, address);
     return port_inw(PCI_PORT_DATA + (offset & 0x02));
-}   
+}
 
 void pci_outw(uint32_t id, uint32_t offset, uint16_t data)
 {
     uint32_t address = 0x80000000 | id | (offset & 0xFC);
-    
+
     port_outd(PCI_PORT_ADDR, address);
     port_outw(PCI_PORT_DATA + (offset & 0x02), data);
-}   
+}
 
 uint32_t pci_ind(uint32_t id, uint32_t offset)
 {
@@ -236,7 +244,7 @@ void pci_outd(uint32_t id, uint32_t offset, uint32_t data)
 
 static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
 {
-    pci_device_t device = {0};
+    pci_device_t device = { 0 };
     device.bus = bus_id;
     device.func = 0;
     device.device = dev_id;
@@ -273,7 +281,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
 
         if (device.multifunction) {
             for (uint8_t func = 1; func < MAX_FUNCTION; func++) {
-                pci_device_t device2 = {0};
+                pci_device_t device2 = { 0 };
                 device2.bus = bus_id;
                 device2.func = func;
                 device2.device = dev_id;
@@ -315,10 +323,9 @@ void pci_init(void)
 void pci_list(void)
 {
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
-        pci_device_t dev = vec_at(&pci_devices, i); 
+        pci_device_t dev = vec_at(&pci_devices, i);
         kprintf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
-                dev.bus, dev.device, dev.func, dev.vendor_id, dev.device_id,
-                pci_device_id_to_string(&dev));
-    } 
+                dev.bus, dev.device, dev.func, dev.vendor_id,
+                dev.device_id, pci_device_id_to_string(&dev));
+    }
 }
-

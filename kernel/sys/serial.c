@@ -26,19 +26,19 @@ static bool serial_initialized = false;
 void serial_init()
 {
     port_outb(SERIAL_PORT + 3, 0x00);
-    port_outb(SERIAL_PORT + 1, 0x00); /* Disable all interrupts */
-    port_outb(SERIAL_PORT + 3, 0x80); /* Enable DLAB (set baud rate divisor) */
+    port_outb(SERIAL_PORT + 1, 0x00);   /* Disable all interrupts */
+    port_outb(SERIAL_PORT + 3, 0x80);   /* Enable DLAB (set baud rate divisor) */
 
-    uint16_t divisor = (uint16_t)(115200 / BAUD_RATE);
-    port_outb(SERIAL_PORT + 0, divisor & 0xFF);         /* Divisor 3(lo byte) */
+    uint16_t divisor = (uint16_t) (115200 / BAUD_RATE);
+    port_outb(SERIAL_PORT + 0, divisor & 0xFF); /* Divisor 3(lo byte) */
     port_outb(SERIAL_PORT + 1, (divisor >> 8) & 0xff);  /*          (hi byte) */
 
     port_outb(SERIAL_PORT + 1, 0x00);
-    port_outb(SERIAL_PORT + 3, 0x03); /* 8 bits, no parity, one stop bit */
-    port_outb(SERIAL_PORT + 2, 0xC7); /* Enable FIFO, clear them, with 14-byte
-                                       * threshold
-                                       */
-    port_outb(SERIAL_PORT + 4, 0x0B); /* IRQs enabled, RTS/DSR set */
+    port_outb(SERIAL_PORT + 3, 0x03);   /* 8 bits, no parity, one stop bit */
+    port_outb(SERIAL_PORT + 2, 0xC7);   /* Enable FIFO, clear them, with 14-byte
+                                         * threshold
+                                         */
+    port_outb(SERIAL_PORT + 4, 0x0B);   /* IRQs enabled, RTS/DSR set */
 
     serial_initialized = true;
 }
@@ -61,4 +61,3 @@ void serial_puts(char *s)
         serial_write(s[i]);
     }
 }
-

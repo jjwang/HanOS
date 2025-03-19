@@ -37,7 +37,8 @@ static volatile uint8_t buffer_length = 0;
 static volatile uint8_t read_index = 0;
 static volatile uint8_t write_index = 0;
 
-static volatile keyboard_t ps2_kb = {0};
+static volatile keyboard_t ps2_kb = { 0 };
+
 static volatile lock_t kb_lock = lock_new();
 
 void keyboard_set_key(bool state, uint8_t keycode)
@@ -66,28 +67,25 @@ static void keyboard_callback()
     uint8_t scan_code = key_code & 0x7f;
     uint8_t key_state = !(key_code & 0x80);
 
-    char ch = keyboard_get_ascii(
-                  scan_code,
-                  ps2_kb.key_pressed[KB_LSHIFT] | ps2_kb.key_pressed[KB_RSHIFT],
-                  ps2_kb.key_pressed[KB_CAPS_LOCK]);
+    char ch = keyboard_get_ascii(scan_code,
+                                 ps2_kb.key_pressed[KB_LSHIFT] |
+                                 ps2_kb.key_pressed[KB_RSHIFT],
+                                 ps2_kb.key_pressed[KB_CAPS_LOCK]);
 
     keyboard_set_key(key_state, scan_code);
 
     while (key_state && ch != 0) {
-        if (ps2_kb.key_pressed[KB_LCTRL])
-        {
-            if (buffer_length < KB_BUFFER_SIZE
-                && (ch == 'd' || ch == 'D'))
-            {
+        if (ps2_kb.key_pressed[KB_LCTRL]) {
+            if (buffer_length < KB_BUFFER_SIZE && (ch == 'd' || ch == 'D')) {
                 lock_lock(&kb_lock);
-                key_buffer[write_index] = EOF; 
+                key_buffer[write_index] = EOF;
                 write_index++;
                 buffer_length++;
                 if (write_index == KB_BUFFER_SIZE) {
                     write_index = 0;
                 }
                 lock_release(&kb_lock);
-                
+
                 eb_publish(TID_NONE, EVENT_KEY_PRESSED, EOF);
                 klogd("keyboard: EOF recevied!\n");
                 break;
@@ -115,9 +113,9 @@ uint8_t keyboard_get_key()
     if (buffer_length == 0) {
         return 0;
     }
-   
+
     uint8_t ch = key_buffer[read_index];
- 
+
     lock_lock(&kb_lock);
     read_index++;
     buffer_length--;
@@ -125,7 +123,7 @@ uint8_t keyboard_get_key()
         read_index = 0;
     }
     lock_release(&kb_lock);
-    
+
     return ch;
 }
 
@@ -133,14 +131,14 @@ static void mouse_wait(uint8_t type)
 {
     uint64_t _time_out = 100000;
     if (type == 0) {
-        while(_time_out--) { /* Data */
+        while (_time_out--) {   /* Data */
             if ((port_inb(0x64) & 1) == 1) {
                 return;
             }
         }
         return;
     } else {
-        while (_time_out--) { /* Signal */
+        while (_time_out--) {   /* Signal */
             if ((port_inb(0x64) & 2) == 0) {
                 return;
             }
@@ -168,14 +166,14 @@ uint8_t mouse_read()
 {
     /* Get's response from mouse */
     mouse_wait(0);
-    uint8_t ack =  port_inb(0x60);
+    uint8_t ack = port_inb(0x60);
     return ack;
 }
 
 static void mouse_callback()
 {
     uint8_t x = port_inb(KEYBOARD_PORT_DATA);
-    (void)x;
+    (void) x;
 }
 
 void keyboard_init()
@@ -193,31 +191,31 @@ void keyboard_init()
 
     /* finilize PS/2 initialization by reenabling devices */
     port_outb(KEYBOARD_PORT_CMD, KEYBOARD_ENABLE_FIRST_PORT);
-    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_ENABLE_SECOND_PORT); /* ignored if unsupported? */
+    port_outb(KEYBOARD_PORT_CMD, KEYBOARD_ENABLE_SECOND_PORT);  /* ignored if unsupported? */
 
     uint8_t _status;
 
     /* Enable the auxiliary mouse device */
     mouse_wait(1);
     port_outb(0x64, 0xA8);
- 
+
     /* Set Compaq status and enable the interrupt */
     mouse_wait(1);
-    port_outb(0x64, 0x20);  
+    port_outb(0x64, 0x20);
     mouse_wait(0);
     _status = (port_inb(0x60) | 2);
     mouse_wait(1);
     port_outb(0x64, 0x60);
     mouse_wait(1);
     port_outb(0x60, _status);
- 
+
     /* Tell the mouse to use default settings */
     mouse_write(0xF6);
-    mouse_read();  /* Acknowledge */
+    mouse_read();               /* Acknowledge */
 
     /* Enable the mouse */
     mouse_write(0xF4);
-    mouse_read();  /* Acknowledge */
+    mouse_read();               /* Acknowledge */
 
     exc_register_handler(IRQ1, keyboard_callback);
     exc_register_handler(IRQ12, mouse_callback);
@@ -231,4 +229,3 @@ void keyboard_init()
 
     klogi("Keyboard initialization finished\n");
 }
-

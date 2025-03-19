@@ -27,8 +27,9 @@ _Noreturn void task_idle_proc(task_id_t tid);
 void sched_debug(bool showlog);
 
 void sched_init(const char *name, uint16_t cpu_id);
-task_t *sched_new(const char *name, void (*entry)(task_id_t), bool usermode);
-void sched_add(task_t *t);
+task_t *sched_new(const char *name, void (*entry)(task_id_t),
+                  bool usermode);
+void sched_add(task_t * t);
 void sched_sleep(time_t ms);
 task_id_t sched_fork(void);
 void sched_exit(int64_t status);
@@ -40,5 +41,5 @@ uint64_t sched_get_ticks(void);
 task_id_t sched_get_tid(void);
 task_status_t sched_get_task_status(task_id_t tid);
 
-task_t *sched_execve(
-    const char *path, const char *argv[], const char *envp[], const char *cwd);
+task_t *sched_execve(const char *path, const char *argv[],
+                     const char *envp[], const char *cwd);

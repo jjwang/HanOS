@@ -33,7 +33,7 @@ void dump_backtrace();
     dump_backtrace();                           \
     while (true)                                \
         asm volatile("hlt");                    \
-} 
+}
 
 #define panic_unless(c) ({ \
     if(!(c)) \

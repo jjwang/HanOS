@@ -32,7 +32,7 @@
 #define APIC_IPI_TYPE_INIT      0b101
 #define APIC_IPI_TYPE_STARTUP   0b110
 
-extern volatile void* lapic_base;
+extern volatile void *lapic_base;
 
 void apic_init(void);
 void apic_enable(void);
