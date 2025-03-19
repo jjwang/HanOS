@@ -1,3 +1,5 @@
+/* *INDENT-OFF* */
+
 /**-----------------------------------------------------------------------------
 
  @file    printf.h
@@ -122,3 +124,5 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
 
 
 #endif  // _PRINTF_H_
+
+/* *INDENT-ON* */

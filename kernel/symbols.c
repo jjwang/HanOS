@@ -5,6 +5,7 @@
 
 #include <symbols.h>
 
-[[gnu::weak]] const symbol_t _kernel_symtab[] = {
-    { .addr = UINT64_MAX, .name = "" }
+[[gnu::weak]]
+const symbol_t _kernel_symtab[] = {
+    {.addr = UINT64_MAX,.name = "" }
 };

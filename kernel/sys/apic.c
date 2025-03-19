@@ -28,7 +28,7 @@
 #include <base/klog.h>
 
 #define IA32_APIC_BASE_MSR          0x1B
-#define IA32_APIC_BASE_MSR_BSP      0x100 /* Processor is a BSP */
+#define IA32_APIC_BASE_MSR_BSP      0x100       /* Processor is a BSP */
 #define IA32_APIC_BASE_MSR_X2APIC   0x400
 #define IA32_APIC_BASE_MSR_ENABLE   0x800
 
@@ -37,7 +37,7 @@ static bool is_x2apic_enabled = false;
 /* The local APIC registers are memory mapped to an address that can be found
  * in the MP/MADT tables.
  */
-volatile void* lapic_base = NULL;
+volatile void *lapic_base = NULL;
 
 /**
  * Reads the value of a register from the Advanced Programmable Interrupt
@@ -49,7 +49,7 @@ volatile void* lapic_base = NULL;
  */
 uint32_t apic_read_reg(uint16_t offset)
 {
-    return *(uint32_t volatile*)(lapic_base + offset);
+    return *(uint32_t volatile *) (lapic_base + offset);
 }
 
 /**
@@ -63,7 +63,7 @@ uint32_t apic_read_reg(uint16_t offset)
  */
 void apic_write_reg(uint16_t offset, uint32_t val)
 {
-    *(uint32_t volatile*)(lapic_base + offset) = val;
+    *(uint32_t volatile *) (lapic_base + offset) = val;
 }
 
 /**
@@ -88,7 +88,7 @@ void apic_send_eoi()
  */
 void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
 {
-    apic_write_reg(APIC_REG_ICR_HIGH, (uint32_t)dest << 24);
+    apic_write_reg(APIC_REG_ICR_HIGH, (uint32_t) dest << 24);
     apic_write_reg(APIC_REG_ICR_LOW, (mtype << 8) | vector);
 }
 
@@ -104,7 +104,8 @@ void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
  */
 void apic_enable()
 {
-    apic_write_reg(APIC_REG_SPURIOUS_INT, APIC_FLAG_ENABLE | APIC_SPURIOUS_VECTOR_NUM);
+    apic_write_reg(APIC_REG_SPURIOUS_INT,
+                   APIC_FLAG_ENABLE | APIC_SPURIOUS_VECTOR_NUM);
 }
 
 /**
@@ -121,11 +122,13 @@ void apic_init()
     if (cpuid_check_feature(CPUID_FEATURE_X2APIC)) {
         klogi("APIC: support x2APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
               apic_base_msr & 0xFFFF,
-              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" : "Not BSP core");
+              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" :
+              "Not BSP core");
     } else if (cpuid_check_feature(CPUID_FEATURE_APIC)) {
         klogi("APIC: support APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
               apic_base_msr & 0xFFFF,
-              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" : "Not BSP core");
+              (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" :
+              "Not BSP core");
     } else {
         kpanic("APIC: both APIC and x2APIC are not supported\n");
     }
@@ -144,16 +147,16 @@ void apic_init()
      * implementation only includes xAPIC.
      */
 
-    lapic_base = (void*)PHYS_TO_VIRT(madt_get_lapic_base());
+    lapic_base = (void *) PHYS_TO_VIRT(madt_get_lapic_base());
 
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
-    vmm_map(NULL, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
+    vmm_map(NULL, (uint64_t) lapic_base, VIRT_TO_PHYS(lapic_base), 1,
             VMM_FLAGS_MMIO);
 
     klogi("APIC base memory 0x%x mapping finished\n", lapic_base);
 
     apic_enable();
 
-    klogi("APIC version %08x initialization finished\n", apic_read_reg(APIC_REG_VERSION));
+    klogi("APIC version %08x initialization finished\n",
+          apic_read_reg(APIC_REG_VERSION));
 }
-

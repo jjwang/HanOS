@@ -43,8 +43,8 @@
 #include <fs/vfs.h>
 #include <proc/signal.h>
 
-#define DEFAULT_KMODE_CODE      0b00101000 /* 0x28 */
-#define DEFAULT_KMODE_DATA      0b00110000 /* 0x30 */
+#define DEFAULT_KMODE_CODE      0b00101000      /* 0x28 */
+#define DEFAULT_KMODE_DATA      0b00110000      /* 0x30 */
 
 /*
  * User Mode Refer:
@@ -90,8 +90,8 @@
  * our data segment selector will be (0x20 | 0x3 = 0x23).
  *
  */
-#define DEFAULT_UMODE_DATA      0b00111011 /* 0x3b */
-#define DEFAULT_UMODE_CODE      0b01000011 /* 0x43 */
+#define DEFAULT_UMODE_DATA      0b00111011      /* 0x3b */
+#define DEFAULT_UMODE_CODE      0b01000011      /* 0x43 */
 
 /* ----- EFLAGS Register -----
  * 0        CF  Carry flag
@@ -129,7 +129,7 @@
  *  push %eax ; Push the new EFLAGS value back onto the stack. 
  *
  */
-#define DEFAULT_RFLAGS          0b0000001000000010 /* 0x0202 */
+#define DEFAULT_RFLAGS          0b0000001000000010      /* 0x0202 */
 
 #define TID_MAX                 UINT64_MAX
 #define TID_NONE                0
@@ -137,7 +137,7 @@
 typedef uint64_t task_id_t;
 typedef uint8_t task_priority_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint64_t entry;
     uint64_t phdr;
     uint64_t phaddr;
@@ -161,7 +161,7 @@ typedef enum {
     TASK_UNKNOWN
 } task_status_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -192,64 +192,64 @@ typedef enum {
 typedef uint64_t event_para_t;
 
 typedef struct {
-    task_id_t       pub_tid;
-    task_id_t       sub_tid;
-    event_type_t    type;
-    event_para_t    para;
-    uint64_t        timestamp;
+    task_id_t pub_tid;
+    task_id_t sub_tid;
+    event_type_t type;
+    event_para_t para;
+    uint64_t timestamp;
 } event_t;
 
 typedef struct {
-    vfs_handle_t    fh;
-    vfs_handle_t    newfh;
+    vfs_handle_t fh;
+    vfs_handle_t newfh;
 } file_dup_t;
- 
+
 typedef struct task_t {
-    void            *tstack_top;
-    void            *tstack_limit;
+    void *tstack_top;
+    void *tstack_limit;
 
-    void            *kstack_top;
-    void            *kstack_limit;
+    void *kstack_top;
+    void *kstack_limit;
 
-    void            *ustack_top;
-    void            *ustack_limit;
+    void *ustack_top;
+    void *ustack_limit;
 
-    task_id_t       tid;
-    task_id_t       ptid;
+    task_id_t tid;
+    task_id_t ptid;
     task_priority_t priority;
-    uint64_t        last_tick;
-    uint64_t        wakeup_time;
-    event_t         wakeup_event;
-    task_status_t   status;
-    task_mode_t     mode;
-    bool            isforked;
+    uint64_t last_tick;
+    uint64_t wakeup_time;
+    event_t wakeup_event;
+    task_status_t status;
+    task_mode_t mode;
+    bool isforked;
 
-    auxval_t        aux;
-    vec_struct(task_id_t)  child_list;
+    auxval_t aux;
+     vec_struct(task_id_t) child_list;
 
-    ht_t            open_files_table;
-    vec_struct(file_dup_t) dup_list;
+    ht_t open_files_table;
+     vec_struct(file_dup_t) dup_list;
 
-    int64_t         errno;
+    int64_t errno;
 
-    addrspace_t     *addrspace;
-    vec_struct(mem_map_t) mmap_list;
-    uint64_t        fs_base;
+    addrspace_t *addrspace;
+     vec_struct(mem_map_t) mmap_list;
+    uint64_t fs_base;
 
-    char            cwd[VFS_MAX_PATH_LEN];
-    char            name[64];
+    char cwd[VFS_MAX_PATH_LEN];
+    char name[64];
 
     struct {
-        lock_t      lock;
+        lock_t lock;
         sigaction_t actions[NSIG];
-        sigset_t    mask;
+        sigset_t mask;
     } signals;
 } task_t;
 
-task_t* task_make(
-    const char *name, void (*entry)(task_id_t), task_priority_t priority,
-    task_mode_t mode, addrspace_t *pas);
+task_t *task_make(const char *name, void (*entry)(task_id_t),
+                  task_priority_t priority, task_mode_t mode,
+                  addrspace_t * pas);
 
-task_t *task_fork(task_t *tp);
-void task_debug(task_t *t, bool force);
-void task_free(task_t *t);
+task_t *task_fork(task_t * tp);
+void task_debug(task_t * t, bool force);
+void task_free(task_t * t);

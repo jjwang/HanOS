@@ -36,8 +36,8 @@ void cmos_init()
 {
     cmos_rtc_t rtc = cmos_read_rtc();
     boot_time = secs_of_years(rtc.year - 1) +
-                secs_of_month(rtc.month - 1, rtc.year) + (rtc.day - 1) * 86400 +
-                rtc.hours * 3600 + rtc.minutes * 60 + rtc.seconds;
+        secs_of_month(rtc.month - 1, rtc.year) + (rtc.day - 1) * 86400 +
+        rtc.hours * 3600 + rtc.minutes * 60 + rtc.seconds;
     klogi("CMOS initialization finished with boot time %d\n");
 }
 
@@ -50,8 +50,8 @@ uint64_t cmos_current_time()
 {
     cmos_rtc_t rtc = cmos_read_rtc();
     return secs_of_years(rtc.year - 1) +
-                secs_of_month(rtc.month - 1, rtc.year) + (rtc.day - 1) * 86400 +
-                rtc.hours * 3600 + rtc.minutes * 60 + rtc.seconds;
+        secs_of_month(rtc.month - 1, rtc.year) + (rtc.day - 1) * 86400 +
+        rtc.hours * 3600 + rtc.minutes * 60 + rtc.seconds;
 }
 
 cmos_rtc_t cmos_read_rtc()
@@ -62,8 +62,7 @@ cmos_rtc_t cmos_read_rtc()
     /* This uses the "read registers until you get the same values twice in a
      * row" technique to avoid getting inconsistent values due to RTC updates
      */
-    while (update_in_progress())
-        ;
+    while (update_in_progress());
 
     /* read a first time */
     rtc.seconds = get_rtc_register(CMOS_REG_SECONDS);
@@ -79,8 +78,7 @@ cmos_rtc_t cmos_read_rtc()
         /* prepare to read a second time */
         memcpy(&last, &rtc, sizeof(cmos_rtc_t));
 
-        while (update_in_progress())
-            ;
+        while (update_in_progress());
 
         /* read a second time */
         rtc.seconds = get_rtc_register(CMOS_REG_SECONDS);
@@ -100,8 +98,9 @@ cmos_rtc_t cmos_read_rtc()
         /* Convert BCD to binary values if necessary */
         rtc.seconds = (rtc.seconds & 0x0F) + ((rtc.seconds / 16) * 10);
         rtc.minutes = (rtc.minutes & 0x0F) + ((rtc.minutes / 16) * 10);
-        rtc.hours = ((rtc.hours & 0x0F) + (((rtc.hours & 0x70) / 16) * 10)) |
-                    (rtc.hours & 0x80);
+        rtc.hours =
+            ((rtc.hours & 0x0F) +
+             (((rtc.hours & 0x70) / 16) * 10)) | (rtc.hours & 0x80);
         rtc.weekdays = (rtc.weekdays & 0x0F) + ((rtc.weekdays / 16) * 10);
         rtc.day = (rtc.day & 0x0F) + ((rtc.day / 16) * 10);
         rtc.month = (rtc.month & 0x0F) + ((rtc.month / 16) * 10);
@@ -120,7 +119,8 @@ cmos_rtc_t cmos_read_rtc()
             rtc.year += rtc.century * 100;
         } else {
             rtc.year += (CURRENT_YEAR / 100) * 100;
-            if (rtc.year < CURRENT_YEAR) rtc.year += 100;
+            if (rtc.year < CURRENT_YEAR)
+                rtc.year += 100;
         }
     }
 
@@ -144,8 +144,8 @@ bool rtc_values_are_not_equal(cmos_rtc_t c1, cmos_rtc_t c2)
 {
     return (c1.seconds != c2.seconds || c1.minutes != c2.minutes ||
             c1.hours != c2.hours || c1.weekdays != c2.weekdays ||
-            c1.day != c2.day || c1.month != c2.month || c1.year != c2.year ||
-            c1.century != c2.century);
+            c1.day != c2.day || c1.month != c2.month || c1.year != c2.year
+            || c1.century != c2.century);
 }
 
 uint64_t secs_of_years(uint64_t years)
@@ -175,30 +175,30 @@ uint64_t secs_of_month(uint64_t months, uint64_t year)
 
     for (uint64_t i = 1; i <= months; i++) {
         switch (i) {
-            case 12:
-            case 10:
-            case 8:
-            case 7:
-            case 5:
-            case 3:
-            case 1:
-                days += 31;
-                break;
-            case 11:
-            case 9:
-            case 6:
-            case 4:
-                days += 30;
-                break;
-            case 2:
-                days += 28;
-                if ((year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0))) {
-                    days++;
-                }
-            default:
-                break;
+        case 12:
+        case 10:
+        case 8:
+        case 7:
+        case 5:
+        case 3:
+        case 1:
+            days += 31;
+            break;
+        case 11:
+        case 9:
+        case 6:
+        case 4:
+            days += 30;
+            break;
+        case 2:
+            days += 28;
+            if ((year % 4 == 0)
+                && ((year % 100 != 0) || (year % 400 == 0))) {
+                days++;
+            }
+        default:
+            break;
         }
     }
     return days * 86400;
 }
-

@@ -45,13 +45,14 @@
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
-static volatile int *ap_boot_counter = (volatile int*)PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
+static volatile int *ap_boot_counter =
+    (volatile int *) PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
 
 static smp_info_t *smp_info = NULL;
 
 static volatile bool smp_initialized = false;
 
-static lock_t smp_lock = {0};
+static lock_t smp_lock = { 0 };
 
 smp_info_t *smp_get_info()
 {
@@ -70,8 +71,9 @@ smp_info_t *smp_get_info()
 cpu_t *smp_get_current_cpu(bool force_read)
 {
     if (smp_initialized || force_read) {
-        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
-        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL)
+            cpu = (cpu_t *) read_msr(MSR_GS_BASE);
         return cpu;
     } else {
         return NULL;
@@ -85,8 +87,9 @@ bool cpu_set_errno(int64_t val)
 {
     lock_lock(&smp_lock);
     if (smp_initialized) {
-        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
-        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL)
+            cpu = (cpu_t *) read_msr(MSR_GS_BASE);
         if (cpu != NULL) {
             cpu->errno = val;
             lock_release(&smp_lock);
@@ -100,24 +103,25 @@ bool cpu_set_errno(int64_t val)
 void cpu_debug(void)
 {
     if (smp_initialized) {
-        cpu_t *cpu = (cpu_t*)read_msr(MSR_KERN_GS_BASE);
-        if (cpu == NULL) cpu = (cpu_t*)read_msr(MSR_GS_BASE);
+        cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
+        if (cpu == NULL)
+            cpu = (cpu_t *) read_msr(MSR_GS_BASE);
         if (cpu != NULL) {
             klogd("CPU: total_num %d, current id %d, kernel stack 0x%x\n",
                   smp_info->num_cpus, cpu->cpu_id, cpu->tss.rsp0);
             return;
-        }   
+        }
     }
     klogd("CPU: uninitialized\n");
 }
 
-void init_tss(cpu_t *cpuinfo)
+void init_tss(cpu_t * cpuinfo)
 {
     gdt_install_tss(cpuinfo);
 }
 
 /* AP's will run this code upon boot */
-_Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
+_Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
 {
     /* initialize cpu features */
     cpu_init(cpuinfo->cpu_id);
@@ -127,11 +131,12 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
           cpuinfo->cpu_id, cpuinfo);
 
     /* put cpu information in gs */
-    write_msr(MSR_GS_BASE, (uint64_t)cpuinfo);
-    write_msr(MSR_KERN_GS_BASE, (uint64_t)cpuinfo);
+    write_msr(MSR_GS_BASE, (uint64_t) cpuinfo);
+    write_msr(MSR_KERN_GS_BASE, (uint64_t) cpuinfo);
 
     /* initialze gdt and make a tss */
-    for (uint64_t dl = 0; dl < 100; dl++) asm volatile ("nop;");
+    for (uint64_t dl = 0; dl < 100; dl++)
+        asm volatile ("nop;");
     init_tss(cpuinfo);
 
     /* enable the apic */
@@ -148,13 +153,13 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
     }
 
     /* Remember we need to init all CPUs and then make hearts beat */
-    asm volatile("sti");
+    asm volatile ("sti");
 
     klogi("SMP: finish initialization of core %d (0x%x)\n",
           cpuinfo->cpu_id, cpuinfo);
 
     while (true)
-        asm volatile("hlt");
+        asm volatile ("hlt");
 }
 
 /* Trampoline code is used by BSP to boot other secondary CPUs. At startup,
@@ -164,24 +169,29 @@ _Noreturn void smp_ap_entrypoint(cpu_t* cpuinfo)
 static void prepare_trampoline()
 {
     /* copy the trampoline blob to 0x1000 physical */
-    uint64_t trmpblobsize = (uint64_t)&smp_trampoline_blob_end - (uint64_t)&smp_trampoline_blob_start;
+    uint64_t trmpblobsize =
+        (uint64_t) & smp_trampoline_blob_end -
+        (uint64_t) & smp_trampoline_blob_start;
 
-    memcpy((void*)PHYS_TO_VIRT(SMP_TRAMPOLINE_BLOB_ADDR), &smp_trampoline_blob_start, trmpblobsize);
+    memcpy((void *) PHYS_TO_VIRT(SMP_TRAMPOLINE_BLOB_ADDR),
+           &smp_trampoline_blob_start, trmpblobsize);
 
     /* pass arguments to trampoline code */
-    read_cr("cr3", (uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CR3));
-    asm volatile("sidt %0"
-                 : "=m"(*(uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_IDTPTR))
-                 :
-                 :);
-    *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) = (uint64_t)&smp_ap_entrypoint;
+    read_cr("cr3", (uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CR3));
+    asm volatile ("sidt %0":"=m"
+                  (*(uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_IDTPTR))
+                  ::);
+    *((uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) =
+        (uint64_t) & smp_ap_entrypoint;
 
-    klogi("Trampoline start 0x%x end 0x%x\n", (uint64_t)&smp_trampoline_blob_start, (uint64_t)&smp_trampoline_blob_end);
+    klogi("Trampoline start 0x%x end 0x%x\n",
+          (uint64_t) & smp_trampoline_blob_start,
+          (uint64_t) & smp_trampoline_blob_end);
 }
 
 void smp_init()
 {
-    smp_info = (smp_info_t*)kmalloc(sizeof(smp_info_t));
+    smp_info = (smp_info_t *) kmalloc(sizeof(smp_info_t));
     memset(smp_info, 0, sizeof(smp_info_t));
 
     /* identity map first mb for the trampoline */
@@ -191,7 +201,7 @@ void smp_init()
 
     /* get lapic info from the madt */
     uint64_t cpunum = madt_get_num_lapic();
-    madt_record_lapic_t** lapics = madt_get_lapics();
+    madt_record_lapic_t **lapics = madt_get_lapics();
 
 #if !BSP_CORE_ONLY
     klogi("SMP: core number is %d\n", cpunum);
@@ -213,14 +223,14 @@ void smp_init()
     }
 
     smp_info->cpus[0].is_bsp = true;
-    write_msr(MSR_GS_BASE, (uint64_t)&(smp_info->cpus[0]));
-    write_msr(MSR_KERN_GS_BASE, (uint64_t)&(smp_info->cpus[0]));
+    write_msr(MSR_GS_BASE, (uint64_t) & (smp_info->cpus[0]));
+    write_msr(MSR_KERN_GS_BASE, (uint64_t) & (smp_info->cpus[0]));
     init_tss(&(smp_info->cpus[0]));
 
     smp_info->num_cpus = 1;
 
     /* loop through the lapic's present and initialize them one by one */
-    (void)ap_boot_counter;
+    (void) ap_boot_counter;
 #if !BSP_CORE_ONLY
     for (uint64_t i = 0; i < cpunum; i++) {
         uint64_t coreid = 0;
@@ -251,19 +261,22 @@ void smp_init()
 
         /* allocate and pass the stack */
         void *stack = kmalloc(STACK_SIZE);
-        *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_RSP)) = (uint64_t)stack + STACK_SIZE;
+        *((uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_RSP)) =
+            (uint64_t) stack + STACK_SIZE;
 
         /* pass cpu information */
-        *((uint64_t*)PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CPUINFO)) =
-            (uint64_t)&(smp_info->cpus[coreid]);
+        *((uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_CPUINFO)) =
+            (uint64_t) & (smp_info->cpus[coreid]);
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
         sched_sleep(10);
 
         bool success = false;
-        for (uint64_t k = 0; k < 2; k++) { /* send startup ipi 2 times */
-            apic_send_ipi(lapics[i]->apic_id, SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE, APIC_IPI_TYPE_STARTUP);
+        for (uint64_t k = 0; k < 2; k++) {      /* send startup ipi 2 times */
+            apic_send_ipi(lapics[i]->apic_id,
+                          SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE,
+                          APIC_IPI_TYPE_STARTUP);
             /* check if cpu has started */
             for (uint64_t j = 0; j < 20; j++) {
                 int counter_curr = *ap_boot_counter;
@@ -287,8 +300,9 @@ void smp_init()
         smp_info->num_cpus++;
     }
 
-    while(true) {
-        if (sched_get_cpu_num() == smp_info->num_cpus - 1) break;
+    while (true) {
+        if (sched_get_cpu_num() == smp_info->num_cpus - 1)
+            break;
         hpet_sleep(1);
     }
 #endif
@@ -301,5 +315,5 @@ void smp_init()
     smp_initialized = true;
 
     /* Make the heart beat */
-    asm volatile("sti");
+    asm volatile ("sti");
 }

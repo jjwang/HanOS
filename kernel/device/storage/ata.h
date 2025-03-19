@@ -68,7 +68,7 @@
 
 #define IDE_ATA                 0x00
 #define IDE_ATAPI               0x01
- 
+
 #define ATA_MASTER              0x00
 #define ATA_SLAVE               0x01
 
@@ -106,33 +106,33 @@ typedef struct {
 } ide_channel_regs_t;
 
 typedef struct {
-    uint8_t  reserved;
-    uint8_t  channel;
-    uint8_t  drive;
+    uint8_t reserved;
+    uint8_t channel;
+    uint8_t drive;
     uint16_t type;
     uint16_t signature;
     uint16_t capabilities;
     uint32_t command_sets;
     uint32_t size;
-    uint8_t  model[41];
+    uint8_t model[41];
 } ide_device_t;
 
-typedef struct [[gnu::packed]] {
-    uint8_t  status;
-    uint8_t  chs_start[3];
-    uint8_t  type;
-    uint8_t  chs_end[3];
+typedef struct[[gnu::packed]] {
+    uint8_t status;
+    uint8_t chs_start[3];
+    uint8_t type;
+    uint8_t chs_end[3];
     uint32_t lba_start;
     uint32_t sector_count;
 } partition_t;
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint16_t flags;
     uint16_t unused1[9];
-    char     serial[20];
+    char serial[20];
     uint16_t unused2[3];
-    char     firmware[8];
-    char     model[40];
+    char firmware[8];
+    char model[40];
     uint16_t sectors_per_int;
     uint16_t unused3;
     uint16_t capabilities[2];
@@ -158,22 +158,23 @@ typedef struct {
     int slave;
     int is_atapi;
     ata_identify_t identity;
-    prdt_t * dma_prdt;
+    prdt_t *dma_prdt;
     uintptr_t dma_prdt_phys;
-    uint8_t * dma_start;
+    uint8_t *dma_start;
     uintptr_t dma_start_phys;
     uint32_t bar4;
     uint32_t atapi_lba;
     uint32_t atapi_sector_size;
 } ata_device_t;
 
-typedef struct [[gnu::packed]] {
-    uint8_t     boostrap[446];
+typedef struct[[gnu::packed]] {
+    uint8_t boostrap[446];
     partition_t partitions[4];
-    uint8_t     signature[2];
+    uint8_t signature[2];
 } mbr_t;
 
 int ata_init(void);
-void ata_pio_read28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* target);
-void ata_pio_write28(ata_device_t* dev, uint32_t lba, uint8_t sector_count, uint8_t* source);
-
+void ata_pio_read28(ata_device_t * dev, uint32_t lba, uint8_t sector_count,
+                    uint8_t * target);
+void ata_pio_write28(ata_device_t * dev, uint32_t lba,
+                     uint8_t sector_count, uint8_t * source);

@@ -90,18 +90,17 @@
  * Ref: https://wiki.osdev.org/Model_Specific_Registers
  */
 static inline uint64_t read_msr(uint32_t msr)
-{   
+{
     uint32_t low, high;
-    
-    asm volatile("mov %[msr], %%ecx;"
-                 "rdmsr;"
-                 "mov %%eax, %[low];"
-                 "mov %%edx, %[high];" 
-                 : [low] "=g"(low), [high] "=g"(high)
-                 : [msr] "g"(msr)
-                 : "eax", "ecx", "edx");
-    
-    uint64_t val = ((uint64_t)high << 32) | low;
+
+    asm volatile ("mov %[msr], %%ecx;"
+                  "rdmsr;"
+                  "mov %%eax, %[low];"
+                  "mov %%edx, %[high];":[low] "=g"(low),[high] "=g"(high)
+                  :[msr] "g"(msr)
+                  :"eax", "ecx", "edx");
+
+    uint64_t val = ((uint64_t) high << 32) | low;
     return val;
 }
 
@@ -110,117 +109,116 @@ static inline void write_msr(uint32_t msr, uint64_t val)
     uint32_t low = val & UINT32_MAX;
     uint32_t high = (val >> 32) & UINT32_MAX;
 
-    asm volatile("mov %[msr], %%ecx;"
-                 "mov %[low], %%eax;"
-                 "mov %[high], %%edx;"
-                 "wrmsr;"
-                 :   
-                 : [msr] "g"(msr), [low] "g"(low), [high] "g"(high)
-                 : "eax", "ecx", "edx");
+    asm volatile ("mov %[msr], %%ecx;"
+                  "mov %[low], %%eax;"
+                  "mov %[high], %%edx;"
+                  "wrmsr;"::[msr] "g"(msr),[low] "g"(low),[high] "g"(high)
+                  :"eax", "ecx", "edx");
 }
 
 /* Port I/O functions */
 static inline uint8_t port_inb(uint16_t port)
 {
     uint8_t ret;
-    asm volatile("inb %%dx, %%al" : "=a"(ret) : "d"(port));
+    asm volatile ("inb %%dx, %%al":"=a" (ret):"d"(port));
     return ret;
 }
 
 static inline uint16_t port_inw(uint16_t port)
 {
     uint16_t ret;
-    asm volatile("inw %%dx, %%ax" : "=a"(ret) : "d"(port));
+    asm volatile ("inw %%dx, %%ax":"=a" (ret):"d"(port));
     return ret;
 }
 
 static inline uint32_t port_ind(uint16_t port)
 {
     uint32_t ret;
-    asm volatile("inl %%dx, %%eax" : "=a"(ret) : "d"(port));
+    asm volatile ("inl %%dx, %%eax":"=a" (ret):"d"(port));
     return ret;
 }
 
 static inline void port_outb(uint16_t port, uint8_t data)
 {
-    asm volatile("outb %%al, %%dx" : : "a"(data), "d"(port));
+    asm volatile ("outb %%al, %%dx"::"a" (data), "d"(port));
 }
 
 static inline void port_outw(uint16_t port, uint16_t data)
 {
-    asm volatile("outw %%ax, %%dx" : : "a"(data), "d"(port));
+    asm volatile ("outw %%ax, %%dx"::"a" (data), "d"(port));
 }
 
 static inline void port_outd(uint16_t port, uint32_t data)
 {
-    asm volatile("outl %%eax, %%dx" : : "a"(data), "d"(port));
+    asm volatile ("outl %%eax, %%dx"::"a" (data), "d"(port));
 }
 
-static inline void port_insw(uint16_t port, void* addr, uint32_t count)
+static inline void port_insw(uint16_t port, void *addr, uint32_t count)
 {
-    asm volatile("rep insw" : "+D" (addr), "+c" (count) : "d" (port) : "memory");
+    asm volatile ("rep insw":"+D" (addr), "+c"(count):"d"(port):"memory");
 }
 
-static inline void port_outsw(uint16_t port, const void* addr, uint32_t count)
+static inline void port_outsw(uint16_t port, const void *addr,
+                              uint32_t count)
 {
-    asm volatile("rep outsw" : "+S" (addr), "+c" (count) : "d" (port));
+    asm volatile ("rep outsw":"+S" (addr), "+c"(count):"d"(port));
 }
 
 static inline void port_io_wait()
 {
     for (int i = 0; i < 4; i++) {
-        asm volatile("nop");
+        asm volatile ("nop");
     }
 }
 
 /* memory mapped I/O functions */
 static inline void mmio_outb(void *p, uint8_t data)
 {
-    *(volatile uint8_t *)(p) = data;
+    *(volatile uint8_t *) (p) = data;
 }
 
 static inline uint8_t mmio_inb(void *p)
 {
-    return *(volatile uint8_t *)(p);
+    return *(volatile uint8_t *) (p);
 }
 
 static inline void mmio_outw(void *p, uint16_t data)
 {
-    *(volatile uint16_t *)(p) = data;
+    *(volatile uint16_t *) (p) = data;
 }
 
 static inline uint16_t mmio_inw(void *p)
 {
-    return *(volatile uint16_t *)(p);
+    return *(volatile uint16_t *) (p);
 }
 
 static inline void mmio_outd(void *p, uint32_t data)
 {
-    *(volatile uint32_t *)(p) = data;
+    *(volatile uint32_t *) (p) = data;
 }
 
 static inline uint32_t mmio_ind(void *p)
 {
-    return *(volatile uint32_t *)(p);
+    return *(volatile uint32_t *) (p);
 }
 
 static inline void mmio_outl(void *p, uint64_t data)
 {
-    *(volatile uint64_t *)(p) = data;
+    *(volatile uint64_t *) (p) = data;
 }
 
 static inline uint64_t mmio_inl(void *p)
 {
-    return *(volatile uint64_t *)(p);
+    return *(volatile uint64_t *) (p);
 }
 
-static inline void mmio_inn(
-    void *dst, const volatile void *src, uint64_t bytes)
+static inline void mmio_inn(void *dst, const volatile void *src,
+                            uint64_t bytes)
 {
-    volatile uint8_t *s = (volatile uint8_t *)src;
-    uint8_t *d = (uint8_t *)dst;
+    volatile uint8_t *s = (volatile uint8_t *) src;
+    uint8_t *d = (uint8_t *) dst;
     while (bytes > 0) {
-        *d =  *s;
+        *d = *s;
         ++s;
         ++d;
         --bytes;
@@ -253,22 +251,25 @@ typedef struct {
 static const cpuid_feature_t CPUID_FEATURE_PAT = {
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
-    .mask = 1 << 16 };
+    .mask = 1 << 16
+};
 
-static const cpuid_feature_t CPUID_FEATURE_APIC  = { 
+static const cpuid_feature_t CPUID_FEATURE_APIC = {
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
-    .mask = 1 << 9 };
+    .mask = 1 << 9
+};
 
-static const cpuid_feature_t CPUID_FEATURE_X2APIC  = { 
+static const cpuid_feature_t CPUID_FEATURE_X2APIC = {
     .func = 0x00000001,
     .reg = CPUID_REG_ECX,
-    .mask = 1 << 21 };
+    .mask = 1 << 21
+};
 
-static const cpuid_feature_t CPUID_FEATURE_MTRR = { 
+static const cpuid_feature_t CPUID_FEATURE_MTRR = {
     .func = 0x00000001,
     .reg = CPUID_REG_EDX,
-    .mask = CPUID_MTRR };
+    .mask = CPUID_MTRR
+};
 
 bool cpuid_check_feature(cpuid_feature_t feature);
-

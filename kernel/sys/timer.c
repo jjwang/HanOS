@@ -38,7 +38,8 @@ static uint64_t base_freq = 0;
 static uint8_t divisor = 0;
 static uint8_t vector = 0;
 
-[[gnu::interrupt]] void apic_timer_handler(void* v);
+[[gnu::interrupt]]
+void apic_timer_handler(void *v);
 
 void apic_timer_stop(void)
 {
@@ -52,7 +53,7 @@ void apic_timer_start(void)
     apic_write_reg(APIC_REG_TIMER_LVT, val & ~(APIC_TIMER_FLAG_MASKED));
 }
 
-void apic_timer_set_handler(void (*h)(void*))
+void apic_timer_set_handler(void (*h)(void *))
 {
     idt_set_handler(vector, h);
 }
@@ -78,17 +79,18 @@ void apic_timer_set_mode(apic_timer_mode_t mode)
 {
     uint32_t val = apic_read_reg(APIC_REG_TIMER_LVT);
 
-    if(mode == APIC_TIMER_MODE_PERIODIC)
+    if (mode == APIC_TIMER_MODE_PERIODIC)
         apic_write_reg(APIC_REG_TIMER_LVT, val | APIC_TIMER_FLAG_PERIODIC);
     else
-        apic_write_reg(APIC_REG_TIMER_LVT, val & ~(APIC_TIMER_FLAG_PERIODIC));
+        apic_write_reg(APIC_REG_TIMER_LVT,
+                       val & ~(APIC_TIMER_FLAG_PERIODIC));
 }
 
 void apic_timer_enable(void)
 {
     apic_write_reg(APIC_REG_TIMER_LVT, APIC_TIMER_FLAG_MASKED | vector);
     apic_write_reg(APIC_REG_TIMER_ICR, UINT32_MAX);
-    apic_write_reg(APIC_REG_TIMER_DCR, 0b0001);
+    apic_write_reg(APIC_REG_TIMER_DCR, 0x1);
 }
 
 void apic_timer_init(void)
@@ -97,7 +99,7 @@ void apic_timer_init(void)
     idt_set_handler(vector, &apic_timer_handler);
 
     apic_write_reg(APIC_REG_TIMER_LVT, APIC_TIMER_FLAG_MASKED | vector);
-    apic_write_reg(APIC_REG_TIMER_DCR, 0b0001);
+    apic_write_reg(APIC_REG_TIMER_DCR, 0x1);
     divisor = 4;
 
     apic_write_reg(APIC_REG_TIMER_ICR, UINT32_MAX);
@@ -107,9 +109,9 @@ void apic_timer_init(void)
      */
     hpet_sleep(100);
 
-    base_freq = ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
+    base_freq =
+        ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
     klogi("APIC timer base frequency: %d Hz. Divisor: 4. IRQ %d.\n",
           base_freq, vector);
 }
-

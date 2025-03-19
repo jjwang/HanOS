@@ -22,38 +22,37 @@
 
 static uint32_t cpu_model = 0;
 static uint32_t cpu_family = 0;
-static char cpu_model_name[60] = {0}; /* Should no less than 48 */
-static char cpu_manufacturer[60] = {0};
+static char cpu_model_name[60] = { 0 }; /* Should no less than 48 */
+static char cpu_manufacturer[60] = { 0 };
 
-void cpuid(uint32_t func, uint32_t param, uint32_t* eax, uint32_t* ebx,
-           uint32_t* ecx, uint32_t* edx)
-{   
-    asm volatile("mov %[func], %%eax;"
-                 "mov %[param], %%ecx;"
-                 "cpuid;"
-                 "mov %%eax, %[ieax];"
-                 "mov %%ebx, %[iebx];"
-                 "mov %%ecx, %[iecx];"
-                 "mov %%edx, %[iedx];"
-                 : [ieax] "=g"(*eax), [iebx] "=g"(*ebx),
-                   [iecx] "=g"(*ecx), [iedx] "=g"(*edx)
-                 : [func] "g"(func), [param] "g"(param)
-                 : "%eax", "%ebx", "%ecx", "%edx", "memory");
+void cpuid(uint32_t func, uint32_t param, uint32_t * eax, uint32_t * ebx,
+           uint32_t * ecx, uint32_t * edx)
+{
+    asm volatile ("mov %[func], %%eax;"
+                  "mov %[param], %%ecx;"
+                  "cpuid;"
+                  "mov %%eax, %[ieax];"
+                  "mov %%ebx, %[iebx];"
+                  "mov %%ecx, %[iecx];"
+                  "mov %%edx, %[iedx];":[ieax] "=g"(*eax),
+                  [iebx] "=g"(*ebx),[iecx] "=g"(*ecx),[iedx] "=g"(*edx)
+                  :[func] "g"(func),[param] "g"(param)
+                  :"%eax", "%ebx", "%ecx", "%edx", "memory");
 }
 
 bool cpuid_check_feature(cpuid_feature_t feature)
-{   
-    uint32_t regs[4]; 
+{
+    uint32_t regs[4];
     uint64_t maxleaf, maxhighleaf;
-    
+
     /* get highest supported leaf */
     cpuid(0, 0, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
-        &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
+          &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
     maxleaf = regs[CPUID_REG_EAX];
-    
+
     /* get highest supported extended leaf */
     cpuid(0x80000000, 0, &regs[CPUID_REG_EAX], &regs[CPUID_REG_EBX],
-        &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
+          &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
     maxhighleaf = regs[CPUID_REG_EAX];
 
     /* is the leaf being requested supported? */
@@ -65,7 +64,8 @@ bool cpuid_check_feature(cpuid_feature_t feature)
 
     /* is the feature supported? */
     cpuid(feature.func, feature.param, &regs[CPUID_REG_EAX],
-          &regs[CPUID_REG_EBX], &regs[CPUID_REG_ECX], &regs[CPUID_REG_EDX]);
+          &regs[CPUID_REG_EBX], &regs[CPUID_REG_ECX],
+          &regs[CPUID_REG_EDX]);
 
     if (regs[feature.reg] & feature.mask)
         return true;
@@ -89,10 +89,10 @@ void cpu_init(uint64_t cpuno)
     if (cpuid_check_feature(CPUID_FEATURE_PAT)) {
         klogi("CPU %d: enable PAT with write-combining\n", cpuno);
         patval = read_msr(MSR_PAT);
-        patval &= (uint64_t)(0xFFFFFFFF);
-        patval |= (uint64_t)(0x01) << 32;
+        patval &= (uint64_t) (0xFFFFFFFF);
+        patval |= (uint64_t) (0x01) << 32;
         write_msr(MSR_PAT, patval);
-    }   
+    }
 
     /* The EM and MP flags of CR0 control how the processor reacts to
      * coprocessor instructions.
@@ -115,7 +115,7 @@ void cpu_init(uint64_t cpuno)
      * disable, BIT30) to speed up writing framebuffer.
      */
     read_cr("cr0", &vcr0);
-    vcr0 &= ~(1 << 2); 
+    vcr0 &= ~(1 << 2);
     vcr0 |= 1 << 1;
     vcr0 &= ~(1 << 28);
     vcr0 &= ~(1 << 29);
@@ -128,17 +128,13 @@ void cpu_init(uint64_t cpuno)
      */
     read_cr("cr4", &vcr4);
     vcr4 |= 1 << 9;
-    vcr4 |= 1 << 10; 
+    vcr4 |= 1 << 10;
     write_cr("cr4", vcr4);
 
     /* Set NE (Numeric Error) in CR0 and reset x87 FPU */
-    asm volatile(
-        "fninit;"
-        "mov %%cr0, %%rax;"
-        "or $0b100000, %%rax;"
-        "mov %%rax, %%cr0;"
-        : : : "rax"
-    );
+    asm volatile ("fninit;"
+                  "mov %%cr0, %%rax;"
+                  "or $0b100000, %%rax;" "mov %%rax, %%cr0;":::"rax");
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
     cpuid(1, 0, &a, &b, &c, &d);
@@ -180,9 +176,12 @@ void cpu_init(uint64_t cpuno)
     cpuid(0x80000000, 0, &x, &na, &na, &na);
     if (x >= 0x80000004) {
         uint32_t brand[12];
-        cpuid(0x80000002, 0, &(brand[0]), &(brand[1]), &(brand[2]), &(brand[3]));
-        cpuid(0x80000003, 0, &(brand[4]), &(brand[5]), &(brand[6]), &(brand[7]));
-        cpuid(0x80000004, 0, &(brand[8]), &(brand[9]), &(brand[10]), &(brand[11]));
+        cpuid(0x80000002, 0, &(brand[0]), &(brand[1]), &(brand[2]),
+              &(brand[3]));
+        cpuid(0x80000003, 0, &(brand[4]), &(brand[5]), &(brand[6]),
+              &(brand[7]));
+        cpuid(0x80000004, 0, &(brand[8]), &(brand[9]), &(brand[10]),
+              &(brand[11]));
         memcpy(cpu_model_name, brand, 48);
         cpu_model_name[48] = '\0';
         klogi("CPU %d: %s\n", cpuno, cpu_model_name);

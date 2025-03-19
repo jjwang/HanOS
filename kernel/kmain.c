@@ -65,25 +65,24 @@
 #include <proc/elf.h>
 
 LIMINE_BASE_REVISION(1)
-
-static volatile struct limine_framebuffer_request fb_request = { 
+static volatile struct limine_framebuffer_request fb_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST,
-    .revision = 0 
+    .revision = 0
 };
 
-static volatile struct limine_hhdm_request hhdm_request = { 
+static volatile struct limine_hhdm_request hhdm_request = {
     .id = LIMINE_HHDM_REQUEST,
-    .revision = 0 
+    .revision = 0
 };
 
-static volatile struct limine_memmap_request mm_request = { 
+static volatile struct limine_memmap_request mm_request = {
     .id = LIMINE_MEMMAP_REQUEST,
-    .revision = 0 
+    .revision = 0
 };
 
-static volatile struct limine_rsdp_request rsdp_request = { 
+static volatile struct limine_rsdp_request rsdp_request = {
     .id = LIMINE_RSDP_REQUEST,
-    .revision = 0 
+    .revision = 0
 };
 
 static volatile struct limine_kernel_address_request kernel_addr_request = {
@@ -91,12 +90,12 @@ static volatile struct limine_kernel_address_request kernel_addr_request = {
     .revision = 0
 };
 
-static volatile struct limine_module_request module_request = { 
+static volatile struct limine_module_request module_request = {
     .id = LIMINE_MODULE_REQUEST,
-    .revision = 0 
+    .revision = 0
 };
 
-static volatile computer_info_t self_info = {0};
+static volatile computer_info_t self_info = { 0 };
 
 extern addrspace_t kaddrspace;
 
@@ -104,7 +103,7 @@ void done(void)
 {
     for (;;) {
         asm volatile ("hlt;");
-    }   
+    }
 }
 
 _Noreturn void kcursor(task_id_t tid)
@@ -123,14 +122,14 @@ _Noreturn void kcursor(task_id_t tid)
         }
 
         term_refresh(TERM_MODE_CLI);
-    }   
+    }
 
-    (void)tid;
+    (void) tid;
 }
 
 _Noreturn void kshell(task_id_t tid)
 {
-    (void)tid;
+    (void) tid;
 
     /* If we want to trigger an exception, uncomment below code */
     /* TODO: note that below codes cannot print exception messages. We need to
@@ -142,12 +141,12 @@ _Noreturn void kshell(task_id_t tid)
         klogi("kshell: 128 / 0 = %d\n", z);
     }
 
-    ttyfs_init(); 
+    ttyfs_init();
     pipefs_init();
 
     ata_init();
 
-#if 0 /* Do not show desktop bitmap to speed up */
+#if 0                           /* Do not show desktop bitmap to speed up */
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
         klogi("Background image: %d*%d with bpp %d, size %d\n",
@@ -159,22 +158,24 @@ _Noreturn void kshell(task_id_t tid)
     klog_refresh(TERM_MODE_INFO);
     klog_refresh(TERM_MODE_CLI);
 
-    kprintf("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
-             VERSION);
+    kprintf
+        ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
+         VERSION);
 
     char *cpu_model_name = cpu_get_model_name();
     if (strlen(cpu_model_name) > 0) {
         kprintf("\033[36mCPU        \033[0m: %s\n", cpu_model_name);
     }
 
-    {   
-        kprintf("\033[36mMemory     \033[0m: %11d MB\n", pmm_get_total_memory());
-    }   
+    {
+        kprintf("\033[36mMemory     \033[0m: %11d MB\n",
+                pmm_get_total_memory());
+    }
 
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
         kprintf("\033[36mMonitor    \033[0m: %4d x %4d cm\n",
                 self_info.screen_hor_size, self_info.screen_ver_size);
-    }   
+    }
 
     if (self_info.prefer_res_x > 0 && self_info.prefer_res_y > 0) {
         kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
@@ -184,22 +185,22 @@ _Noreturn void kshell(task_id_t tid)
     if (self_info.actual_res_x > 0 && self_info.actual_res_y > 0) {
         kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
                 self_info.actual_res_x, self_info.actual_res_y);
-    }   
+    }
 
     /* Start all programs */
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
-    const char *envp[] = { 
+    const char *envp[] = {
         "HOME=/root",
         "TIME_STYLE=posix-long-iso",
         "PATH=/usr/bin:/bin",
         "SHELL=/usr/bin/bash",
         "TERM=xterm-color",
         NULL
-    };  
+    };
 
-    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root"); 
-#else 
+    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root");
+#else
     sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
 #endif
 
@@ -227,7 +228,8 @@ void kmain(void)
 
     if (hhdm_request.response != NULL) {
         klogi("HHDM offset 0x%x, revision %d\n",
-             hhdm_request.response->offset, hhdm_request.response->revision);
+              hhdm_request.response->offset,
+              hhdm_request.response->revision);
     } else {
         kpanic("HHDM is NULL\n");
     }
@@ -235,11 +237,10 @@ void kmain(void)
     if (fb_request.response == NULL) {
         goto exit;
     } else if (fb_request.response->framebuffer_count < 1) {
-        goto exit;  
+        goto exit;
     }
 
-    struct limine_framebuffer *fb =
-        fb_request.response->framebuffers[0];
+    struct limine_framebuffer *fb = fb_request.response->framebuffers[0];
     if (fb->width > FB_WIDTH || fb->height > FB_HEIGHT) {
         /* Resolution cannot be supported */
         done();
@@ -258,7 +259,7 @@ void kmain(void)
     vmm_init(mm_request.response, kernel_addr_request.response);
 
 #if BSP_CORE_ONLY
-    mtrr_save(0, (void*)VIRT_TO_PHYS(fb->address));
+    mtrr_save(0, (void *) VIRT_TO_PHYS(fb->address));
     mtrr_restore(0);
 #endif
 
@@ -293,19 +294,26 @@ void kmain(void)
     syscall_init();
 
     if (fb->edid_size == sizeof(edid_info_t)) {
-        edid_info_t* edid = (edid_info_t*)fb->edid;
-        klogi("EDID: version %d.%d, screen size %dcm * %dcm\n", edid->edid_version, edid->edid_revision,
-              edid->max_hor_size, edid->max_ver_size);
+        edid_info_t *edid = (edid_info_t *) fb->edid;
+        klogi("EDID: version %d.%d, screen size %dcm * %dcm\n",
+              edid->edid_version, edid->edid_revision, edid->max_hor_size,
+              edid->max_ver_size);
 
         self_info.screen_hor_size = edid->max_hor_size;
         self_info.screen_ver_size = edid->max_ver_size;
 
-        self_info.prefer_res_x = (uint16_t)edid->det_timings[0].horz_active +
-            (uint16_t)((uint16_t)(edid->det_timings[0].horz_active_blank_msb &
-            0xF0) << 4);
-        self_info.prefer_res_y = (uint16_t)edid->det_timings[0].vert_active +
-            (uint16_t)((uint16_t)(edid->det_timings[0].vert_active_blank_msb &
-            0xF0) << 4);
+        self_info.prefer_res_x =
+            (uint16_t) edid->det_timings[0].horz_active +
+            (uint16_t) ((uint16_t)
+                        (edid->
+                         det_timings[0].horz_active_blank_msb & 0xF0) <<
+                        4);
+        self_info.prefer_res_y =
+            (uint16_t) edid->det_timings[0].vert_active +
+            (uint16_t) ((uint16_t)
+                        (edid->
+                         det_timings[0].vert_active_blank_msb & 0xF0) <<
+                        4);
 
         if (edid->dpms_flags & 0x02) {
             klogi("EDID: Preferred timing mode specified in DTD-1\n");
@@ -316,8 +324,9 @@ void kmain(void)
         klogi("Framebuffer: totally %d video modes\n", fb->mode_count);
         for (uint64_t i = 0; i < fb->mode_count; i++) {
             struct limine_video_mode *mode = fb->modes[i];
-            klogd("             %d (width) * %d (height), %d (bpp), %d (pitch)\n",
-                  mode->width, mode->height, mode->bpp, mode->pitch);
+            klogd
+                ("             %d (width) * %d (height), %d (bpp), %d (pitch)\n",
+                 mode->width, mode->height, mode->bpp, mode->pitch);
         }
     }
 
@@ -329,7 +338,8 @@ void kmain(void)
     vfs_init();
 
     klogi("Init INITRD...\n");
-    struct limine_module_response *module_response = module_request.response;
+    struct limine_module_response *module_response =
+        module_request.response;
     if (module_response != NULL) {
         for (uint64_t i = 0; i < module_response->module_count; i++) {
             struct limine_file *module = module_response->modules[i];
@@ -341,16 +351,15 @@ void kmain(void)
                  * exception on real hardware when building in gcc and other
                  * tools.
                  */
-                vmm_map(&kaddrspace, (uint64_t)module->address,
-                    VIRT_TO_PHYS(module->address),
-                    NUM_PAGES(module->size),
-                    VMM_FLAGS_DEFAULT);
+                vmm_map(&kaddrspace, (uint64_t) module->address,
+                        VIRT_TO_PHYS(module->address),
+                        NUM_PAGES(module->size), VMM_FLAGS_DEFAULT);
                 ramfs_init(module->address, module->size);
-            }   
-        }   
+            }
+        }
     } else {
         kpanic("Cannot find INITRD module\n");
-    }   
+    }
 
     klog_debug();
 
@@ -365,9 +374,9 @@ void kmain(void)
     sched_add(tshell);
 
     cpu_t *cpu = smp_get_current_cpu(false);
-    if(cpu != NULL) {
+    if (cpu != NULL) {
         sched_init("init", cpu->cpu_id);
-        asm volatile("sti");
+        asm volatile ("sti");
     } else {
         kpanic("Can not get CPU info in shell process\n");
     }
@@ -376,6 +385,6 @@ void kmain(void)
      * executed.
      */
     goto exit;
-exit:
+  exit:
     done();
 }

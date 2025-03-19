@@ -35,58 +35,60 @@
 
 extern mem_info_t kmem_info;
 
-addrspace_t kaddrspace = {0};
+addrspace_t kaddrspace = { 0 };
 
 static bool debug_info = false;
 
 vec_new_static(mem_map_t, global_mmap_list);
 
-static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-    uint64_t flags)
+static void map_page(addrspace_t * addrspace, uint64_t vaddr,
+                     uint64_t paddr, uint64_t flags)
 {
     addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
 
-    uint16_t pte   = (vaddr >> 12) & 0x1ff;
-    uint16_t pde   = (vaddr >> 21) & 0x1ff;
-    uint16_t pdpe  = (vaddr >> 30) & 0x1ff;
+    uint16_t pte = (vaddr >> 12) & 0x1ff;
+    uint16_t pde = (vaddr >> 21) & 0x1ff;
+    uint16_t pdpe = (vaddr >> 30) & 0x1ff;
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
-    uint64_t* pml4 = as->PML4;
-    uint64_t* pdpt;
-    uint64_t* pd; 
-    uint64_t* pt; 
+    uint64_t *pml4 = as->PML4;
+    uint64_t *pdpt;
+    uint64_t *pd;
+    uint64_t *pt;
 
-    pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
+    pdpt = (uint64_t *) PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
             kpanic("VMM: out of memory for PDPT of PML4 0x%x\n", pml4);
         }
-        pdpt = (uint64_t*)PHYS_TO_VIRT(buf);
+        pdpt = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pdpt, 0, PAGE_SIZE * 8);
-        pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
+        pml4[pml4e] =
+            MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pdpt));
-    }   
+    }
 
-    pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
+    pd = (uint64_t *) PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
             kpanic("VMM: out of memory for PD of PML4 0x%x\n", pml4);
         }
-        pd = (uint64_t*)PHYS_TO_VIRT(buf);
+        pd = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pd, 0, PAGE_SIZE * 8);
-        pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
+        pdpt[pdpe] =
+            MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pd));
     }
 
-    pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0xfff));
+    pt = (uint64_t *) PHYS_TO_VIRT(pd[pde] & ~(0xfff));
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        void *buf = (void*)pmm_get(8, 0x0, __func__, __LINE__);
+        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
             kpanic("VMM: out of memory for PT of PML4 0x%x\n", pml4);
-        }   
-        pt = (uint64_t*)PHYS_TO_VIRT(buf);
+        }
+        pt = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pt, 0, PAGE_SIZE * 8);
         pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
         vec_push_back(&as->mem_list, VIRT_TO_PHYS(pt));
@@ -94,15 +96,16 @@ static void map_page(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
 
     pt[pte] = MAKE_TABLE_ENTRY(paddr & ~(0xfff), flags);
 
-    if (!as->initialized) return;
+    if (!as->initialized)
+        return;
 
     uint64_t cr3val;
     read_cr("cr3", &cr3val);
-    if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
-        asm volatile("invlpg (%0)" ::"r"(vaddr));
+    if (cr3val == (uint64_t) (VIRT_TO_PHYS(as->PML4)))
+        asm volatile ("invlpg (%0)"::"r" (vaddr));
 }
 
-static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
+static void unmap_page(addrspace_t * addrspace, uint64_t vaddr)
 {
     addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
 
@@ -115,15 +118,15 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
         goto done;
 
-    uint64_t *pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
+    uint64_t *pdpt = (uint64_t *) PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
         goto done;
 
-    uint64_t *pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
+    uint64_t *pd = (uint64_t *) PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
     if (!(pd[pde] & VMM_FLAG_PRESENT))
         goto done;
 
-    uint64_t *pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
+    uint64_t *pt = (uint64_t *) PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
     if (!(pt[pte] & VMM_FLAG_PRESENT))
         goto done;
 
@@ -132,8 +135,8 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
     if (as->initialized) {
         uint64_t cr3val;
         read_cr("cr3", &cr3val);
-        if (cr3val == (uint64_t)(VIRT_TO_PHYS(as->PML4)))
-            asm volatile("invlpg (%0)" ::"r"(vaddr));
+        if (cr3val == (uint64_t) (VIRT_TO_PHYS(as->PML4)))
+            asm volatile ("invlpg (%0)"::"r" (vaddr));
     }
 
     for (int i = 0; i < 512 * 8; i++)
@@ -162,12 +165,12 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
 
     mem_num = vec_length(&as->mem_list);
     for (i = 0; i < mem_num; i++) {
-        uint64_t m = vec_at(&as->mem_list, i); 
+        uint64_t m = vec_at(&as->mem_list, i);
         if (m == VIRT_TO_PHYS(pd)) {
-            vec_erase(&as->mem_list, i); 
+            vec_erase(&as->mem_list, i);
             break;
-        }   
-    } 
+        }
+    }
     for (int i = 0; i < 512 * 8; i++)
         if (pdpt[i] != 0)
             goto done;
@@ -177,18 +180,18 @@ static void unmap_page(addrspace_t *addrspace, uint64_t vaddr)
 
     mem_num = vec_length(&as->mem_list);
     for (i = 0; i < mem_num; i++) {
-        uint64_t m = vec_at(&as->mem_list, i); 
+        uint64_t m = vec_at(&as->mem_list, i);
         if (m == VIRT_TO_PHYS(pdpt)) {
-            vec_erase(&as->mem_list, i); 
+            vec_erase(&as->mem_list, i);
             break;
-        }   
-    } 
+        }
+    }
 
-done:
+  done:
     return;
 }
 
-uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr)
+uint64_t vmm_get_paddr(addrspace_t * addrspace, uint64_t vaddr)
 {
     addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
 
@@ -197,41 +200,41 @@ uint64_t vmm_get_paddr(addrspace_t *addrspace, uint64_t vaddr)
     uint16_t pdpe = (vaddr >> 30) & 0x1ff;
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
-    uint64_t* pml4 = as->PML4;
+    uint64_t *pml4 = as->PML4;
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
-        return (uint64_t)NULL;
+        return (uint64_t) NULL;
 
-    uint64_t* pdpt = (uint64_t*)PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
+    uint64_t *pdpt = (uint64_t *) PHYS_TO_VIRT(pml4[pml4e] & ~(0x1ff));
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
-        return (uint64_t)NULL;
+        return (uint64_t) NULL;
 
-    uint64_t* pd = (uint64_t*)PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
+    uint64_t *pd = (uint64_t *) PHYS_TO_VIRT(pdpt[pdpe] & ~(0x1ff));
     if (!(pd[pde] & VMM_FLAG_PRESENT))
-        return (uint64_t)NULL;
+        return (uint64_t) NULL;
 
-    uint64_t* pt = (uint64_t*)PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
+    uint64_t *pt = (uint64_t *) PHYS_TO_VIRT(pd[pde] & ~(0x1ff));
     if (!(pt[pte] & VMM_FLAG_PRESENT))
-        return (uint64_t)NULL;
+        return (uint64_t) NULL;
 
     return (pt[pte] & 0xFFFFFFFFFFFFF000);
 }
-                    
-void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np) 
+
+void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np)
 {
     if (addrspace == NULL) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
         int64_t len = vec_length(&global_mmap_list);
         for (int64_t i = 0; i < len; i++) {
-            mem_map_t m = vec_at(&global_mmap_list, i); 
+            mem_map_t m = vec_at(&global_mmap_list, i);
             if (m.vaddr == vaddr) {
-                vec_erase(&global_mmap_list, i); 
+                vec_erase(&global_mmap_list, i);
                 break;
-            }   
-        }   
+            }
+        }
     }
 
     for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
-        unmap_page(addrspace, vaddr + i); 
+        unmap_page(addrspace, vaddr + i);
 
     if (debug_info) {
         klogd("VMM: PML4 0x%x un-mapped virt 0x%x (%d pages)\n",
@@ -240,12 +243,12 @@ void vmm_unmap(addrspace_t *addrspace, uint64_t vaddr, uint64_t np)
     }
 }
 
-void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
-    uint64_t np, uint64_t flags)
+void vmm_map(addrspace_t * addrspace, uint64_t vaddr, uint64_t paddr,
+             uint64_t np, uint64_t flags)
 {
     if (addrspace == NULL) {
         mem_map_t mm = {
-            .vaddr = vaddr, .paddr = paddr, .flags= flags, .np = np
+            .vaddr = vaddr,.paddr = paddr,.flags = flags,.np = np
         };
         vec_push_back(&global_mmap_list, mm);
     }
@@ -261,11 +264,11 @@ void vmm_map(addrspace_t *addrspace, uint64_t vaddr, uint64_t paddr,
     }
 }
 
-void vmm_init(
-    struct limine_memmap_response* map,
-    struct limine_kernel_address_response* kernel)
+void vmm_init(struct limine_memmap_response *map,
+              struct limine_kernel_address_response *kernel)
 {
-    kaddrspace.PML4 = (void*)PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
+    kaddrspace.PML4 =
+        (void *) PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
     klogd("VMM: PML4 of kernel address space - 0x%x\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
@@ -291,14 +294,14 @@ void vmm_init(
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
     klogi("Mapped %d bytes memory to 0x%x\n",
-            kmem_info.phys_limit, MEM_VIRT_OFFSET);
+          kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
     for (uint64_t i = 0; i < map->entry_count; i++) {
-        struct limine_memmap_entry* entry = map->entries[i];
+        struct limine_memmap_entry *entry = map->entries[i];
 
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             uint64_t vaddr = kernel->virtual_base
-                             + entry->base - kernel->physical_base;
+                + entry->base - kernel->physical_base;
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
@@ -307,24 +310,26 @@ void vmm_init(
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
-                    NUM_PAGES(entry->length),
-                    VMM_FLAGS_DEFAULT);
+                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
             klogi("[F] Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
-                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, i);
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length,
+                  i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
             /* vmm_map: do nothing */
         } else if (entry->type == LIMINE_MEMMAP_USABLE) {
             bool is_mem_bitmap_loc = false;
             if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
-                && VIRT_TO_PHYS(kmem_info.bitmap) < entry->base + entry->length)
-            {
+                && VIRT_TO_PHYS(kmem_info.bitmap) <
+                entry->base + entry->length) {
                 is_mem_bitmap_loc = true;
             }
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
             klogi("[U] Mapped 0x%9x to 0x%x(len: %d, type %d, #%d, %s)\n",
-                  entry->base, PHYS_TO_VIRT(entry->base), entry->length, entry->type,
-                  i, is_mem_bitmap_loc ? "all tasks [bitmap]" : "kernel only");
+                  entry->base, PHYS_TO_VIRT(entry->base), entry->length,
+                  entry->type, i,
+                  is_mem_bitmap_loc ? "all tasks [bitmap]" :
+                  "kernel only");
         }
     }
 
@@ -351,7 +356,7 @@ addrspace_t *create_addrspace(void)
         return NULL;
     }
 
-    memset(as->PML4, 0, PAGE_SIZE * 8); 
+    memset(as->PML4, 0, PAGE_SIZE * 8);
 
     as->lock = lock_new();
 
@@ -366,6 +371,5 @@ addrspace_t *create_addrspace(void)
     as->initialized = true;
     klogd("VMM: creating address space 0x%x finished\n", as);
 
-    return as; 
+    return as;
 }
-

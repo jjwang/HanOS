@@ -33,14 +33,14 @@
 #define CMOS_REG_STATUS_B 0x0B
 
 typedef struct {
-  uint8_t seconds;
-  uint8_t minutes;
-  uint8_t hours;
-  uint8_t weekdays;
-  uint8_t day;
-  uint8_t month;
-  uint16_t year;
-  uint8_t century;
+    uint8_t seconds;
+    uint8_t minutes;
+    uint8_t hours;
+    uint8_t weekdays;
+    uint8_t day;
+    uint8_t month;
+    uint16_t year;
+    uint8_t century;
 } cmos_rtc_t;
 
 uint64_t secs_of_month(uint64_t months, uint64_t year);
@@ -50,4 +50,3 @@ void cmos_init();
 cmos_rtc_t cmos_read_rtc();
 uint64_t cmos_boot_time();
 uint64_t cmos_current_time();
-

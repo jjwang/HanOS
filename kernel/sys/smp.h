@@ -35,7 +35,7 @@
  */
 #define STACK_SIZE                      (PAGE_SIZE * 64)
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint32_t reserved;
     uint64_t rsp0;
     uint64_t rsp1;
@@ -62,26 +62,26 @@ typedef struct [[gnu::packed]] {
  * gs register (other kernels can use fs). This structure contains a temporary
  * stack for the syscall, an address to store the process stack temporarily.
  */
-typedef struct [[gnu::packed]] {
-    int64_t  errno;
-    tss_t    tss;
+typedef struct[[gnu::packed]] {
+    int64_t errno;
+    tss_t tss;
     uint16_t cpu_id;
     uint16_t lapic_id;
-    bool     is_bsp;
+    bool is_bsp;
     uint64_t fpu_storage_size;
-    void     (*fpu_save)(void *);
-    void     (*fpu_restore)(void *);
+    void (*fpu_save)(void *);
+    void (*fpu_restore)(void *);
     uint16_t proc_id;
-    uint8_t  reserved;
+    uint8_t reserved;
 } cpu_t;
 
 typedef struct {
-    cpu_t    cpus[CPU_MAX];
+    cpu_t cpus[CPU_MAX];
     uint16_t num_cpus;
 } smp_info_t;
 
 void smp_init(void);
-smp_info_t* smp_get_info(void);
-cpu_t* smp_get_current_cpu(bool force_read);
+smp_info_t *smp_get_info(void);
+cpu_t *smp_get_current_cpu(bool force_read);
 bool cpu_set_errno(int64_t val);
 void cpu_debug(void);

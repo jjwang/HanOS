@@ -35,32 +35,31 @@
 #define DEVICE_HD520                0x1916
 #define DEVICE_SUNRISE_PANTHERPOINT 0x9D00
 
-static const uint32_t GMS_TO_SIZE[] =
-{
-      0 * MB,     /* GMS_0MB */
-     32 * MB,     /* GMS_32MB_1 */
-     64 * MB,     /* GMS_64MB_1 */
-     96 * MB,     /* GMS_96MB_1 */
-    128 * MB,     /* GMS_128MB_1 */
-     32 * MB,     /* GMS_32MB */
-     48 * MB,     /* GMS_48MB */
-     64 * MB,     /* GMS_64MB */
-    128 * MB,     /* GMS_128MB */
-    256 * MB,     /* GMS_256MB */
-     96 * MB,     /* GMS_96MB */
-    160 * MB,     /* GMS_160MB */
-    224 * MB,     /* GMS_224MB */
-    352 * MB,     /* GMS_352MB */
-    448 * MB,     /* GMS_448MB */
-    480 * MB,     /* GMS_480MB */
-    512 * MB,     /* GMS_512MB */
+static const uint32_t GMS_TO_SIZE[] = {
+    0 * MB,                     /* GMS_0MB */
+    32 * MB,                    /* GMS_32MB_1 */
+    64 * MB,                    /* GMS_64MB_1 */
+    96 * MB,                    /* GMS_96MB_1 */
+    128 * MB,                   /* GMS_128MB_1 */
+    32 * MB,                    /* GMS_32MB */
+    48 * MB,                    /* GMS_48MB */
+    64 * MB,                    /* GMS_64MB */
+    128 * MB,                   /* GMS_128MB */
+    256 * MB,                   /* GMS_256MB */
+    96 * MB,                    /* GMS_96MB */
+    160 * MB,                   /* GMS_160MB */
+    224 * MB,                   /* GMS_224MB */
+    352 * MB,                   /* GMS_352MB */
+    448 * MB,                   /* GMS_448MB */
+    480 * MB,                   /* GMS_480MB */
+    512 * MB,                   /* GMS_512MB */
 };
 
 vec_extern(pci_device_t, pci_devices);
 
-static gfx_pci_t gfx_pci = {0};
-static gfx_gtt_t gfx_gtt = {0};
-static gfx_mem_manager_t gfx_mgr = {0};
+static gfx_pci_t gfx_pci = { 0 };
+static gfx_gtt_t gfx_gtt = { 0 };
+static gfx_mem_manager_t gfx_mgr = { 0 };
 
 bool gfx_validate_chipset(void)
 {
@@ -69,9 +68,9 @@ bool gfx_validate_chipset(void)
     /* Assume location of ISA Bridge */
     uint32_t isa_bridge_id = PCI_MAKE_ID(0, 0x1f, 0);
 
-    uint16_t class_code = 
-        ((uint16_t)pci_inb(isa_bridge_id, PCI_CONFIG_CLASS_CODE) << 8)
-        | (uint16_t)pci_inb(isa_bridge_id, PCI_CONFIG_SUBCLASS);
+    uint16_t class_code =
+        ((uint16_t) pci_inb(isa_bridge_id, PCI_CONFIG_CLASS_CODE) << 8)
+        | (uint16_t) pci_inb(isa_bridge_id, PCI_CONFIG_SUBCLASS);
 
     if (class_code != PCI_BRIDGE_ISA) {
         klogi("Isa Bridge not found at expected location! "
@@ -80,9 +79,9 @@ bool gfx_validate_chipset(void)
         return false;
     }
 
-    uint16_t device_id = pci_inw(isa_bridge_id, PCI_CONFIG_DEVICE_ID) & 0xFF00;
-    if (device_id != DEVICE_SUNRISE_PANTHERPOINT)
-    {
+    uint16_t device_id =
+        pci_inw(isa_bridge_id, PCI_CONFIG_DEVICE_ID) & 0xFF00;
+    if (device_id != DEVICE_SUNRISE_PANTHERPOINT) {
         klogi("Chipset is not expect panther point (needed for display "
               "handling)! (Found: 0x%X, Expected: 0x%X)\n",
               device_id, DEVICE_SUNRISE_PANTHERPOINT);
@@ -92,14 +91,15 @@ bool gfx_validate_chipset(void)
     return true;
 }
 
-void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
+void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
 {
     uint32_t id = PCI_MAKE_ID(dev.bus, dev.device, dev.func);
 
     task_t *t = sched_get_current_task();
     addrspace_t *as = NULL;
 
-    if (t != NULL) as = t->addrspace;
+    if (t != NULL)
+        as = t->addrspace;
 
     /* Read PCI registers */
     pci_bar_t bar;
@@ -111,12 +111,13 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
      * Ref: https://01.org/sites/default/files/documentation/intel-gfx-prm-
      *      osrc-hsw-pcie-config-registers.pdf#page=129 */
     pci_get_bar(&bar, id, 0);
-    pci->mmio_bar = (volatile void*)PHYS_TO_VIRT(bar.u.address);
-    pci->gtt_addr = (volatile uint32_t*)((uint8_t*)pci->mmio_bar + 2 * MB);
+    pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
+    pci->gtt_addr =
+        (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
     klogi("\tGTTMMADR: 0x%11x (%d MB) on address space 0x%x\n",
           bar.u.address, bar.size / MB, as);
 
-    vmm_map(as, (uint64_t)pci->mmio_bar, (uint64_t)bar.u.address,
+    vmm_map(as, (uint64_t) pci->mmio_bar, (uint64_t) bar.u.address,
             NUM_PAGES(bar.size), VMM_FLAGS_MMIO);
 
     /* BAR2: GMADR - Address range allocated via the Device 2 (integrated
@@ -125,11 +126,11 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
      * resides in Main Memory. This address is internally converted to a
      * GM_Address. */
     pci_get_bar(&bar, id, 2);
-    pci->aperture_bar = (volatile void*)PHYS_TO_VIRT(bar.u.address);
+    pci->aperture_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->aperture_size = bar.size;
     klogi("\tGMADR:    0x%11x (%d MB)\n", bar.u.address, bar.size / MB);
 
-    vmm_map(as, (uint64_t)pci->aperture_bar, (uint64_t)bar.u.address,
+    vmm_map(as, (uint64_t) pci->aperture_bar, (uint64_t) bar.u.address,
             NUM_PAGES(bar.size), VMM_FLAGS_DEFAULT);
 
     /* BAR4: IOBASE - This register provides the Base offset of the IO
@@ -144,7 +145,7 @@ void gfx_init_pci(gfx_pci_t* pci, pci_device_t dev)
  * address is actually an I/O address rather than the physical address).
  * Ref: https://bwidawsk.net/blog/2014/6/the-global-gtt-part-1/
  */
-void gfx_init_gtt(gfx_pci_t* pci, gfx_gtt_t* gtt, pci_device_t dev)
+void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
 {
     uint32_t id = PCI_MAKE_ID(dev.bus, dev.device, dev.func);
 
@@ -153,7 +154,7 @@ void gfx_init_gtt(gfx_pci_t* pci, gfx_gtt_t* gtt, pci_device_t dev)
 
     int gms = (ggc >> GGC_GMS_SHIFT) & GGC_GMS_MASK;
     gtt->stolen_mem_size = GMS_TO_SIZE[gms];
-    
+
     int ggms = (ggc >> GGC_GGMS_SHIFT) & GGC_GGMS_MASK;
     gtt->gtt_mem_size = 0;
 
@@ -189,19 +190,20 @@ void gfx_init_gtt(gfx_pci_t* pci, gfx_gtt_t* gtt, pci_device_t dev)
     klogi("\tGTT Mappable Entries: %d\n", gtt->num_mappable_entries);
 }
 
-void gfx_init_mem_manager(gfx_pci_t* pci, gfx_gtt_t* gtt, gfx_mem_manager_t *mgr)
+void gfx_init_mem_manager(gfx_pci_t * pci, gfx_gtt_t * gtt,
+                          gfx_mem_manager_t * mgr)
 {
-    mgr->vram.base       = 0;
-    mgr->vram.current    = mgr->vram.base;
-    mgr->vram.top        = gtt->stolen_mem_size;
+    mgr->vram.base = 0;
+    mgr->vram.current = mgr->vram.base;
+    mgr->vram.top = gtt->stolen_mem_size;
 
-    mgr->shared.base     = gtt->stolen_mem_size;
-    mgr->shared.current  = mgr->shared.base;
-    mgr->shared.top      = gtt->num_mappable_entries << GTT_PAGE_SHIFT;
+    mgr->shared.base = gtt->stolen_mem_size;
+    mgr->shared.current = mgr->shared.base;
+    mgr->shared.top = gtt->num_mappable_entries << GTT_PAGE_SHIFT;
 
-    mgr->priv.base       = gtt->num_mappable_entries << GTT_PAGE_SHIFT;
-    mgr->priv.current    = mgr->priv.base;
-    mgr->priv.top        = ((uint64_t)gtt->num_total_entries) << GTT_PAGE_SHIFT;
+    mgr->priv.base = gtt->num_mappable_entries << GTT_PAGE_SHIFT;
+    mgr->priv.current = mgr->priv.base;
+    mgr->priv.top = ((uint64_t) gtt->num_total_entries) << GTT_PAGE_SHIFT;
 
     /* Clear all fence registers (provide linear access to mem to cpu) */
     for (uint64_t fence_num = 0; fence_num < FENCE_COUNT; fence_num++) {
@@ -212,7 +214,7 @@ void gfx_init_mem_manager(gfx_pci_t* pci, gfx_gtt_t* gtt, gfx_mem_manager_t *mgr
     mgr->gfx_mem_next = mgr->gfx_mem_base + 4 * GTT_PAGE_SIZE;
 }
 
-void gfx_enter_force_wake(gfx_pci_t* pci)
+void gfx_enter_force_wake(gfx_pci_t * pci)
 {
     kprintf("Trying to entering force wake...\n");
 
@@ -235,29 +237,29 @@ void gfx_enter_force_wake(gfx_pci_t* pci)
         ++trys;
         force_wake_ack = gfx_ind(pci, FORCE_WAKE_MT_ACK) & 0xFFFF;
         kprintf("Waiting for Force Ack to be Set: Try=%d - Ack=0x%8x\n",
-              trys, force_wake_ack);
+                trys, force_wake_ack);
     } while (force_wake_ack == 0);
 
     kprintf("...Force Wake done\n");
 }
 
-void gfx_exit_force_wake(gfx_pci_t* pci)
+void gfx_exit_force_wake(gfx_pci_t * pci)
 {
     gfx_outd(pci, FORCE_WAKE_MT, MASKED_DISABLE(1));
     gfx_ind(pci, ECOBUS);
 }
 
-bool pci_get_gfx_device(pci_device_t *gfx_dev)
+bool pci_get_gfx_device(pci_device_t * gfx_dev)
 {
-    pci_device_t dev = {0};
+    pci_device_t dev = { 0 };
     bool found = false;
 
     /* Find Intel HD graphics device */
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
-        dev = vec_at(&pci_devices, i); 
+        dev = vec_at(&pci_devices, i);
         if ((dev.vendor_id != VENDOR_INTEL) ||
-            (dev.device_id != DEVICE_HD5500 && dev.device_id != DEVICE_HD520))
-        {   
+            (dev.device_id != DEVICE_HD5500
+             && dev.device_id != DEVICE_HD520)) {
             continue;
         }
         klogi("Found GFX device %2x:%2x.%1x - %4x:%4x %s\n",
@@ -265,18 +267,19 @@ bool pci_get_gfx_device(pci_device_t *gfx_dev)
               pci_device_id_to_string(&dev));
         found = true;
         break;
-    }   
+    }
 
     if (!found) {
         return false;
-    }   
+    }
 
     if (!gfx_validate_chipset()) {
         memset(&dev, 0, sizeof(pci_device_t));
         return false;
     }
 
-    if (gfx_dev != NULL) memcpy(gfx_dev, &dev, sizeof(pci_device_t));
+    if (gfx_dev != NULL)
+        memcpy(gfx_dev, &dev, sizeof(pci_device_t));
     klogi("PCI: GFX device checking finished.\n");
     return true;
 }
@@ -284,7 +287,7 @@ bool pci_get_gfx_device(pci_device_t *gfx_dev)
 bool gfx_init(void)
 {
     bool ret = false;
-    pci_device_t dev = {0};
+    pci_device_t dev = { 0 };
 
     ret = pci_get_gfx_device(&dev);
 
@@ -298,7 +301,7 @@ bool gfx_init(void)
     return ret;
 }
 
-void gfx_mem_enable_swizzle(gfx_pci_t *pci)
+void gfx_mem_enable_swizzle(gfx_pci_t * pci)
 {
     /* Only enable swizzling when DIMMs (Dual In-Line Memory Module) are the
      * same size.
@@ -309,8 +312,8 @@ void gfx_mem_enable_swizzle(gfx_pci_t *pci)
     uint32_t dimm_ch1 = gfx_ind(pci, GFX_MCHBAR + MAD_DIMM_CH1);
     kprintf("dimm_ch0: 0x%08x\n", dimm_ch0);
     kprintf("dimm_ch1: 0x%08x\n", dimm_ch1);
-    if ((dimm_ch0 & MAD_DIMM_AB_SIZE_MASK) != (dimm_ch1 & MAD_DIMM_AB_SIZE_MASK))
-    {
+    if ((dimm_ch0 & MAD_DIMM_AB_SIZE_MASK) !=
+        (dimm_ch1 & MAD_DIMM_AB_SIZE_MASK)) {
         return;
     }
 
@@ -330,18 +333,17 @@ void gfx_mem_enable_swizzle(gfx_pci_t *pci)
     kprintf("ARB_MODE: 0x%08x\n", gfx_ind(pci, ARB_MODE));
 }
 
-uint64_t gfx_addr(gfx_mem_manager_t *mgr, void *phy_addr)
+uint64_t gfx_addr(gfx_mem_manager_t * mgr, void *phy_addr)
 {
-    return (uint64_t)((uint8_t*)phy_addr - mgr->gfx_mem_base);
+    return (uint64_t) ((uint8_t *) phy_addr - mgr->gfx_mem_base);
 }
 
-bool gfx_alloc(
-    gfx_mem_manager_t *mgr, gfx_object_t *obj,
-    uint64_t size, uint64_t align)
+bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_object_t * obj,
+               uint64_t size, uint64_t align)
 {
     /* Align memory request */
     volatile uint8_t *cpu_addr = mgr->gfx_mem_next;
-    uint64_t offset = (uint64_t)cpu_addr & (align - 1);
+    uint64_t offset = (uint64_t) cpu_addr & (align - 1);
     if (offset) {
         cpu_addr += align - offset;
     }
@@ -356,19 +358,18 @@ bool gfx_alloc(
 void gfx_start(void)
 {
     bool ret = false;
-    pci_device_t dev = {0};
+    pci_device_t dev = { 0 };
 
     ret = pci_get_gfx_device(&dev);
 
     if (ret) {
         kprintf("Found GFX device %2x:%2x.%1x - %4x:%4x %s\n",
-                dev.bus, dev.device, dev.func, dev.vendor_id, dev.device_id,
-                pci_device_id_to_string(&dev));
+                dev.bus, dev.device, dev.func, dev.vendor_id,
+                dev.device_id, pci_device_id_to_string(&dev));
 
         /* We need to force out of D6 state before reading/writing to registers */
         gfx_enter_force_wake(&gfx_pci);
         gfx_mem_enable_swizzle(&gfx_pci);
         gfx_exit_force_wake(&gfx_pci);
-    }    
+    }
 }
-
