@@ -34,7 +34,7 @@ static bool debug_info = false;
 vfs_fsinfo_t ramfs = {
     .name = "ramfs",
     .istemp = true,
-    .filelist = {0},
+    .filelist = { 0 },
     .open = ramfs_open,
     .mount = ramfs_mount,
     .mknode = ramfs_mknode,
@@ -50,13 +50,14 @@ vfs_fsinfo_t ramfs = {
 /* Identifying information for a node */
 typedef struct {
     uint64_t alloc_size;
-    void     *data;
+    void *data;
 } ramfs_ident_t;
 
 static ramfs_ident_t *create_ident()
 {
-    ramfs_ident_t *id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
-    *id = (ramfs_ident_t) { .alloc_size = 0, .data = NULL};
+    ramfs_ident_t *id = (ramfs_ident_t *) kmalloc(sizeof(ramfs_ident_t));
+    *id = (ramfs_ident_t) {
+    .alloc_size = 0,.data = NULL};
     return id;
 }
 
@@ -94,26 +95,27 @@ void ramfs_init(void *address, uint64_t size)
 {
     klogi("RAMFS: init from 0x%x with len %d\n", address, size);
 
-    unsigned char* ptr = (unsigned char*)address;
+    unsigned char *ptr = (unsigned char *) address;
 
     while (memcmp(ptr + 257, "ustar", 5)) {
         int filesize = oct2bin(ptr + 0x7c, 11);
-        ustar_file_t* file = (ustar_file_t*)ptr;
+        ustar_file_t *file = (ustar_file_t *) ptr;
         if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FOLDER) {
             char dname[VFS_MAX_PATH_LEN] = "/";
             strncat(dname, file->name, sizeof(dname));
             uint64_t dlen = strlen(dname);
-            if (dname[dlen - 1] == '/' && dlen > 1) dname[dlen - 1] = '\0';
+            if (dname[dlen - 1] == '/' && dlen > 1)
+                dname[dlen - 1] = '\0';
 
             vfs_tnode_t *tnode = vfs_path_to_node
                 (dname, CREATE, VFS_NODE_FOLDER);
 
             /* Set the file type and mode */
-            tnode->inode->perms = oct2bin((unsigned char*)&file->mode, 7)
+            tnode->inode->perms = oct2bin((unsigned char *) &file->mode, 7)
                 & (S_IRWXU | S_IRWXG | S_IRWXO);
             tnode->st.st_mode |= tnode->inode->perms;
 
-            time_t file_time = strtol((char*)file->last_modified, OCT);
+            time_t file_time = strtol((char *) file->last_modified, OCT);
 
             /* Adjust for current time zone */
             file_time += DEFAULT_TZ_SEC_SHIFT;
@@ -132,8 +134,9 @@ void ramfs_init(void *address, uint64_t size)
                 klogi("RAMFS: folder \"%s\"\n", file->name);
             }
             /* TODO: modify folder's datetime related attribute */
-        } else if(ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE
-                 || ustar_type_to_vfs_type(file->type) == VFS_NODE_SYMLINK) {
+        } else if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE
+                   || ustar_type_to_vfs_type(file->type) ==
+                   VFS_NODE_SYMLINK) {
             char dname[VFS_MAX_PATH_LEN] = "/";
             strncat(dname, file->name, sizeof(dname));
             uint64_t dlen = strlen(dname);
@@ -146,14 +149,15 @@ void ramfs_init(void *address, uint64_t size)
                 }
             }
 
-            time_t file_time = strtol((char*)file->last_modified, OCT);
+            time_t file_time = strtol((char *) file->last_modified, OCT);
 
             /* Adjust for current time zone */
             file_time += DEFAULT_TZ_SEC_SHIFT;
 
             ramfs_ident_item_t *item =
-                (ramfs_ident_item_t*)kmalloc(sizeof(ramfs_ident_item_t));
-            if (item == NULL) continue;
+                (ramfs_ident_item_t *) kmalloc(sizeof(ramfs_ident_item_t));
+            if (item == NULL)
+                continue;
 
             memset(item, 0, sizeof(ramfs_ident_item_t));
             localtime(&file_time, &(item->tm));
@@ -170,23 +174,23 @@ void ramfs_init(void *address, uint64_t size)
             if (item->type == VFS_NODE_SYMLINK) {
                 item->entry.size = sizeof(file->linked_file_name);
                 if (item->entry.size > 0) {
-                    item->entry.data = (void*)kmalloc(item->entry.size);
+                    item->entry.data = (void *) kmalloc(item->entry.size);
                     memcpy(item->entry.data, file->linked_file_name,
                            item->entry.size);
                 } else {
                     item->entry.data = NULL;
                 }
                 tnode = vfs_path_to_node(dname, CREATE, VFS_NODE_SYMLINK);
-                if (tnode->inode->size <= sizeof(tnode->inode->link))
-                {
+                if (tnode->inode->size <= sizeof(tnode->inode->link)) {
                     tnode->inode->size = item->entry.size;
                     memcpy(tnode->inode->link, file->linked_file_name,
                            tnode->inode->size);
                 }
             } else {
                 if (filesize > 0) {
-                    item->entry.data = (void*)kmalloc(filesize);
-                    memcpy(item->entry.data, (void*)(ptr + 512), filesize);
+                    item->entry.data = (void *) kmalloc(filesize);
+                    memcpy(item->entry.data, (void *) (ptr + 512),
+                           filesize);
                 } else {
                     item->entry.data = NULL;
                 }
@@ -195,7 +199,7 @@ void ramfs_init(void *address, uint64_t size)
             }
 
             /* Set the file type and mode */
-            tnode->inode->perms = oct2bin((unsigned char*)&file->mode, 7)
+            tnode->inode->perms = oct2bin((unsigned char *) &file->mode, 7)
                 & (S_IRWXU | S_IRWXG | S_IRWXO);
             tnode->st.st_mode |= tnode->inode->perms;
 
@@ -215,14 +219,17 @@ void ramfs_init(void *address, uint64_t size)
             } else {
                 tnode->st.st_size = 0;
             }
-            tnode->st.st_blocks = DIV_ROUNDUP(tnode->st.st_size, VFS_BLOCK_SIZE);
+            tnode->st.st_blocks =
+                DIV_ROUNDUP(tnode->st.st_size, VFS_BLOCK_SIZE);
 
-            vec_push_back(&ramfs.filelist, (void*)item);
+            vec_push_back(&ramfs.filelist, (void *) item);
 
             /* Here we need to set the right parent node */
             strcpy(item->path, dname);
-            if (name_index > 0) dname[name_index] = '\0';
-            vfs_tnode_t *parent_tnode = vfs_path_to_node(dname, NO_CREATE, 0);
+            if (name_index > 0)
+                dname[name_index] = '\0';
+            vfs_tnode_t *parent_tnode =
+                vfs_path_to_node(dname, NO_CREATE, 0);
             if (parent_tnode != NULL) {
                 item->parent = parent_tnode->inode;
                 tnode->parent = parent_tnode->inode;
@@ -230,9 +237,11 @@ void ramfs_init(void *address, uint64_t size)
                 kloge("RAMFS: %s cannot find parent node\n", file->name);
             }
 
-            if (debug_info || strcmp(file->name, "usr/x86_64-hanos/bin/as") == 0) {
-                klogi("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
-                      file->name, filesize, file->last_modified);
+            if (debug_info
+                || strcmp(file->name, "usr/x86_64-hanos/bin/as") == 0) {
+                klogi
+                    ("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
+                     file->name, filesize, file->last_modified);
             }
         }
         ptr += (DIV_ROUNDUP(filesize, 512) + 1) * 512;
@@ -240,7 +249,7 @@ void ramfs_init(void *address, uint64_t size)
 }
 
 /* The path parameter needs to be full path */
-vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
+vfs_tnode_t *ramfs_open(vfs_inode_t * this, const char *pathname)
 {
     char path[VFS_MAX_PATH_LEN];
     strcpy(path, pathname);
@@ -250,9 +259,8 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     uint64_t pathlen = strlen(pathname), i;
     i = 0;
     for (; i + 4 < pathlen; i++) {
-        if (path[i] == '/' && path[i + 1] == '.' && path[i + 2] == '.' 
-            && path[i + 3] == '/')
-        {
+        if (path[i] == '/' && path[i + 1] == '.' && path[i + 2] == '.'
+            && path[i + 3] == '/') {
             bool foundparent = false;
             for (int64_t k = i - 1; k >= 0; k--) {
                 if (path[k] == '/') {
@@ -272,27 +280,28 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     int nn = 0;
     pathlen = strlen(path);
     for (nn = pathlen - 1; nn >= 0; nn--) {
-        if (path[nn] == '/') break;
+        if (path[nn] == '/')
+            break;
     }
 
-    ramfs_ident_t *id = (ramfs_ident_t*)this->ident;
-    if (id == NULL) { 
-        id = (ramfs_ident_t*)kmalloc(sizeof(ramfs_ident_t));
+    ramfs_ident_t *id = (ramfs_ident_t *) this->ident;
+    if (id == NULL) {
+        id = (ramfs_ident_t *) kmalloc(sizeof(ramfs_ident_t));
         memset(id, 0, sizeof(ramfs_ident_t));
     }
 
     /* TODO: Need to speed up this part and check where to free id->data */
     bool islink = false;
-    char linkpath[VFS_MAX_PATH_LEN] = {0};
+    char linkpath[VFS_MAX_PATH_LEN] = { 0 };
 
     for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
-        ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i); 
+        ramfs_ident_item_t *item = vec_at(&ramfs.filelist, i);
         if (strcmp(item->path, path) == 0 && strlen(path) > 0) {
             if (item->type == VFS_NODE_SYMLINK) {
                 islink = true;
                 strcpy(linkpath, item->path);
-                if (((char*)item->entry.data)[0] == '/') {
-                    strcpy(linkpath, (char*)item->entry.data);
+                if (((char *) item->entry.data)[0] == '/') {
+                    strcpy(linkpath, (char *) item->entry.data);
                 } else {
                     strcpy(linkpath, path);
                     for (int64_t k = strlen(linkpath) - 1; k >= 0; k--) {
@@ -301,7 +310,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
                             break;
                         }
                     }
-                    strncat(linkpath, (char*)item->entry.data,
+                    strncat(linkpath, (char *) item->entry.data,
                             sizeof(linkpath));
                 }
                 klogd("RAMFS: symlink %s, target %s\n",
@@ -310,33 +319,36 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
             }
 
             if (item->entry.size == 0) {
-                if (id->data != NULL) kmfree(id->data);
+                if (id->data != NULL)
+                    kmfree(id->data);
                 id->data = NULL;
                 id->alloc_size = 0;
                 break;
             }
-            
+
             if (id->data != NULL) {
-                if (id->data != NULL) kmfree(id->data);
+                if (id->data != NULL)
+                    kmfree(id->data);
             }
-            id->data = (void*)kmalloc(item->entry.size);
+            id->data = (void *) kmalloc(item->entry.size);
             id->alloc_size = item->entry.size;
 
             memcpy(id->data, item->entry.data, item->entry.size);
 
-            uint8_t *buff = (uint8_t*)id->data;
+            uint8_t *buff = (uint8_t *) id->data;
             if (item->entry.size >= 2) {
-                klogd("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...] with %d bytes\n",
-                      path, id->data, buff[0], buff[1], item->entry.size);
+                klogd
+                    ("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...] with %d bytes\n",
+                     path, id->data, buff[0], buff[1], item->entry.size);
             }
 
             break;
         }
     }
- 
+
     if (islink) {
         for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
-            ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i);
+            ramfs_ident_item_t *item = vec_at(&ramfs.filelist, i);
             if (strcmp(item->path, linkpath) == 0) {
                 if (item->type != VFS_NODE_FILE) {
                     continue;
@@ -346,13 +358,14 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
                       item->entry.size);
 
                 if (item->entry.size == 0) {
-                    if (id->data != NULL) kmfree(id->data);
+                    if (id->data != NULL)
+                        kmfree(id->data);
                     id->data = NULL;
                     id->alloc_size = 0;
                     break;
                 }
 
-                id->data = (void*)kmrealloc(id->data, item->entry.size);
+                id->data = (void *) kmrealloc(id->data, item->entry.size);
                 id->alloc_size = item->entry.size;
                 memcpy(id->data, item->entry.data, item->entry.size);
                 break;
@@ -361,27 +374,32 @@ vfs_tnode_t *ramfs_open(vfs_inode_t *this, const char *pathname)
     }
 
     vfs_tnode_t *tnode = vfs_path_to_node(path, NO_CREATE, 0);
-    if (tnode != NULL && islink) tnode->inode->size = id->alloc_size;
+    if (tnode != NULL && islink)
+        tnode->inode->size = id->alloc_size;
 
     task_t *t = sched_get_current_task();
-    klogd("RAMFS: finish opening %s and return 0x%x (data 0x%x) in task %d\n",
-          path, (tnode != NULL) ? tnode->inode : NULL, id->data,
-          (t != NULL) ? t->tid : 0);
+    klogd
+        ("RAMFS: finish opening %s and return 0x%x (data 0x%x) in task %d\n",
+         path, (tnode != NULL) ? tnode->inode : NULL, id->data,
+         (t != NULL) ? t->tid : 0);
 
     return tnode;
 }
 
-int64_t ramfs_read(vfs_inode_t *this, uint64_t offset, uint64_t len, void *buff)
+int64_t ramfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
+                   void *buff)
 {
-    ramfs_ident_t *id = (ramfs_ident_t*)this->ident;
+    ramfs_ident_t *id = (ramfs_ident_t *) this->ident;
 
     uint64_t retlen = len;
-    if (offset + retlen > id->alloc_size) retlen = id->alloc_size - offset;
-    if (offset > id->alloc_size) retlen = 0;
+    if (offset + retlen > id->alloc_size)
+        retlen = id->alloc_size - offset;
+    if (offset > id->alloc_size)
+        retlen = 0;
     if (retlen > 0) {
-        memcpy(buff, ((uint8_t*)id->data) + offset, len);
+        memcpy(buff, ((uint8_t *) id->data) + offset, len);
         if (len >= 2) {
-            uint8_t *ptr = (uint8_t*)id->data;
+            uint8_t *ptr = (uint8_t *) id->data;
             task_t *t = sched_get_current_task();
             klogd("RAMFS: read %d bytes [0x%2x 0x%2x...] from 0x%x with "
                   "offset %d and return %d in task %d\n",
@@ -389,21 +407,23 @@ int64_t ramfs_read(vfs_inode_t *this, uint64_t offset, uint64_t len, void *buff)
                   (t != NULL) ? t->tid : 0);
         }
     } else {
-        klogd("RAMFS: read %d bytes from 0x%x with offset %d but failed with "
-              "copy (%d <= %d)\n",
-              len, id->data, offset, offset, id->alloc_size);
+        klogd
+            ("RAMFS: read %d bytes from 0x%x with offset %d but failed with "
+             "copy (%d <= %d)\n", len, id->data, offset, offset,
+             id->alloc_size);
     }
 
     return retlen;
 }
 
-int64_t ramfs_rmnode(vfs_tnode_t *this)
+int64_t ramfs_rmnode(vfs_tnode_t * this)
 {
-    (void)this;
+    (void) this;
 #if 0
-    ramfs_ident_t *id = (ramfs_ident_t*)this->inode->ident;
+    ramfs_ident_t *id = (ramfs_ident_t *) this->inode->ident;
 
-    if (id == NULL) goto err_exit;
+    if (id == NULL)
+        goto err_exit;
     if (id->data != NULL) {
         kmfree(id->data);
     }
@@ -413,21 +433,22 @@ int64_t ramfs_rmnode(vfs_tnode_t *this)
     uint64_t child_num = vec_length(&parent->child);
     if (child_num > 0) {
         for (uint64_t i = 0; i < child_num; i++) {
-            vfs_tnode_t *t = vec_at(&parent->child, i); 
+            vfs_tnode_t *t = vec_at(&parent->child, i);
             if (t == this) {
-                vec_erase(&parent->child, i); 
+                vec_erase(&parent->child, i);
                 return 0;
             }
         }
     }
-err_exit:
+  err_exit:
 #endif
     return -1;
 }
 
-int64_t ramfs_write(vfs_inode_t* this, uint64_t offset, uint64_t len, const void* buff)
+int64_t ramfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
+                    const void *buff)
 {
-    ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
+    ramfs_ident_t *id = (ramfs_ident_t *) this->ident;
     uint64_t old_size = this->size;
 
     if (offset + len > this->size) {
@@ -439,7 +460,7 @@ int64_t ramfs_write(vfs_inode_t* this, uint64_t offset, uint64_t len, const void
         id->data = kmrealloc(id->data, id->alloc_size);
     }
 
-    memcpy(((uint8_t*)id->data) + offset, buff, len);
+    memcpy(((uint8_t *) id->data) + offset, buff, len);
 
     klogd("RAMFS: write %d to 0x%x with offset %d (%d -> %d)\n",
           len, id->data, offset, old_size, this->size);
@@ -448,9 +469,9 @@ int64_t ramfs_write(vfs_inode_t* this, uint64_t offset, uint64_t len, const void
 }
 
 /* Synchronizes file size (and other metadata) */
-int64_t ramfs_sync(vfs_inode_t* this)
+int64_t ramfs_sync(vfs_inode_t * this)
 {
-    ramfs_ident_t* id = (ramfs_ident_t*)this->ident;
+    ramfs_ident_t *id = (ramfs_ident_t *) this->ident;
 
     if (this->size > id->alloc_size) {
         id->alloc_size = this->size;
@@ -459,15 +480,15 @@ int64_t ramfs_sync(vfs_inode_t* this)
     return 0;
 }
 
-int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
+int64_t ramfs_setlink(vfs_tnode_t * this, vfs_inode_t * inode)
 {
-    (void)this;
-    (void)inode;
+    (void) this;
+    (void) inode;
 
     /* We do not clean data here */
 #if 0
     if (this->inode->refcount == 0) {
-        ramfs_ident_t* id = (ramfs_ident_t*)this->inode->ident;
+        ramfs_ident_t *id = (ramfs_ident_t *) this->inode->ident;
         if (id->data)
             kmfree(id->data);
         kmfree(id);
@@ -478,19 +499,21 @@ int64_t ramfs_setlink(vfs_tnode_t* this, vfs_inode_t* inode)
     return 0;
 }
 
-int64_t ramfs_refresh(vfs_inode_t* this)
+int64_t ramfs_refresh(vfs_inode_t * this)
 {
-    (void)this;
+    (void) this;
 
     return 0;
 }
 
-int64_t ramfs_getdent(vfs_inode_t* this, uint64_t pos, vfs_dirent_t* dirent)
+int64_t ramfs_getdent(vfs_inode_t * this, uint64_t pos,
+                      vfs_dirent_t * dirent)
 {
     uint64_t num = 0;
     for (uint64_t i = 0; i < vec_length(&ramfs.filelist); i++) {
-        ramfs_ident_item_t* item = vec_at(&ramfs.filelist, i);
-        if ((uint64_t)item->parent != (uint64_t)this) continue;
+        ramfs_ident_item_t *item = vec_at(&ramfs.filelist, i);
+        if ((uint64_t) item->parent != (uint64_t) this)
+            continue;
         if (num == pos) {
             strcpy(dirent->name, item->name);
             memcpy(&dirent->tm, &item->tm, sizeof(tm_t));
@@ -498,26 +521,27 @@ int64_t ramfs_getdent(vfs_inode_t* this, uint64_t pos, vfs_dirent_t* dirent)
             dirent->size = item->entry.size;
 
             return 0;
-        }   
+        }
         num++;
     }
 
-    return -1; 
+    return -1;
 }
 
-int64_t ramfs_mknode(vfs_tnode_t* this)
+int64_t ramfs_mknode(vfs_tnode_t * this)
 {
     this->inode->ident = create_ident();
     return 0;
 }
 
-vfs_inode_t* ramfs_mount(vfs_inode_t* at)
+vfs_inode_t *ramfs_mount(vfs_inode_t * at)
 {
-    (void)at;
+    (void) at;
 
-    klogi("RAMFS: mount to 0x%x and load all files from system assets\n", at);
-    vfs_inode_t* ret = vfs_alloc_inode(
-        VFS_NODE_MOUNTPOINT, 0777, 0, &ramfs, NULL);
+    klogi("RAMFS: mount to 0x%x and load all files from system assets\n",
+          at);
+    vfs_inode_t *ret =
+        vfs_alloc_inode(VFS_NODE_MOUNTPOINT, 0777, 0, &ramfs, NULL);
     ret->ident = create_ident();
 
     return ret;

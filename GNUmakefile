@@ -31,6 +31,10 @@ ovmf:
 kernel:
 	$(MAKE) -C kernel
 
+indent:
+	$(MAKE) indent -C kernel
+	$(MAKE) indent -C userspace
+
 initrd:
 	mkdir -p initrd
 	cp -rf sysroot/* initrd

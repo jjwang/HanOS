@@ -20,7 +20,7 @@
 #include <base/klib.h>
 #include <base/image.h>
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint16_t bf_signature;
     uint32_t bf_size;
     uint32_t reserved;
@@ -42,7 +42,7 @@ typedef struct [[gnu::packed]] {
     uint32_t blue_mask;
 } bmp_header_t;
 
-bool bmp_load_from_file(image_t *image, char *fn)
+bool bmp_load_from_file(image_t * image, char *fn)
 {
     vfs_handle_t fh = vfs_open(fn, VFS_MODE_READ);
     if (fh == VFS_INVALID_HANDLE) {
@@ -62,7 +62,7 @@ bool bmp_load_from_file(image_t *image, char *fn)
 
     vfs_close(fh);
 
-    if(bmp_buff == NULL) {
+    if (bmp_buff == NULL) {
         return false;
     }
 
@@ -84,15 +84,15 @@ bool bmp_load_from_file(image_t *image, char *fn)
         bf_size = header.bf_size;
     }
 
-    image->img = (uint8_t*)kmalloc(bf_size);
+    image->img = (uint8_t *) kmalloc(bf_size);
     if (image->img != NULL) {
         memcpy(image->img, bmp_buff + header.bf_offset, bf_size);
     }
 
-    image->size       = header.bf_size;
-    image->pitch      = ALIGNUP(header.bi_width * header.bi_bpp, 32) / 8;
-    image->bpp        = header.bi_bpp;
-    image->img_width  = header.bi_width;
+    image->size = header.bf_size;
+    image->pitch = ALIGNUP(header.bi_width * header.bi_bpp, 32) / 8;
+    image->bpp = header.bi_bpp;
+    image->img_width = header.bi_width;
     image->img_height = header.bi_height;
 
     kmfree(bmp_buff);

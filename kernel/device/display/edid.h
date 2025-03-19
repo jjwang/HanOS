@@ -19,7 +19,7 @@
  */
 #pragma once
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     uint8_t padding[8];
     uint16_t manufacturer_id_be;
     uint16_t edid_id_code;

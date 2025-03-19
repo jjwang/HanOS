@@ -37,23 +37,23 @@
 static bool vfs_initialized = false;
 
 /* VFS wide lock */
-lock_t vfs_lock = {0};
+lock_t vfs_lock = { 0 };
 
 /* Stat structure related definitions */
-lock_t dev_lock = {0};
-lock_t ino_lock = {0};
+lock_t dev_lock = { 0 };
+lock_t ino_lock = { 0 };
 
 static dev_t next_new_dev_id = 1;
 static ino_t next_new_ino_id = 1;
 
 /* Root node */
-vfs_tnode_t vfs_root = {0};
+vfs_tnode_t vfs_root = { 0 };
 
 /* List of installed filesystems */
-vec_new_static(vfs_fsinfo_t*, vfs_fslist);
+vec_new_static(vfs_fsinfo_t *, vfs_fslist);
 
 /* New file handle */
-static uint64_t vfs_next_handle = VFS_MIN_HANDLE; 
+static uint64_t vfs_next_handle = VFS_MIN_HANDLE;
 
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
@@ -65,7 +65,7 @@ dev_t vfs_new_dev_id(void)
     next_new_dev_id++;
     lock_release(&dev_lock);
 
-    return dev_id;    
+    return dev_id;
 }
 
 ino_t vfs_new_ino_id(void)
@@ -77,10 +77,10 @@ ino_t vfs_new_ino_id(void)
     next_new_ino_id++;
     lock_release(&ino_lock);
 
-    return ino_id; 
+    return ino_id;
 }
 
-static void dumpnodes_helper(vfs_tnode_t *from, int lvl)
+static void dumpnodes_helper(vfs_tnode_t * from, int lvl)
 {
     for (int i = 0; i < 1 + lvl; i++)
         kprintf(" ");
@@ -99,18 +99,17 @@ void vfs_debug()
     kprintf("Dumping done.\n");
 }
 
-void vfs_register_fs(vfs_fsinfo_t *fs)
+void vfs_register_fs(vfs_fsinfo_t * fs)
 {
     vec_push_back(&vfs_fslist, fs);
 }
 
-vfs_fsinfo_t* vfs_get_fs(char *name)
+vfs_fsinfo_t *vfs_get_fs(char *name)
 {
-    for (uint64_t i = 0; i < vfs_fslist.len; i++)
-    {
-        if (strncmp(name, vfs_fslist.data[i]->name,
-                    sizeof(((vfs_fsinfo_t){0}).name)) == 0)
-        {
+    for (uint64_t i = 0; i < vfs_fslist.len; i++) {
+        if (strncmp(name, vfs_fslist.data[i]->name, sizeof(((vfs_fsinfo_t) {
+                                                            0}
+                                                           ).name)) == 0) {
             return vfs_fslist.data[i];
         }
     }
@@ -121,7 +120,8 @@ vfs_fsinfo_t* vfs_get_fs(char *name)
 
 void vfs_init()
 {
-    if (vfs_initialized) return;
+    if (vfs_initialized)
+        return;
     vfs_initialized = true;
 
     /* Initialize the root folder */
@@ -208,7 +208,7 @@ int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
 {
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
-        return -1; 
+        return -1;
 
     if (fd->inode->fs->ioctl != NULL) {
         return fd->inode->fs->ioctl(fd->inode, request, arg);
@@ -253,10 +253,11 @@ int64_t vfs_mount(char *device, char *path, char *fsname)
     at->inode = fs->mount(dev ? dev->inode : NULL);
     at->inode->mountpoint = at;
 
-    klogi("Mounted %s at %s as %s\n", device ? device : "<no-device>", path, fsname);
+    klogi("Mounted %s at %s as %s\n", device ? device : "<no-device>",
+          path, fsname);
     lock_release(&vfs_lock);
     return 0;
-fail:
+  fail:
     lock_release(&vfs_lock);
     return -1;
 }
@@ -267,7 +268,7 @@ uint64_t vfs_tell(vfs_handle_t handle)
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
 
     if (!fd) {
-        kloge("VFS: cannot get fd for file %d\n", handle); 
+        kloge("VFS: cannot get fd for file %d\n", handle);
         return 0;
     } else {
         vfs_inode_t *inode = fd->inode;
@@ -293,23 +294,22 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
      */
     if (fd->seek_pos + len > inode->size
         && strcmp(fd->inode->fs->name, "ttyfs") != 0
-        && strcmp(fd->inode->fs->name, "pipefs") != 0)
-    {
+        && strcmp(fd->inode->fs->name, "pipefs") != 0) {
         len = inode->size - fd->seek_pos;
         if (len == 0)
             goto end;
     }
 
     int64_t ret = fd->inode->fs->read(fd->inode, fd->seek_pos, len, buff);
-    if (ret < 0)    /* Error occurs */
+    if (ret < 0)                /* Error occurs */
         len = 0;
-    else            /* Actual reading length */ 
+    else                        /* Actual reading length */
         len = ret;
 
     fd->seek_pos += len;
-end:
+  end:
     lock_release(&vfs_lock);
-    return (int64_t)len;
+    return (int64_t) len;
 }
 
 /* Unlink the file, reduce link count (nlink in st of tnode). If the reference
@@ -322,22 +322,22 @@ int64_t vfs_unlink(char *path)
     lock_lock(&vfs_lock);
 
     /* Find the node and set st_nlink parameter */
-    vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0); 
+    vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
     if (!req) {
         klogd("VFS: Cannot find tnode for %s\n", path);
         goto fail;
     } else {
         if (req->st.st_nlink > 1) {
-            klogd("VFS: \"%s\" has links which should be removed firstly\n",
-                  path);
+            klogd
+                ("VFS: \"%s\" has links which should be removed firstly\n",
+                 path);
             goto fail;
         } else if (req->st.st_nlink == 0) {
-            klogd("VFS: \"%s\" should have one link by itself\n",
-                  path);
+            klogd("VFS: \"%s\" should have one link by itself\n", path);
             goto fail;
         }
         req->st.st_nlink = 0;
-    }   
+    }
 
     /* Remove this file if needed */
     if (req->inode->refcount == 0) {
@@ -349,7 +349,7 @@ int64_t vfs_unlink(char *path)
     lock_release(&vfs_lock);
     return 0;
 
-fail:
+  fail:
     lock_release(&vfs_lock);
     return -1;
 }
@@ -373,7 +373,8 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
     /* Expand file if writing more data than its size */
     if (fd->seek_pos + len > inode->size) {
         inode->size = fd->seek_pos + len;
-        if (inode->fs->sync != NULL) inode->fs->sync(inode);
+        if (inode->fs->sync != NULL)
+            inode->fs->sync(inode);
     }
 
     int64_t status = inode->fs->write(inode, fd->seek_pos, len, buff);
@@ -386,10 +387,11 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 
     /* Set file size to stat data structure */
     fd->tnode->st.st_size = fd->inode->size;
-    fd->tnode->st.st_blocks = DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
+    fd->tnode->st.st_blocks =
+        DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
 
     lock_release(&vfs_lock);
-    return (int64_t)len;
+    return (int64_t) len;
 }
 
 /* Seek to specified position in file */
@@ -403,37 +405,36 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 
     int64_t offset = -1;
     switch (whence) {
-    case SEEK_SET: /* 3 */
+    case SEEK_SET:             /* 3 */
         offset = pos;
         break;
-    case SEEK_CUR: /* 1 */
+    case SEEK_CUR:             /* 1 */
         offset = fd->seek_pos + pos;
         break;
-    case SEEK_END: /* 2 */
+    case SEEK_END:             /* 2 */
         offset = fd->inode->size - pos;
         break;
     }
 
     /* For writing mode, it can enlarge file size */
     if ((fd->mode == VFS_MODE_WRITE || fd->mode == VFS_MODE_READWRITE)
-        && offset > (int64_t)fd->inode->size)
-    {
+        && offset > (int64_t) fd->inode->size) {
         fd->inode->size = offset;
-        if (fd->inode->fs->sync != NULL) fd->inode->fs->sync(fd->inode);
+        if (fd->inode->fs->sync != NULL)
+            fd->inode->fs->sync(fd->inode);
     }
 
     /* Seek position is out of bounds */
-    if (offset > (int64_t)fd->inode->size || offset < 0)
-    {
+    if (offset > (int64_t) fd->inode->size || offset < 0) {
         klogd("Seek position out of bounds: %d(0x%x):%d in len %d with "
               "offset %d\n",
               pos, pos, whence, fd->inode->size, fd->seek_pos);
         lock_release(&vfs_lock);
-        return -1; 
+        return -1;
     }
 
     int64_t ret = -1;
-    if (offset >= 0 && offset <= (int64_t)fd->inode->size) {
+    if (offset >= 0 && offset <= (int64_t) fd->inode->size) {
         fd->seek_pos = offset;
         ret = offset;
     }
@@ -456,7 +457,8 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
             parent[idx] = '\0';
             idx--;
         }
-        if (parent[idx] != '/') break;
+        if (parent[idx] != '/')
+            break;
     }
 
     /* Do not have parent directory */
@@ -466,18 +468,19 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
     }
 
     /* Have parent directory */
-    while(idx >= 0) {
+    while (idx >= 0) {
         if (parent[idx] == '/') {
             parent[idx] = '\0';
             break;
-        }   
+        }
         idx--;
     }
 
     if (currdir != NULL && idx >= 0) {
         strcpy(currdir, &(parent[idx + 1]));
     }
-    if (strlen(parent) == 0) strcpy(parent, "/");
+    if (strlen(parent) == 0)
+        strcpy(parent, "/");
 
     return 0;
 }
@@ -490,21 +493,26 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
     if (!req) {
         klogd("VFS: Cannot find inode for %s\n", path);
-        vfs_tnode_t* pn = NULL;
-        char curpath[VFS_MAX_PATH_LEN] = {0}, parent[VFS_MAX_PATH_LEN] = {0};
+        vfs_tnode_t *pn = NULL;
+        char curpath[VFS_MAX_PATH_LEN] = { 0 }, parent[VFS_MAX_PATH_LEN] =
+            { 0 };
         strcpy(curpath, path);
         while (true) {
             vfs_get_parent_dir(curpath, parent, NULL);
-            if (strcmp(curpath, parent) == 0) break;
-            pn = vfs_path_to_node(parent, NO_CREATE, 0); 
-            if (pn) break;
+            if (strcmp(curpath, parent) == 0)
+                break;
+            pn = vfs_path_to_node(parent, NO_CREATE, 0);
+            if (pn)
+                break;
             strcpy(curpath, parent);
         }
         if (pn != NULL && pn->inode->fs != NULL) {
-            klogd("VFS: Can not open %s, visit back to %s\n", path, parent);
+            klogd("VFS: Can not open %s, visit back to %s\n", path,
+                  parent);
             req = pn->inode->fs->open(pn->inode, path);
         }
-        if (!req) goto fail;
+        if (!req)
+            goto fail;
     } else {
         /* OK, move forward to open the file */
         if (req->inode->fs != NULL) {
@@ -524,7 +532,8 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     }
 
     /* Create node descriptor */
-    vfs_node_desc_t *fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
+    vfs_node_desc_t *fd =
+        (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
     memset(fd, 0, sizeof(vfs_node_desc_t));
 
     strcpy(fd->path, path);
@@ -536,7 +545,8 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     /* If this is a symlink, we should set the real file size */
     /* TODO: Need to consider in the future */
     fd->tnode->st.st_size = req->inode->size;
-    fd->tnode->st.st_blocks = DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
+    fd->tnode->st.st_blocks =
+        DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
 
     /* Return the handle */
     vfs_handle_t fh = vfs_next_handle++;
@@ -552,8 +562,9 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     lock_release(&vfs_lock);
 
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
-        klogi("VFS: Open %s with mode 0x%x and return handle %d, task id %d\n",
-               path, mode, fh, t != NULL ? t->tid : 0);
+        klogi
+            ("VFS: Open %s with mode 0x%x and return handle %d, task id %d\n",
+             path, mode, fh, t != NULL ? t->tid : 0);
     } else if (strcmp(path, "/dev/tty") != 0) {
         klogd("VFS: Open %s with mode 0x%x and return handle %d, "
               "nd = 0x%x, inode = 0x%x\n", path, mode, fh, fd, fd->inode);
@@ -563,7 +574,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     }
 
     return fh;
-fail:
+  fail:
     lock_release(&vfs_lock);
     kloge("VFS: failed when opening %s with mode 0x%8x\n", path, mode);
     return VFS_INVALID_HANDLE;
@@ -582,17 +593,19 @@ int64_t vfs_close(vfs_handle_t handle)
     /* TODO: We should use the corresponding implemention in each driver
      * to replace this urgly code block.
      */
-    if (strcmp(fd->path, "/dev/tty") == 0) istty = true;
+    if (strcmp(fd->path, "/dev/tty") == 0)
+        istty = true;
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
         if ((fd->mode & VFS_MODE_WRITE) && fd->inode->writecount == 1) {
             klogi("VFS: fh %d write EOF to %s with seek position %d\n",
                   handle, fd->path, fd->seek_pos);
             lock_release(&vfs_lock);
 
-            uint8_t magic_word[4] = {(VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
-                                     (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
-                                     (VFS_EOF_MAGIC_WORD >>  8) & 0xFF,
-                                      VFS_EOF_MAGIC_WORD        & 0xFF};
+            uint8_t magic_word[4] = { (VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
+                (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
+                (VFS_EOF_MAGIC_WORD >> 8) & 0xFF,
+                VFS_EOF_MAGIC_WORD & 0xFF
+            };
             vfs_write(handle, 4, magic_word);
 
             lock_lock(&vfs_lock);
@@ -613,7 +626,8 @@ int64_t vfs_close(vfs_handle_t handle)
     if (t != NULL) {
         ht_delete(&(t->open_files_table), handle);
     } else {
-        kloge("VFS: cannot remove file %d because of invalid task\n", handle);
+        kloge("VFS: cannot remove file %d because of invalid task\n",
+              handle);
     }
 
     /* Remove this file if needed */
@@ -631,7 +645,7 @@ int64_t vfs_close(vfs_handle_t handle)
         klogv("VFS: close file handle %d\n", handle);
     }
     return 0;
-fail:
+  fail:
     lock_release(&vfs_lock);
     return -1;
 }
@@ -640,19 +654,20 @@ int64_t vfs_refresh(vfs_handle_t handle)
 {
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
-        return -1; 
+        return -1;
 
     lock_lock(&vfs_lock);
     fd->inode->fs->refresh(fd->inode);
-    for (uint64_t i = 0; ; i++) {
+    for (uint64_t i = 0;; i++) {
         vfs_dirent_t de;
-        if (fd->inode->fs->getdent(fd->inode, i, &de)) break;
+        if (fd->inode->fs->getdent(fd->inode, i, &de))
+            break;
 
-        char path[VFS_MAX_PATH_LEN] = {0};
+        char path[VFS_MAX_PATH_LEN] = { 0 };
         strcpy(path, fd->path);
         strncat(path, "/", sizeof(path));
         strncat(path, de.name, sizeof(path));
-        vfs_tnode_t* tn = vfs_path_to_node(path, CREATE, de.type);
+        vfs_tnode_t *tn = vfs_path_to_node(path, CREATE, de.type);
         memcpy(&tn->inode->tm, &de.tm, sizeof(tm_t));
         tn->inode->size = de.size;
     }
@@ -662,7 +677,8 @@ int64_t vfs_refresh(vfs_handle_t handle)
 }
 
 /* Get next directory entry */
-int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent) {
+int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t * dirent)
+{
     int64_t status;
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
@@ -686,7 +702,7 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent) {
     }
 
     /* Initialize the dirent */
-    vfs_tnode_t* entry = vec_at(&(fd->inode->child), fd->seek_pos);
+    vfs_tnode_t *entry = vec_at(&(fd->inode->child), fd->seek_pos);
     dirent->type = entry->inode->type;
     memcpy(dirent->name, entry->name, sizeof(entry->name));
     memcpy(&dirent->tm, &entry->inode->tm, sizeof(tm_t));
@@ -695,8 +711,7 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t *dirent) {
     status = 1;
     fd->seek_pos++;
 
-done:
+  done:
     lock_release(&vfs_lock);
     return status;
 }
-

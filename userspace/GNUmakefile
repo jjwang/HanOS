@@ -1,22 +1,24 @@
-CC   = x86_64-elf-gcc
-LD   = $(CC)
-AS   = $(CC)
-NASM = nasm
+CC       := x86_64-elf-gcc
+LD       := $(CC)
+AS       := $(CC)
+NASM     := nasm
 
-AS_FLAGS  = -I . -flto
-ASM_FLAGS = -f elf64 -I.
+AS_FLAGS := -I . -flto
+ASM_FLAGS:= -f elf64 -I.
+
+INDENT   := indent -kr -i4 -nut
 
 LC_FLAGS :=                 \
-    -std=gnu11              \
-    -I. -I..                \
-    -ffreestanding          \
-    -flto                   \
-    -fno-pic                \
-    -fno-omit-frame-pointer \
-    -mgeneral-regs-only     \
-    -mno-red-zone           \
-    -Wno-cast-function-type \
-    -O2 -mcmodel=large
+	-std=gnu11              \
+	-I. -I..                \
+	-ffreestanding          \
+	-flto                   \
+	-fno-pic                \
+	-fno-omit-frame-pointer \
+	-mgeneral-regs-only     \
+	-mno-red-zone           \
+	-Wno-cast-function-type \
+	-O2 -mcmodel=large
 
 LD_FLAGS :=                 \
 	-flto                   \
@@ -32,6 +34,7 @@ LD_FLAGS :=                 \
 LIB_FILES :=
 
 C_FILES   := $(shell find ./ -type f,l -name '*.c')
+H_FILES   := $(shell find ./ -type f,l -name '*.h')
 C_OBJS    := $(C_FILES:.c=.o)
 C_DEPS    := $(C_FILES:.c=.d)
 
@@ -49,6 +52,16 @@ CELF      := init hansh echo cat wc ls pwd help rm
 all: $(C_OBJS) $(ASM_OBJS) $(LIBC_OBJS) $(CELF)
 	mkdir -p ../initrd/bin
 	cp $(CELF) ../initrd/bin
+
+indent: $(C_FILES) $(H_FILES)
+	@for file in $(C_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
+	@for file in $(H_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
 
 -include $(C_DEPS)
 $(C_OBJS): %.o: %.c

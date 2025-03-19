@@ -37,21 +37,21 @@
 /* Vol 1. Part 3. Memory Interface and Commands for the Render Engine */
 /* 1.1.1.1 ARB_MODE – Arbiter Mode Control register */
 
-#define ARB_MODE                        0x04030     /* R/W */
+#define ARB_MODE                        0x04030 /* R/W */
 
-#define ARB_MODE_GGTAGDR                (1 << 0)    /* GTT Accesses GDR */
-#define ARB_MODE_CCGDREN                (1 << 1)    /* Color Cache GDR Enable Bit */
-#define ARB_MODE_DCGDREN                (1 << 2)    /* Depth Cache GDR Enable Bit */
-#define ARB_MODE_TCGDREN                (1 << 3)    /* Texture Cache GDR Enable Bit */
-#define ARB_MODE_VMC_GDR_EN             (1 << 4)    /* VMC GDR Enable */
-#define ARB_MODE_AS4TS                  (1 << 5)    /* Address Swizzling for Tiled Surfaces */
-#define ARB_MODE_CDPS                   (1 << 8)    /* Color/Depth Port Share Bit */
-#define ARB_MODE_GAMPD_GDR              (1 << 9)    /* GAM PD GDR */
-#define ARB_MODE_BLB_GDR                (1 << 10)   /* BLB GDR */
-#define ARB_MODE_STC_GDR                (1 << 11)   /* STC GDR */
-#define ARB_MODE_HIZ_GDR                (1 << 12)   /* HIZ GDR */
-#define ARB_MODE_DC_GDR                 (1 << 13)   /* DC GDR */
-#define ARB_MODE_GAM2BGTTT              (1 << 14)   /* GAM to Bypass GTT Translation */
+#define ARB_MODE_GGTAGDR                (1 << 0)        /* GTT Accesses GDR */
+#define ARB_MODE_CCGDREN                (1 << 1)        /* Color Cache GDR Enable Bit */
+#define ARB_MODE_DCGDREN                (1 << 2)        /* Depth Cache GDR Enable Bit */
+#define ARB_MODE_TCGDREN                (1 << 3)        /* Texture Cache GDR Enable Bit */
+#define ARB_MODE_VMC_GDR_EN             (1 << 4)        /* VMC GDR Enable */
+#define ARB_MODE_AS4TS                  (1 << 5)        /* Address Swizzling for Tiled Surfaces */
+#define ARB_MODE_CDPS                   (1 << 8)        /* Color/Depth Port Share Bit */
+#define ARB_MODE_GAMPD_GDR              (1 << 9)        /* GAM PD GDR */
+#define ARB_MODE_BLB_GDR                (1 << 10)       /* BLB GDR */
+#define ARB_MODE_STC_GDR                (1 << 11)       /* STC GDR */
+#define ARB_MODE_HIZ_GDR                (1 << 12)       /* HIZ GDR */
+#define ARB_MODE_DC_GDR                 (1 << 13)       /* DC GDR */
+#define ARB_MODE_GAM2BGTTT              (1 << 14)       /* GAM to Bypass GTT Translation */
 
 /* Vol 3. Part 1. VGA and Extended VGA Registers */
 /* 1.2.1 Sequencer Index */
@@ -67,15 +67,15 @@
 /* Vol 3. Part 2. PCI Registers */
 /* 1.25 MGGC0 - Mirror of GMCH Graphics Control Register */
 
-#define MGGC0                           0x50        /* In PCI Config Space */
+#define MGGC0                           0x50    /* In PCI Config Space */
 
 #define GGC_LOCK                        (1 << 0)
-#define GGC_IVD                         (1 << 1)    /* IGD VGA Disable */
-#define GGC_GMS_SHIFT                   3           /* Graphics Mode Select */
+#define GGC_IVD                         (1 << 1)        /* IGD VGA Disable */
+#define GGC_GMS_SHIFT                   3       /* Graphics Mode Select */
 #define GGC_GMS_MASK                    0x1f
-#define GGC_GGMS_SHIFT                  8           /* GTT Graphics Memory Size */
+#define GGC_GGMS_SHIFT                  8       /* GTT Graphics Memory Size */
 #define GGC_GGMS_MASK                   0x3
-#define GGC_VAMEN                       (1 << 14)   /* Versatile Acceleration Mode Enable */
+#define GGC_VAMEN                       (1 << 14)       /* Versatile Acceleration Mode Enable */
 
 /* This matches the IVB graphics documentation, not the IVB CPU documentation */
 #define GMS_32MB                        0x05
@@ -102,7 +102,7 @@
 
 /* 1.27 BDSM - Base Data of Stolen Memory */
 
-#define BDSM                            0x5C /* In PCI Config Space */
+#define BDSM                            0x5C    /* In PCI Config Space */
 
 #define BDSM_LOCK                       (1 << 0)
 #define BDSM_ADDR_MASK                  (0xfff << 20)
@@ -110,13 +110,13 @@
 /* Vol 3. Part 3. North Display Engine Registers */
 /* 3.1.1 VGA Control */
 
-#define VGA_CONTROL                     0x41000     /* R/W */
+#define VGA_CONTROL                     0x41000 /* R/W */
 
 #define VGA_DISABLE                     (1 << 31)
 
 /* 3.7.1 ARB_CTL-Display Arbitration Control 1 */
 
-#define ARB_CTL                         0x45000     /* R/W */
+#define ARB_CTL                         0x45000 /* R/W */
 
 #define ARB_CTL_HP_DATA_REQUEST_LIMIT_MASK          0x7f
 #define ARB_CTL_HP_PAGE_BREAK_LIMIT_SHIFT           8
@@ -148,19 +148,19 @@
 #define MAD_DIMM_B_X16                  (1 << 20)
 #define MAD_DIMM_RANK_INTERLEAVE        (1 << 21)
 #define MAD_DIMM_ENH_INTERLEAVE         (1 << 22)
-#define MAD_DIMM_ECC_MODE               (3 << 24) 
+#define MAD_DIMM_ECC_MODE               (3 << 24)
 
 /* Force Wake */
 
 #define ECOBUS                          0xA180
-#define FORCE_WAKE_MT                   0xA188 
+#define FORCE_WAKE_MT                   0xA188
 #define FORCE_WAKE                      0xA18C
 /* GTSP1, Address: 130044h-130047h
  * 15:0 Multiple Force Wake GT programs this field with the multiple force wake
  * status. Software reads this field to find the status. Refer to MULTIFORCEWAKE
  * 0xA188 register description for the usage.
  */
-#define FORCE_WAKE_MT_ACK               0x130044 
+#define FORCE_WAKE_MT_ACK               0x130044
 /* Intel® Open Source HD Graphics, Intel Iris™ Graphics, and Intel Iris™ Pro
  * Graphics
  * Volume 2c: Command Reference: Registers
@@ -173,8 +173,8 @@
 
 /* Tile Ctrl - control register for cpu gtt access */
 
-#define TILE_CTL                         0x101000     /* R/W */
+#define TILE_CTL                         0x101000       /* R/W */
 
 #define TILE_CTL_SWIZZLE                (1 << 0)
 #define TILE_CTL_TLB_PREFETCH_DISABLE   (1 << 2)
-#define TILE_CTL_BACKSNOOP_DISABLE      (1 << 3) 
+#define TILE_CTL_BACKSNOOP_DISABLE      (1 << 3)

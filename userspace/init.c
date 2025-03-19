@@ -35,10 +35,10 @@ int main(void)
     for (;;) {
         printf("init: starting sh...type \"help\" for command list\n");
         pid = sys_fork();
-        if(pid < 0) {
+        if (pid < 0) {
             printf("init: fork failed\n");
             sys_exit(1);
-        } else if(pid == 0) {
+        } else if (pid == 0) {
             /* This is child process */
             sys_exec("/bin/hansh", argv);
             printf("init: exec sh failed\n");
@@ -50,4 +50,3 @@ int main(void)
     }
     return 0;
 }
-

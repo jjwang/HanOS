@@ -30,11 +30,11 @@
 
 static task_id_t curr_tid = 1;
 
-task_t *task_make(
-    const char *name, void (*entry)(task_id_t), task_priority_t priority,
-    task_mode_t mode, addrspace_t *pas)
+task_t *task_make(const char *name, void (*entry)(task_id_t),
+                  task_priority_t priority, task_mode_t mode,
+                  addrspace_t * pas)
 {
-    if (curr_tid == TID_MAX) {
+    if(curr_tid == TID_MAX) {
         klogw("Could not allocate tid\n");
         return NULL;
     }
@@ -53,37 +53,38 @@ task_t *task_make(
     if (mode == TASK_USER_MODE) {
         as = create_addrspace();
 
-        ntask->kstack_limit = (void*)kmalloc_chunk(
-            STACK_SIZE, __func__, __LINE__);
+        ntask->kstack_limit =
+            (void *) kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
         ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
 
-        ntask->ustack_limit = (void*)VIRT_TO_PHYS(kmalloc_chunk(
-            STACK_SIZE, __func__, __LINE__));
+        ntask->ustack_limit = (void *)
+            VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
         ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
 
         klogi("TASK: %s task id %d (0x%x) kstack 0x%x ustack 0x%x\n",
-              name, ntask->tid, ntask, ntask->kstack_top, ntask->ustack_top);
+              name, ntask->tid, ntask, ntask->kstack_top,
+              ntask->ustack_top);
 
         ntask->tstack_top = ntask->ustack_top;
         ntask->tstack_limit = ntask->ustack_limit;
 
         /* Notice that the below should be unmapped at the end of this func */
-        vmm_map(pas, (uint64_t)ntask->ustack_limit,
-                (uint64_t)ntask->ustack_limit,
+        vmm_map(pas, (uint64_t) ntask->ustack_limit,
+                (uint64_t) ntask->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
                 VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
-        vmm_map(as, (uint64_t)ntask->ustack_limit,
-                (uint64_t)ntask->ustack_limit,
+        vmm_map(as, (uint64_t) ntask->ustack_limit,
+                (uint64_t) ntask->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
                 VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
         mem_map_t m;
 
-        m.vaddr = (uint64_t)ntask->ustack_limit;
-        m.paddr = (uint64_t)ntask->ustack_limit;
+        m.vaddr = (uint64_t) ntask->ustack_limit;
+        m.paddr = (uint64_t) ntask->ustack_limit;
         m.np = NUM_PAGES(STACK_SIZE);
-        m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE; 
+        m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
 
         vec_push_back(&ntask->mmap_list, m);
 
@@ -92,7 +93,8 @@ task_t *task_make(
         ntask_regs->cs = DEFAULT_UMODE_CODE;
         ntask_regs->ss = DEFAULT_UMODE_DATA;
     } else {
-        ntask->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+        ntask->kstack_limit =
+            kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
         ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
 
         ntask->ustack_limit = NULL;
@@ -113,9 +115,9 @@ task_t *task_make(
     /* If temporarily set to NULL, CR3 switch will be disabled */
     ntask->addrspace = as;
 
-    ntask_regs->rsp = (uint64_t)ntask->tstack_top;
+    ntask_regs->rsp = (uint64_t) ntask->tstack_top;
     ntask_regs->rflags = DEFAULT_RFLAGS;
-    ntask_regs->rip = (uint64_t)entry;
+    ntask_regs->rip = (uint64_t) entry;
     ntask_regs->rdi = curr_tid;
 
     ntask->mode = mode;
@@ -136,23 +138,23 @@ task_t *task_make(
     curr_tid++;
 
     if (mode == TASK_USER_MODE) {
-        vmm_unmap(pas, (uint64_t)ntask->ustack_limit, NUM_PAGES(STACK_SIZE));
+        vmm_unmap(pas, (uint64_t) ntask->ustack_limit,
+                  NUM_PAGES(STACK_SIZE));
     }
-
 #ifndef ENABLE_MEM_DEBUG
     /* MEMMAP: hpet should be visible for all kernel tasks */
-    vmm_map(ntask->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
+    vmm_map(ntask->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
 
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
-    vmm_map(ntask->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base), 1,
-            VMM_FLAGS_MMIO);
+    vmm_map(ntask->addrspace, (uint64_t) lapic_base,
+            VIRT_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
 #endif
 
     return ntask;
 }
 
-void task_debug(task_t *t, bool force)
+void task_debug(task_t * t, bool force)
 {
     klogd("TASK: #%d with PML4 0x%x\n"
           "kstack limit 0x%x, top 0x%x, limit_top 0x%x\n"
@@ -163,25 +165,26 @@ void task_debug(task_t *t, bool force)
           t->ustack_limit, t->ustack_top, t->ustack_limit + STACK_SIZE,
           t->tstack_limit, t->tstack_top, t->tstack_limit + STACK_SIZE);
 
-    if (force || ((uint64_t)t->tstack_top >= (uint64_t)t->kstack_limit
-        && (uint64_t)t->tstack_top <= (uint64_t)(t->kstack_limit + STACK_SIZE)))
-    {
-        task_regs_t *tr = (task_regs_t*)t->tstack_top;
-        if (force) tr = (task_regs_t*)PHYS_TO_VIRT(t->tstack_top);
-        klogd("Dump registers: \nRIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
-              "RSP   : 0x%x\nSS    : 0x%x\n"
-              "RAX 0x%x  RBX 0x%x  RCX 0x%x  RDX 0x%x\n"
-              "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
-              "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
-              "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n",
-              tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
-              tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
-              tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
-              tr->r15);
+    if (force || ((uint64_t) t->tstack_top >= (uint64_t) t->kstack_limit
+                  && (uint64_t) t->tstack_top <=
+                  (uint64_t) (t->kstack_limit + STACK_SIZE))) {
+        task_regs_t *tr = (task_regs_t *) t->tstack_top;
+        if (force)
+            tr = (task_regs_t *) PHYS_TO_VIRT(t->tstack_top);
+        klogd
+            ("Dump registers: \nRIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
+             "RSP   : 0x%x\nSS    : 0x%x\n"
+             "RAX 0x%x  RBX 0x%x  RCX 0x%x  RDX 0x%x\n"
+             "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
+             "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
+             "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n", tr->rip, tr->cs,
+             tr->rflags, tr->rsp, tr->ss, tr->rax, tr->rbx, tr->rcx,
+             tr->rdx, tr->rsi, tr->rdi, tr->rbp, tr->r8, tr->r9, tr->r10,
+             tr->r11, tr->r12, tr->r13, tr->r14, tr->r15);
     }
 }
 
-task_t *task_fork(task_t *tp)
+task_t *task_fork(task_t * tp)
 {
     if (tp->mode != TASK_USER_MODE) {
         kpanic("Task: cannot fork kernel task %d\n", tp->tid);
@@ -189,8 +192,9 @@ task_t *task_fork(task_t *tp)
 
     task_debug(tp, false);
 
-    task_t *tc = (task_t*)kmalloc(sizeof(task_t));
-    if (tc == NULL) goto norm_exit;
+    task_t *tc = (task_t *) kmalloc(sizeof(task_t));
+    if (tc == NULL)
+        goto norm_exit;
 
     memcpy(tc, tp, sizeof(task_t));
 
@@ -207,16 +211,17 @@ task_t *task_fork(task_t *tp)
     uint64_t i;
     for (i = 0; i < len; i++) {
         mem_map_t m = vec_at(&(tp->mmap_list), i);
-        uint64_t ptr = VIRT_TO_PHYS(kmalloc_chunk(
-            m.np * PAGE_SIZE, __func__, __LINE__));
-        memcpy((void*)PHYS_TO_VIRT(ptr), (void*)PHYS_TO_VIRT(m.paddr),
+        uint64_t ptr =
+            VIRT_TO_PHYS(kmalloc_chunk
+                         (m.np * PAGE_SIZE, __func__, __LINE__));
+        memcpy((void *) PHYS_TO_VIRT(ptr), (void *) PHYS_TO_VIRT(m.paddr),
                m.np * PAGE_SIZE);
-        if ((uint64_t)tp->ustack_limit == (uint64_t)m.vaddr) {
+        if ((uint64_t) tp->ustack_limit == (uint64_t) m.vaddr) {
             klogi("task_fork: #%d (parent #%d) new user stack 0x%x and "
                   "map to 0x%x with top 0x%x\n",
                   curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
-        if ((uint64_t)tp->kstack_limit == (uint64_t)m.vaddr) {
+        if ((uint64_t) tp->kstack_limit == (uint64_t) m.vaddr) {
             klogi("task_fork: #%d (parent #%d) new kern stack 0x%x and "
                   "map to 0x%x with top 0x%x\n",
                   curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
@@ -235,36 +240,38 @@ task_t *task_fork(task_t *tp)
 
     uint64_t offset = 0;
 
-    offset = (uint64_t)tc->kstack_top - (uint64_t)tp->kstack_limit;
-    tc->kstack_top = (void*)((uint64_t)tc->kstack_limit + offset);
+    offset = (uint64_t) tc->kstack_top - (uint64_t) tp->kstack_limit;
+    tc->kstack_top = (void *) ((uint64_t) tc->kstack_limit + offset);
 
-    if ((uint64_t)tc->tstack_top >= (uint64_t)tp->kstack_limit
-        && (uint64_t)tc->tstack_top <= (uint64_t)(tp->kstack_limit + STACK_SIZE))
-    {
-        offset = (uint64_t)tc->tstack_top - (uint64_t)tp->kstack_limit;
-        tc->tstack_top = (void*)((uint64_t)tc->kstack_limit + offset);
- 
-        task_regs_t *tr = (task_regs_t*)tc->tstack_top;
+    if ((uint64_t) tc->tstack_top >= (uint64_t) tp->kstack_limit
+        && (uint64_t) tc->tstack_top <=
+        (uint64_t) (tp->kstack_limit + STACK_SIZE)) {
+        offset = (uint64_t) tc->tstack_top - (uint64_t) tp->kstack_limit;
+        tc->tstack_top = (void *) ((uint64_t) tc->kstack_limit + offset);
 
-        offset = (uint64_t)tr->rsp - (uint64_t)tp->kstack_limit;
-        tr->rsp = (uint64_t)tc->kstack_limit + offset;
+        task_regs_t *tr = (task_regs_t *) tc->tstack_top;
 
-        offset = (uint64_t)tr->rbp - (uint64_t)tp->kstack_limit;
-        tr->rbp = (uint64_t)tc->kstack_limit + offset;
+        offset = (uint64_t) tr->rsp - (uint64_t) tp->kstack_limit;
+        tr->rsp = (uint64_t) tc->kstack_limit + offset;
+
+        offset = (uint64_t) tr->rbp - (uint64_t) tp->kstack_limit;
+        tr->rbp = (uint64_t) tc->kstack_limit + offset;
     }
 
     /* Increase refcount of all open files */
     ht_init(&tc->open_files_table, tp->open_files_table.size);
     for (i = 0; i < tp->open_files_table.size; i++) {
         if (tp->open_files_table.array[i].key == -1
-            || tp->open_files_table.array[i].data == NULL)
-        {
+            || tp->open_files_table.array[i].data == NULL) {
             continue;
         }
-        vfs_node_desc_t* fd = (vfs_node_desc_t*)kmalloc(sizeof(vfs_node_desc_t));
-        memcpy(fd, tp->open_files_table.array[i].data, sizeof(vfs_node_desc_t));
-        tc->open_files_table.array[i].key = tp->open_files_table.array[i].key;
-        tc->open_files_table.array[i].data = fd; 
+        vfs_node_desc_t *fd =
+            (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
+        memcpy(fd, tp->open_files_table.array[i].data,
+               sizeof(vfs_node_desc_t));
+        tc->open_files_table.array[i].key =
+            tp->open_files_table.array[i].key;
+        tc->open_files_table.array[i].data = fd;
         fd->inode->refcount++;
         if (fd->mode == VFS_MODE_READ) {
             fd->inode->readcount++;
@@ -286,11 +293,11 @@ task_t *task_fork(task_t *tp)
      * all kernel tasks.
      */
 #if !ENABLE_MEM_DEBUG
-    vmm_map(tc->addrspace, (uint64_t)hpet, VIRT_TO_PHYS(hpet),
+    vmm_map(tc->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
 
     /* MEMMAP: lapic_base should be visible for all kernel tasks */
-    vmm_map(tc->addrspace, (uint64_t)lapic_base, VIRT_TO_PHYS(lapic_base),
+    vmm_map(tc->addrspace, (uint64_t) lapic_base, VIRT_TO_PHYS(lapic_base),
             1, VMM_FLAGS_MMIO);
 #endif
 
@@ -299,11 +306,11 @@ task_t *task_fork(task_t *tp)
 
     curr_tid++;
 
-norm_exit:
+  norm_exit:
     return tc;
 }
 
-void task_free(task_t *t)
+void task_free(task_t * t)
 {
     if (t->mode != TASK_USER_MODE) {
         kpanic("Task: cannot free kernel task %d\n", t->tid);
@@ -311,9 +318,9 @@ void task_free(task_t *t)
 
     uint64_t mmap_num = vec_length(&t->mmap_list);
     for (uint64_t i = 0; i < mmap_num; i++) {
-        mem_map_t m = vec_at(&t->mmap_list, i); 
+        mem_map_t m = vec_at(&t->mmap_list, i);
         vmm_unmap(t->addrspace, m.vaddr, m.np);
-        kmfree_chunk((void*)PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
+        kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
     }
     vec_erase_all(&t->mmap_list);
     vec_erase_all(&t->child_list);
@@ -322,7 +329,7 @@ void task_free(task_t *t)
     klogi("task_free: dead task tid %d free mmap number %d\n",
           t->tid, mmap_num);
 
-    kmfree_chunk((void*)t->kstack_limit, __func__, __LINE__);
+    kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
 
     uint64_t mem_num = vec_length(&t->addrspace->mem_list);
     for (uint64_t i = 0; i < mem_num; i++) {
@@ -334,15 +341,15 @@ void task_free(task_t *t)
          * The root cause of ELF loading failure is repeatly release of memories
          * in mem_list.
          */
-        uint64_t m = vec_at(&t->addrspace->mem_list, i); 
+        uint64_t m = vec_at(&t->addrspace->mem_list, i);
         pmm_free(m, 8, __func__, __LINE__);
     }
     vec_erase_all(&t->addrspace->mem_list);
 
     /* TODO: check unclosed file handles */
 
-    kmfree_chunk((void*)t->addrspace->PML4, __func__, __LINE__);
-    kmfree((void*)t->addrspace);
+    kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
+    kmfree((void *) t->addrspace);
 
     /*
      * Feb 2024 - An extra task status - TASK_DYING is defined to make sure
@@ -353,4 +360,3 @@ void task_free(task_t *t)
           t->tid, t->isforked ? "true" : "false");
     kmfree(t);
 }
-

@@ -37,7 +37,7 @@
 
 extern font_psf1_t term_font_norm, term_font_bold;
 
-bool fb_set_bg_image(fb_info_t *fb, image_t *img)
+bool fb_set_bg_image(fb_info_t * fb, image_t * img)
 {
     if (img->bpp != 24) {
         return false;
@@ -45,10 +45,10 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
 
     memcpy(&(fb->img_bg), img, sizeof(image_t));
     if (fb->bgbuffer == NULL) {
-        fb->bgbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+        fb->bgbuffer = (uint8_t *) kmalloc(fb->width * fb->height * 4);
     }
     if (fb->swapbuffer == NULL) {
-        fb->swapbuffer = (uint8_t*)kmalloc(fb->width * fb->height * 4);
+        fb->swapbuffer = (uint8_t *) kmalloc(fb->width * fb->height * 4);
     }
 
     for (uint64_t y = 0; y < fb->height; y++) {
@@ -56,7 +56,8 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
             uint64_t x2, y2;
 
             /* Determine the best-fit point's (x, y) in original bitmap */
-            if (img->img_width == fb->width && img->img_height == fb->height) {
+            if (img->img_width == fb->width
+                && img->img_height == fb->height) {
                 x2 = x;
                 y2 = y;
             } else {
@@ -81,7 +82,8 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
             }
 
             uint64_t off = img->pitch * (img->img_height - 1 - y2);
-            uint8_t *img_pixel = (uint8_t*)img->img + off + x2 * img->bpp / 8;
+            uint8_t *img_pixel =
+                (uint8_t *) img->img + off + x2 * img->bpp / 8;
             uint8_t r, g, b;
             uint8_t shift = 2;
 
@@ -90,27 +92,28 @@ bool fb_set_bg_image(fb_info_t *fb, image_t *img)
             r = img_pixel[2] >> shift;
 
             uint32_t color;
-            color = (uint32_t)b + ((uint32_t)g << 8) + ((uint32_t)r << 16);
-            ((uint32_t*)(fb->bgbuffer + (fb->pitch * y)))[x] = color;
+            color =
+                (uint32_t) b + ((uint32_t) g << 8) + ((uint32_t) r << 16);
+            ((uint32_t *) (fb->bgbuffer + (fb->pitch * y)))[x] = color;
         }
     }
 
     return true;
 }
 
-void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y, 
+void fb_putch(fb_info_t * fb, uint32_t x, uint32_t y,
               uint32_t fgcolor, uint32_t bgcolor, uint8_t ch, bool bold)
 {
-    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
+        return;
 
     font_psf1_t *term_font = bold ? &term_font_bold : &term_font_norm;
-    uint32_t offset = ((uint32_t)ch) * term_font->charsize;
+    uint32_t offset = ((uint32_t) ch) * term_font->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
     for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
         for (uint64_t k = 0; k < FONT_WIDTH; k++) {
             if (i < term_font->charsize
-                && (term_font->data[offset + i] & masks[k]))
-            {
+                && (term_font->data[offset + i] & masks[k])) {
                 fb_putpixel(fb, x + k, y + i, fgcolor);
             } else {
                 fb_putpixel(fb, x + k, y + i, bgcolor);
@@ -119,77 +122,84 @@ void fb_putch(fb_info_t *fb, uint32_t x, uint32_t y,
     }
 }
 
-void fb_putlogo(fb_info_t *fb, uint32_t fgcolor, uint32_t bgcolor) 
+void fb_putlogo(fb_info_t * fb, uint32_t fgcolor, uint32_t bgcolor)
 {
-    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
+        return;
 
     char *logo = "HNK";
     uint64_t len = strlen(logo);
     uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
     uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
     for (uint64_t idx = 0; idx < len; idx++) {
-        uint32_t offset = ((uint32_t)logo[idx]) * term_font_bold.charsize; 
+        uint32_t offset = ((uint32_t) logo[idx]) * term_font_bold.charsize;
         static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-        for(uint64_t i = 0; i < term_font_bold.charsize; i++) {
-            for(uint64_t k = 0; k < 8; k++) {
-                for(uint64_t m = 1; m < LOGO_SCALE; m++) {
-                    for(uint64_t n = 1; n < LOGO_SCALE; n++) {
+        for (uint64_t i = 0; i < term_font_bold.charsize; i++) {
+            for (uint64_t k = 0; k < 8; k++) {
+                for (uint64_t m = 1; m < LOGO_SCALE; m++) {
+                    for (uint64_t n = 1; n < LOGO_SCALE; n++) {
                         uint32_t bg_img_color = bgcolor;
                         if (fb->bgbuffer != NULL) {
-                            bg_img_color = ((uint32_t*)(fb->bgbuffer + fb->pitch * y + x * 4))[0];
-                        } 
-                        uint32_t color = (term_font_bold.data[offset + i] & masks[k])
+                            bg_img_color =
+                                ((uint32_t *) (fb->bgbuffer +
+                                               fb->pitch * y + x * 4))[0];
+                        }
+                        uint32_t color =
+                            (term_font_bold.data[offset + i] & masks[k])
                             ? fgcolor : bg_img_color;
                         fb_putpixel(fb, x + (idx * 8 + k) * LOGO_SCALE + m,
                                     y + i * LOGO_SCALE + n, color);
                     }
                 }
             }
-        } /* End every character */
+        }                       /* End every character */
     }
 
-    char desc_str[64] = "- Microkernel-based General Purpose OS Kernel for x86-64 v";
+    char desc_str[64] =
+        "- Microkernel-based General Purpose OS Kernel for x86-64 v";
     strncat(desc_str, VERSION, sizeof(desc_str));
     strncat(desc_str, " -", sizeof(desc_str));
-    uint64_t desc_len = strlen(desc_str);   
+    uint64_t desc_len = strlen(desc_str);
     x = (fb->width - 8 * desc_len) / 2;
     for (uint64_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
         fb_putch(fb, x + 8 * desc_idx, (fb->height + 16 * LOGO_SCALE) / 2,
-            COLOR_GREY, bgcolor, desc_str[desc_idx], false);
+                 COLOR_GREY, bgcolor, desc_str[desc_idx], false);
     }
 }
 
-void fb_putpixel(fb_info_t *fb, uint32_t x, uint32_t y, uint32_t color)
+void fb_putpixel(fb_info_t * fb, uint32_t x, uint32_t y, uint32_t color)
 {
-    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return;
+    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
+        return;
 
-    if(fb->pitch * y + x * 4 < fb->backbuffer_len) {
-        ((uint32_t*)(fb->backbuffer + (fb->pitch * y)))[x] = color;
+    if (fb->pitch * y + x * 4 < fb->backbuffer_len) {
+        ((uint32_t *) (fb->backbuffer + (fb->pitch * y)))[x] = color;
     }
 }
 
-uint32_t fb_getpixel(fb_info_t *fb, uint32_t x, uint32_t y)
+uint32_t fb_getpixel(fb_info_t * fb, uint32_t x, uint32_t y)
 {
-    if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) return 0;
+    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
+        return 0;
 
-    if(fb->pitch * y + x * 4 < fb->backbuffer_len) {
-        return ((uint32_t*)(fb->backbuffer + (fb->pitch * y)))[x];
+    if (fb->pitch * y + x * 4 < fb->backbuffer_len) {
+        return ((uint32_t *) (fb->backbuffer + (fb->pitch * y)))[x];
     } else {
         return 0;
     }
 }
 
-void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
+void fb_init(fb_info_t * fb, struct limine_framebuffer *s)
 {
-    if(s == NULL) {
-        if((uint64_t)fb->addr == (uint64_t)fb->backbuffer) {
+    if (s == NULL) {
+        if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer) {
             fb->backbuffer = kmalloc(fb->backbuffer_len);
             memcpy(fb->backbuffer, fb->addr, fb->backbuffer_len);
         }
         return;
     }
 
-    fb->addr = (uint8_t*)s->address;
+    fb->addr = (uint8_t *) s->address;
     fb->bgbuffer = NULL;
     fb->swapbuffer = NULL;
     fb->width = s->width;
@@ -201,30 +211,30 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer* s)
 
     memset(&(fb->img_bg), 0, sizeof(image_t));
 
-    for(uint32_t x = 0; x < fb->width; x++) {
-        for(uint32_t y = 0; y < fb->height; y++) {
+    for (uint32_t x = 0; x < fb->width; x++) {
+        for (uint32_t y = 0; y < fb->height; y++) {
             fb_putpixel(fb, x, y, DEFAULT_BGCOLOR);
         }
     }
     fb_refresh(fb);
 }
 
-void fb_refresh(fb_info_t *fb)
+void fb_refresh(fb_info_t * fb)
 {
-    if((uint64_t)fb->addr != (uint64_t)fb->backbuffer) {
+    if ((uint64_t) fb->addr != (uint64_t) fb->backbuffer) {
         uint64_t len = fb->backbuffer_len;
         if (fb->bgbuffer == NULL) {
             memcpy(fb->addr, fb->backbuffer, len);
         } else {
             memcpy(fb->swapbuffer, fb->bgbuffer, len);
-            uint32_t *src = (uint32_t*)fb->backbuffer;
-            uint32_t *dst = (uint32_t*)fb->swapbuffer;
+            uint32_t *src = (uint32_t *) fb->backbuffer;
+            uint32_t *dst = (uint32_t *) fb->swapbuffer;
             uint64_t pt_num = len / 4;
             for (uint64_t i = 0; i < pt_num; i++) {
-                if (src[i] != DEFAULT_BGCOLOR) dst[i] = src[i];
+                if (src[i] != DEFAULT_BGCOLOR)
+                    dst[i] = src[i];
             }
             memcpy(fb->addr, fb->swapbuffer, len);
         }
     }
 }
-

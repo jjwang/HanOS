@@ -22,21 +22,23 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
+/* *INDENT-OFF* */
 static command_help_t help_msg[] = {
     {"<help> rm",       "Remove files or directories."},
 };
+/* *INDENT-ON* */
 
 int main(int argc, char *argv[])
 {
     int i;
 
-    if(argc < 2) {
+    if (argc < 2) {
         fprintf(STDERR, "Usage: rm files...\n");
         sys_exit(1);
     }
 
-    for(i = 1; i < argc; i++) {
-        if(sys_unlink(argv[i]) < 0) {
+    for (i = 1; i < argc; i++) {
+        if (sys_unlink(argv[i]) < 0) {
             fprintf(STDERR, "rm: %s failed to delete\n", argv[i]);
             break;
         }
@@ -44,4 +46,3 @@ int main(int argc, char *argv[])
 
     sys_exit(0);
 }
-

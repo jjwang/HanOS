@@ -1,9 +1,11 @@
-CC   = x86_64-elf-gcc
-LD   = $(CC)
-AS   = $(CC)
-NASM = nasm
+CC           := x86_64-elf-gcc
+LD           := $(CC)
+AS           := $(CC)
+NASM         := nasm
 
-LC_FLAGS  =                 \
+INDENT       := indent -kr -i4 -nut
+
+LC_FLAGS     :=             \
     -I. -I.. -Wall -Wextra  \
     -DKERNEL_BUILD          \
     -mcmodel=kernel         \
@@ -17,10 +19,10 @@ LC_FLAGS  =                 \
     -Wno-cast-function-type \
     -O2 -g
 
-AS_FLAGS  = -I . -flto
-ASM_FLAGS = -f elf64 -I.
+AS_FLAGS     := -I . -flto
+ASM_FLAGS    := -f elf64 -I.
 
-LD_FLAGS  =                 \
+LD_FLAGS     :=             \
     -flto                   \
     -std=gnu11              \
     -Wno-lto-type-mismatch  \
@@ -31,36 +33,56 @@ LD_FLAGS  =                 \
     -I .                    \
     -O2 -g
 
-KERNELOBJ = hanos.elf
-BOOT_DIR  = 3rd-party/boot
+KERNELOBJ    := hanos.elf
+BOOT_DIR     := 3rd-party/boot
 
-C_FILES   = $(shell find ./ -type f,l -name '*.c')
-C_OBJS    = $(C_FILES:.c=.o)
-C_DEPS    = $(C_FILES:.c=.d)
+C_FILES      := $(shell find ./ -type f,l -name '*.c')
+H_FILES      := $(shell find ./ -type f,l -name '*.h')
+C_OBJS       := $(C_FILES:.c=.o)
+C_DEPS       := $(C_FILES:.c=.d)
 
-LIBC_FILES= $(shell find ../libc -type f,l -name '*.c')
-LIBC_OBJS = $(patsubst %.c, %.k.o, ${LIBC_FILES})
-LIBC_DEPS = $(patsubst %.c, %.k.d, ${LIBC_FILES})
+LIBC_C_FILES := $(shell find ../libc -type f,l -name '*.c')
+LIBC_H_FILES := $(shell find ../libc -type f,l -name '*.c')
+LIBC_OBJS    := $(patsubst %.c, %.k.o, ${LIBC_C_FILES})
+LIBC_DEPS    := $(patsubst %.c, %.k.d, ${LIBC_C_FILES})
 
-AS_FILES  = $(shell find ./ -type f,l -name '*.s')
-AS_OBJS   = $(AS_FILES:.s=.o)
+AS_FILES     := $(shell find ./ -type f,l -name '*.s')
+AS_OBJS      := $(AS_FILES:.s=.o)
 
-MAC_FILES = $(shell find ./ -type f,l -name '*.mac')
+MAC_FILES    := $(shell find ./ -type f,l -name '*.mac')
 
-ASM_FILES = $(shell find ./ -type f,l -name '*.asm')
-ASM_OBJS  = $(ASM_FILES:.asm=.o)
+ASM_FILES    := $(shell find ./ -type f,l -name '*.asm')
+ASM_OBJS     := $(ASM_FILES:.asm=.o)
 
-OBJS      = $(C_OBJS) $(LIBC_OBJS) $(AS_OBJS) $(ASM_OBJS)
+OBJS         := $(C_OBJS) $(LIBC_OBJS) $(AS_OBJS) $(ASM_OBJS)
 
-SYMBOLFILE     = _symbols.gen
-SYMBOLOBJ      = _symbols.o
+SYMBOLFILE     := _symbols.gen
+SYMBOLOBJ      := _symbols.o
 
-TRAMPOLINEFILE = sys/trampoline.nasm
-TRAMPOLINEBLOB = sys/trampoline.bin
+TRAMPOLINEFILE := sys/trampoline.nasm
+TRAMPOLINEBLOB := sys/trampoline.bin
 
 .PHONY: all clean
 
 all: $(KERNELOBJ) $(SYMBOLFILE)
+
+indent: $(C_FILES) $(H_FILES) $(LIBC_C_FILES) $(LIBC_H_FILES) 
+	@for file in $(C_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
+	@for file in $(H_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
+	@for file in $(LIBC_C_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
+	@for file in $(LIBC_H_FILES); do \
+		$(INDENT) $$file;       \
+		rm -f $${file}~;        \
+	done
 
 $(SYMBOLFILE): $(OBJS)
 	@echo ">>>>> Generating symbols..."

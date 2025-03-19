@@ -42,31 +42,31 @@ static scache_t selfcache = {
     .size = sizeof(scache_t),
     .alignment = 8,
     .truesize = ROUND_UP(sizeof(scache_t) + sizeof(void **), 8),
-    .slabobjcount = SLAB_DATA_SIZE / ROUND_UP(sizeof(scache_t) \
-                    + sizeof(void **), 8)
+    .slabobjcount = SLAB_DATA_SIZE / ROUND_UP(sizeof(scache_t)
+                                              + sizeof(void **), 8)
 };
 
-static void initdirect(scache_t *cache, slab_t *slab, void *base)
+static void initdirect(scache_t * cache, slab_t * slab, void *base)
 {
     slab->free = NULL;
     slab->used = 0;
 
     for (uintmax_t offset = 0;
          offset < cache->truesize * cache->slabobjcount;
-         offset += cache->truesize)
-    {
+         offset += cache->truesize) {
         if (cache->ctor) {
-            cache->ctor(cache, (void *)((uintptr_t)base + offset));
+            cache->ctor(cache, (void *) ((uintptr_t) base + offset));
         }
 
-        void **freenext = (void **)((uintptr_t)base + offset + cache->size);
+        void **freenext =
+            (void **) ((uintptr_t) base + offset + cache->size);
         *freenext = slab->free;
         slab->free = freenext;
     }
 }
 
-static void initindirect(
-    scache_t *cache, slab_t *slab, void **base, void *objbase)
+static void initindirect(scache_t * cache, slab_t * slab, void **base,
+                         void *objbase)
 {
     slab->free = NULL;
     slab->used = 0;
@@ -74,21 +74,21 @@ static void initindirect(
 
     for (uintmax_t offset = 0;
          offset < cache->truesize * cache->slabobjcount;
-         offset += cache->truesize)
-    {
+         offset += cache->truesize) {
         if (cache->ctor) {
-            cache->ctor(cache, (void *)((uintptr_t)objbase + offset));
+            cache->ctor(cache, (void *) ((uintptr_t) objbase + offset));
         }
 
         void **freenext = &base[offset / cache->truesize];
-        *freenext =  slab->free;
+        *freenext = slab->free;
         slab->free = freenext;
     }
 }
 
-static bool growcache(scache_t *cache)
+static bool growcache(scache_t * cache)
 {
-    void *_slab = (void*)PHYS_TO_VIRT(pmm_get(1, 0x0, __func__, __LINE__));
+    void *_slab =
+        (void *) PHYS_TO_VIRT(pmm_get(1, 0x0, __func__, __LINE__));
     if (_slab == NULL)
         return false;
     slab_t *slab = GET_SLAB(_slab);
@@ -96,9 +96,10 @@ static bool growcache(scache_t *cache)
     if (cache->size < SLAB_INDIRECT_CUTOFF) {
         initdirect(cache, slab, _slab);
     } else {
-        void *base = (void*)PHYS_TO_VIRT(
-            pmm_get(NUM_PAGES(cache->slabobjcount * cache->truesize),
-                    0x0, __func__, __LINE__));
+        void *base = (void *)
+            PHYS_TO_VIRT(pmm_get
+                         (NUM_PAGES(cache->slabobjcount * cache->truesize),
+                          0x0, __func__, __LINE__));
         if (base == NULL) {
             pmm_free(VIRT_TO_PHYS(_slab), 1, __func__, __LINE__);
             return false;
@@ -115,7 +116,7 @@ static bool growcache(scache_t *cache)
     return true;
 }
 
-static void *takeobject(scache_t *cache, slab_t *slab)
+static void *takeobject(scache_t * cache, slab_t * slab)
 {
     if (slab->free == NULL) {
         return NULL;
@@ -125,21 +126,22 @@ static void *takeobject(scache_t *cache, slab_t *slab)
 
 #if SLAB_DEBUG != 0
     if (cache->size < SLAB_INDIRECT_CUTOFF) {
-        void *addr = (void *)objend;
-        void *base = (void *)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE);
-        if (!(addr >= base && addr < (void *)slab)) {
+        void *addr = (void *) objend;
+        void *base = (void *) ROUND_DOWN((uintptr_t) slab, PAGE_SIZE);
+        if (!(addr >= base && addr < (void *) slab)) {
             kpanic("slab: addr 0x%x is not in range 0x%x - 0x%x\n",
                    addr, base, slab);
         }
     } else {
-        void *addr = slab->base + ((uintptr_t)objend
-            - ROUND_DOWN((uintptr_t)slab, PAGE_SIZE))
+        void *addr = slab->base + ((uintptr_t) objend
+                                   - ROUND_DOWN((uintptr_t) slab,
+                                                PAGE_SIZE))
             / sizeof(void **) * cache->truesize;
-        if(!(addr >= slab->base
-             && (uintptr_t)addr < (uintptr_t)slab->base
-             + cache->slabobjcount * cache->truesize)) {
+        if (!(addr >= slab->base
+              && (uintptr_t) addr < (uintptr_t) slab->base
+              + cache->slabobjcount * cache->truesize)) {
             kpanic("slab: addr 0x%x is not in range 0x%x - 0x%x\n",
-                   addr, slab->base, (uintptr_t)slab->base
+                   addr, slab->base, (uintptr_t) slab->base
                    + cache->slabobjcount * cache->truesize);
         }
     }
@@ -149,31 +151,31 @@ static void *takeobject(scache_t *cache, slab_t *slab)
     slab->used += 1;
     *objend = NULL;
     if (cache->size < SLAB_INDIRECT_CUTOFF) {
-        return (void *)((uintptr_t)objend - cache->size);
+        return (void *) ((uintptr_t) objend - cache->size);
     } else {
-        return (void *)((uintptr_t)slab->base
-            + ((uintptr_t)objend
-            - ROUND_DOWN((uintptr_t)slab, PAGE_SIZE))
-            / sizeof(void **) * cache->truesize);
+        return (void *) ((uintptr_t) slab->base
+                         + ((uintptr_t) objend
+                            - ROUND_DOWN((uintptr_t) slab, PAGE_SIZE))
+                         / sizeof(void **) * cache->truesize);
     }
 }
 
 /* frees an object and returns the slab the object belongs to */
-static slab_t *returnobject(scache_t *cache, void *obj)
+static slab_t *returnobject(scache_t * cache, void *obj)
 {
     slab_t *slab = NULL;
     void **freeptr = NULL;
     if (cache->size < SLAB_INDIRECT_CUTOFF) {
-        slab = (slab_t *)(ROUND_DOWN((uintptr_t)obj, PAGE_SIZE) +
-            SLAB_PAGE_OFFSET);
-        freeptr = (void **)((uintptr_t)obj + cache->size);
+        slab = (slab_t *) (ROUND_DOWN((uintptr_t) obj, PAGE_SIZE) +
+                           SLAB_PAGE_OFFSET);
+        freeptr = (void **) ((uintptr_t) obj + cache->size);
         ASSERT(*freeptr == NULL);
     } else {
         bool partial = cache->full == NULL;
         slab = partial ? cache->partial : cache->full;
         while (slab) {
-            void *top = (void *)((uintptr_t)slab->base
-                + cache->slabobjcount * cache->truesize);
+            void *top = (void *) ((uintptr_t) slab->base
+                                  + cache->slabobjcount * cache->truesize);
             if (obj >= slab->base && obj < top)
                 break;
             if (slab->next == NULL && partial == false) {
@@ -184,9 +186,9 @@ static slab_t *returnobject(scache_t *cache, void *obj)
             }
         }
         ASSERT(slab);
-        uintmax_t objn = ((uintptr_t)obj
-            - (uintptr_t)slab->base) / cache->truesize;
-        void **base = (void **)ROUND_DOWN((uintptr_t)slab, PAGE_SIZE);
+        uintmax_t objn = ((uintptr_t) obj
+                          - (uintptr_t) slab->base) / cache->truesize;
+        void **base = (void **) ROUND_DOWN((uintptr_t) slab, PAGE_SIZE);
         freeptr = &base[objn];
     }
 
@@ -200,7 +202,7 @@ static slab_t *returnobject(scache_t *cache, void *obj)
     return slab;
 }
 
-void *slab_allocate(scache_t *cache) 
+void *slab_allocate(scache_t * cache)
 {
     lock_lock(&cache->lock);
 
@@ -246,12 +248,12 @@ void *slab_allocate(scache_t *cache)
         cache->full = slab;
     }
 
-cleanup:
+  cleanup:
     lock_release(&cache->lock);
     return ret;
 }
 
-void slab_free(scache_t *cache, void *addr)
+void slab_free(scache_t * cache, void *addr)
 {
     lock_lock(&cache->lock);
 
@@ -273,7 +275,7 @@ void slab_free(scache_t *cache, void *addr)
             slab->next->prev = slab;
         cache->empty = slab;
     }
-    
+
     if (slab->used == cache->slabobjcount - 1) {
         if (slab->prev == NULL)
             cache->full = slab->next;
@@ -293,17 +295,16 @@ void slab_free(scache_t *cache, void *addr)
     lock_release(&cache->lock);
 }
 
-scache_t *slab_newcache(
-    uint64_t size, uint64_t alignment,
-    void (*ctor)(scache_t *, void *),
-    void (*dtor)(scache_t *, void *))
+scache_t *slab_newcache(uint64_t size, uint64_t alignment,
+                        void (*ctor)(scache_t *, void *),
+                        void(*dtor)(scache_t *, void *))
 {
-    if (alignment == 0)
+    if(alignment == 0)
         alignment = 8;
 
     if (selfcacheinit == false) {
         selfcacheinit = true;
-        memset((void*)&selfcache.lock, 0, sizeof(lock_t));
+        memset((void *) &selfcache.lock, 0, sizeof(lock_t));
     }
 
     scache_t *cache = slab_allocate(&selfcache);
@@ -312,7 +313,8 @@ scache_t *slab_newcache(
 
     cache->size = size;
     cache->alignment = alignment;
-    uint64_t freeptrsize = size < SLAB_INDIRECT_CUTOFF ? sizeof(void **) : 0;
+    uint64_t freeptrsize =
+        size < SLAB_INDIRECT_CUTOFF ? sizeof(void **) : 0;
     cache->truesize = ROUND_UP(size + freeptrsize, alignment);
     cache->ctor = ctor;
     cache->dtor = dtor;
@@ -322,15 +324,16 @@ scache_t *slab_newcache(
     cache->empty = NULL;
     cache->partial = NULL;
 
-    memset((void*)&cache->lock, 0, sizeof(lock_t));
+    memset((void *) &cache->lock, 0, sizeof(lock_t));
 
     klogd("slab: new cache: size %d align %d true size %d obj count %d\n",
-        cache->size, cache->alignment, cache->truesize, cache->slabobjcount);
+          cache->size, cache->alignment, cache->truesize,
+          cache->slabobjcount);
 
     return cache;
 }
 
-static uint64_t purge(scache_t *cache, uint64_t maxcount)
+static uint64_t purge(scache_t * cache, uint64_t maxcount)
 {
     slab_t *slab = cache->empty;
     for (uint64_t done = 0; done < maxcount; ++done) {
@@ -356,13 +359,14 @@ static uint64_t purge(scache_t *cache, uint64_t maxcount)
     return maxcount;
 }
 
-void slab_freecache(scache_t *cache) {
+void slab_freecache(scache_t * cache)
+{
     lock_lock(&cache->lock);
 
     ASSERT(cache->partial == NULL);
     ASSERT(cache->full == NULL);
 
-    purge(cache, (uint64_t)-1);
+    purge(cache, (uint64_t) - 1);
 
     slab_free(&selfcache, cache);
 

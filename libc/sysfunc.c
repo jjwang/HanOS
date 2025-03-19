@@ -206,7 +206,7 @@ int sys_write(int fd, const void *buf, uint64_t count)
 int sys_exec(const char *path, char *const argv[])
 {
     int errno, ret;
-    const char *envp[] = { 
+    const char *envp[] = {
         "TIME_STYLE=posix-long-iso",
         "TERM=hanos",
         NULL
@@ -226,7 +226,8 @@ int sys_wait(int pid)
     while (true) {
         int errno, ret;
         SYSCALL3(SYSCALL_WAITPID, pid, NULL, 0);
-        if (ret < 0) break;
+        if (ret < 0)
+            break;
     }
     return 0;
 }
@@ -260,14 +261,14 @@ int sys_dup(int fd, int flags, int newfd)
     return ret;
 }
 
-int sys_fstat(int fd, stat_t *statbuf)
+int sys_fstat(int fd, stat_t * statbuf)
 {
     int errno, ret;
     SYSCALL2(SYSCALL_FSTAT, fd, statbuf);
     return ret;
 }
 
-int sys_stat(const char *path, stat_t *statbuf)
+int sys_stat(const char *path, stat_t * statbuf)
 {
     int errno, ret;
     SYSCALL4(SYSCALL_FSTATAT, AT_FDCWD, path, statbuf, 0);
@@ -280,4 +281,3 @@ int sys_readdir(int fd, void *buffer)
     SYSCALL2(SYSCALL_READDIR, fd, buffer);
     return ret;
 }
-

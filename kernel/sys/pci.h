@@ -23,7 +23,7 @@
                                 (((dev)->device) << 11) |     \
                                 (((dev)->func) << 8))
 
-typedef struct [[gnu::packed]] {
+typedef struct[[gnu::packed]] {
     int64_t parent;
     uint8_t bus;
     uint8_t func;
@@ -49,7 +49,7 @@ typedef struct {
 
 void pci_init(void);
 void pci_list(void);
- const char *pci_device_id_to_string(pci_device_t *device);
+const char *pci_device_id_to_string(pci_device_t * device);
 
 uint8_t pci_inb(uint32_t id, uint32_t offset);
 void pci_outb(uint32_t id, uint32_t offset, uint8_t data);
@@ -67,7 +67,7 @@ typedef struct {
     uint32_t flags;
 } pci_bar_t;
 
-void pci_get_bar(pci_bar_t *bar, uint32_t id, uint32_t index);
+void pci_get_bar(pci_bar_t * bar, uint32_t id, uint32_t index);
 
 /* I/O Ports */
 #define PCI_PORT_ADDR   0xCF8
@@ -275,5 +275,3 @@ void pci_get_bar(pci_bar_t *bar, uint32_t id, uint32_t index);
 /* Data Acquisition and Signal Processing Controllers */
 #define PCI_SP_DPIO                     0x1100
 #define PCI_SP_OTHER                    0x1180
-
-

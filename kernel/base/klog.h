@@ -36,16 +36,16 @@ typedef enum {
 typedef struct {
     uint8_t buff[KLOG_BUFFER_SIZE];
     int start, end;
-    term_info_t* term;
+    term_info_t *term;
 } klog_info_t;
 
 void klog_init(void);
-void klog_vprintf(klog_level_t level, const char*, ...);
+void klog_vprintf(klog_level_t level, const char *, ...);
 void klog_refresh(int mode);
 void klog_debug(void);
 void klog_lock(void);
 void klog_unlock(void);
-void kprintf(const char*, ...);
+void kprintf(const char *, ...);
 
 #define klogv(s, ...)       klog_vprintf(KLOG_LEVEL_VERBOSE, s, ##__VA_ARGS__)
 #define klogd(s, ...)       klog_vprintf(KLOG_LEVEL_DEBUG, s, ##__VA_ARGS__)

@@ -24,4 +24,3 @@ void alloc_init();
 void *alloc(uint64_t s);
 void *realloc(void *addr, uint64_t s);
 void free(void *addr);
-

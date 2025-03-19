@@ -39,9 +39,8 @@ void apic_timer_init(void);
 void apic_timer_enable(void);
 void apic_timer_stop(void);
 void apic_timer_start(void);
-void apic_timer_set_handler(void (*h)(void*));
+void apic_timer_set_handler(void (*h)(void *));
 void apic_timer_set_frequency(uint64_t freq);
 void apic_timer_set_period(time_t tv);
 void apic_timer_set_mode(apic_timer_mode_t mode);
 uint8_t apic_timer_get_vector(void);
-

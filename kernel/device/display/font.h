@@ -25,11 +25,11 @@
 #define PSF1_SEPARATOR  0xFFFF
 #define PSF1_STARTSEQ   0xFFFE
 
-typedef struct [[gnu::packed]] {
-    uint8_t magic[2];       /* Magic number */
-    uint8_t mode;           /* PSF font mode */
-    uint8_t charsize;       /* Character size */
-    uint8_t data[];         /* Actual font data */
+typedef struct[[gnu::packed]] {
+    uint8_t magic[2];           /* Magic number */
+    uint8_t mode;               /* PSF font mode */
+    uint8_t charsize;           /* Character size */
+    uint8_t data[];             /* Actual font data */
 } font_psf1_t;
 
 #define PSF2_MAGIC0     0x72
@@ -47,17 +47,16 @@ typedef struct [[gnu::packed]] {
 #define PSF2_SEPARATOR  0xFF
 #define PSF2_STARTSEQ   0xFE
 
-typedef struct [[gnu::packed]] {
-    uint32_t magic;         /* Magic bytes to identify PSF */
-    uint32_t version;       /* Zero */
-    uint32_t headersize;    /* Offset of bitmaps in file, 32 */
-    uint32_t flags;         /* 0 if there's no unicode table */
+typedef struct[[gnu::packed]] {
+    uint32_t magic;             /* Magic bytes to identify PSF */
+    uint32_t version;           /* Zero */
+    uint32_t headersize;        /* Offset of bitmaps in file, 32 */
+    uint32_t flags;             /* 0 if there's no unicode table */
 
-    uint32_t numglyph;      /* Number of glyphs */
-    uint32_t glyph_size;    /* Size of each glyph */
-    uint32_t height;        /* Height in pixels */
-    uint32_t width;         /* Width in pixels */
+    uint32_t numglyph;          /* Number of glyphs */
+    uint32_t glyph_size;        /* Size of each glyph */
+    uint32_t height;            /* Height in pixels */
+    uint32_t width;             /* Width in pixels */
 
-    uint8_t data[];         /* Actual font data */
+    uint8_t data[];             /* Actual font data */
 } font_psf2_t;
-

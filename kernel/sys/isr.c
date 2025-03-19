@@ -22,7 +22,7 @@
 #include <proc/sched.h>
 #include <proc/task.h>
 
-static char* exceptions[] = {
+static char *exceptions[] = {
     [0] = "Division by Zero",
     [1] = "Debug",
     [2] = "Non Maskable Interrupt",
@@ -65,7 +65,7 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
     handlers[id] = handler;
 }
 
-void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
+void exc_handler_proc(uint64_t excno, task_regs_t * tr, uint64_t errcode)
 {
     /* IRQ7 should be skipped */
     if (excno == IRQ7) {
@@ -74,7 +74,8 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
 
     /* IRQ128 is used for system call */
     if (excno == IRQ128) {
-        klogi("IRQ: received software interrupt of 0x80 for system call.\n");
+        klogi
+            ("IRQ: received software interrupt of 0x80 for system call.\n");
         return;
     }
 
@@ -99,7 +100,7 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
             port_outb(PIC1, PIC_EOI);
         }
         return;
-    }   
+    }
 
     task_t *t = sched_get_current_task();
     task_id_t tid = ((t == NULL) ? 0 : t->tid);
@@ -123,9 +124,9 @@ void exc_handler_proc(uint64_t excno, task_regs_t *tr, uint64_t errcode)
           tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
           tr->r15, cr2val, cr3val);
 
-    kpanic("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
-           tid, exceptions[excno], excno, errcode, errcode);
+    kpanic
+        ("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
+         tid, exceptions[excno], excno, errcode, errcode);
 
-    while (true)
-        ;
+    while (true);
 }

@@ -37,28 +37,28 @@
 #define CAPACITY_SIZE(cache)    (cache->size - sizeof(uint64_t) * 2 \
                                 - USE_POISON * sizeof(uint64_t))
 
-static uint64_t allocsizes[CACHE_COUNT] =
-{
+static uint64_t allocsizes[CACHE_COUNT] = {
     32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768,
     ALLOC_MAX_SIZE,
 };
 
-static scache_t *caches[CACHE_COUNT] = {0};
+static scache_t *caches[CACHE_COUNT] = { 0 };
 
-static void initarea(scache_t *cache, void *obj)
+static void initarea(scache_t * cache, void *obj)
 {
     uint64_t *ptr = obj;
     *ptr = CAPACITY_SIZE(cache);
     memset(ptr + 2, 0, *ptr);
 #if USE_POISON == 1
-    *((uint64_t *)((uintptr_t)obj + cache->size - sizeof(uint64_t))) = POISON_VALUE;
+    *((uint64_t *) ((uintptr_t) obj + cache->size - sizeof(uint64_t))) =
+        POISON_VALUE;
 #endif
 }
 
-static void dtor(scache_t *cache, void *obj)
+static void dtor(scache_t * cache, void *obj)
 {
 #if USE_POISON == 1
-    ASSERT(*(uint64_t *)((uintptr_t)obj + cache->size - sizeof(uint64_t))
+    ASSERT(*(uint64_t *) ((uintptr_t) obj + cache->size - sizeof(uint64_t))
            == POISON_VALUE);
 #endif
     initarea(cache, obj);
@@ -87,12 +87,12 @@ void *alloc(uint64_t size)
         return NULL;
     ASSERT(*ret == CAPACITY_SIZE(cache));
     *(ret + 1) = size;
-    return (void*)(ret + 2);
+    return (void *) (ret + 2);
 }
 
 void free(void *ptr)
 {
-    uint64_t *start = (void*)ptr;
+    uint64_t *start = (void *) ptr;
     start -= 2;
     uint64_t size = *start;
     scache_t *cache = getcachefromsize(size);
@@ -101,12 +101,12 @@ void free(void *ptr)
 
 void *realloc(void *ptr, uint64_t size)
 {
-    uint64_t *start = (void*)ptr;
+    uint64_t *start = (void *) ptr;
     start -= 2;
     uint64_t currentsize = *(start + 1);
     if (size <= currentsize) {
         *(start + 1) = size;
-        return (void*)ptr;
+        return (void *) ptr;
     }
 
     /* grow */
@@ -116,9 +116,9 @@ void *realloc(void *ptr, uint64_t size)
     /* same allocation */
     if (oldcache == newcache) {
         uint64_t diff = size - currentsize;
-        memset((void *)((uintptr_t)ptr + currentsize), 0, diff);
+        memset((void *) ((uintptr_t) ptr + currentsize), 0, diff);
         *(start + 1) = size;
-        return (void*)ptr;
+        return (void *) ptr;
     }
 
     /* different allocation */
@@ -128,7 +128,7 @@ void *realloc(void *ptr, uint64_t size)
     *(new + 1) = size;
     memcpy((new + 2), ptr, currentsize);
     slab_free(oldcache, start);
-    return (void*)(new + 2);
+    return (void *) (new + 2);
 }
 
 void alloc_init()
