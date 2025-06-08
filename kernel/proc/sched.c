@@ -50,7 +50,7 @@ static uint64_t tasks_coordinate[CPU_MAX] = { 0 };
 
 static volatile uint16_t cpu_num = 0;
 
-vec_new_static(task_t *, tasks_active);
+vec_new_static(task_t*, tasks_active);
 
 extern void enter_context_switch(void *v);
 extern void exit_context_switch(task_t * next, uint64_t cr3val);
@@ -163,9 +163,9 @@ _Noreturn void task_idle_proc(task_id_t tid)
 
 /*
  * Context switch has 3 situations which are determined by parameter "mode":
- * [0]: triggered by timer cycle.
- * [1]: triggered by task itself which needs to fall in sleep.
- * [2]: triggered by fork which needs to create a clone.
+ * SCHED_SWITCH_TIME_CYCLE(0): triggered by timer cycle.
+ * SCHED_SWITCH_SLEEP     (1): triggered by task itself which needs to fall in sleep.
+ * SCHED_SWITCH_FORK      (2): triggered by fork which needs to create a clone.
  *
  */
 void do_context_switch(void *stack, int64_t mode)
@@ -195,7 +195,6 @@ void do_context_switch(void *stack, int64_t mode)
     uint64_t ticks = tasks_coordinate[cpu_id];
 
     task_t *curr = tasks_running[cpu_id];
-    task_t *next = NULL;
 
     if (curr) {
         curr->tstack_top = stack;
@@ -216,29 +215,22 @@ void do_context_switch(void *stack, int64_t mode)
     tasks_running[cpu_id] = NULL;
     curr = NULL;
 
-    uint64_t loop_size = 0;
-    while (true) {
-        if (vec_length(&tasks_active) > 0) {
-            next = vec_at(&tasks_active, 0);
-            vec_erase(&tasks_active, 0);
-        } else {
-            next = NULL;
+    task_t *next = NULL;
+    int64_t tasks_num = vec_length(&tasks_active);
+
+    for (int64_t i = 0; i < tasks_num; i++) {
+        task_t *t = vec_at(&tasks_active, i);
+        if (t->status == TASK_READY) {
+            next = t;
+            vec_erase(&tasks_active, i);
             break;
         }
-        if (next->status == TASK_READY)
-            break;
-        if (next->status == TASK_SLEEPING) {
-            if ((hpet_get_nanos() >= next->wakeup_time)
-                && (next->wakeup_time > 0)) {
+        if (t->status == TASK_SLEEPING) {
+            if ((hpet_get_nanos() >= t->wakeup_time) && (t->wakeup_time > 0)) {
+                next = t;
+                vec_erase(&tasks_active, i);
                 break;
             }
-        }
-        vec_push_back(&tasks_active, next);
-        /* If the whole task list is visited, exit with NULL task */
-        loop_size++;
-        if (loop_size >= vec_length(&tasks_active)) {
-            next = NULL;
-            break;
         }
     }
 
