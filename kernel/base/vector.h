@@ -54,7 +54,7 @@
 #define vec_erase(vec, index)                                       \
     {                                                               \
         memcpy(&((vec)->data[index]), &((vec)->data[index + 1]),    \
-               sizeof((vec)->data[0]) * (vec)->len - index - 1);    \
+               sizeof((vec)->data[0]) * ((vec)->len - index - 1));  \
         memset(&((vec)->data[(vec)->len - 1]), 0,                   \
                sizeof((vec)->data[0]));                             \
         (vec)->len--;                                               \
