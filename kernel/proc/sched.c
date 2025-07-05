@@ -195,25 +195,27 @@ void do_context_switch(void *stack, int64_t mode)
     uint64_t ticks = tasks_coordinate[cpu_id];
 
     task_t *curr = tasks_running[cpu_id];
-
-    if (curr) {
+    if (curr != NULL) {
         curr->tstack_top = stack;
         curr->last_tick = ticks;
         curr->errno = cpu->errno;
 
-        if (curr->status == TASK_RUNNING)
-            curr->status = TASK_READY;
-
         if ((uint64_t) curr != (uint64_t) tasks_idle[cpu_id]) {
-            if (mode == SCHED_SWITCH_FORK) {
+            if (mode == SCHED_SWITCH_FORK){
                 task_t *curr_fork = task_fork(curr);
+                if (curr_fork->status == TASK_RUNNING)
+                    curr_fork->status = TASK_READY;
                 vec_push_back(&tasks_active, curr_fork);
             }
-            vec_push_back(&tasks_active, curr);
+            if (curr->status != TASK_RUNNING) {
+                vec_push_back(&tasks_active, curr);
+                tasks_running[cpu_id] = NULL;
+                curr = NULL;
+            }
+        } else {
+            curr = NULL;
         }
     }
-    tasks_running[cpu_id] = NULL;
-    curr = NULL;
 
     task_t *next = NULL;
     int64_t tasks_num = vec_length(&tasks_active);
@@ -234,8 +236,13 @@ void do_context_switch(void *stack, int64_t mode)
         }
     }
 
-    if (next == NULL) {
-        next = tasks_idle[cpu_id];
+    if (next != NULL) {
+        if (curr != NULL) {
+            curr->status = TASK_READY;
+            vec_push_back(&tasks_active, curr);
+        }
+    } else {
+        next = (curr == NULL) ? tasks_idle[cpu_id] : curr;
     }
 
     next->status = TASK_RUNNING;
