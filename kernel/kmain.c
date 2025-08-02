@@ -337,6 +337,33 @@ void kmain(void)
 
     vfs_init();
 
+    /* Measure pure CPU computation speed by running a simple busy loop of
+     * 100 million no-op operations.
+     */
+    uint64_t start, end;
+
+    /* This is used to verify that CPU and memory performance are normal on
+     * the hardware.
+     *
+     * K29 QEMU    : 93363090 nano seconds
+     * NEC VersaPro: 83394533 nano seconds
+     */
+    start = hpet_get_nanos();
+    for (int64_t ii = 0; ii < 100000000; ++ii) asm volatile("" ::: "memory");
+    end = hpet_get_nanos();
+    klogi("Empty loop cost      : %d nano seconds\n", end - start);
+
+    /* Measure MMIO framebuffer write speed by writing 10 million times to
+     * the framebuffer address.
+     *
+     * This tests whether MMIO memory access or cache settings cause
+     * performance issues.
+     */
+    start = hpet_get_nanos();
+    for (int64_t ii = 0; ii < 100000000; ++ii) *((volatile uint32_t*)fb->address) = 0;
+    end = hpet_get_nanos();
+    klogi("Framebuffer loop cost: %d nano seconds\n", end - start);
+
     klogi("Init INITRD...\n");
     struct limine_module_response *module_response =
         module_request.response;
