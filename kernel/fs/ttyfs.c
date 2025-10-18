@@ -233,6 +233,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
 
         cursor_visible = CURSOR_HIDE;
         term_set_cursor(' ');
+
         term_refresh(TERM_MODE_CLI);
 
         if (id->ibuff[index] != (char) EOF) {
@@ -277,8 +278,12 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
         msg[len] = '\0';
         memcpy(msg, buff, len);
 
+        lock_release(&tty_lock);
+
         cursor_visible = CURSOR_HIDE;
+
         term_set_cursor(' ');
+
         term_refresh(TERM_MODE_CLI);
 
         kprintf("%s", msg);
@@ -288,9 +293,9 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
         if (len > 1)
             kmfree(msg);
         wlen = len;
+    } else {
+        lock_release(&tty_lock);
     }
-
-    lock_release(&tty_lock);
 
     return wlen;
 }

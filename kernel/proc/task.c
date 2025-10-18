@@ -306,6 +306,18 @@ task_t *task_fork(task_t * tp)
 
     curr_tid++;
 
+    klogi("LOCK STATS: acquired %d times, total hold time %d ns (%d ms), "
+        "avg hold time %d ns, max hold time %d ns (%d ms | %s:%d), "
+        "spin failed %d times\n",
+        total_lock_acquire_count,
+        total_lock_hold_time_ns,
+        NANOS_TO_MILLIS(total_lock_hold_time_ns),
+        total_lock_acquire_count ? (total_lock_hold_time_ns /
+            total_lock_acquire_count) : 0,
+        max_lock_hold_time_ns, NANOS_TO_MILLIS(max_lock_hold_time_ns), 
+        max_lock_hold_fn, max_lock_hold_ln,
+        total_spin_fail_count);
+
   norm_exit:
     return tc;
 }
@@ -359,12 +371,4 @@ void task_free(task_t * t)
     klogv("TASK: try to free task %d (forked: %s)\n",
           t->tid, t->isforked ? "true" : "false");
     kmfree(t);
-
-    klogi("LOCK STATS: acquired %d times, total hold time %d ns (%d ms), "
-        "avg hold time %d ns\n",
-        total_lock_acquire_count,
-        total_lock_hold_time_ns,
-        NANOS_TO_MILLIS(total_lock_hold_time_ns),
-        total_lock_acquire_count ? (total_lock_hold_time_ns /
-            total_lock_acquire_count) : 0);
 }

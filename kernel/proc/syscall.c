@@ -48,7 +48,6 @@ extern int64_t syscall_handler();
 typedef int64_t(*syscall_ptr_t) (void);
 
 extern lock_t vfs_lock;
-extern lock_t sched_lock;
 
 static bool debug_info = false;
 
@@ -261,9 +260,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     m.np = NUM_PAGES(length);
     m.flags = pf;
 
-    lock_lock(&sched_lock);
     vec_push_back(&t->mmap_list, m);
-    lock_release(&sched_lock);
 
     return ptr;
 
@@ -1304,14 +1301,12 @@ void k_exit(int64_t status)
     }
 
     /* Close all open files */
-    lock_lock(&sched_lock);
     for (uint64_t i = 0; i < t->open_files_table.size; i++) {
         int64_t fh = t->open_files_table.array[i].key;
         if (fh >= 0) {
             vfs_close(fh);
         }
     }
-    lock_release(&sched_lock);
 
   normal_exit:
     /* Exit from scheduler */

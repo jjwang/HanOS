@@ -29,7 +29,7 @@ void sched_debug(bool showlog);
 void sched_init(const char *name, uint16_t cpu_id);
 task_t *sched_new(const char *name, void (*entry)(task_id_t),
                   bool usermode);
-void sched_add(task_t * t);
+void sched_add(task_t * t, bool on_curr_cpu);
 void sched_sleep(time_t ms);
 task_id_t sched_fork(void);
 void sched_exit(int64_t status);

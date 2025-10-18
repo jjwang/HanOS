@@ -26,7 +26,7 @@
 #define SMP_TRAMPOLINE_ARG_CR3          0xfd0
 #define SMP_TRAMPOLINE_ARG_CPUINFO      0xfe0
 
-#define CPU_MAX                         256
+#define CPU_MAX                         16
 
 /* TODO: If stack size is set to PAGE_SIZE * 32, there will be some #PF
  * exceptions in userspace apps (specifically in hansh). From the contexts, it

@@ -32,8 +32,6 @@
 
 static bool debug_info = false;
 
-extern lock_t sched_lock;
-
 int elf_find_symbol_table(elf_hdr_t * hdr, elf_shdr_t * shdr)
 {
     for (uint64_t i = 0; i < hdr->shnum; i++) {
