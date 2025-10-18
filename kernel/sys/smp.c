@@ -298,6 +298,8 @@ void smp_init()
             smp_info->cpus[smp_info->num_cpus].is_bsp = false;
         }
         smp_info->num_cpus++;
+        /* Must sleep here to make sure CPU is initialized one by one */
+        hpet_sleep(250);
     }
 
     while (true) {

@@ -391,14 +391,14 @@ void kmain(void)
     klog_debug();
 
     task_t *tcursor = sched_new("kcursor", kcursor, false);
-    sched_add(tcursor);
+    sched_add(tcursor, false);
 
 #if LAUNCHER_CLI
     term_clear(TERM_MODE_CLI);
 #endif
 
     task_t *tshell = sched_new("kshell", kshell, false);
-    sched_add(tshell);
+    sched_add(tshell, true);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
