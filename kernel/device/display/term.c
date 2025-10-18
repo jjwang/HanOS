@@ -424,7 +424,7 @@ void term_clear(int mode)
 void term_print(int mode, uint8_t c)
 {
 #if LAUNCHER_CLI
-    if (term_active_mode != TERM_MODE_UNKNOWN) {
+    if (mode == TERM_MODE_INFO) {
         serial_write(c);
     }
 

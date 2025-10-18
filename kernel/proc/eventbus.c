@@ -90,7 +90,9 @@ bool eb_subscribe(task_id_t tid, event_type_t type, event_para_t * para)
 
 bool eb_dispatch(void)
 {
-    lock_lock(&eb_lock);
+    if (!lock_try(&eb_lock)) {
+        return false;
+    }
 
     while (true) {
         if (vec_length(&eb_publishers) > 0) {

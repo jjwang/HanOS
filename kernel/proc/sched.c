@@ -23,7 +23,7 @@
 #include <libc/string.h>
 
 #include <base/klog.h>
-#include <base/lock.h>
+#include <base/klib.h>
 #include <base/time.h>
 #include <base/kmalloc.h>
 #include <base/vector.h>
@@ -42,69 +42,26 @@
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
-lock_t sched_lock = lock_new();
-
 static task_t *tasks_running[CPU_MAX] = { 0 };
 static task_t *tasks_idle[CPU_MAX] = { 0 };
 static uint64_t tasks_coordinate[CPU_MAX] = { 0 };
 
 static volatile uint16_t cpu_num = 0;
 
-vec_new_static(task_t*, tasks_active);
+typedef vec_struct(task_t*) task_vector_t;
+task_vector_t tasks_active_table[CPU_MAX] = {0};
 
 extern void enter_context_switch(void *v);
 extern void exit_context_switch(task_t * next, uint64_t cr3val);
 extern void force_context_switch(void);
 extern void fork_context_switch(void);
 
-void sched_debug(bool showlog)
-{
-    lock_lock(&sched_lock);
-
-    uint64_t task_num = vec_length(&tasks_active);
-
-    if (showlog)
-        klogd("SCHED: Totally %d active tasks\n", task_num);
-
-    for (uint64_t i = 0; i < task_num; i++) {
-        task_t *t = vec_at(&tasks_active, i);
-        if (t->tid < 1)
-            kpanic("SCHED: task list corrupted (%d 0x%x)\n", showlog, t);
-    }
-
-    for (uint64_t k = 0; k < CPU_MAX; k++) {
-        if (tasks_running[k] != NULL && tasks_running[k] != tasks_idle[k]) {
-            if (showlog) {
-                klogd("SCHED: CPU %d has running task "
-                      "(kernel 0x%x|0x%x user 0x%x|%x in tid %d)\n",
-                      k, tasks_running[k]->kstack_top,
-                      tasks_running[k]->kstack_limit,
-                      tasks_running[k]->ustack_top,
-                      tasks_running[k]->ustack_limit,
-                      tasks_running[k]->tid);
-            }
-            task_num++;
-            if (tasks_running[k]->tid < 1) {
-                kpanic
-                    ("SCHED: running task on CPU %d corrupted (%d 0x%x)\n",
-                     k, showlog, tasks_running[k]);
-            }
-        }
-
-        if (tasks_idle[k] == NULL)
-            continue;
-        if (tasks_idle[k]->tid < 1) {
-            kpanic("SCHED: idle task on CPU %d corrupted (%d 0x%x)\n",
-                   k, showlog, tasks_idle[k]);
-        }
-
-    }
-
-    lock_release(&sched_lock);
-}
-
 _Noreturn void task_idle_proc(task_id_t tid)
 {
+    cpu_t *cpu = smp_get_current_cpu(true);
+    ASSERT (cpu != NULL);
+    
+    uint16_t cpu_id = cpu->cpu_id;
     (void) tid;
 
     while (true) {
@@ -112,14 +69,13 @@ _Noreturn void task_idle_proc(task_id_t tid)
         task_t *t = NULL;
 
         /* Step 1.1: Find a dead task */
-        lock_lock(&sched_lock);
-        uint64_t task_num = vec_length(&tasks_active);
+        uint64_t task_num = vec_length(&tasks_active_table[cpu_id]);
         uint64_t i;
         if (task_num > 0) {
             for (i = 0; i < task_num; i++) {
-                t = vec_at(&tasks_active, i);
+                t = vec_at(&tasks_active_table[cpu_id], i);
                 if (t->status == TASK_DEAD) {
-                    vec_erase(&tasks_active, i);
+                    vec_erase(&tasks_active_table[cpu_id], i);
                     break;
                 } else {
                     t = NULL;
@@ -128,7 +84,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
         }
         if (t != NULL) {
             for (i = 0; i < task_num; i++) {
-                task_t *tp = vec_at(&tasks_active, i);
+                task_t *tp = vec_at(&tasks_active_table[cpu_id], i);
                 if (t->ptid == tp->tid) {
                     for (uint64_t k = 0; k < vec_length(&tp->child_list);
                          k++) {
@@ -146,7 +102,6 @@ _Noreturn void task_idle_proc(task_id_t tid)
                 }
             }
         }
-        lock_release(&sched_lock);
 
         if (t != NULL) {
             klogi("sched: clean memory of dead task #%d (0x%x)\n", t->tid,
@@ -182,20 +137,16 @@ void do_context_switch(void *stack, int64_t mode)
     /* Firstly all events on event bus should be processed */
     eb_dispatch();
 
-    lock_lock(&sched_lock);
-
     cpu_t *cpu = smp_get_current_cpu(true);
-    if (cpu == NULL) {
-        lock_release(&sched_lock);
-        kpanic("sched: cannot get current CPU information\n");
-        return;
-    }
-
+    ASSERT (cpu != NULL);
+   
     uint16_t cpu_id = cpu->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu_id];
 
     task_t *curr = tasks_running[cpu_id];
+
     if (curr != NULL) {
+        /* Task status: 0 - ready, 1 - running, 2 - sleeping */
         curr->tstack_top = stack;
         curr->last_tick = ticks;
         curr->errno = cpu->errno;
@@ -205,10 +156,10 @@ void do_context_switch(void *stack, int64_t mode)
                 task_t *curr_fork = task_fork(curr);
                 if (curr_fork->status == TASK_RUNNING)
                     curr_fork->status = TASK_READY;
-                vec_push_back(&tasks_active, curr_fork);
+                vec_push_back(&tasks_active_table[cpu_id], curr_fork);
             }
             if (curr->status != TASK_RUNNING) {
-                vec_push_back(&tasks_active, curr);
+                vec_push_back(&tasks_active_table[cpu_id], curr);
                 tasks_running[cpu_id] = NULL;
                 curr = NULL;
             }
@@ -218,19 +169,19 @@ void do_context_switch(void *stack, int64_t mode)
     }
 
     task_t *next = NULL;
-    int64_t tasks_num = vec_length(&tasks_active);
+    int64_t tasks_num = vec_length(&tasks_active_table[cpu_id]);
 
     for (int64_t i = 0; i < tasks_num; i++) {
-        task_t *t = vec_at(&tasks_active, i);
+        task_t *t = vec_at(&tasks_active_table[cpu_id], i);
         if (t->status == TASK_READY) {
             next = t;
-            vec_erase(&tasks_active, i);
+            vec_erase(&tasks_active_table[cpu_id], i);
             break;
         }
         if (t->status == TASK_SLEEPING) {
             if ((hpet_get_nanos() >= t->wakeup_time) && (t->wakeup_time > 0)) {
                 next = t;
-                vec_erase(&tasks_active, i);
+                vec_erase(&tasks_active_table[cpu_id], i);
                 break;
             }
         }
@@ -239,7 +190,7 @@ void do_context_switch(void *stack, int64_t mode)
     if (next != NULL) {
         if (curr != NULL) {
             curr->status = TASK_READY;
-            vec_push_back(&tasks_active, curr);
+            vec_push_back(&tasks_active_table[cpu_id], curr);
         }
     } else {
         next = (curr == NULL) ? tasks_idle[cpu_id] : curr;
@@ -253,14 +204,7 @@ void do_context_switch(void *stack, int64_t mode)
 
     tasks_coordinate[cpu_id]++;
 
-    if (mode == SCHED_SWITCH_TIME_CYCLE) {
-        apic_send_eoi();
-    }
-
-    lock_release(&sched_lock);
-
     if (!(cpu->tss.rsp0 & 0xFFFF000000000000) || next->tid < 1) {
-        sched_debug(true);
         kpanic("SCHED: CPU %d kernel stack 0x%x addrspace 0x%x corrputed "
                "(kernel 0x%x|0x%x user 0x%x|%x in task 0x%x tid %d, last tick %d)\n",
                cpu->cpu_id, cpu->tss.rsp0, next->addrspace,
@@ -276,6 +220,10 @@ void do_context_switch(void *stack, int64_t mode)
         write_msr(MSR_FS_BASE, next->fs_base);
     }
 
+    if (mode == SCHED_SWITCH_TIME_CYCLE) {
+        apic_send_eoi();
+    }
+
     exit_context_switch(next->tstack_top, (next->addrspace == NULL)
                         ? 0 : VIRT_TO_PHYS((uint64_t) next->addrspace->
                                            PML4));
@@ -288,13 +236,9 @@ task_id_t sched_get_tid()
         return TID_MAX;
     }
 
-    lock_lock(&sched_lock);
-
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     task_id_t tid = curr->tid;
-
-    lock_release(&sched_lock);
 
     if (tid < 1)
         kpanic("SCHED: %s returns corrupted tid\n", __func__);
@@ -309,8 +253,6 @@ task_id_t sched_fork(void)
         return TID_MAX;
     }
 
-    lock_lock(&sched_lock);
-
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     task_id_t tid = TID_MAX;
@@ -320,8 +262,6 @@ task_id_t sched_fork(void)
         }
         tid = curr->tid;
     }
-
-    lock_release(&sched_lock);
 
     fork_context_switch();
 
@@ -336,8 +276,6 @@ void sched_sleep(time_t millis)
         return;
     }
 
-    lock_lock(&sched_lock);
-
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     if (curr) {
@@ -349,20 +287,23 @@ void sched_sleep(time_t millis)
         }
     }
 
-    lock_release(&sched_lock);
-
     force_context_switch();
 }
 
 static task_status_t sched_get_task_status_impl(task_id_t tid)
 {
+    cpu_t *cpu = smp_get_current_cpu(false);
+    ASSERT (cpu != NULL);
+
+    uint16_t cpu_id = cpu->cpu_id;
+
     task_t *ntask = NULL;
     task_status_t status = TASK_UNKNOWN;
     bool has_child = false;
 
     uint64_t i;
-    for (i = 0; i < vec_length(&tasks_active); i++) {
-        task_t *t = vec_at(&tasks_active, i);
+    for (i = 0; i < vec_length(&tasks_active_table[cpu_id]); i++) {
+        task_t *t = vec_at(&tasks_active_table[cpu_id], i);
         if (t) {
             if (t->tid == tid) {
                 status = t->status;
@@ -413,9 +354,7 @@ task_status_t sched_get_task_status(task_id_t tid)
 {
     task_status_t status = TASK_UNKNOWN;
 
-    lock_lock(&sched_lock);
     status = sched_get_task_status_impl(tid);
-    lock_release(&sched_lock);
 
     return status;
 }
@@ -428,8 +367,6 @@ void sched_exit(int64_t status)
     if (cpu == NULL) {
         return;
     }
-
-    lock_lock(&sched_lock);
 
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
@@ -469,18 +406,20 @@ void sched_exit(int64_t status)
         curr->open_files_table.size = 0;
     }
 
-    lock_release(&sched_lock);
-
     force_context_switch();
 }
 
 bool sched_resume_event(event_t event)
 {
+    cpu_t *cpu = smp_get_current_cpu(false);
+    ASSERT (cpu != NULL);
+
+    uint16_t cpu_id = cpu->cpu_id;
+
     bool ret = false;
 
-    lock_lock(&sched_lock);
-    for (uint64_t i = 0; i < vec_length(&tasks_active); i++) {
-        task_t *t = vec_at(&tasks_active, i);
+    for (uint64_t i = 0; i < vec_length(&tasks_active_table[cpu_id]); i++) {
+        task_t *t = vec_at(&tasks_active_table[cpu_id], i);
         if (t) {
             if (t->status == TASK_SLEEPING
                 && t->wakeup_event.type == event.type) {
@@ -490,7 +429,6 @@ bool sched_resume_event(event_t event)
             }
         }
     }
-    lock_release(&sched_lock);
 
     return ret;
 }
@@ -503,8 +441,6 @@ event_t sched_wait_event(event_t event)
         return e;
     }
 
-    lock_lock(&sched_lock);
-
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     curr->wakeup_time = 0;
@@ -513,8 +449,6 @@ event_t sched_wait_event(event_t event)
 
     if (curr->tid < 1)
         kpanic("SCHED: %s meets corrupted tid\n", __func__);
-
-    lock_release(&sched_lock);
 
     force_context_switch();
 
@@ -545,22 +479,31 @@ uint64_t sched_get_ticks()
 
 void sched_init(const char *name, uint16_t cpu_id)
 {
-    lock_lock(&sched_lock);
     tasks_idle[cpu_id] = task_make(name, task_idle_proc, 255,
                                    TASK_KERNEL_MODE, NULL);
-    lock_release(&sched_lock);
 
-    apic_timer_init();
+    klogi("SCHED: create idle task 0x%x with tid %d for CPU %d\n",
+        tasks_idle[cpu_id], tasks_idle[cpu_id]->tid, cpu_id);
+
+    vec_push_back(&tasks_active_table[cpu_id], tasks_idle[cpu_id]);
+
+    apic_timer_init(cpu_id);
     apic_timer_set_period(TIMESLICE_DEFAULT);
     apic_timer_set_mode(APIC_TIMER_MODE_PERIODIC);
     apic_timer_set_handler(enter_context_switch);
-    apic_timer_start();
 
     cpu_num++;
 
     klogi
-        ("Scheduler initialization finished for CPU %d with idle task %s:%d\n",
+        ("SCHED: initialization finished for CPU %d with idle task %s:%d\n",
          cpu_id, name, tasks_idle[cpu_id]->tid);
+
+    /* Be careful about the codes after running apic_timer_start(). We need to
+     * reduce them as less as possible which also should not use spinlock any
+     * more. After starting APIC timer, the CPU should be in multiple tasks
+     * mode.
+     */
+    apic_timer_start();
 }
 
 uint16_t sched_get_cpu_num()
@@ -571,20 +514,26 @@ uint16_t sched_get_cpu_num()
 task_t *sched_new(const char *name, void (*entry)(task_id_t),
                   bool usermode)
 {
-    lock_lock(&sched_lock);
     task_t *t = task_make(name, entry, 0,
                           usermode ? TASK_USER_MODE : TASK_KERNEL_MODE,
                           NULL);
-    lock_release(&sched_lock);
 
     return t;
 }
 
-void sched_add(task_t * t)
+void sched_add(task_t * t, bool on_curr_cpu)
 {
-    lock_lock(&sched_lock);
-    vec_push_back(&tasks_active, t);
-    lock_release(&sched_lock);
+    cpu_t *cpu = smp_get_current_cpu(false);
+    ASSERT (cpu != NULL);
+
+    uint16_t cpu_id = cpu->cpu_id;
+    if (!on_curr_cpu) {
+        uint64_t cpu_num = smp_get_info()->num_cpus;
+        cpu_id = (cpu_id + 1) % cpu_num;
+    }
+
+    klogi("SCHED: CPU %d adds tid %d\n", cpu_id, t->tid);
+    vec_push_back(&tasks_active_table[cpu_id], t);
 }
 
 task_t *sched_execve(const char *path, const char *argv[],
@@ -607,8 +556,6 @@ task_t *sched_execve(const char *path, const char *argv[],
             break;
         }
     }
-
-    lock_lock(&sched_lock);
 
     tc = task_make(tname, NULL, 0, TASK_USER_MODE,
                    tp == NULL ? NULL : tp->addrspace);
@@ -649,8 +596,6 @@ task_t *sched_execve(const char *path, const char *argv[],
                   tc->open_files_table.array[i].key, tp->tid, tc->tid);
         }
     }
-
-    lock_release(&sched_lock);
 
     if (elf_load(tc, path, &entry, &aux)) {
         /* Need to release memory for task "tc" */
@@ -770,17 +715,15 @@ task_t *sched_execve(const char *path, const char *argv[],
 
     klogd("SCHED: finished initialization with entry 0x%x\n", entry);
 
-    lock_lock(&sched_lock);
     if (tp != NULL) {
         klogi("SCHED: child tid %d and parent tid %d\n", tc->tid, tp->tid);
         vec_push_back(&tp->child_list, tc->tid);
         tc->ptid = tp->tid;
     }
-    lock_release(&sched_lock);
 
     task_debug(tc, true);
 
-    sched_add(tc);
+    sched_add(tc, true);
 
     return tc;
 }

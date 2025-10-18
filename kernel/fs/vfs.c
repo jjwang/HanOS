@@ -253,10 +253,12 @@ int64_t vfs_mount(char *device, char *path, char *fsname)
     at->inode = fs->mount(dev ? dev->inode : NULL);
     at->inode->mountpoint = at;
 
+    lock_release(&vfs_lock);
+
     klogi("Mounted %s at %s as %s\n", device ? device : "<no-device>",
           path, fsname);
-    lock_release(&vfs_lock);
     return 0;
+
   fail:
     lock_release(&vfs_lock);
     return -1;

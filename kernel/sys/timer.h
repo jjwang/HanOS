@@ -35,7 +35,7 @@ typedef enum {
     APIC_TIMER_MODE_ONESHOT
 } apic_timer_mode_t;
 
-void apic_timer_init(void);
+void apic_timer_init(uint64_t cpu_id);
 void apic_timer_enable(void);
 void apic_timer_stop(void);
 void apic_timer_start(void);

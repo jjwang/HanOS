@@ -22,20 +22,31 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define SPINLOCK_DEBUG      false
+
 typedef volatile struct {
     uint32_t lock;              /* The value is zero if-and-only-if the lock is
                                  * in the unlocked stated */
-    uint64_t rflags;
-    uint64_t timestamp;
+    uint64_t acquire_time;
+#if SPINLOCK_DEBUG
+    char last_fn[256];
+    uint64_t last_ln;
+    uint64_t last_tid;
+#endif
 } lock_t;
 
-#define lock_new()          (lock_t){0, 0, 0}
-#define lock_lock(x)        lock_lock_impl(x, __FILE__, __LINE__)
+#define lock_new()          (lock_t){0}
+#define lock_try(x)         lock_lock_impl(x, false, __FILE__, __LINE__)
+#define lock_lock(x)        lock_lock_impl(x, true, __FILE__, __LINE__)
 #define lock_release(x)     lock_release_impl(x, __FILE__, __LINE__)
 
-void lock_lock_impl(lock_t * s, const char *fn, const int ln);
+bool lock_lock_impl(lock_t * s, bool waiting, const char *fn, const int ln);
 void lock_release_impl(lock_t * s, const char *fn, const int ln);
 
 extern volatile uint64_t total_lock_acquire_count;
 extern volatile uint64_t total_lock_hold_time_ns;
+extern volatile uint64_t total_spin_fail_count;
+extern volatile uint64_t max_lock_hold_time_ns;
+extern char max_lock_hold_fn[];
+extern volatile uint64_t max_lock_hold_ln;
 

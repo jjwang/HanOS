@@ -93,7 +93,7 @@ void apic_timer_enable(void)
     apic_write_reg(APIC_REG_TIMER_DCR, 0x1);
 }
 
-void apic_timer_init(void)
+void apic_timer_init(uint64_t cpu_id)
 {
     vector = idt_get_available_vector();
     idt_set_handler(vector, &apic_timer_handler);
@@ -112,6 +112,6 @@ void apic_timer_init(void)
     base_freq =
         ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
-    klogi("APIC timer base frequency: %d Hz. Divisor: 4. IRQ %d.\n",
-          base_freq, vector);
+    klogi("CPU %d: APIC timer base frequency: %d Hz. Divisor: 4. IRQ %d.\n",
+          cpu_id, base_freq, vector);
 }
