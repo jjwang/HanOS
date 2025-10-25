@@ -203,7 +203,7 @@ struct vfs_inode_t {
     tm_t tm;
     vfs_fsinfo_t *fs;
     void *ident;
-    lock_t ilock;
+    lock_t lock;
     vfs_tnode_t *mountpoint;
      vec_struct(vfs_tnode_t *) child;
 };

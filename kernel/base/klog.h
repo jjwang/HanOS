@@ -44,7 +44,6 @@ typedef struct {
 
 void klog_init(void);
 void klog_vprintf(klog_level_t level, const char *, ...);
-void klog_refresh(int mode);
 void klog_debug(void);
 void klog_lock(void);
 void klog_unlock(void);

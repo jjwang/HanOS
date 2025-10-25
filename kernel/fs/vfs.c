@@ -37,11 +37,11 @@
 static bool vfs_initialized = false;
 
 /* VFS wide lock */
-lock_t vfs_lock = { 0 };
+lock_t vfs_lock = lock_new();
 
 /* Stat structure related definitions */
-lock_t dev_lock = { 0 };
-lock_t ino_lock = { 0 };
+lock_t dev_lock = lock_new();
+lock_t ino_lock = lock_new();
 
 static dev_t next_new_dev_id = 1;
 static ino_t next_new_ino_id = 1;

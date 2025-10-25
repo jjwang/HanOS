@@ -44,9 +44,7 @@ static term_info_t term_cli = { 0 };
 
 static int term_active_mode = TERM_MODE_UNKNOWN;
 static uint8_t term_cursor = 0;
-static lock_t term_lock = { 0 };
-
-static bool term_need_redraw = false;
+static lock_t term_lock = lock_new();
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
@@ -620,8 +618,8 @@ void term_start()
     fb_init(&(term_info.fb), NULL);
     fb_init(&(term_cli.fb), NULL);
 
-    klog_refresh(TERM_MODE_INFO);
-    klog_refresh(TERM_MODE_CLI);
+    term_refresh(TERM_MODE_INFO);
+    term_refresh(TERM_MODE_CLI);
 
 #if LAUNCHER_CLI
     term_active_mode = TERM_MODE_CLI;
@@ -632,18 +630,6 @@ void term_start()
 #else
     term_active_mode = TERM_MODE_INFO;
 #endif
-
-    term_need_redraw = true;
-}
-
-bool term_get_redraw()
-{
-    return term_need_redraw;
-}
-
-void term_set_redraw(bool val)
-{
-    term_need_redraw = val;
 }
 
 void term_switch(int mode)
