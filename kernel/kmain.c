@@ -252,6 +252,9 @@ void kmain(void)
     klogi("Framebuffer address: 0x%x, EDID size: %d\n",
           fb->address, fb->edid_size);
 
+    klogi("Init CMOS...\n");
+    cmos_init();
+
     gdt_init(NULL);
 
     pmm_init(mm_request.response, hhdm_request.response->offset);
@@ -277,9 +280,6 @@ void kmain(void)
 
     klogi("Init HPET...\n");
     hpet_init();
-
-    klogi("Init CMOS...\n");
-    cmos_init();
 
     klogi("Init PCI...\n");
     pci_init();
