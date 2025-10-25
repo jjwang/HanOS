@@ -80,8 +80,6 @@ void term_refresh(int mode);
 void term_start();
 void term_switch(int mode);
 int term_get_mode(void);
-bool term_get_redraw(void);
-void term_set_redraw(bool val);
 void term_set_cursor(uint8_t c);
 bool term_set_bg_image(image_t * img);
 void term_get_winsize(winsize_t * ws);

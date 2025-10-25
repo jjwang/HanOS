@@ -99,7 +99,7 @@ vfs_fsinfo_t ttyfs = {
     .ioctl = ttyfs_ioctl
 };
 
-lock_t tty_lock;
+lock_t tty_lock = lock_new();
 
 /* Identifying information for a node */
 typedef struct {
