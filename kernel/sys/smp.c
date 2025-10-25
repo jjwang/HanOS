@@ -52,7 +52,7 @@ static smp_info_t *smp_info = NULL;
 
 static volatile bool smp_initialized = false;
 
-static lock_t smp_lock = { 0 };
+static lock_t smp_lock = lock_new();
 
 smp_info_t *smp_get_info()
 {

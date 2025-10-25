@@ -155,8 +155,8 @@ _Noreturn void kshell(task_id_t tid)
     }
 #endif
 
-    klog_refresh(TERM_MODE_INFO);
-    klog_refresh(TERM_MODE_CLI);
+    term_refresh(TERM_MODE_INFO);
+    term_refresh(TERM_MODE_CLI);
 
     kprintf
         ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
@@ -219,6 +219,7 @@ _Noreturn void kshell(task_id_t tid)
 void kmain(void)
 {
     serial_init();
+
     klog_init();
 
     idt_init();

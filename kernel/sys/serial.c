@@ -9,7 +9,8 @@
   serial port for communication in the HanOS kernel. It sets up the serial port
   with the specified baud rate and configuration, and provides functions to
   write individual characters and strings to the serial port. The initialization
-  function ensures the serial port is properly configured before any data is sent.
+  function ensures the serial port is properly configured before any data is
+sent.
 
  @endverbatim
 
@@ -30,8 +31,8 @@ void serial_init()
     port_outb(SERIAL_PORT + 3, 0x80);   /* Enable DLAB (set baud rate divisor) */
 
     uint16_t divisor = (uint16_t) (115200 / BAUD_RATE);
-    port_outb(SERIAL_PORT + 0, divisor & 0xFF); /* Divisor 3(lo byte) */
-    port_outb(SERIAL_PORT + 1, (divisor >> 8) & 0xff);  /*          (hi byte) */
+    port_outb(SERIAL_PORT + 0, divisor & 0xFF);          /* Divisor 3(lo byte) */
+    port_outb(SERIAL_PORT + 1, (divisor >> 8) & 0xff);   /*          (hi byte) */
 
     port_outb(SERIAL_PORT + 1, 0x00);
     port_outb(SERIAL_PORT + 3, 0x03);   /* 8 bits, no parity, one stop bit */

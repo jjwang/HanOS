@@ -28,8 +28,8 @@
 
 static klog_info_t klog_info = { 0 };
 static klog_info_t klog_cli = { 0 };
-static lock_t klog_info_lock = { 0 };
-static lock_t klog_cli_lock = { 0 };
+static lock_t klog_info_lock = lock_new();
+static lock_t klog_cli_lock = lock_new();
 
 static uint64_t
     klog_clear_times = 0, klog_refresh_times = 0, klog_putchar_times = 0;
@@ -48,38 +48,6 @@ void klog_debug(void)
 {
     klogd("KLOG: clear %d, refresh %d and putchar %d times\n",
           klog_clear_times, klog_refresh_times, klog_putchar_times);
-}
-
-void klog_refresh(int mode)
-{
-    if (term_get_redraw()) {
-        klog_info_t *k =
-            ((mode == TERM_MODE_INFO) ? &klog_info : &klog_cli);
-
-        term_clear(mode);
-
-        /* Note that the string ends at (k->end - 1) */
-        int i = k->start;
-        while (true) {
-            if (i >= KLOG_BUFFER_SIZE)
-                i = 0;
-            if (k->end >= k->start) {
-                if (i >= k->end)
-                    break;
-            } else {
-                if (i >= k->end && i < k->start)
-                    break;
-            }
-            term_putch(mode, k->buff[i]);
-            klog_putchar_times++;
-            i++;
-        }
-        klog_clear_times++;
-        term_set_redraw(false);
-    }
-
-    term_refresh(mode);
-    klog_refresh_times++;
 }
 
 static void klog_putch(klog_info_t * k, uint8_t i)
@@ -330,6 +298,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     va_end(args);
 
     lock_lock(&klog_info_lock);
+
     for (int i = logout.start; i < logout.end;) {
         klog_info.buff[klog_info.end] = logout.buff[i];
         klog_info.end++;
@@ -342,15 +311,17 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
             klog_info.start = 0;
 
         term_putch(TERM_MODE_INFO, logout.buff[i]);
-
         klog_putchar_times++;
 
         i++;
         if (i >= KLOG_BUFFER_SIZE)
             i = 0;
     }
-    klog_refresh(TERM_MODE_INFO);
+
     lock_release(&klog_info_lock);
+
+    term_refresh(TERM_MODE_INFO);
+    klog_refresh_times++;
 }
 
 void kprintf(const char *s, ...)
@@ -388,7 +359,8 @@ void kprintf(const char *s, ...)
             i = 0;
     }
 
-    klog_refresh(TERM_MODE_CLI);
-
     lock_release(&klog_cli_lock);
+
+    term_refresh(TERM_MODE_CLI);
+    klog_refresh_times++;
 }
