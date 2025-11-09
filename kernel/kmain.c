@@ -10,7 +10,7 @@
   ACPI, HPET, CMOS, APIC, PIT, keyboard, VFS, SMP, syscall, INITRD, and terminal.
 
   It also sets up the background image, prints system information, and starts
-  the kcursor task.
+  the kupdateui task.
 
   Finally, it executes the default shell application.
 
@@ -106,10 +106,49 @@ void done(void)
     }
 }
 
-_Noreturn void kcursor(task_id_t tid)
+vec_new_static(char *, messages_info);
+static lock_t messages_info_lock = lock_new();
+
+void kdisplay(int mode, char *s, uint64_t len)
 {
+    (void)len;
+
+    /* Here we just store the string into the temporary buffer */
+    if (mode == TERM_MODE_INFO) {
+        lock_lock(&messages_info_lock);
+        vec_push_back(&messages_info, s);
+        lock_release(&messages_info_lock);
+    }
+}
+
+_Noreturn void kupdateui(task_id_t tid)
+{
+    uint64_t last_ms = (hpet_get_nanos() / 1000000) % 1000;
+
     while (true) {
-        sched_sleep(500);
+        uint64_t now_ms = (hpet_get_nanos() / 1000000) % 1000;
+
+        if (now_ms - last_ms <= 500) {
+            if (vec_length(&messages_info) > 0) {
+                lock_lock(&messages_info_lock);
+                char *s = vec_at(&messages_info, 0);
+                vec_erase(&messages_info, 0);
+                lock_release(&messages_info_lock);
+
+                for (uint64_t i = 0; ; i++) {
+                    if (s[i] == '\0') break;
+                    serial_write(s[i]);
+                }
+
+                kmfree(s);
+            }
+
+            sched_sleep(0);
+
+            continue;
+        }
+
+        last_ms = now_ms;
 
         if (cursor_visible == CURSOR_INVISIBLE) {
             term_set_cursor('_');
@@ -391,8 +430,8 @@ void kmain(void)
 
     klog_debug();
 
-    task_t *tcursor = sched_new("kcursor", kcursor, false);
-    sched_add(tcursor, false);
+    task_t *tupdateui = sched_new("kupdateui", kupdateui, false);
+    sched_add(tupdateui, false);
 
 #if LAUNCHER_CLI
     term_clear(TERM_MODE_CLI);

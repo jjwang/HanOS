@@ -20,7 +20,7 @@ sent.
 #include <sys/serial.h>
 #include <libc/string.h>
 
-#define BAUD_RATE       38400
+#define BAUD_RATE       115200
 
 static bool serial_initialized = false;
 
