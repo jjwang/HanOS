@@ -31,8 +31,7 @@ static klog_info_t klog_cli = { 0 };
 static lock_t klog_info_lock = lock_new();
 static lock_t klog_cli_lock = lock_new();
 
-static uint64_t
-    klog_clear_times = 0, klog_refresh_times = 0, klog_putchar_times = 0;
+static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
 
 void klog_lock(void)
 {
@@ -46,8 +45,8 @@ void klog_unlock(void)
 
 void klog_debug(void)
 {
-    klogd("KLOG: clear %d, refresh %d and putchar %d times\n",
-          klog_clear_times, klog_refresh_times, klog_putchar_times);
+    klogd("KLOG: clear %d, refresh %d times\n", klog_clear_times,
+          klog_refresh_times);
 }
 
 static void klog_putch(klog_info_t * k, uint8_t i)
@@ -297,9 +296,12 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     klog_vprintf_core(&logout, s, args);
     va_end(args);
 
+    bool smp_initialized = (smp_get_current_cpu(false) != NULL);
+    uint64_t msg_len = 0;
+
     lock_lock(&klog_info_lock);
 
-    for (int i = logout.start; i < logout.end;) {
+    for (uint64_t i = logout.start; i < logout.end;) {
         klog_info.buff[klog_info.end] = logout.buff[i];
         klog_info.end++;
 
@@ -310,15 +312,33 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         if (klog_info.start >= KLOG_BUFFER_SIZE)
             klog_info.start = 0;
 
-        term_putch(TERM_MODE_INFO, logout.buff[i]);
-        klog_putchar_times++;
+        if (!smp_initialized) {
+            term_putch(TERM_MODE_INFO, logout.buff[i]);
+        }
 
         i++;
-        if (i >= KLOG_BUFFER_SIZE)
+        if (i >= KLOG_BUFFER_SIZE) {
             i = 0;
+        }
+        msg_len++;
     }
 
     lock_release(&klog_info_lock);
+
+    if (smp_initialized && msg_len > 0) {
+        char *msg_buff = (char*)kmalloc(msg_len + 1);
+        if (msg_buff != NULL) {
+            for (uint64_t i = logout.start, k = 0; i < logout.end;) {
+                msg_buff[k] = logout.buff[i];
+                i++;
+                k++;
+                if (i >= KLOG_BUFFER_SIZE)
+                    i = 0;
+            }
+            msg_buff[msg_len] = '\0';
+            kdisplay(TERM_MODE_INFO, msg_buff, msg_len);
+        }
+    }
 
     term_refresh(TERM_MODE_INFO);
     klog_refresh_times++;
@@ -338,7 +358,7 @@ void kprintf(const char *s, ...)
 
     lock_lock(&klog_cli_lock);
 
-    for (int i = logout.start; i < logout.end;) {
+    for (uint64_t i = logout.start; i < logout.end;) {
         klog_cli.buff[klog_info.end] = logout.buff[i];
         klog_cli.end++;
 
@@ -352,7 +372,6 @@ void kprintf(const char *s, ...)
 #if LAUNCHER_CLI
         term_putch(TERM_MODE_CLI, logout.buff[i]);
 #endif
-        klog_putchar_times++;
 
         i++;
         if (i >= KLOG_BUFFER_SIZE)

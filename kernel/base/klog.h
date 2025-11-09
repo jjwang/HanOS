@@ -38,7 +38,7 @@ typedef enum {
 
 typedef struct {
     uint8_t buff[KLOG_BUFFER_SIZE];
-    int start, end;
+    uint64_t start, end;
     term_info_t *term;
 } klog_info_t;
 

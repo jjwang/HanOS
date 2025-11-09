@@ -20,7 +20,7 @@
 #include <device/display/fb.h>
 #include <base/image.h>
 
-void kdisplay(char *s);         /* Implemented in entry C file */
+void kdisplay(int mode, char *s, uint64_t len); /* Implemented in entry file */
 
 #define TERM_MODE_INFO      0
 #define TERM_MODE_CLI       1
