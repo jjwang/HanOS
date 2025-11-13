@@ -23,6 +23,7 @@
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 #include <sys/smp.h>
+#include <sys/serial.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 
@@ -313,7 +314,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
             klog_info.start = 0;
 
         if (!smp_initialized) {
-            term_putch(TERM_MODE_INFO, logout.buff[i]);
+            serial_write(logout.buff[i]);
         }
 
         i++;
