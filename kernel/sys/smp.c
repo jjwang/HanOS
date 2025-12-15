@@ -158,6 +158,19 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     klogi("SMP: finish initialization of core %d (0x%x)\n",
           cpuinfo->cpu_id, cpuinfo);
 
+    uint64_t cr0;
+    read_cr("cr0", &cr0);
+
+    bool cache_disabled = cr0 & (1ULL << 30);  /* CD = bit 30 */
+    bool not_write_through = cr0 & (1ULL << 29); /* NW = bit 29 */
+
+    if (cache_disabled) {
+        klogw("Warning: CPU cache DISABLED (CR0.CD=1)\n");
+    }   
+    if (not_write_through) {
+        klogw("Warning: CPU write-through DISABLED (CR0.NW=1)\n");
+    }
+
     while (true)
         asm volatile ("hlt");
 }
