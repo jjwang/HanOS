@@ -15,6 +15,11 @@
   inode. tnode is used to store tree information, e.g., parent node. node_desc
   data structure is used for every file operation, from fopen, fread to fclose. 
 
+
+  History:
+    Jan 1, 2026  The spinlock currently in use is inefficient and needs to be
+                 optimized to improve its running speed on physical machines.
+
  @endverbatim
 
  **-----------------------------------------------------------------------------
@@ -34,15 +39,14 @@
 #include <base/vector.h>
 #include <base/hash.h>
 
+#include <sys/atomic_ops.h>
+
 static bool vfs_initialized = false;
 
 /* VFS wide lock */
 lock_t vfs_lock = lock_new();
 
-/* Stat structure related definitions */
-lock_t dev_lock = lock_new();
-lock_t ino_lock = lock_new();
-
+/* Available dev & ino new id */
 static dev_t next_new_dev_id = 1;
 static ino_t next_new_ino_id = 1;
 
@@ -58,26 +62,12 @@ static uint64_t vfs_next_handle = VFS_MIN_HANDLE;
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
 {
-    dev_t dev_id;
-
-    lock_lock(&dev_lock);
-    dev_id = next_new_dev_id;
-    next_new_dev_id++;
-    lock_release(&dev_lock);
-
-    return dev_id;
+    return atomic_inc64(&next_new_dev_id);
 }
 
 ino_t vfs_new_ino_id(void)
 {
-    ino_t ino_id;
-
-    lock_lock(&ino_lock);
-    ino_id = next_new_ino_id;
-    next_new_ino_id++;
-    lock_release(&ino_lock);
-
-    return ino_id;
+    return atomic_inc64(&next_new_ino_id);
 }
 
 static void dumpnodes_helper(vfs_tnode_t * from, int lvl)
