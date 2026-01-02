@@ -15,6 +15,10 @@
   inode. tnode is used to store tree information, e.g., parent node. node_desc
   data structure is used for every file operation, from fopen, fread to fclose. 
 
+  History:
+    Jan 1, 2026  The spinlock currently in use is inefficient and needs to be
+                 optimized to improve its running speed on physical machines.
+
  @endverbatim
 
  **-----------------------------------------------------------------------------
@@ -44,7 +48,7 @@
 #define SEEK_SET            3
 
 /* Syscall related data structures */
-typedef int64_t dev_t;
+typedef uint64_t dev_t;
 typedef uint64_t ino_t;
 typedef int64_t off_t;
 typedef int32_t mode_t;
@@ -79,7 +83,17 @@ typedef struct {
 typedef int64_t vfs_handle_t;
 
 /* Forward declaration */
+
+/* The inode (index node) is an abstract representation of a file or directory.
+ * Each file or directory has one unique inode that stores metadata
+ * (permissions, ownership, timestamps, etc.) and methods for file operations.
+ */
 typedef struct vfs_inode_t vfs_inode_t;
+
+/* A tnode refers to a tree node structure, used to model hierarchical
+ * relationships—typically in directory trees, file trees, or custom data
+ * structures supporting the filesystem.
+ */
 typedef struct vfs_tnode_t vfs_tnode_t;
 
 typedef enum {
@@ -171,17 +185,18 @@ typedef struct vfs_fsinfo_t {
 
     vfs_inode_t *(*mount)(vfs_inode_t * device);
     vfs_tnode_t *(*open)(vfs_inode_t * this, const char *path);
-     int64_t(*mknode) (vfs_tnode_t * this);
-     int64_t(*rmnode) (vfs_tnode_t * this);
-     int64_t(*read) (vfs_inode_t * this, uint64_t offset, uint64_t len,
+
+    int64_t(*mknode) (vfs_tnode_t * this);
+    int64_t(*rmnode) (vfs_tnode_t * this);
+    int64_t(*read) (vfs_inode_t * this, uint64_t offset, uint64_t len,
                      void *buff);
-     int64_t(*write) (vfs_inode_t * this, uint64_t offset, uint64_t len,
+    int64_t(*write) (vfs_inode_t * this, uint64_t offset, uint64_t len,
                       const void *buff);
-     int64_t(*sync) (vfs_inode_t * this);
-     int64_t(*refresh) (vfs_inode_t * this);
-     int64_t(*getdent) (vfs_inode_t * this, uint64_t pos,
+    int64_t(*sync) (vfs_inode_t * this);
+    int64_t(*refresh) (vfs_inode_t * this);
+    int64_t(*getdent) (vfs_inode_t * this, uint64_t pos,
                         vfs_dirent_t * dirent);
-     int64_t(*ioctl) (vfs_inode_t * this, int64_t request, int64_t arg);
+    int64_t(*ioctl) (vfs_inode_t * this, int64_t request, int64_t arg);
 } vfs_fsinfo_t;
 
 struct vfs_tnode_t {
