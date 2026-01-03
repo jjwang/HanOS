@@ -42,16 +42,127 @@ vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t * inode,
     return tnode;
 }
 
+int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
+                          uint64_t full_path_size)
+{
+    /* Clean the full path buffer */
+    full_path[0] = '\0';
+
+    if ((int32_t) dirfh == (int32_t) VFS_FDCWD) {
+        /* Get the parent path name from TCB (task control block) */
+        task_t *t = sched_get_current_task();
+        if (t != NULL) {
+            if (path[0] != '/') 
+                strcpy(full_path, t->cwd);
+        } else {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }    
+    } else if ((int32_t) dirfh >= (int32_t) 0) { 
+        /* Get the parent path name from dirfh */
+        vfs_node_desc_t *tnode =
+            vfs_handle_to_fd((vfs_handle_t) dirfh, __func__);
+        if (tnode != NULL) {
+            if (path[0] == '.') 
+                strcpy(full_path, tnode->path);
+        } else {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+    }
+
+    if (strcmp(path, ".") == 0) {
+        return 0;
+    }
+
+    if (path[0] == '/') {
+        strcpy(full_path, "/");
+    }
+
+    /* Extracted folder name one by one */
+    char temp_path[VFS_MAX_PATH_LEN] = { 0 };
+    char *curr = NULL, *child = NULL;
+
+    strcpy(temp_path, path);
+    curr = temp_path;
+
+    while (true) {
+        child = strchr(curr, '/');
+        if (child != NULL) {
+            *child = '\0';
+            child++;
+        }
+        if (strcmp(curr, "..") == 0) {
+            /* Change full path to parent folder */
+            bool succ = false;
+            if (strlen(full_path) > 0) {
+                uint64_t fpl = strlen(full_path);
+                if (fpl > 0 && full_path[fpl - 1] == '/') {
+                    full_path[fpl - 1] = '\0';
+                }
+                fpl = strlen(full_path);
+                if (fpl > 0) {
+                    for (uint64_t i = fpl - 1;; i--) {
+                        if (full_path[i] == '/') {
+                            full_path[(i > 0) ? i : (i + 1)] = '\0';
+                            succ = true;
+                            break;
+                        }
+                        if (i == 0)
+                            break;
+                    }
+                }
+            }
+            if (!succ) {
+                cpu_set_errno(EINVAL);
+                return -1;
+            }
+        } else if (strcmp(curr, ".") == 0) {
+            /* Do nothing */
+        } else if (strlen(curr) == 0) {
+            /* Do nothing */
+        } else {
+            /* Make sure the parent path name ends with '/' */
+            uint64_t fpl = strlen(full_path);
+            if (fpl > 0) {
+                if (full_path[fpl - 1] != '/')
+                    strncat(full_path, "/", full_path_size);
+            } else {
+                strcpy(full_path, "/");
+            }
+            strncat(full_path, curr, full_path_size);
+        }
+
+        /* Move to next folder */
+        if (child != NULL) {
+            curr = child;
+        } else {
+            break;
+        }
+    }
+
+    return 0;
+}
+
 /* Allocate an inode in memory */
 vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
                              uint32_t uid, vfs_fsinfo_t * fs,
                              vfs_tnode_t * mountpoint)
 {
     vfs_inode_t *inode = (vfs_inode_t *) kmalloc(sizeof(vfs_inode_t));
+
     memset(inode, 0, sizeof(vfs_inode_t));
-    *inode = (vfs_inode_t) {
-    .type = type,.perms = perms,.uid = uid,.fs = fs,.ident =
-            NULL,.mountpoint = mountpoint,.refcount = 0,.size = 0};
+
+    inode->type = type;
+    inode->perms = perms;
+    inode->uid = uid;
+    inode->fs = fs;
+    inode->ident = NULL;
+    inode->mountpoint = mountpoint;
+    inode->refcount = 0;
+    inode->size = 0;
+    inode->lock = lock_new();
+
     return inode;
 }
 
@@ -85,11 +196,10 @@ vfs_tnode_t *vfs_path_to_node(const char *pathname, uint8_t mode,
                               vfs_node_type_t create_type)
 {
     char tmpbuff[VFS_MAX_PATH_LEN], path[VFS_MAX_PATH_LEN];
-    vfs_tnode_t *curr = &vfs_root;
 
-    /*  Only work with absolute paths */
+    /* Only work with absolute paths */
     if (pathname[0] != '/') {
-        if (get_full_path(VFS_FDCWD, pathname, tmpbuff, sizeof(tmpbuff)) <
+        if (vfs_get_full_path(VFS_FDCWD, pathname, tmpbuff, sizeof(tmpbuff)) <
             0) {
             kloge("'%s' is not a valid path\n", pathname);
             return NULL;
@@ -129,6 +239,7 @@ vfs_tnode_t *vfs_path_to_node(const char *pathname, uint8_t mode,
     }
 
     pathlen = strlen(path);
+    vfs_tnode_t *curr = &vfs_root;
     uint64_t curr_index;
     bool foundnode = true;
     for (curr_index = 0; curr_index < pathlen;) {
@@ -161,7 +272,7 @@ vfs_tnode_t *vfs_path_to_node(const char *pathname, uint8_t mode,
          */
         if (!foundnode)
             break;
-    }
+    } 
 
     /* Should we create the node */
     if (!foundnode) {
