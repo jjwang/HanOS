@@ -30,6 +30,9 @@
 extern lock_t vfs_lock;
 extern vfs_tnode_t vfs_root;
 
+int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
+                          uint64_t full_path_size);
+
 vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t * inode,
                              vfs_inode_t * parent);
 vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
