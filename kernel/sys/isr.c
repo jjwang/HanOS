@@ -19,8 +19,12 @@
 #include <sys/isr_base.h>
 #include <sys/panic.h>
 #include <sys/cpu.h>
+#include <sys/serial.h>
+#include <sys/timer.h>
 #include <proc/sched.h>
 #include <proc/task.h>
+
+#include <libc/printf.h>
 
 static char *exceptions[] = {
     [0] = "Division by Zero",
@@ -65,11 +69,50 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
     handlers[id] = handler;
 }
 
-void exc_handler_proc(uint64_t excno, task_regs_t * tr, uint64_t errcode)
+void exc_handler_proc(
+    uint64_t excno, task_regs_t * tr, uint64_t errcode,
+    uint64_t original_rsp, uint8_t is_userspace)
 {
+    (void)original_rsp;
+    (void)is_userspace;
+
     /* IRQ7 should be skipped */
     if (excno == IRQ7) {
         return;
+    }
+
+    /* Panic for Page Fault */
+    if (excno == 14) {
+        asm volatile("cli");    /* Disable to prevent nested interrupts */
+        apic_timer_stop();      /* Mask APIC timer IRQ on current CPU */
+        serial_puts("APIC: Timer IRQ masked to stop interrupt storm.\n");
+
+        uint64_t cr2val;
+        read_cr("cr2", &cr2val);
+
+        uint64_t cr3val;
+        read_cr("cr3", &cr3val);
+
+        char errmsg[1024] = {0};
+        sprintf(errmsg, "Dump registers for exception: \n"
+              "RIP   : 0x%016x\nCS    : 0x%016x\nRFLAGS: 0x%016x\n"
+              "RSP   : 0x%016x\nSS    : 0x%016x\n"
+              "RAX 0x%016x  RBX 0x%016x  RCX 0x%016x  RDX 0x%016x\n"
+              "RSI 0x%016x  RDI 0x%016x  RBP 0x%016x\n"
+              "R8  0x%016x  R9  0x%016x  R10 0x%016x  R11 0x%016x\n"
+              "R12 0x%016x  R13 0x%016x  R14 0x%016x  R15 0x%016x\n"
+              "CR2 0x%016x  CR3 0x%016x\n",
+              tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
+              tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
+              tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
+              tr->r15, cr2val, cr3val);
+        serial_puts(errmsg);
+
+        serial_puts("Unhandled Exception: Page Fault (14).\n");
+        dump_backtrace();
+        for(;;) {
+            asm volatile ("hlt");
+        }
     }
 
     /* IRQ128 is used for system call */
@@ -102,9 +145,6 @@ void exc_handler_proc(uint64_t excno, task_regs_t * tr, uint64_t errcode)
         return;
     }
 
-    task_t *t = sched_get_current_task();
-    task_id_t tid = ((t == NULL) ? 0 : t->tid);
-
     uint64_t cr2val;
     read_cr("cr2", &cr2val);
 
@@ -124,9 +164,10 @@ void exc_handler_proc(uint64_t excno, task_regs_t * tr, uint64_t errcode)
           tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
           tr->r15, cr2val, cr3val);
 
-    kpanic
-        ("Unhandled Exception of Task #%d: %s (%d). Error Code: %d (0x%x)\n",
-         tid, exceptions[excno], excno, errcode, errcode);
+    kpanic("Unhandled Exception: %s (%d). Error Code: %d (0x%x)\n",
+         exceptions[excno], excno, errcode, errcode);
 
-    while (true);
+    for(;;) {
+        asm volatile ("hlt");
+    }
 }

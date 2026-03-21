@@ -19,6 +19,7 @@
 
 #include <device/display/fb.h>
 #include <base/image.h>
+#include <base/lock.h>
 
 void kdisplay(int mode, char *s, uint64_t len); /* Implemented in entry file */
 
@@ -62,6 +63,7 @@ typedef struct {
     uint8_t lastch;
     bool last_qu_char;
     int skip_left;
+    lock_t lock;
 } term_info_t;
 
 typedef struct[[gnu::packed]] {

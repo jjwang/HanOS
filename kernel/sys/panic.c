@@ -20,8 +20,11 @@
 #include <symbols.h>
 #include <sys/panic.h>
 #include <sys/smp.h>
+#include <sys/serial.h>
 #include <base/klog.h>
 #include <device/display/term.h>
+
+#include <libc/printf.h>
 
 static int symbols_get_index(uint64_t addr)
 {
@@ -33,7 +36,7 @@ static int symbols_get_index(uint64_t addr)
     return -1;
 }
 
-void dump_backtrace()
+void display_backtrace()
 {
     uint64_t *rbp_val = 0;
     asm volatile ("mov %%rbp, %0":"=g" (rbp_val)::"memory");
@@ -67,3 +70,35 @@ void dump_backtrace()
 
     klog_unlock();
 }
+
+void dump_backtrace()
+{
+    char errmsg[1024] = {0};
+
+    uint64_t *rbp_val = 0;
+    asm volatile ("mov %%rbp, %0":"=g" (rbp_val)::"memory");
+
+    serial_puts("\nStacktrace:\n");
+    for (uint64_t i = 0;; i++) {
+        uint64_t func_addr = *(rbp_val + 1); 
+        rbp_val = (uint64_t *) * rbp_val;
+        if (func_addr == (uint64_t) NULL || rbp_val == NULL) {
+            break;
+        }
+        int idx = symbols_get_index(func_addr);
+        if (idx < 0) {
+            sprintf(errmsg, " \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
+        } else {
+            sprintf(errmsg, " \t[%02d] \t%x (%s+%04x)\n",
+                    i, func_addr,
+                    _kernel_symtab[idx].name,
+                    func_addr - _kernel_symtab[idx].addr);
+        }
+        serial_puts(errmsg);
+    }
+
+    sprintf(errmsg, "End of trace. CPU %d System halted.\n\n\n",
+            smp_get_current_cpu_id());
+    serial_puts(errmsg);
+}
+

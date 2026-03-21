@@ -32,7 +32,9 @@ typedef volatile struct {
     char last_fn[256];
     uint64_t last_ln;
     uint64_t last_tid;
+    uint16_t last_cpu_id;
 #endif
+    uint64_t rflags;
 } lock_t;
 
 #define lock_new()          (lock_t){0}

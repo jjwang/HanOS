@@ -327,9 +327,6 @@ void kmain(void)
     klogi("Init APIC...\n");
     apic_init();
 
-    klogi("Init SMP...\n");
-    smp_init();
-
     klogi("Init syscall...\n");
     syscall_init();
 
@@ -376,6 +373,9 @@ void kmain(void)
     self_info.actual_res_y = fb->height;
 
     vfs_init();
+
+    klogi("Init SMP...\n");
+    smp_init();
 
     /* Measure pure CPU computation speed by running a simple busy loop of
      * 100 million no-op operations.
@@ -442,8 +442,8 @@ void kmain(void)
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
-        sched_init("init", cpu->cpu_id);
-        asm volatile ("sti");
+        sched_init("idle", cpu->cpu_id);
+        apic_timer_start();
     } else {
         kpanic("Can not get CPU info in shell process\n");
     }

@@ -39,12 +39,15 @@
 #include <sys/isr_base.h>
 #include <sys/panic.h>
 #include <sys/cpu.h>
+#include <sys/serial.h>
+#include <libc/printf.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 
 static task_t *tasks_running[CPU_MAX] = { 0 };
 static task_t *tasks_idle[CPU_MAX] = { 0 };
 static uint64_t tasks_coordinate[CPU_MAX] = { 0 };
+static lock_t tasks_lock[CPU_MAX] = {0};
 
 static volatile uint16_t cpu_num = 0;
 
@@ -56,8 +59,16 @@ extern void exit_context_switch(task_t * next, uint64_t cr3val);
 extern void force_context_switch(void);
 extern void fork_context_switch(void);
 
+extern addrspace_t kaddrspace;
+
 _Noreturn void task_idle_proc(task_id_t tid)
 {
+    /* TODO: need to check why there will be #PF exception without sleeping. */
+    //hpet_sleep(100);
+
+    /* Need to determine the root cause why we need sleep here on SMP.
+     * Page Fault exception will occur if there is no sleep here.
+     */
     cpu_t *cpu = smp_get_current_cpu(true);
     ASSERT (cpu != NULL);
     
@@ -65,6 +76,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
     (void) tid;
 
     while (true) {
+        lock_lock(&(tasks_lock[cpu_id]));
         /* 1. Free resouces of dead tasks in idle task */
         task_t *t = NULL;
 
@@ -109,7 +121,9 @@ _Noreturn void task_idle_proc(task_id_t tid)
 
             /* Step 1.2: Free all resources of this dead task */
             task_free(t);
+            lock_release(&(tasks_lock[cpu_id]));
         } else {
+            lock_release(&(tasks_lock[cpu_id]));
             /* If we cannot find dead tasks, then fall into sleep */
             asm volatile ("hlt");
         }
@@ -119,7 +133,8 @@ _Noreturn void task_idle_proc(task_id_t tid)
 /*
  * Context switch has 3 situations which are determined by parameter "mode":
  * SCHED_SWITCH_TIME_CYCLE(0): triggered by timer cycle.
- * SCHED_SWITCH_SLEEP     (1): triggered by task itself which needs to fall in sleep.
+ * SCHED_SWITCH_SLEEP     (1): triggered by task itself which needs to fall in
+ * sleep.
  * SCHED_SWITCH_FORK      (2): triggered by fork which needs to create a clone.
  *
  */
@@ -129,8 +144,9 @@ void do_context_switch(void *stack, int64_t mode)
      * here
      */
     smp_info_t *smp_info = smp_get_info();
+    uint16_t cpu_id = smp_get_current_cpu_id();
     if (smp_info == NULL) {
-        kpanic("sched: cannot get SMP information\n");
+        kpanic("sched: CPU %d cannot get SMP information\n", cpu_id);
         return;
     }
 
@@ -138,10 +154,9 @@ void do_context_switch(void *stack, int64_t mode)
     eb_dispatch();
 
     cpu_t *cpu = smp_get_current_cpu(true);
-    ASSERT (cpu != NULL);
-   
-    uint16_t cpu_id = cpu->cpu_id;
     uint64_t ticks = tasks_coordinate[cpu_id];
+
+    lock_lock(&(tasks_lock[cpu_id]));
 
     task_t *curr = tasks_running[cpu_id];
 
@@ -152,7 +167,7 @@ void do_context_switch(void *stack, int64_t mode)
         curr->errno = cpu->errno;
 
         if ((uint64_t) curr != (uint64_t) tasks_idle[cpu_id]) {
-            if (mode == SCHED_SWITCH_FORK){
+            if (mode == SCHED_SWITCH_FORK) {
                 task_t *curr_fork = task_fork(curr);
                 if (curr_fork->status == TASK_RUNNING)
                     curr_fork->status = TASK_READY;
@@ -224,9 +239,11 @@ void do_context_switch(void *stack, int64_t mode)
         apic_send_eoi();
     }
 
+    lock_release(&(tasks_lock[cpu_id]));
+
     exit_context_switch(next->tstack_top, (next->addrspace == NULL)
-                        ? 0 : VIRT_TO_PHYS((uint64_t) next->addrspace->
-                                           PML4));
+                        ? VIRT_TO_PHYS((uint64_t) kaddrspace.PML4)
+                        : VIRT_TO_PHYS((uint64_t) next->addrspace->PML4));
 }
 
 task_id_t sched_get_tid()
@@ -268,8 +285,13 @@ task_id_t sched_fork(void)
     return tid;
 }
 
-void sched_sleep(time_t millis)
+void sched_sleep_impl(time_t millis, bool advanced)
 {
+    if (millis != 0 && advanced) {
+        hpet_sleep(millis);
+        return;
+    }
+
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
         hpet_sleep(millis);
@@ -386,7 +408,7 @@ void sched_exit(int64_t status)
                 break;
             }
         }
-        if (all_children_dead) {        /* This also includes no-children situation */
+        if (all_children_dead) {  /* This also includes no-children situation */
             curr->status = TASK_DEAD;
         }
 
@@ -497,13 +519,6 @@ void sched_init(const char *name, uint16_t cpu_id)
     klogi
         ("SCHED: initialization finished for CPU %d with idle task %s:%d\n",
          cpu_id, name, tasks_idle[cpu_id]->tid);
-
-    /* Be careful about the codes after running apic_timer_start(). We need to
-     * reduce them as less as possible which also should not use spinlock any
-     * more. After starting APIC timer, the CPU should be in multiple tasks
-     * mode.
-     */
-    apic_timer_start();
 }
 
 uint16_t sched_get_cpu_num()
@@ -523,15 +538,9 @@ task_t *sched_new(const char *name, void (*entry)(task_id_t),
 
 void sched_add(task_t * t, bool on_curr_cpu)
 {
-    cpu_t *cpu = smp_get_current_cpu(false);
-    ASSERT (cpu != NULL);
-
-    uint16_t cpu_id = cpu->cpu_id;
-    if (!on_curr_cpu) {
-        uint64_t cpu_num = smp_get_info()->num_cpus;
-        cpu_id = (cpu_id + 1) % cpu_num;
-    }
-
+    /* TODO: if we want to assign task to other CPUs, we need to do it carefully.
+     */
+    uint16_t cpu_id = smp_get_current_cpu_id();
     klogi("SCHED: CPU %d adds tid %d\n", cpu_id, t->tid);
     vec_push_back(&tasks_active_table[cpu_id], t);
 }
@@ -721,9 +730,8 @@ task_t *sched_execve(const char *path, const char *argv[],
         tc->ptid = tp->tid;
     }
 
-    task_debug(tc, true);
-
     sched_add(tc, true);
 
     return tc;
 }
+
