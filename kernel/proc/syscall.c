@@ -1094,8 +1094,8 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         *status = 0;
 
     if ((int32_t) pid == (int32_t) (-1) && t != NULL) {
-        klogv("k_waitpid: tid %d waits pid 0x%x status 0x%x flags 0x%x\n",
-              t->tid, pid, status, flags);
+        klogv("k_waitpid: tid %d waits pid -1 (0xFFFFFFFF) status 0x%x flags 0x%x\n",
+              t->tid, status, flags);
 
         cpu_set_errno(0);
 
@@ -1173,6 +1173,8 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         for (uint64_t i = 0;; i++) {
             task_status_t status = sched_get_task_status(pid);
             if (status != TASK_DEAD && status != TASK_UNKNOWN) {
+                klogv("k_waitpid: waiting pid 0x%x which is still active\n",
+                      pid);
                 sched_sleep(100);
                 if (i == 19) {
                     kloge

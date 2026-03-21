@@ -40,6 +40,7 @@ addrspace_t kaddrspace = { 0 };
 static bool debug_info = false;
 
 vec_new_static(mem_map_t, global_mmap_list);
+static lock_t global_mmap_lock = lock_new();
 
 static void map_page(addrspace_t * addrspace, uint64_t vaddr,
                      uint64_t paddr, uint64_t flags)
@@ -223,6 +224,7 @@ void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np)
 {
     if (addrspace == NULL) {
         /* We must unmap the corresponding vaddr in vmm_map() function */
+        lock_lock(&global_mmap_lock);
         int64_t len = vec_length(&global_mmap_list);
         for (int64_t i = 0; i < len; i++) {
             mem_map_t m = vec_at(&global_mmap_list, i);
@@ -231,6 +233,7 @@ void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np)
                 break;
             }
         }
+        lock_release(&global_mmap_lock);
     }
 
     for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE)
@@ -250,7 +253,9 @@ void vmm_map(addrspace_t * addrspace, uint64_t vaddr, uint64_t paddr,
         mem_map_t mm = {
             .vaddr = vaddr,.paddr = paddr,.flags = flags,.np = np
         };
+        lock_lock(&global_mmap_lock);
         vec_push_back(&global_mmap_list, mm);
+        lock_release(&global_mmap_lock);
     }
 
     for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
@@ -343,6 +348,7 @@ addrspace_t *create_addrspace(void)
     klogd("VMM: create a new address space\n");
 
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
+
     if (!as) {
         kpanic("VMM: cannot allocate addrspace\n");
         return NULL;
@@ -360,13 +366,13 @@ addrspace_t *create_addrspace(void)
 
     as->lock = lock_new();
 
+    lock_lock(&global_mmap_lock);
     uint64_t len = vec_length(&global_mmap_list);
-    uint64_t tp = 0;
     for (uint64_t i = 0; i < len; i++) {
         mem_map_t m = vec_at(&global_mmap_list, i);
         vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
-        tp += m.np;
     }
+    lock_release(&global_mmap_lock);
 
     as->initialized = true;
     klogd("VMM: creating address space 0x%x finished\n", as);

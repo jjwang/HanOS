@@ -22,7 +22,6 @@
 #include <device/display/term.h>
 #include <base/klib.h>
 #include <base/klog.h>
-#include <base/lock.h>
 #include <sys/panic.h>
 #include <sys/serial.h>
 #include <3rd-party/boot/limine.h>
@@ -44,7 +43,6 @@ static term_info_t term_cli = { 0 };
 
 static int term_active_mode = TERM_MODE_UNKNOWN;
 static uint8_t term_cursor = 0;
-static lock_t term_lock = lock_new();
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
 
@@ -355,12 +353,16 @@ void term_refresh(int mode)
 {
     term_info_t *term_act;
 
-    lock_lock(&term_lock);
-
-    if (mode == TERM_MODE_INFO) {
-        term_act = &term_info;
-    } else {
+    if (mode == TERM_MODE_CLI) {
         term_act = &term_cli;
+    } else {
+        term_act = &term_info;
+    }
+
+
+    lock_lock(&(term_act->lock));
+
+    if (mode == TERM_MODE_CLI) {
         if (term_cursor != 0) {
             if (term_act->state != STATE_UNKNOWN
                 && mode == term_active_mode) {
@@ -374,22 +376,21 @@ void term_refresh(int mode)
                 if (mode == term_active_mode) {
                     fb_refresh(&(term_act->fb));
                 }
-                lock_release(&term_lock);
-                return;
+                goto exit;
             }
         }
     }
 
     if (term_act->state == STATE_UNKNOWN) {
-        lock_release(&term_lock);
-        return;
+        goto exit;
     }
 
     if (mode == term_active_mode) {
         fb_refresh(&(term_act->fb));
     }
 
-    lock_release(&term_lock);
+exit:
+    lock_release(&(term_act->lock));
 }
 
 void term_clear(int mode)
@@ -584,8 +585,6 @@ void term_putch(int mode, uint8_t c)
 void term_init(struct limine_framebuffer *s)
 {
     term_info_t *term_act;
-
-    term_lock = lock_new();
 
     for (uint64_t i = 0; i <= 1; i++) {
         term_act = ((i == 0) ? &term_info : &term_cli);

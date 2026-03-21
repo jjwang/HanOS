@@ -21,6 +21,7 @@
 
 #include <base/klog.h>
 
+void display_backtrace();
 void dump_backtrace();
 
 #define kpanic(s, ...)       {                  \
@@ -30,7 +31,7 @@ void dump_backtrace();
     }                                           \
     klog_vprintf(KLOG_LEVEL_ERROR, "Enter kernel panic...\n"); \
     klog_vprintf(KLOG_LEVEL_ERROR, s, ##__VA_ARGS__); \
-    dump_backtrace();                           \
+    display_backtrace();                        \
     while (true)                                \
         asm volatile("hlt");                    \
 }

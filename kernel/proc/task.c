@@ -154,43 +154,11 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
     return ntask;
 }
 
-void task_debug(task_t * t, bool force)
-{
-    klogd("TASK: #%d with PML4 0x%x\n"
-          "kstack limit 0x%x, top 0x%x, limit_top 0x%x\n"
-          "ustack limit 0x%x, top 0x%x, limit_top 0x%x\n"
-          "tstack limit 0x%x, top 0x%x, limit_top 0x%x\n",
-          t->tid, t->addrspace != NULL ? t->addrspace->PML4 : NULL,
-          t->kstack_limit, t->kstack_top, t->kstack_limit + STACK_SIZE,
-          t->ustack_limit, t->ustack_top, t->ustack_limit + STACK_SIZE,
-          t->tstack_limit, t->tstack_top, t->tstack_limit + STACK_SIZE);
-
-    if (force || ((uint64_t) t->tstack_top >= (uint64_t) t->kstack_limit
-                  && (uint64_t) t->tstack_top <=
-                  (uint64_t) (t->kstack_limit + STACK_SIZE))) {
-        task_regs_t *tr = (task_regs_t *) t->tstack_top;
-        if (force)
-            tr = (task_regs_t *) PHYS_TO_VIRT(t->tstack_top);
-        klogd
-            ("Dump registers: \nRIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
-             "RSP   : 0x%x\nSS    : 0x%x\n"
-             "RAX 0x%x  RBX 0x%x  RCX 0x%x  RDX 0x%x\n"
-             "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
-             "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
-             "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n", tr->rip, tr->cs,
-             tr->rflags, tr->rsp, tr->ss, tr->rax, tr->rbx, tr->rcx,
-             tr->rdx, tr->rsi, tr->rdi, tr->rbp, tr->r8, tr->r9, tr->r10,
-             tr->r11, tr->r12, tr->r13, tr->r14, tr->r15);
-    }
-}
-
 task_t *task_fork(task_t * tp)
 {
     if (tp->mode != TASK_USER_MODE) {
         kpanic("Task: cannot fork kernel task %d\n", tp->tid);
     }
-
-    task_debug(tp, false);
 
     task_t *tc = (task_t *) kmalloc(sizeof(task_t));
     if (tc == NULL)
@@ -284,8 +252,6 @@ task_t *task_fork(task_t * tp)
         klogd("TASK: copy fd %d from tid %d to tid %d\n",
               tc->open_files_table.array[i].key, tp->tid, tc->tid);
     }
-
-    task_debug(tc, false);
 
     /* MEMMAP: hpet should be visible for all kernel tasks
      *

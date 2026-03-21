@@ -30,7 +30,8 @@ void sched_init(const char *name, uint16_t cpu_id);
 task_t *sched_new(const char *name, void (*entry)(task_id_t),
                   bool usermode);
 void sched_add(task_t * t, bool on_curr_cpu);
-void sched_sleep(time_t ms);
+void sched_sleep_impl(time_t ms, bool advanced);
+#define sched_sleep(x)  sched_sleep_impl(x, false)
 task_id_t sched_fork(void);
 void sched_exit(int64_t status);
 event_t sched_wait_event(event_t event);

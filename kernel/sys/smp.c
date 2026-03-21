@@ -33,6 +33,7 @@
 #include <base/kmalloc.h>
 #include <base/time.h>
 #include <mm/mm.h>
+#include <sys/idt.h>
 #include <sys/cpu.h>
 #include <sys/smp.h>
 #include <sys/gdt.h>
@@ -40,10 +41,13 @@
 #include <sys/madt.h>
 #include <sys/apic.h>
 #include <sys/pit.h>
+#include <sys/panic.h>
 #include <proc/syscall.h>
 #include <proc/sched.h>
 
 extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
+
+uint8_t smp_halt_ipi_vector = 0;
 
 static volatile int *ap_boot_counter =
     (volatile int *) PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
@@ -115,6 +119,27 @@ void cpu_debug(void)
     klogd("CPU: uninitialized\n");
 }
 
+uint16_t smp_get_current_cpu_id(void)
+{
+    uint32_t cpuid_ebx;  /* EBX register output from CPUID */
+
+    /* Execute CPUID instruction to get processor information:
+     * - EAX = 1 (function code for processor info)
+     * - EBX[31:24] = APIC/CPU ID (unique per CPU in SMP system)
+     */
+    asm volatile (
+        "movl $1, %%eax\n"    /* Set CPUID function code to 1 */
+        "cpuid\n"             /* Execute CPUID instruction */
+        "movl %%ebx, %[ebx]\n"/* Save EBX value to cpuid_ebx variable */
+        : [ebx] "=r"(cpuid_ebx)
+        :
+        : "eax", "ebx", "ecx", "edx"  /* Clobbered registers */
+    );  
+
+    /* Extract 8-bit CPU ID from EBX (shift right 24 bits + mask) */
+    return (cpuid_ebx >> 24) & 0xFF;
+}
+
 void init_tss(cpu_t * cpuinfo)
 {
     gdt_install_tss(cpuinfo);
@@ -134,6 +159,11 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     write_msr(MSR_GS_BASE, (uint64_t) cpuinfo);
     write_msr(MSR_KERN_GS_BASE, (uint64_t) cpuinfo);
 
+    uint64_t msr_gs_base = read_msr(MSR_GS_BASE);
+    uint64_t msr_kern_gs_base = read_msr(MSR_KERN_GS_BASE);
+    klogi("SMP: core %d MSR_GS_BASE 0x%x MSR_KERN_GS_BASE 0x%x\n",
+          cpuinfo->cpu_id, msr_gs_base, msr_kern_gs_base);
+
     /* initialze gdt and make a tss */
     for (uint64_t dl = 0; dl < 100; dl++)
         asm volatile ("nop;");
@@ -146,11 +176,15 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     syscall_init();
 
     /* initialize and wait for scheduler */
-    sched_init("init", cpuinfo->cpu_id);
+    sched_init("idle", cpuinfo->cpu_id);
 
+    /* Wait for finishing the initialization of all CPU cores */
     while (!smp_initialized) {
-        pit_wait(1);
+        asm volatile("mfence" : : : "memory");
     }
+
+    /* Start the timer for context switch */
+    apic_timer_start();
 
     /* Remember we need to init all CPUs and then make hearts beat */
     asm volatile ("sti");
@@ -222,22 +256,33 @@ void smp_init()
 
     /* We must have a BSP core whose id is zero */
     memset(&(smp_info->cpus[0]), 0, sizeof(cpu_t));
+    smp_info->cpus[0].is_bsp = false;
 
-    smp_info->cpus[0].cpu_id = 0;
     for (uint64_t i = 0; i < cpunum; i++) {
         if (apic_read_reg(APIC_REG_ID) == lapics[i]->apic_id) {
+            smp_info->cpus[0].cpu_id = lapics[i]->apic_id;
             smp_info->cpus[0].lapic_id = lapics[i]->apic_id;
             smp_info->cpus[0].proc_id = lapics[i]->proc_id;
+            smp_info->cpus[0].is_bsp = true;
 
-            klogi("SMP: core 0 with proc id %d is BSP\n",
-                  lapics[i]->proc_id);
+            klogi("SMP: core 0 with proc id %d and apic id 0x%x is BSP\n",
+                  lapics[i]->proc_id, lapics[i]->apic_id);
             break;
         }
     }
 
-    smp_info->cpus[0].is_bsp = true;
+    if (!smp_info->cpus[0].is_bsp) {
+        kpanic("SMP: Cannot find BSP core.\n");
+    }
+
     write_msr(MSR_GS_BASE, (uint64_t) & (smp_info->cpus[0]));
     write_msr(MSR_KERN_GS_BASE, (uint64_t) & (smp_info->cpus[0]));
+
+    uint64_t msr_gs_base = read_msr(MSR_GS_BASE);
+    uint64_t msr_kern_gs_base = read_msr(MSR_KERN_GS_BASE);
+    klogi("SMP: core %d MSR_GS_BASE 0x%x MSR_KERN_GS_BASE 0x%x\n",
+          0, msr_gs_base, msr_kern_gs_base);
+
     init_tss(&(smp_info->cpus[0]));
 
     smp_info->num_cpus = 1;
@@ -265,7 +310,7 @@ void smp_init()
             continue;
         }
 
-        smp_info->cpus[coreid].cpu_id = coreid;
+        smp_info->cpus[coreid].cpu_id = lapics[i]->apic_id;
         smp_info->cpus[coreid].lapic_id = lapics[i]->apic_id;
         smp_info->cpus[coreid].proc_id = lapics[i]->proc_id;
 
@@ -283,7 +328,7 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        sched_sleep(10);
+        sched_sleep(100);
 
         bool success = false;
         for (uint64_t k = 0; k < 2; k++) {      /* send startup ipi 2 times */
@@ -328,7 +373,9 @@ void smp_init()
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000));
 
     smp_initialized = true;
+    asm volatile("mfence" : : : "memory");
 
     /* Make the heart beat */
     asm volatile ("sti");
 }
+
