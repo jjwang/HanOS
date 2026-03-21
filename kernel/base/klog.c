@@ -223,8 +223,6 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     logout.end = 0;
     logout.term = NULL;
 
-    cpu_t *cpu = smp_get_current_cpu(false);
-
 #if !ENABLE_KLOG_DEBUG
     if (level <= KLOG_LEVEL_DEBUG)
         return;
@@ -253,23 +251,12 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
             now_tm.sec = rt.seconds;
         }
 
+        uint16_t cpu_id = smp_get_current_cpu_id();
         klog_vprintf_wrapper(&logout,
-                             "%04d-%02d-%02d %02d:%02d:%02d %03d ",
+                             "%04d-%02d-%02d %02d:%02d:%02d %03d %02d ",
                              1900 + now_tm.year, now_tm.mon + 1,
                              now_tm.mday, now_tm.hour, now_tm.min,
-                             now_tm.sec, now_ms);
-        if (cpu != NULL) {
-            klog_vprintf_wrapper(&logout, "%02d", cpu->cpu_id);
-        } else {
-            klog_vprintf_wrapper(&logout, "--");
-        }
-
-        task_t *t = sched_get_current_task();
-        if (t != NULL) {
-            klog_vprintf_wrapper(&logout, "-%03d ", t->tid);
-        } else {
-            klog_vprintf_wrapper(&logout, "---- ");
-        }
+                             now_tm.sec, now_ms, cpu_id);
     }
 
     switch (level) {
