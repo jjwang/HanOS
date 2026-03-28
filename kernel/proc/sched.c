@@ -536,7 +536,7 @@ task_t *sched_new(const char *name, void (*entry)(task_id_t),
     return t;
 }
 
-void sched_add(task_t * t, bool on_curr_cpu)
+void sched_add(task_t *t)
 {
     /* TODO: if we want to assign task to other CPUs, we need to do it carefully.
      */
@@ -730,7 +730,7 @@ task_t *sched_execve(const char *path, const char *argv[],
         tc->ptid = tp->tid;
     }
 
-    sched_add(tc, true);
+    sched_add(tc);
 
     return tc;
 }

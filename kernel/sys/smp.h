@@ -78,11 +78,13 @@ typedef struct[[gnu::packed]] {
 typedef struct {
     cpu_t cpus[CPU_MAX];
     uint16_t num_cpus;
+    bool initialized;
 } smp_info_t;
 
 void smp_init(void);
 smp_info_t *smp_get_info(void);
 cpu_t *smp_get_current_cpu(bool force_read);
 uint16_t smp_get_current_cpu_id(void);
+bool smp_is_initialized(void);
 bool cpu_set_errno(int64_t val);
 void cpu_debug(void);
