@@ -26,9 +26,6 @@ void dump_backtrace();
 
 #define kpanic(s, ...)       {                  \
     asm volatile("cli");                        \
-    if (term_get_mode() != TERM_MODE_INFO) {    \
-        term_switch(TERM_MODE_INFO);            \
-    }                                           \
     klog_vprintf(KLOG_LEVEL_ERROR, "Enter kernel panic...\n"); \
     klog_vprintf(KLOG_LEVEL_ERROR, s, ##__VA_ARGS__); \
     display_backtrace();                        \

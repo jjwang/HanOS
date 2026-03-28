@@ -41,8 +41,6 @@ void display_backtrace()
     uint64_t *rbp_val = 0;
     asm volatile ("mov %%rbp, %0":"=g" (rbp_val)::"memory");
 
-    klog_lock();
-
     klogu("\nStacktrace:\n");
     for (uint64_t i = 0;; i++) {
         uint64_t func_addr = *(rbp_val + 1);
@@ -67,8 +65,6 @@ void display_backtrace()
     } else {
         klogu("End of trace. System halted.\n \n \n");
     }
-
-    klog_unlock();
 }
 
 void dump_backtrace()

@@ -109,16 +109,14 @@ void done(void)
 vec_new_static(char *, messages_info);
 static lock_t messages_info_lock = lock_new();
 
-void kdisplay(int mode, char *s, uint64_t len)
+void kdisplay(char *s, uint64_t len)
 {
     (void)len;
 
     /* Here we just store the string into the temporary buffer */
-    if (mode == TERM_MODE_INFO) {
-        lock_lock(&messages_info_lock);
-        vec_push_back(&messages_info, s);
-        lock_release(&messages_info_lock);
-    }
+    lock_lock(&messages_info_lock);
+    vec_push_back(&messages_info, s);
+    lock_release(&messages_info_lock);
 }
 
 _Noreturn void kupdateui(task_id_t tid)
@@ -160,7 +158,7 @@ _Noreturn void kupdateui(task_id_t tid)
             term_set_cursor(' ');
         }
 
-        term_refresh(TERM_MODE_CLI);
+        term_refresh();
     }
 
     (void) tid;
@@ -194,8 +192,7 @@ _Noreturn void kshell(task_id_t tid)
     }
 #endif
 
-    term_refresh(TERM_MODE_INFO);
-    term_refresh(TERM_MODE_CLI);
+    term_refresh();
 
     kprintf
         ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
@@ -301,10 +298,11 @@ void kmain(void)
 
     vmm_init(mm_request.response, kernel_addr_request.response);
 
-#if BSP_CORE_ONLY
-    mtrr_save(0, (void *) VIRT_TO_PHYS(fb->address));
-    mtrr_restore(0);
-#endif
+    /* Below code will cause #PF in term_clear() */
+    /*
+     * mtrr_save(0, (void *) VIRT_TO_PHYS(fb->address));
+     * mtrr_restore(0);
+     */
 
     term_start();
 
@@ -431,14 +429,12 @@ void kmain(void)
     klog_debug();
 
     task_t *tupdateui = sched_new("kupdateui", kupdateui, false);
-    sched_add(tupdateui, false);
+    sched_add(tupdateui);
 
-#if LAUNCHER_CLI
-    term_clear(TERM_MODE_CLI);
-#endif
+    term_clear();
 
     task_t *tshell = sched_new("kshell", kshell, false);
-    sched_add(tshell, true);
+    sched_add(tshell);
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {

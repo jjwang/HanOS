@@ -189,7 +189,7 @@ uint32_t fb_getpixel(fb_info_t * fb, uint32_t x, uint32_t y)
     }
 }
 
-void fb_init(fb_info_t * fb, struct limine_framebuffer *s)
+void fb_init(fb_info_t *fb, struct limine_framebuffer *s)
 {
     if (s == NULL) {
         if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer) {

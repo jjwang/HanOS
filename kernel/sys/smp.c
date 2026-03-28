@@ -54,13 +54,17 @@ static volatile int *ap_boot_counter =
 
 static smp_info_t *smp_info = NULL;
 
-static volatile bool smp_initialized = false;
-
 static lock_t smp_lock = lock_new();
+
+bool smp_is_initialized(void)
+{
+    if (smp_info == NULL) return false;
+    return smp_info->initialized;
+}
 
 smp_info_t *smp_get_info()
 {
-    if (!smp_initialized) {
+    if (!smp_is_initialized()) {
         return NULL;
     } else {
         return smp_info;
@@ -74,7 +78,7 @@ smp_info_t *smp_get_info()
  */
 cpu_t *smp_get_current_cpu(bool force_read)
 {
-    if (smp_initialized || force_read) {
+    if (smp_is_initialized() || force_read) {
         cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
         if (cpu == NULL)
             cpu = (cpu_t *) read_msr(MSR_GS_BASE);
@@ -90,7 +94,7 @@ cpu_t *smp_get_current_cpu(bool force_read)
 bool cpu_set_errno(int64_t val)
 {
     lock_lock(&smp_lock);
-    if (smp_initialized) {
+    if (smp_is_initialized()) {
         cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
         if (cpu == NULL)
             cpu = (cpu_t *) read_msr(MSR_GS_BASE);
@@ -106,7 +110,7 @@ bool cpu_set_errno(int64_t val)
 
 void cpu_debug(void)
 {
-    if (smp_initialized) {
+    if (smp_is_initialized()) {
         cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
         if (cpu == NULL)
             cpu = (cpu_t *) read_msr(MSR_GS_BASE);
@@ -179,7 +183,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     sched_init("idle", cpuinfo->cpu_id);
 
     /* Wait for finishing the initialization of all CPU cores */
-    while (!smp_initialized) {
+    while (!smp_is_initialized()) {
         asm volatile("mfence" : : : "memory");
     }
 
@@ -241,6 +245,8 @@ void smp_init()
     smp_info = (smp_info_t *) kmalloc(sizeof(smp_info_t));
     memset(smp_info, 0, sizeof(smp_info_t));
 
+    smp_info->initialized = false;
+
     /* identity map first mb for the trampoline */
     vmm_map(NULL, 0, 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT);
 
@@ -250,9 +256,7 @@ void smp_init()
     uint64_t cpunum = madt_get_num_lapic();
     madt_record_lapic_t **lapics = madt_get_lapics();
 
-#if !BSP_CORE_ONLY
     klogi("SMP: core number is %d\n", cpunum);
-#endif
 
     /* We must have a BSP core whose id is zero */
     memset(&(smp_info->cpus[0]), 0, sizeof(cpu_t));
@@ -288,8 +292,6 @@ void smp_init()
     smp_info->num_cpus = 1;
 
     /* loop through the lapic's present and initialize them one by one */
-    (void) ap_boot_counter;
-#if !BSP_CORE_ONLY
     for (uint64_t i = 0; i < cpunum; i++) {
         uint64_t coreid = 0;
         if (apic_read_reg(APIC_REG_ID) != lapics[i]->apic_id) {
@@ -314,8 +316,8 @@ void smp_init()
         smp_info->cpus[coreid].lapic_id = lapics[i]->apic_id;
         smp_info->cpus[coreid].proc_id = lapics[i]->proc_id;
 
-        klogi("SMP: initializing core %d with APIC id 0x%x...\n",
-              coreid, lapics[i]->apic_id);
+        klogi("SMP: initializing core %d (prev: %d) with APIC id 0x%x...\n",
+              coreid, counter_prev, lapics[i]->apic_id);
 
         /* allocate and pass the stack */
         void *stack = kmalloc(STACK_SIZE);
@@ -328,21 +330,22 @@ void smp_init()
 
         /* send the init ipi */
         apic_send_ipi(lapics[i]->apic_id, 0, APIC_IPI_TYPE_INIT);
-        sched_sleep(100);
+        hpet_sleep(100);
 
         bool success = false;
         for (uint64_t k = 0; k < 2; k++) {      /* send startup ipi 2 times */
             apic_send_ipi(lapics[i]->apic_id,
                           SMP_TRAMPOLINE_BLOB_ADDR / PAGE_SIZE,
                           APIC_IPI_TYPE_STARTUP);
+            hpet_sleep(100);
             /* check if cpu has started */
-            for (uint64_t j = 0; j < 20; j++) {
+            for (uint64_t j = 0; j < 1000; j++) {
                 int counter_curr = *ap_boot_counter;
                 if (counter_curr != counter_prev) {
                     success = true;
                     break;
                 }
-                sched_sleep(1);
+                hpet_sleep(1);
             }
             if (success)
                 break;
@@ -365,14 +368,13 @@ void smp_init()
             break;
         hpet_sleep(1);
     }
-#endif
 
     klogi("SMP: %d processors brought up\n", smp_info->num_cpus);
 
     /* identity mapping is no longer needed */
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000));
 
-    smp_initialized = true;
+    smp_info->initialized = true;
     asm volatile("mfence" : : : "memory");
 
     /* Make the heart beat */
