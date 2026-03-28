@@ -38,10 +38,8 @@ static const uint32_t font_colors[9] = {
     DEFAULT_FGCOLOR,
 };
 
-static term_info_t term_info = { 0 };
 static term_info_t term_cli = { 0 };
 
-static int term_active_mode = TERM_MODE_UNKNOWN;
 static uint8_t term_cursor = 0;
 
 term_cursor_visible_t cursor_visible = CURSOR_INVISIBLE;
@@ -344,40 +342,23 @@ void term_set_cursor(uint8_t c)
     term_cursor = c;
 }
 
-int term_get_mode(void)
+void term_refresh(void)
 {
-    return term_active_mode;
-}
-
-void term_refresh(int mode)
-{
-    term_info_t *term_act;
-
-    if (mode == TERM_MODE_CLI) {
-        term_act = &term_cli;
-    } else {
-        term_act = &term_info;
-    }
-
+    term_info_t *term_act = &term_cli;
 
     lock_lock(&(term_act->lock));
 
-    if (mode == TERM_MODE_CLI) {
-        if (term_cursor != 0) {
-            if (term_act->state != STATE_UNKNOWN
-                && mode == term_active_mode) {
-                fb_refresh(&(term_act->fb));
-            }
-            uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
-            if (x < term_act->width && y < term_act->height) {
-                fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
-                         term_act->fgcolor, term_act->bgcolor, term_cursor,
-                         term_act->bold);
-                if (mode == term_active_mode) {
-                    fb_refresh(&(term_act->fb));
-                }
-                goto exit;
-            }
+    if (term_cursor != 0) {
+        if (term_act->state != STATE_UNKNOWN) {
+            fb_refresh(&(term_act->fb));
+        }
+        uint32_t x = term_act->cursor_x, y = term_act->cursor_y;
+        if (x < term_act->width && y < term_act->height) {
+            fb_putch(&(term_act->fb), x * FONT_WIDTH, y * FONT_HEIGHT,
+                     term_act->fgcolor, term_act->bgcolor, term_cursor,
+                     term_act->bold);
+            fb_refresh(&(term_act->fb));
+            goto exit;
         }
     }
 
@@ -385,23 +366,15 @@ void term_refresh(int mode)
         goto exit;
     }
 
-    if (mode == term_active_mode) {
-        fb_refresh(&(term_act->fb));
-    }
+    fb_refresh(&(term_act->fb));
 
 exit:
     lock_release(&(term_act->lock));
 }
 
-void term_clear(int mode)
+void term_clear(void)
 {
-    term_info_t *term_act;
-
-    if (mode == TERM_MODE_INFO) {
-        term_act = &term_info;
-    } else {
-        term_act = &term_cli;
-    }
+    term_info_t *term_act = &term_cli;
 
     if (term_act->state == STATE_UNKNOWN) {
         return;
@@ -420,28 +393,12 @@ void term_clear(int mode)
     term_act->cursor_y = 0;
 }
 
-void term_print(int mode, uint8_t c)
+void term_print(uint8_t c)
 {
-#if LAUNCHER_CLI
-    if (mode == TERM_MODE_INFO) {
-        serial_write(c);
-    }
-
-    if (mode == TERM_MODE_INFO && term_get_mode() != TERM_MODE_INFO) {
-        return;
-    }
-#endif
-
-    term_info_t *term_act;
-
-    if (mode == TERM_MODE_INFO) {
-        term_act = &term_info;
-    } else {
-        term_act = &term_cli;
-    }
+    term_info_t *term_act = &term_cli;
 
     if (c == '\b') {
-        term_print(mode, ' ');
+        term_print(' ');
         if (term_act->cursor_x > 0)
             term_act->cursor_x--;
         if (term_act->cursor_x > 0)
@@ -459,7 +416,7 @@ void term_print(int mode, uint8_t c)
         return;
     case '\n':
         term_cursor = ' ';
-        term_refresh(mode);
+        term_refresh();
 
         term_act->cursor_x = 0;
         term_act->cursor_y++;
@@ -528,15 +485,9 @@ void term_print(int mode, uint8_t c)
     }
 }
 
-void term_putch(int mode, uint8_t c)
+void term_putch(uint8_t c)
 {
-    term_info_t *term_act;
-
-    if (mode == TERM_MODE_INFO) {
-        term_act = &term_info;
-    } else {
-        term_act = &term_cli;
-    }
+    term_info_t *term_act = &term_cli;
 
     if (term_act->state == STATE_UNKNOWN || c == 0xFF) {
         return;
@@ -568,10 +519,10 @@ void term_putch(int mode, uint8_t c)
 
         /* Resend the '\033' character */
         char *s = "\033";
-        term_print(mode, s[0]);
+        term_print(s[0]);
         term_act->last_qu_char = false;
 
-        term_putch(mode, c);
+        term_putch(c);
         return;
     } else {
         term_act->last_qu_char = false;
@@ -579,59 +530,43 @@ void term_putch(int mode, uint8_t c)
             return;
     }
 
-    term_print(mode, c);
+    term_print(c);
 }
 
 void term_init(struct limine_framebuffer *s)
 {
-    term_info_t *term_act;
+    term_info_t *term_act = &term_cli;
 
-    for (uint64_t i = 0; i <= 1; i++) {
-        term_act = ((i == 0) ? &term_info : &term_cli);
+    fb_init(&(term_act->fb), s);
+    term_act->width = term_act->fb.width / FONT_WIDTH;
+    term_act->height = term_act->fb.height / FONT_HEIGHT;
 
-        fb_init(&(term_act->fb), s);
-        term_act->width = term_act->fb.width / FONT_WIDTH;
-        term_act->height = term_act->fb.height / FONT_HEIGHT;
+    term_act->fgcolor = DEFAULT_FGCOLOR;
+    term_act->bgcolor = DEFAULT_BGCOLOR;
 
-        term_act->fgcolor = DEFAULT_FGCOLOR;
-        term_act->bgcolor = DEFAULT_BGCOLOR;
+    term_act->state = STATE_IDLE;
 
-        term_act->state = STATE_IDLE;
+    term_act->cursor_x = 0;
+    term_act->cursor_y = 0;
+    term_act->lastch = 0;
 
-        term_act->cursor_x = 0;
-        term_act->cursor_y = 0;
-        term_act->lastch = 0;
+    term_clear();
+    term_refresh();
 
-        term_clear((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
-        term_refresh((i == 0) ? TERM_MODE_INFO : TERM_MODE_CLI);
-
-        klogi
-            ("Terminal %d (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n",
-             i, (uint64_t) term_act, term_act->fb.width,
-             term_act->fb.height, term_act->fb.pitch, term_act->fb.addr);
-    }
+    klogi
+        ("Terminal (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n",
+         (uint64_t) term_act, term_act->fb.width, term_act->fb.height,
+         term_act->fb.pitch, term_act->fb.addr);
 }
 
 void term_start()
 {
-    fb_init(&(term_info.fb), NULL);
     fb_init(&(term_cli.fb), NULL);
 
-    term_refresh(TERM_MODE_INFO);
-    term_refresh(TERM_MODE_CLI);
+    term_refresh();
+    term_clear();
 
-#if LAUNCHER_CLI
-    term_active_mode = TERM_MODE_CLI;
-
-    term_clear(term_active_mode);
     fb_putlogo(&(term_cli.fb), COLOR_CYAN, DEFAULT_BGCOLOR);
-    term_refresh(TERM_MODE_CLI);
-#else
-    term_active_mode = TERM_MODE_INFO;
-#endif
+    term_refresh();
 }
 
-void term_switch(int mode)
-{
-    term_active_mode = mode;
-}

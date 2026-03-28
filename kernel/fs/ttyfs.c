@@ -234,7 +234,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         cursor_visible = CURSOR_HIDE;
         term_set_cursor(' ');
 
-        term_refresh(TERM_MODE_CLI);
+        term_refresh();
 
         if (id->ibuff[index] != (char) EOF) {
             kprintf("%c", id->ibuff[index]);
@@ -284,7 +284,7 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
 
         term_set_cursor(' ');
 
-        term_refresh(TERM_MODE_CLI);
+        term_refresh();
 
         kprintf("%s", msg);
 

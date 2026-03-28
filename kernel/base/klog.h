@@ -57,3 +57,9 @@ void kprintf(const char *, ...);
 #define klogu(s, ...)       klog_vprintf(KLOG_LEVEL_UNK, s, ##__VA_ARGS__)
 
 #define klog_printf(s, ...) klog_vprintf(KLOG_LEVEL_INFO, s, ##__VA_ARGS__)
+
+extern lock_t klog_info_lock;
+
+#define klog_lock()         lock_lock(&klog_info_lock)
+#define klog_unlock()       lock_release(&klog_info_lock)
+

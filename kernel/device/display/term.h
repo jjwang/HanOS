@@ -21,12 +21,11 @@
 #include <base/image.h>
 #include <base/lock.h>
 
-void kdisplay(int mode, char *s, uint64_t len); /* Implemented in entry file */
+void kdisplay(char *s, uint64_t len); /* Implemented in entry file */
 
-#define TERM_MODE_INFO      0
-#define TERM_MODE_CLI       1
-#define TERM_MODE_GUI       2
-#define TERM_MODE_UNKNOWN   3
+#define TERM_MODE_CLI       0
+#define TERM_MODE_GUI       1
+#define TERM_MODE_UNKNOWN   2
 
 #define FONT_WIDTH          8
 #define FONT_HEIGHT         15
@@ -76,12 +75,11 @@ typedef struct[[gnu::packed]] {
 extern term_cursor_visible_t cursor_visible;
 
 void term_init(struct limine_framebuffer *s);
-void term_putch(int mode, uint8_t c);
-void term_clear(int mode);
-void term_refresh(int mode);
-void term_start();
-void term_switch(int mode);
-int term_get_mode(void);
+void term_putch(uint8_t c);
+void term_clear(void);
+void term_refresh(void);
+void term_start(void);
+void term_switch(void);
 void term_set_cursor(uint8_t c);
 bool term_set_bg_image(image_t * img);
 void term_get_winsize(winsize_t * ws);

@@ -63,11 +63,6 @@ uint64_t hpet_get_millis()
 
 void hpet_nanosleep(uint64_t nanos)
 {
-    task_t *t = sched_get_current_task();
-    if (t != NULL && debug_info) {
-        kprintf("HPET: tid %d will sleep for %d nanos\n", t->tid, nanos);
-    }
-
     uint64_t stt = hpet_get_nanos();
     uint64_t tgt = hpet_get_nanos() + nanos;
     while (true) {

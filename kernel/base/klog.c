@@ -29,20 +29,12 @@
 
 static klog_info_t klog_info = { 0 };
 static klog_info_t klog_cli = { 0 };
-static lock_t klog_info_lock = lock_new();
+
+lock_t klog_info_lock = lock_new();
+
 static lock_t klog_cli_lock = lock_new();
 
 static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
-
-void klog_lock(void)
-{
-    lock_lock(&klog_info_lock);
-}
-
-void klog_unlock(void)
-{
-    lock_release(&klog_info_lock);
-}
 
 void klog_debug(void)
 {
@@ -284,7 +276,6 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     klog_vprintf_core(&logout, s, args);
     va_end(args);
 
-    bool smp_initialized = (smp_get_current_cpu(false) != NULL);
     uint64_t msg_len = 0;
 
     lock_lock(&klog_info_lock);
@@ -300,9 +291,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         if (klog_info.start >= KLOG_BUFFER_SIZE)
             klog_info.start = 0;
 
-        if (!smp_initialized) {
-            serial_write(logout.buff[i]);
-        }
+        serial_write(logout.buff[i]);
 
         i++;
         if (i >= KLOG_BUFFER_SIZE) {
@@ -313,22 +302,6 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
 
     lock_release(&klog_info_lock);
 
-    if (smp_initialized && msg_len > 0) {
-        char *msg_buff = (char*)kmalloc(msg_len + 1);
-        if (msg_buff != NULL) {
-            for (uint64_t i = logout.start, k = 0; i < logout.end;) {
-                msg_buff[k] = logout.buff[i];
-                i++;
-                k++;
-                if (i >= KLOG_BUFFER_SIZE)
-                    i = 0;
-            }
-            msg_buff[msg_len] = '\0';
-            kdisplay(TERM_MODE_INFO, msg_buff, msg_len);
-        }
-    }
-
-    term_refresh(TERM_MODE_INFO);
     klog_refresh_times++;
 }
 
@@ -357,9 +330,7 @@ void kprintf(const char *s, ...)
         if (klog_cli.start >= KLOG_BUFFER_SIZE)
             klog_cli.start = 0;
 
-#if LAUNCHER_CLI
-        term_putch(TERM_MODE_CLI, logout.buff[i]);
-#endif
+        term_putch(logout.buff[i]);
 
         i++;
         if (i >= KLOG_BUFFER_SIZE)
@@ -368,6 +339,6 @@ void kprintf(const char *s, ...)
 
     lock_release(&klog_cli_lock);
 
-    term_refresh(TERM_MODE_CLI);
+    term_refresh();
     klog_refresh_times++;
 }
