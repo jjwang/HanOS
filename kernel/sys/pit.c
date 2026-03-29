@@ -22,7 +22,7 @@
 #include <sys/idt.h>
 #include <sys/cmos.h>
 #include <sys/isr_base.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/klog.h>
 
 #define PIT_FREQ_HZ     1000

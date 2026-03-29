@@ -194,6 +194,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         lock_release(&tty_lock);
         lock_release(&vfs_lock);        /* If waiting, we need to release lock */
         if (eb_subscribe(sched_get_tid(), EVENT_KEY_PRESSED, &para)) {
+            lock_lock(&vfs_lock);
             lock_lock(&tty_lock);
 
             /* We maximumly backtrace half of TTY_BUFFER_SIZE to determine
@@ -219,9 +220,9 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
                 }
             }
         } else {
+            lock_lock(&vfs_lock);
             lock_lock(&tty_lock);
         }
-        lock_lock(&vfs_lock);
     }
 
     /* OK, data is enough! Read data from input buffer */

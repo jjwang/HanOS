@@ -29,7 +29,7 @@
 #include <sys/hpet.h>
 #include <device/display/fb.h>
 #include <base/kmalloc.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/klog.h>
 #include <base/klib.h>
 
