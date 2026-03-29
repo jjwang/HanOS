@@ -29,7 +29,7 @@
 #include <base/kmalloc.h>
 #include <base/klib.h>
 #include <base/vector.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 

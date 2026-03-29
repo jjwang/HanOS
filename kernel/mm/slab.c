@@ -17,7 +17,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <base/klib.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/klog.h>
 #include <mm/slab.h>
 #include <mm/mm.h>

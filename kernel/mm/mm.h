@@ -21,7 +21,7 @@
 #include <stdbool.h>
 
 #include <3rd-party/boot/limine.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/vector.h>
 
 #define PAGE_SIZE               4096

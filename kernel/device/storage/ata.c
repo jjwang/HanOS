@@ -24,7 +24,7 @@
 #include <sys/panic.h>
 #include <sys/pit.h>
 #include <device/storage/ata.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/klog.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>

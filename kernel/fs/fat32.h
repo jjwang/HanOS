@@ -22,7 +22,7 @@
 #include <libc/string.h>
 
 #include <fs/vfs.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/time.h>
 #include <device/storage/ata.h>
 

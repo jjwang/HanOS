@@ -22,7 +22,7 @@
 #include <proc/sched.h>
 #include <base/kmalloc.h>
 #include <base/klog.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <sys/cpu.h>
 #include <sys/hpet.h>
 #include <sys/apic.h>
@@ -271,18 +271,6 @@ task_t *task_fork(task_t * tp)
     vec_push_back(&tp->child_list, tc->tid);
 
     curr_tid++;
-
-    klogi("LOCK STATS: acquired %d times, total hold time %d ns (%d ms), "
-        "avg hold time %d ns, max hold time %d ns (%d ms | %s:%d), "
-        "spin failed %d times\n",
-        total_lock_acquire_count,
-        total_lock_hold_time_ns,
-        NANOS_TO_MILLIS(total_lock_hold_time_ns),
-        total_lock_acquire_count ? (total_lock_hold_time_ns /
-            total_lock_acquire_count) : 0,
-        max_lock_hold_time_ns, NANOS_TO_MILLIS(max_lock_hold_time_ns), 
-        max_lock_hold_fn, max_lock_hold_ln,
-        total_spin_fail_count);
 
   norm_exit:
     return tc;

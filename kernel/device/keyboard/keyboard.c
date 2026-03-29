@@ -23,7 +23,7 @@
 #include <device/keyboard/keycode.h>
 #include <device/display/term.h>
 #include <base/klog.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/time.h>
 #include <sys/isr_base.h>
 #include <sys/cpu.h>

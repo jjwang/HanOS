@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/klog.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>

@@ -19,7 +19,7 @@
 
 #include <device/display/fb.h>
 #include <base/image.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 
 void kdisplay(char *s, uint64_t len); /* Implemented in entry file */
 
