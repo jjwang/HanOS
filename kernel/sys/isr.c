@@ -85,7 +85,7 @@ void exc_handler_proc(
     if (excno == 14) {
         asm volatile("cli");    /* Disable to prevent nested interrupts */
         apic_timer_stop();      /* Mask APIC timer IRQ on current CPU */
-        serial_puts("APIC: Timer IRQ masked to stop interrupt storm.\n");
+        klogi("APIC: Timer IRQ masked to stop interrupt storm.\n");
 
         uint64_t cr2val;
         read_cr("cr2", &cr2val);
@@ -93,8 +93,7 @@ void exc_handler_proc(
         uint64_t cr3val;
         read_cr("cr3", &cr3val);
 
-        char errmsg[1024] = {0};
-        sprintf(errmsg, "Dump registers for exception: \n"
+        kloge("Dump registers for exception: \n"
               "RIP   : 0x%016x\nCS    : 0x%016x\nRFLAGS: 0x%016x\n"
               "RSP   : 0x%016x\nSS    : 0x%016x\n"
               "RAX 0x%016x  RBX 0x%016x  RCX 0x%016x  RDX 0x%016x\n"
@@ -106,9 +105,8 @@ void exc_handler_proc(
               tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
               tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
               tr->r15, cr2val, cr3val);
-        serial_puts(errmsg);
 
-        serial_puts("Unhandled Exception: Page Fault (14).\n");
+        kloge("Unhandled Exception: Page Fault (14).\n");
         dump_backtrace();
         for(;;) {
             asm volatile ("hlt");
