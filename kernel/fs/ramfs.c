@@ -95,6 +95,8 @@ void ramfs_init(void *address, uint64_t size)
 {
     klogi("RAMFS: init from 0x%x with len %d\n", address, size);
 
+    lock_lock(&vfs_lock);
+
     unsigned char *ptr = (unsigned char *) address;
 
     while (memcmp(ptr + 257, "ustar", 5)) {
@@ -246,6 +248,8 @@ void ramfs_init(void *address, uint64_t size)
         }
         ptr += (DIV_ROUNDUP(filesize, 512) + 1) * 512;
     }
+
+    lock_release(&vfs_lock);
 }
 
 /* The path parameter needs to be full path */

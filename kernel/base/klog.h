@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 #include <device/display/term.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 
 #define KLOG_BUFFER_SIZE       (4096 * 4)
 

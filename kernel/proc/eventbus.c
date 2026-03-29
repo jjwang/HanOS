@@ -18,7 +18,7 @@
  */
 #include <sys/hpet.h>
 #include <base/vector.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <proc/eventbus.h>
 #include <proc/sched.h>
 

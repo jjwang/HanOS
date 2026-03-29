@@ -35,7 +35,7 @@
 #include <base/klog.h>
 #include <base/klib.h>
 #include <base/kmalloc.h>
-#include <base/lock.h>
+#include <base/spinlock.h>
 #include <base/vector.h>
 #include <base/hash.h>
 
