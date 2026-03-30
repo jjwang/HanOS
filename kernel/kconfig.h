@@ -22,6 +22,9 @@
 #define ENABLE_MEM_DEBUG        false   /* default: false */
 #define ENABLE_BASH             false   /* default: false */
 
+/* Memory allocator selection */
+#define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
+
 #if !ENABLE_BASH
 #define DEFAULT_SHELL_APP       "/bin/init"
 #else

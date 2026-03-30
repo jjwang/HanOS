@@ -293,6 +293,11 @@ void kmain(void)
 
     gdt_init(NULL);
 
+#if USE_BUDDY_ALLOCATOR
+    pmm_register_buddy_allocator();
+#else
+    pmm_register_bitmap_allocator();
+#endif
     pmm_init(mm_request.response, hhdm_request.response->offset);
     alloc_init();
 

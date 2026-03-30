@@ -27,6 +27,7 @@
 #include <sys/cpu.h>
 #include <sys/panic.h>
 #include <mm/mm.h>
+#include <mm/pmm_ops.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
 #include <base/klib.h>
@@ -255,4 +256,19 @@ void pmm_dump_usage(void)
     kprintf("Update checking point to #%d for kmalloc()\n",
             kmalloc_checkno);
 #endif
+}
+
+/* Bitmap allocator operations */
+static const allocator_ops_t bitmap_allocator = {
+    .init = pmm_init,
+    .get = pmm_get,
+    .alloc = pmm_alloc,
+    .free = pmm_free,
+    .get_total_memory = pmm_get_total_memory,
+    .dump_usage = pmm_dump_usage,
+};
+
+void pmm_register_bitmap_allocator(void)
+{
+    pmm_register_allocator(&bitmap_allocator);
 }
