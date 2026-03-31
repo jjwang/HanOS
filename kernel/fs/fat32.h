@@ -147,6 +147,7 @@ extern vfs_fsinfo_t fat32;
 vfs_inode_t *fat32_mount(vfs_inode_t * at);
 vfs_tnode_t *fat32_open(vfs_inode_t * this, const char *path);
 int64_t fat32_mknode(vfs_tnode_t * this);
+int64_t fat32_rmnode(vfs_tnode_t * this);
 int64_t fat32_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
                    void *buff);
 int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
