@@ -38,7 +38,7 @@ vfs_fsinfo_t fat32 = {
     .open = fat32_open,
     .mount = fat32_mount,
     .mknode = fat32_mknode,
-    .rmnode = NULL,
+    .rmnode = fat32_rmnode,
     .sync = fat32_sync,
     .refresh = fat32_refresh,
     .read = fat32_read,
@@ -415,6 +415,36 @@ int64_t fat32_mknode(vfs_tnode_t * this)
 {
     this->inode->ident = create_ident();
     return 0;
+}
+
+int64_t fat32_rmnode(vfs_tnode_t * this)
+{
+    fat32_ident_t *id = (fat32_ident_t *) this->inode->ident;
+
+    if (id == NULL)
+        return -1;
+
+    if (id->fat != NULL) {
+        kmfree(id->fat);
+    }
+    kmfree(id);
+
+    vfs_inode_t *parent = this->parent;
+    if (parent == NULL)
+        return -1;
+
+    uint64_t child_num = vec_length(&parent->child);
+    if (child_num > 0) {
+        for (uint64_t i = 0; i < child_num; i++) {
+            vfs_tnode_t *t = vec_at(&parent->child, i);
+            if (t == this) {
+                vec_erase(&parent->child, i);
+                return 0;
+            }
+        }
+    }
+
+    return -1;
 }
 
 int fat32_compare_entry_and_path(fat32_entry_t * ent, const char *path)
