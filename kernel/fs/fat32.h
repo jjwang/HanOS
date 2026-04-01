@@ -24,7 +24,7 @@
 #include <fs/vfs.h>
 #include <base/spinlock.h>
 #include <base/time.h>
-#include <device/storage/ata.h>
+#include <device/block_device.h>
 
 #define FAT32_ATTR_READ_ONLY            0x01
 #define FAT32_ATTR_HIDDEN               0x02
@@ -126,7 +126,7 @@ typedef struct {
 } fat32_entry_t;
 
 typedef struct {
-    ata_device_t *device;
+    block_device_ops_t *blkdev;
     lock_t lock;
     fat32_bs_info_t bs;
     fat32_entry_t entry;

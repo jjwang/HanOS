@@ -178,3 +178,6 @@ void ata_pio_read28(ata_device_t * dev, uint32_t lba, uint8_t sector_count,
                     uint8_t * target);
 void ata_pio_write28(ata_device_t * dev, uint32_t lba,
                      uint8_t sector_count, uint8_t * source);
+
+#include <device/block_device.h>
+block_device_ops_t *ata_get_block_device_ops(ata_device_t *dev);
