@@ -16,6 +16,7 @@
 #include <stdint.h>
 
 #include <sys/cpu.h>
+#include <device/char_device.h>
 
 #define KEY_COUNT                           128
 
@@ -57,3 +58,4 @@ typedef struct {
 
 void keyboard_init();
 uint8_t keyboard_get_key();
+char_device_ops_t *keyboard_get_char_device_ops(void);

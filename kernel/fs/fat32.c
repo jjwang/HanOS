@@ -61,17 +61,17 @@ int fat32_read_entry(vfs_inode_t * this, uint32_t cluster, uint64_t index,
 
     /* Need to add cache to speed up reading in the future */
     uint8_t dd[512] = { 0 };
-    ata_pio_read28(id->device,
-                   id->bs.cluster_begin_lba + (cluster -
-                                               2) *
-                   id->bs.sectors_per_cluster, 1, dd);
+    id->blkdev->read(id->blkdev->base.ctx,
+                     id->bs.cluster_begin_lba + (cluster -
+                                                 2) *
+                     id->bs.sectors_per_cluster, 1, dd);
 
     static bool display = false;
     if (!display) {
         uint32_t *dl = (uint32_t *) dd;
         klogv
             ("FAT32: Read %x entry from cluster %04d:%04d - 0x%08x 0x%08x 0x%08x...\n",
-             id->device, id->bs.cluster_begin_lba, cluster, dl[0], dl[1],
+             id->blkdev, id->bs.cluster_begin_lba, cluster, dl[0], dl[1],
              dl[2]);
         display = true;
     }
@@ -98,15 +98,15 @@ int fat32_write_entry(vfs_inode_t * this, fat32_entry_t * src)
 
     /* Need to add cache to speed up reading in the future */
     uint8_t dd[512] = { 0 };
-    ata_pio_read28(id->device,
-                   id->bs.cluster_begin_lba + (cluster -
-                                               2) *
-                   id->bs.sectors_per_cluster, 1, dd);
+    id->blkdev->read(id->blkdev->base.ctx,
+                     id->bs.cluster_begin_lba + (cluster -
+                                                 2) *
+                     id->bs.sectors_per_cluster, 1, dd);
 
     uint32_t *dl = (uint32_t *) dd;
     klogv("FAT32: Read %x entry from cluster %04d:%04d - "
           "0x%08x 0x%08x 0x%08x...\n",
-          id->device, id->bs.cluster_begin_lba, cluster,
+          id->blkdev, id->bs.cluster_begin_lba, cluster,
           dl[0], dl[1], dl[2]);
 
     fat_dir_entry_t *de = (fat_dir_entry_t *) dd;
@@ -122,10 +122,10 @@ int fat32_write_entry(vfs_inode_t * this, fat32_entry_t * src)
     klogv("FAT32: Modify directory entry of %s (%d:%d) to length %d\n",
           fn, cluster, index, src->file_size_bytes);
 
-    ata_pio_write28(id->device,
-                    id->bs.cluster_begin_lba + (cluster -
-                                                2) *
-                    id->bs.sectors_per_cluster, 1, dd);
+    id->blkdev->write(id->blkdev->base.ctx,
+                      id->bs.cluster_begin_lba + (cluster -
+                                                   2) *
+                      id->bs.sectors_per_cluster, 1, dd);
 
     return 1;
 }
@@ -148,11 +148,11 @@ int64_t fat32_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     uint32_t temp_cluster = cluster;
     uint64_t temp_readlen = 0;
     while (true) {
-        ata_pio_read28(id->device,
-                       id->bs.cluster_begin_lba + (temp_cluster -
-                                                   2) *
-                       id->bs.sectors_per_cluster,
-                       id->bs.sectors_per_cluster, &dd[temp_readlen]);
+        id->blkdev->read(id->blkdev->base.ctx,
+                         id->bs.cluster_begin_lba + (temp_cluster -
+                                                     2) *
+                         id->bs.sectors_per_cluster,
+                         id->bs.sectors_per_cluster, &dd[temp_readlen]);
         temp_readlen +=
             id->bs.bytes_per_sector * id->bs.sectors_per_cluster;
         temp_cluster =
@@ -197,10 +197,10 @@ int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
     while (true) {
         klogv("FAT32: Write cluster %04d:%04d\n",
               id->bs.cluster_begin_lba, cluster);
-        ata_pio_write28(id->device,
-                        id->bs.cluster_begin_lba
-                        + (cluster - 2) * id->bs.sectors_per_cluster,
-                        id->bs.sectors_per_cluster, &dd[temp_writelen]);
+        id->blkdev->write(id->blkdev->base.ctx,
+                          id->bs.cluster_begin_lba
+                          + (cluster - 2) * id->bs.sectors_per_cluster,
+                          id->bs.sectors_per_cluster, &dd[temp_writelen]);
 
         temp_writelen +=
             id->bs.bytes_per_sector * id->bs.sectors_per_cluster;
@@ -220,23 +220,23 @@ int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
             uint64_t fat_sector_no =
                 DIV_ROUNDUP(cluster * 4, id->bs.bytes_per_sector);
 
-            ata_pio_write28(id->device,
-                            id->bs.fat_begin_lba + fat_sector_no - 1, 1,
-                            (uint8_t *) id->fat
-                            + (fat_sector_no -
-                               1) * id->bs.bytes_per_sector);
+            id->blkdev->write(id->blkdev->base.ctx,
+                              id->bs.fat_begin_lba + fat_sector_no - 1, 1,
+                              (uint8_t *) id->fat
+                              + (fat_sector_no -
+                                 1) * id->bs.bytes_per_sector);
 
             uint64_t temp_fat_sector_no = DIV_ROUNDUP(temp_cluster * 4,
                                                       id->bs.
                                                       bytes_per_sector);
 
             if (temp_fat_sector_no != fat_sector_no) {
-                ata_pio_write28(id->device,
-                                id->bs.fat_begin_lba + temp_fat_sector_no -
-                                1, 1,
-                                (uint8_t *) id->fat + (temp_fat_sector_no -
-                                                       1) *
-                                id->bs.bytes_per_sector);
+                id->blkdev->write(id->blkdev->base.ctx,
+                                  id->bs.fat_begin_lba + temp_fat_sector_no -
+                                  1, 1,
+                                  (uint8_t *) id->fat + (temp_fat_sector_no -
+                                                         1) *
+                                  id->bs.bytes_per_sector);
             }
         }
         cluster = temp_cluster;
@@ -310,9 +310,9 @@ int64_t fat32_refresh(vfs_inode_t * this)
          temp_len, temp_cluster, this->type);
 
     while (true) {
-        ata_pio_read28(id->device, id->bs.cluster_begin_lba
-                       + (temp_cluster - 2) * id->bs.sectors_per_cluster,
-                       id->bs.sectors_per_cluster, temp_buffer);
+        id->blkdev->read(id->blkdev->base.ctx, id->bs.cluster_begin_lba
+                         + (temp_cluster - 2) * id->bs.sectors_per_cluster,
+                         id->bs.sectors_per_cluster, temp_buffer);
         temp_cluster =
             fat32_get_next_cluster(temp_cluster, id->fat, id->fat_len);
 
@@ -357,12 +357,12 @@ int64_t fat32_refresh(vfs_inode_t * this)
                                             i * sizeof(fat_dir_entry_t));
                     memcpy(buf, &temp_buffer[i * sizeof(fat_dir_entry_t)],
                            temp_len - i * sizeof(fat_dir_entry_t));
-                    ata_pio_read28(id->device,
-                                   id->bs.cluster_begin_lba +
-                                   (temp_cluster -
-                                    2) * id->bs.sectors_per_cluster,
-                                   id->bs.sectors_per_cluster,
-                                   &buf[i * sizeof(fat_dir_entry_t)]);
+                    id->blkdev->read(id->blkdev->base.ctx,
+                                     id->bs.cluster_begin_lba +
+                                     (temp_cluster -
+                                      2) * id->bs.sectors_per_cluster,
+                                     id->bs.sectors_per_cluster,
+                                     &buf[i * sizeof(fat_dir_entry_t)]);
                     kmfree(temp_buffer);
                     temp_buffer = buf;
                     temp_len += cluster_len - i * sizeof(fat_dir_entry_t);
@@ -424,23 +424,21 @@ int64_t fat32_rmnode(vfs_tnode_t * this)
     if (id == NULL)
         return -1;
 
-    if (id->fat != NULL) {
-        kmfree(id->fat);
-    }
-    kmfree(id);
-
     vfs_inode_t *parent = this->parent;
     if (parent == NULL)
         return -1;
 
+    /* The fat pointer is shared across all nodes on the same partition
+     * (shallow-copied via memcpy in fat32_open), so do not free it here. */
+    kmfree(id);
+    this->inode->ident = NULL;
+
     uint64_t child_num = vec_length(&parent->child);
-    if (child_num > 0) {
-        for (uint64_t i = 0; i < child_num; i++) {
-            vfs_tnode_t *t = vec_at(&parent->child, i);
-            if (t == this) {
-                vec_erase(&parent->child, i);
-                return 0;
-            }
+    for (uint64_t i = 0; i < child_num; i++) {
+        vfs_tnode_t *t = vec_at(&parent->child, i);
+        if (t == this) {
+            vec_erase(&parent->child, i);
+            return 0;
         }
     }
 
@@ -645,22 +643,24 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
     ret->ident = create_ident();
     fat32_ident_t *id = (fat32_ident_t *) ret->ident;
 
-    /* Get the ATA device */
-    ata_device_t *dev = at ? at->ident : NULL;
-    if (dev == NULL) {
+    /* Get the block device */
+    block_device_ops_t *blkdev =
+        at ? (block_device_ops_t *) at->ident : NULL;
+    if (blkdev == NULL) {
         kloge("Cannot mount FAT32 partition without a specific device\n");
+        return ret;
     } else {
         klogi("FAT32: Mount FAT partition of device %s\n",
               at->mountpoint ? at->mountpoint->name : "[NULL]");
     }
-    id->device = dev;
+    id->blkdev = blkdev;
 
     /* Read FAT32 partition information */
     /* Notes: To make things simple, here we only consider the situation
      *        that the disk has one FAT32 partition.
      */
     mbr_t mbr;
-    ata_pio_read28(dev, 0, 1, (uint8_t *) & mbr);
+    blkdev->read(blkdev->base.ctx, 0, 1, (uint8_t *) & mbr);
 
     if (mbr.signature[0] == 0x55 && mbr.signature[1] == 0xAA) {
         for (int i = 0; i < 4; i++) {
@@ -669,7 +669,8 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                 || mbr.partitions[i].type == 0x0C
                 || mbr.partitions[i].type == 0x1C) {
                 uint8_t dd[512] = { 0 };
-                ata_pio_read28(dev, mbr.partitions[i].lba_start, 1, dd);
+                blkdev->read(blkdev->base.ctx,
+                             mbr.partitions[i].lba_start, 1, dd);
 
                 fat_bs_t *fat_boot = (fat_bs_t *) dd;
                 if (fat_boot->table_size_16 != 0
@@ -683,7 +684,7 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                        volume_label, 11);
                 klogi
                     ("Partition %d: [%s] is a FAT32 partition of device 0x%x\n",
-                     i, vol_name, dev);
+                     i, vol_name, blkdev);
 
                 /* Ref: https://www.pjrc.com/tech/8051/ide/fat32.html */
                 id->bs.bytes_per_sector = fat_boot->bytes_per_sector;
@@ -723,8 +724,8 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                 id->fat = (uint32_t *) kmalloc(id->fat_len);
                 klogi("FAT32: Read FAT table from %d len %d\n",
                       id->bs.fat_begin_lba, id->bs.sectors_per_fat);
-                ata_pio_read28(id->device, id->bs.fat_begin_lba,
-                               id->bs.sectors_per_fat, (void *) id->fat);
+                id->blkdev->read(id->blkdev->base.ctx, id->bs.fat_begin_lba,
+                                 id->bs.sectors_per_fat, (void *) id->fat);
 
                 for (uint64_t m = 0; m < 20; m += 4) {
                     klogi("FAT32: [%04d] 0x%08x 0x%08x 0x%08x 0x%08x\n",

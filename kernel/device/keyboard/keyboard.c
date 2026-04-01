@@ -23,6 +23,7 @@
 #include <device/keyboard/keycode.h>
 #include <device/display/term.h>
 #include <base/klog.h>
+#include <base/kmalloc.h>
 #include <base/spinlock.h>
 #include <base/time.h>
 #include <sys/isr_base.h>
@@ -228,4 +229,38 @@ void keyboard_init()
     isr_enable_interrupts();
 
     klogi("Keyboard initialization finished\n");
+}
+
+static int64_t kb_char_read(void *ctx, uint64_t len, void *buf)
+{
+    (void) ctx;
+    uint8_t *out = (uint8_t *) buf;
+    uint64_t n = 0;
+    while (n < len) {
+        uint8_t ch = keyboard_get_key();
+        if (ch == 0)
+            break;
+        out[n++] = ch;
+    }
+    return (int64_t) n;
+}
+
+static bool kb_char_poll(void *ctx)
+{
+    (void) ctx;
+    return buffer_length > 0;
+}
+
+char_device_ops_t *keyboard_get_char_device_ops(void)
+{
+    char_device_ops_t *ops =
+        (char_device_ops_t *) kmalloc(sizeof(char_device_ops_t));
+    memset(ops, 0, sizeof(char_device_ops_t));
+    ops->base.type = DEVICE_TYPE_CHAR;
+    ops->base.ctx  = NULL;
+    strncpy(ops->base.name, "ps2-keyboard", sizeof(ops->base.name) - 1);
+    ops->read  = kb_char_read;
+    ops->write = NULL;      /* keyboard is read-only */
+    ops->poll  = kb_char_poll;
+    return ops;
 }
