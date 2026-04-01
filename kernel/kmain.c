@@ -59,6 +59,7 @@
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <fs/vfs.h>
+#include <fs/filebase.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
 #include <fs/pipefs.h>
@@ -376,6 +377,14 @@ void kmain(void)
     self_info.actual_res_y = fb->height;
 
     vfs_init();
+
+    /* Register keyboard as /dev/kbd char device */
+    vfs_tnode_t *kbd_tnode =
+        vfs_path_to_node("/dev/kbd", CREATE, VFS_NODE_CHAR_DEVICE);
+    vfs_inode_t *kbd_inode =
+        vfs_alloc_inode(VFS_NODE_CHAR_DEVICE, 0600, 0, NULL, kbd_tnode);
+    kbd_tnode->inode = kbd_inode;
+    kbd_inode->ident = (void *) keyboard_get_char_device_ops();
 
     klogi("Init SMP...\n");
     smp_init();

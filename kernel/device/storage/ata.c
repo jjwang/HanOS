@@ -26,6 +26,7 @@
 #include <device/storage/ata.h>
 #include <base/spinlock.h>
 #include <base/klog.h>
+#include <base/kmalloc.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
@@ -409,7 +410,7 @@ static int ata_device_detect(ata_device_t * dev)
         vfs_inode_t *inode =
             vfs_alloc_inode(VFS_NODE_BLOCK_DEVICE, 0777, 0, NULL, tnode);
         tnode->inode = inode;
-        inode->ident = (void *) dev;
+        inode->ident = (void *) ata_get_block_device_ops(dev);
 
         ata_read_partition_map(dev, devname);
 
@@ -436,7 +437,7 @@ static int ata_device_detect(ata_device_t * dev)
         vfs_inode_t *inode =
             vfs_alloc_inode(VFS_NODE_BLOCK_DEVICE, 0777, 0, NULL, tnode);
         tnode->inode = inode;
-        inode->ident = (void *) dev;
+        inode->ident = (void *) ata_get_block_device_ops(dev);
 
         cdrom_number++;
 
@@ -456,6 +457,46 @@ int ata_init(void)
     ata_device_detect(&ata_secondary_slave);
 
     return 1;
+}
+
+static void ata_blk_read(void *ctx, uint32_t lba, uint8_t sector_count,
+                         uint8_t *buf)
+{
+    ata_pio_read28((ata_device_t *) ctx, lba, sector_count, buf);
+}
+
+static void ata_blk_write(void *ctx, uint32_t lba, uint8_t sector_count,
+                          uint8_t *buf)
+{
+    ata_pio_write28((ata_device_t *) ctx, lba, sector_count, buf);
+}
+
+static uint32_t ata_blk_get_sector_size(void *ctx)
+{
+    ata_device_t *dev = (ata_device_t *) ctx;
+    return dev->atapi_sector_size ? dev->atapi_sector_size : ATA_SECTOR_SIZE;
+}
+
+static uint32_t ata_blk_get_sector_count(void *ctx)
+{
+    ata_device_t *dev = (ata_device_t *) ctx;
+    return (uint32_t) dev->identity.sectors_28;
+}
+
+block_device_ops_t *ata_get_block_device_ops(ata_device_t *dev)
+{
+    block_device_ops_t *ops =
+        (block_device_ops_t *) kmalloc(sizeof(block_device_ops_t));
+    memset(ops, 0, sizeof(block_device_ops_t));
+    ops->base.type = DEVICE_TYPE_BLOCK;
+    ops->base.ctx  = dev;
+    strncpy(ops->base.name, (char *) dev->identity.model,
+            sizeof(ops->base.name) - 1);
+    ops->read             = ata_blk_read;
+    ops->write            = ata_blk_write;
+    ops->get_sector_size  = ata_blk_get_sector_size;
+    ops->get_sector_count = ata_blk_get_sector_count;
+    return ops;
 }
 
 static uint64_t ata_max_offset(ata_device_t * dev)
