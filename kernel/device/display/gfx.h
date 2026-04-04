@@ -85,9 +85,15 @@ bool gfx_exit_force_wake(gfx_pci_t * pci);
 
 /* Memory management */
 bool gfx_mem_enable_swizzle(gfx_pci_t * pci);
-bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_object_t * obj,
+bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_gtt_t * gtt, gfx_object_t * obj,
                uint64_t size, uint64_t align);
 uint64_t gfx_addr(gfx_mem_manager_t * mgr, void *phy_addr);
+
+/* GTT mapping */
+void gfx_gtt_write_entry(gfx_gtt_t * gtt, uint32_t index, uint64_t phys);
+uint32_t gfx_gtt_map(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t phys,
+                     uint64_t size);
+void gfx_gtt_clear(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t size);
 
 /* Display control */
 void gfx_disable_vga(gfx_pci_t * pci);
