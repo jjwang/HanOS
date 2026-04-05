@@ -18,6 +18,7 @@
  */
 #include <3rd-party/boot/limine.h>
 #include <stdint.h>
+#include <libc/string.h>
 #include <sys/cpu.h>
 #include <sys/pci.h>
 #include <sys/pit.h>
@@ -30,6 +31,8 @@
 #include <proc/sched.h>
 #include <device/display/gfx.h>
 #include <device/display/gfx_reg.h>
+#include <device/display/term.h>
+#include <base/kmalloc.h>
 
 #define DEVICE_HD5500               0x1616
 #define DEVICE_HD520                0x1916
@@ -60,6 +63,7 @@ vec_extern(pci_device_t, pci_devices);
 static gfx_pci_t gfx_pci = { 0 };
 static gfx_gtt_t gfx_gtt = { 0 };
 static gfx_mem_manager_t gfx_mgr = { 0 };
+static gfx_fb_t gfx_fb = { 0 };
 
 bool gfx_validate_chipset(void)
 {
@@ -382,7 +386,7 @@ bool gfx_init(void)
                     uint32_t gtt_idx = (uint32_t)(obj.gfx_addr >> GTT_PAGE_SHIFT);
                     uint32_t phys32 = (uint32_t)VIRT_TO_PHYS((uint64_t)obj.cpu_addr);
                     uint32_t expected = (phys32 & ~(uint32_t)(GTT_PAGE_SIZE - 1))
-                                      | (phys32 >> 28) & 0xFF0
+                                      | ((phys32 >> 28) & 0xFF0)
                                       | GTT_ENTRY_LLC_CACHE_CONTROL
                                       | GTT_ENTRY_VALID;
                     klogi("  [PASS] GTT[%x] written: phys=0x%x entry=0x%x\n",
@@ -428,29 +432,46 @@ bool gfx_init(void)
                 }
             }
 
-            /* Test 9: GPU frequency scaling (write-only, no readback wait)
-             * Note: waiting after RPNSWREQ write triggers a platform PME/SMI
-             * on this hardware — skip the pit_wait to avoid the interrupt. */
-            klogi("Test 9: GPU frequency scaling\n");
+            /* Test 9: GPU frequency scaling — SKIPPED.
+             * Any write to RPNSWREQ triggers a platform PME/SMI on this
+             * hardware whose handler is not yet registered.  The SMI fires
+             * during the next long operation and corrupts the stack → GPF. */
+            klogi("Test 9: GPU frequency scaling (skipped - triggers PME/SMI)\n");
             uint32_t original_freq = gfx_get_gpu_freq(&gfx_pci);
-            klogi("  Original frequency: %d MHz\n", original_freq);
-            if (gfx_set_gpu_freq(&gfx_pci, 750)) {
-                klogi("  [PASS] Boost request (750 MHz) sent\n");
-                /* Read back immediately without waiting — avoid PME interrupt */
-                uint32_t new_freq = gfx_get_gpu_freq(&gfx_pci);
-                klogi("  Frequency (immediate readback): %d MHz\n", new_freq);
-            }
+            klogi("  Current frequency: %d MHz\n", original_freq);
 
-            /* Test 10: Claude Code registers (read-only) */
+            /* Test 10: Cursor control registers (read-only) */
             klogi("Test 10: Cursor control\n");
-            klogi("  [INFO] Cursor configured with gfx_configure_cursor()\n");
+            klogi("  [INFO] Cursor configured with gfx_configure_Claude Code()\n");
             klogi("  [INFO] Supported modes: 64x64, 128x128, 256x256 ARGB\n");
+
+            klogi("=== GFX Driver Feature Test Complete ===\n");
+
+            /* Use aperture as GPU framebuffer: pass limine's actual pitch so
+             * our stride matches what the display engine is already using. */
+            fb_info_t *limine_fb = term_get_fb();
+            if (limine_fb && gfx_modeset(&gfx_pci, &gfx_mgr, &gfx_gtt,
+                            limine_fb->width, limine_fb->height,
+                            limine_fb->pitch, DISPPLANE_BGRX888, &gfx_fb)) {
+                uint32_t fbsize = gfx_fb.stride * gfx_fb.height;
+                uint8_t *new_bb = (uint8_t *)kmalloc(fbsize);
+                if (new_bb) {
+                    memset(new_bb, 0, fbsize);
+                    /* addr stays pointing at aperture (same as before).
+                     * Replace backbuffer with a fresh shadow sized for the
+                     * current resolution; old limine backbuffer is abandoned. */
+                    limine_fb->backbuffer     = new_bb;
+                    limine_fb->backbuffer_len = fbsize;
+                    klogi("GFX: fb backbuffer reallocated: %dx%d pitch=%d\n",
+                          limine_fb->width, limine_fb->height, limine_fb->pitch);
+                } else {
+                    kloge("GFX: kmalloc failed for backbuffer\n");
+                }
+            }
 
             gfx_exit_force_wake(&gfx_pci);
             klogi("  [PASS] Force wake exited\n");
         }
-
-        klogi("=== GFX Driver Feature Test Complete ===\n");
     }
 
     return ret;
@@ -609,6 +630,69 @@ bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_gtt_t * gtt, gfx_object_t * obj,
     obj->cpu_addr = (volatile uint8_t *)PHYS_TO_VIRT(phys);
     obj->gfx_addr = gpu_addr;
 
+    return true;
+}
+
+bool gfx_edp_panel_on(gfx_pci_t * pci)
+{
+    uint32_t pp = gfx_ind(pci, PP_CONTROL);
+    if (pp & PP_CONTROL_POWER_STATE) {
+        klogd("GFX: eDP panel already on (PP_CONTROL=0x%x)\n", pp);
+        return true;
+    }
+    pp |= PP_CONTROL_POWER_STATE | PP_CONTROL_VDD_FORCE;
+    gfx_outd(pci, PP_CONTROL, pp);
+
+    int timeout = 200000;
+    while (timeout-- > 0) {
+        if (gfx_ind(pci, PP_STATUS) & PP_STATUS_ON)
+            return true;
+        pit_wait(1);
+    }
+    kloge("GFX: eDP panel power-on timeout\n");
+    return false;
+}
+
+bool gfx_edp_panel_off(gfx_pci_t * pci)
+{
+    uint32_t pp = gfx_ind(pci, PP_CONTROL);
+    pp &= ~(PP_CONTROL_POWER_STATE | PP_CONTROL_BACKLIGHT_ENABLE);
+    gfx_outd(pci, PP_CONTROL, pp);
+    klogd("GFX: eDP panel off\n");
+    return true;
+}
+
+bool gfx_modeset(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
+                 uint32_t width, uint32_t height, uint32_t pitch,
+                 uint32_t format, gfx_fb_t * out_fb)
+{
+    (void)mgr;
+    (void)gtt;
+
+    /* The BIOS GOP display engine is already scanning the aperture (GMADR,
+     * physical 0xE0000000) via a trained eDP link.  Firmware traps GTT[0]
+     * writes; pipe enable requires DP link re-training we cannot do.
+     *
+     * The aperture IS the GPU framebuffer: the display engine fetches from
+     * GTT[0..N] which the BIOS already mapped to the stolen memory backing
+     * the aperture.  Writes to PHYS_TO_VIRT(aperture) appear on screen.
+     *
+     * We use the caller-supplied pitch (limine's actual pitch) so the display
+     * engine's row stride matches what we write. */
+
+    uint32_t stride = (pitch != 0) ? pitch : (width * 4);
+
+    out_fb->width  = width;
+    out_fb->height = height;
+    out_fb->stride = stride;
+    out_fb->format = format;
+
+    /* cpu_addr = aperture virtual base (already mapped by gfx_init_pci) */
+    out_fb->obj.cpu_addr = (volatile uint8_t *)pci->aperture_bar;
+    out_fb->obj.gfx_addr = 0;
+
+    klogi("GFX: modeset %dx%d OK (aperture scanout, cpu=0x%x pitch=%d)\n",
+          width, height, (uint64_t)pci->aperture_bar, stride);
     return true;
 }
 
