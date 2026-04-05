@@ -67,6 +67,14 @@ typedef struct {
     uint8_t rp0_freq_units;     /* GT_PERF_STATUS bits 7:0 — RP0 cap in 50MHz units */
 } gfx_perf_status_t;
 
+typedef struct {
+    gfx_object_t obj;       /* GTT-mapped framebuffer */
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;        /* bytes per row */
+    uint32_t format;        /* DISPPLANE_BGRX888 etc. */
+} gfx_fb_t;
+
 #define FENCE_BASE                      0x100000
 #define FENCE_COUNT                     16
 
@@ -134,3 +142,10 @@ bool gfx_disable_cursor(gfx_pci_t * pci, uint8_t pipe);
 #define gfx_outd(pci, reg, val)     mmio_outd((uint8_t*)(pci)->mmio_bar + (reg), val)
 #define gfx_inl(pci, reg)           mmio_inl((uint8_t*)(pci)->mmio_bar + (reg))
 #define gfx_outl(pci, reg, val)     mmio_outl((uint8_t*)(pci)->mmio_bar + (reg), val)
+
+/* eDP panel and mode setting */
+bool gfx_edp_panel_on(gfx_pci_t * pci);
+bool gfx_edp_panel_off(gfx_pci_t * pci);
+bool gfx_modeset(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
+                 uint32_t width, uint32_t height, uint32_t pitch,
+                 uint32_t format, gfx_fb_t * out_fb);
