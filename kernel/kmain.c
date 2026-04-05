@@ -405,16 +405,8 @@ void kmain(void)
     end = hpet_get_nanos();
     klogi("Empty loop cost      : %d nano seconds\n", end - start);
 
-    /* Measure MMIO framebuffer write speed by writing 10 million times to
-     * the framebuffer address.
-     *
-     * This tests whether MMIO memory access or cache settings cause
-     * performance issues.
-     */
-    start = hpet_get_nanos();
-    for (int64_t ii = 0; ii < 100000000; ++ii) *((volatile uint32_t*)fb->address) = 0;
-    end = hpet_get_nanos();
-    klogi("Framebuffer loop cost: %d nano seconds\n", end - start);
+    /* Framebuffer write benchmark removed: aperture is uncached MMIO on real
+     * hardware, so 100M writes take ~7.6s and stall the scheduler. */
 
     klogi("Init INITRD...\n");
     struct limine_module_response *module_response =

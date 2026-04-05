@@ -570,3 +570,8 @@ void term_start()
     term_refresh();
 }
 
+fb_info_t *term_get_fb(void)
+{
+    return &term_cli.fb;
+}
+

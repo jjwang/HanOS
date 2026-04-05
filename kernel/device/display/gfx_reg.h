@@ -318,4 +318,109 @@
 #define CURSOR_POS_SIGN_X               (1 << 15)
 #define CURSOR_POS_SIGN_Y               (1 << 31)
 
+/* Skylake Gen9 Display — Power Wells */
+#define PWR_WELL_CTL2                   0x45404
+#define PWR_WELL_MISC_IO_REQ            (1u << 31)
+#define PWR_WELL_MISC_IO_STATE          (1u << 30)
+#define PWR_WELL_DDI_A_REQ              (1 << 3)
+#define PWR_WELL_DDI_A_STATE            (1 << 2)
 
+/* Skylake Gen9 Display — CDCLK / DPLL */
+#define LCPLL1_CTL                      0x46010
+#define LCPLL1_PLL_ENABLE               (1u << 31)
+#define LCPLL1_PLL_LOCK                 (1u << 30)
+
+/* DPLL_CTRL1/2 replace Gen6 DPLL_A/B on Skylake */
+#define DPLL_CTRL1                      0x6C058
+#define DPLL_CTRL1_LINK_RATE_2700       0   /* HBR2 */
+#define DPLL_CTRL1_LINK_RATE_1350       1   /* HBR  */
+#define DPLL_CTRL1_LINK_RATE_810        2   /* RBR  */
+#define DPLL_CTRL1_OVERRIDE(n)          (1 << ((n) * 6))
+
+#define DPLL_CTRL2                      0x6C05C
+#define DPLL_CTRL2_DDI_CLK_OFF(port)    (1 << ((port) * 3 + 15))
+#define DPLL_CTRL2_DDI_SEL_SHIFT(port)  ((port) * 3 + 1)
+#define DPLL_CTRL2_DDI_SEL_DPLL0        0
+#define DPLL_CTRL2_DDI_SEL_DPLL1        1
+#define DPLL_CTRL2_DDI_CLK_OVERRIDE(port) (1 << ((port) * 3))
+
+/* Skylake Gen9 Display — DDI Buffer Control (port A = eDP) */
+#define DDI_BUF_CTL_A                   0x64000
+#define DDI_BUF_CTL_ENABLE              (1u << 31)
+#define DDI_BUF_CTL_PORT_WIDTH_X1       (0 << 1)
+#define DDI_BUF_CTL_PORT_WIDTH_X2       (1 << 1)
+#define DDI_BUF_CTL_PORT_WIDTH_X4       (3 << 1)
+#define DDI_BUF_CTL_PORT_WIDTH_MASK     (7 << 1)
+#define DDI_BUF_CTL_IDLE                (1 << 7)
+
+/* DDI AUX Channel (port A) */
+#define DDI_AUX_CTL_A                   0x64010
+#define DDI_AUX_CTL_SEND_BUSY           (1u << 31)
+#define DDI_AUX_CTL_DONE                (1 << 30)
+#define DDI_AUX_CTL_TIMEOUT             (1 << 26)
+#define DDI_AUX_CTL_MSG_SIZE(n)         ((n) << 20)
+#define DDI_AUX_DATA_A0                 0x64014
+
+/* Skylake Gen9 Display — Transcoder DDI Function Control */
+#define TRANS_DDI_FUNC_CTL_A            0x60400
+#define TRANS_DDI_FUNC_CTL_B            0x61400
+#define TRANS_DDI_FUNC_CTL_C            0x62400
+#define TRANS_DDI_FUNC_ENABLE           (1u << 31)
+#define TRANS_DDI_SELECT_NONE           (0 << 28)
+#define TRANS_DDI_SELECT_DDI_B          (1 << 28)
+#define TRANS_DDI_SELECT_DDI_C          (2 << 28)
+#define TRANS_DDI_SELECT_DDI_D          (3 << 28)
+#define TRANS_DDI_SELECT_DDI_A          (4 << 28)
+#define TRANS_DDI_SELECT_MASK           (7 << 28)
+#define TRANS_DDI_MODE_HDMI             (0 << 24)
+#define TRANS_DDI_MODE_DVI              (1 << 24)
+#define TRANS_DDI_MODE_DP_SST           (2 << 24)
+#define TRANS_DDI_MODE_DP_MST           (3 << 24)
+#define TRANS_DDI_MODE_MASK             (7 << 24)
+#define TRANS_DDI_BPC_8                 (0 << 20)
+#define TRANS_DDI_BPC_10                (1 << 20)
+#define TRANS_DDI_BPC_6                 (2 << 20)
+#define TRANS_DDI_BPC_12                (3 << 20)
+#define TRANS_DDI_PORT_WIDTH_X1         (0 << 1)
+#define TRANS_DDI_PORT_WIDTH_X2         (1 << 1)
+#define TRANS_DDI_PORT_WIDTH_X4         (3 << 1)
+#define TRANS_DDI_PORT_WIDTH_MASK       (7 << 1)
+
+/* Skylake Gen9 Display — eDP Panel Power Sequencing */
+#define PP_STATUS                       0xC7200
+#define PP_STATUS_ON                    (1u << 31)
+#define PP_STATUS_SEQUENCE_MASK         (3 << 28)
+#define PP_STATUS_SEQUENCE_NONE         (0 << 28)
+
+#define PP_CONTROL                      0xC7204
+#define PP_CONTROL_VDD_FORCE            (1 << 3)
+#define PP_CONTROL_BACKLIGHT_ENABLE     (1 << 2)
+#define PP_CONTROL_POWER_DOWN_RST       (1 << 1)
+#define PP_CONTROL_POWER_STATE          (1 << 0)
+
+#define PP_ON_DELAYS                    0xC7208
+#define PP_OFF_DELAYS                   0xC720C
+#define PP_DIVISOR                      0xC7210
+
+/* eDP PSR (Panel Self Refresh) — disable for initial bringup */
+#define EDP_PSR_CTL                     0x64900
+#define EDP_PSR_ENABLE                  (1u << 31)
+
+/* Backlight PWM */
+#define BLC_PWM_CTL2                    0x48250
+#define BLC_PWM_CTL                     0x48254
+#define BLC_PWM_CTL_ENABLE              (1u << 31)
+
+/* Skylake Gen9 Universal Plane A (pipe A, plane 1) */
+#define PLANE_CTL_1_A                   0x70180   /* same offset as DSPACNTR */
+#define PLANE_CTL_ENABLE                (1u << 31)
+#define PLANE_CTL_FORMAT_XRGB           (4u << 24) /* 32bpp XRGB/BGRX linear */
+#define PLANE_CTL_TILED_LINEAR          (0u << 10)
+
+#define PLANE_STRIDE_1_A                0x70188   /* stride in 64-byte units */
+#define PLANE_POS_1_A                   0x7018C   /* (y<<16)|x */
+#define PLANE_SIZE_1_A                  0x70190   /* (h-1)<<16|(w-1) */
+#define PLANE_SURF_1_A                  0x7019C   /* surface GPU addr, triggers flip */
+
+/* Pipe A source size (active area): (width-1)<<16 | (height-1) */
+#define PIPEASRC                        0x6001C
