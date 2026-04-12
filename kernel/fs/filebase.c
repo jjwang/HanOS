@@ -185,7 +185,7 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
         if (fd != NULL)
             return fd;
         klogw
-            ("VFS: %s() cannot locate %d (0x%x) in file list of task %d\n",
+            ("VFS: %s() cannot locate %ld (0x%016lx) in file list of task %ld\n",
              func, handle, handle, t->tid);
     }
     return NULL;

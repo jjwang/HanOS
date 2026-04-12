@@ -105,7 +105,7 @@ void signal_changemask(task_t * t, int64_t how, sigset_t * new,
                 break;
             }
         default:
-            kloge("signal_changemask: bad how %d for task %d\n",
+            kloge("signal_changemask: bad how %ld for task %ld\n",
                   how, t->tid);
         }
     }

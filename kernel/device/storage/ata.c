@@ -98,7 +98,7 @@ static void ata_poll(ata_device_t * dev, int advanced_check)
             if ((s & ATA_SR_ERR) || (s & ATA_SR_DF)) {
                 ata_io_wait(dev);
                 uint8_t err = port_inb(dev->io_base + ATA_REG_ERROR);
-                kpanic("ATA: Device error code %d\n", err);
+                kpanic("ATA: Device error code %ld\n", err);
             }
             if (s & ATA_SR_DRQ) {
                 break;
@@ -110,7 +110,7 @@ static void ata_poll(ata_device_t * dev, int advanced_check)
 
 static int ata_device_init(ata_device_t * dev)
 {
-    klogi("Initializing IDE device on bus %d\n", dev->io_base);
+    klogi("Initializing IDE device on bus %ld\n", dev->io_base);
 
     uint16_t bus = dev->io_base;
     uint8_t slave = dev->slave;
@@ -143,7 +143,7 @@ static int ata_device_init(ata_device_t * dev)
     uint8_t status = port_inb(bus + ATA_REG_STATUS);
     if (status == 0)
         return 0;
-    klogi("Device status: %02x\n", status);
+    klogi("Device status: %02lx\n", status);
 
     klogi("Waiting for ERR or DRQ.\n");
     /* Wait for ERR or DRQ */
@@ -182,7 +182,7 @@ static int ata_device_init(ata_device_t * dev)
 
   c2:
     status = port_inb(bus + ATA_REG_STATUS);
-    klogi("Device status: %02x\n", status);
+    klogi("Device status: %02lx\n", status);
     klogi("Reading IDENTIFY structure.\n");
 
     uint16_t *buf = (uint16_t *) & dev->identity;
@@ -207,9 +207,9 @@ static int ata_device_init(ata_device_t * dev)
 
     klogi("Device name : %s\n", dev->identity.model);
     klogi("Serial no   : %s\n", dev->identity.serial);
-    klogi("Sectors (48): %d\n", (uint32_t) dev->identity.sectors_48);
-    klogi("Sectors (24): %d\n", dev->identity.sectors_28);
-    klogi("Max offset  : %d\n", ata_max_offset(dev));
+    klogi("Sectors (48): %ld\n", (uint32_t) dev->identity.sectors_48);
+    klogi("Sectors (24): %ld\n", dev->identity.sectors_28);
+    klogi("Max offset  : %ld\n", ata_max_offset(dev));
 
     port_outb(dev->io_base + ATA_REG_CONTROL, 0x02);
 
@@ -281,7 +281,7 @@ static int atapi_device_init(ata_device_t * dev)
         return 0;
     }
 
-    klogi("Device status: %02x\n", status);
+    klogi("Device status: %02lx\n", status);
     klogi("Reading IDENTIFY structure.\n");
 
     uint16_t *buf = (uint16_t *) & dev->identity;
@@ -367,7 +367,7 @@ static int atapi_device_init(ata_device_t * dev)
     if (!lba)
         return 1;
 
-    klogi("Finished! LBA = %x; block length = %x\n", lba, blocks);
+    klogi("Finished! LBA = %016lx; block length = %016lx\n", lba, blocks);
     return 1;
 
   atapi_error_read:
@@ -419,7 +419,7 @@ static int ata_device_detect(ata_device_t * dev)
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) || (cl == 0x69 && ch == 0x96)) {
         klogi
-            ("Detected ATAPI device at io-base %3x, control %3x, slave %d\n",
+            ("Detected ATAPI device at io-base %3x, control %3x, slave %ld\n",
              dev->io_base, dev->control, dev->slave);
 
         if (!atapi_device_init(dev)) {
@@ -591,11 +591,11 @@ int ata_read_partition_map(ata_device_t * dev, char *devname)
             ("              status, type, lba 1st sector, sector count\n");
         for (int i = 0; i < 4; ++i) {
             if (mbr.partitions[i].status & 0x80) {
-                klogi("#%2d: @%d + %d\n", i + 1,
+                klogi("#%2d: @%ld + %ld\n", i + 1,
                       mbr.partitions[i].lba_start,
                       mbr.partitions[i].sector_count);
             } else {
-                klogi("#%2d: inactive     %02x,   %02x, %14d, %12d\n",
+                klogi("#%2d: inactive     %02lx,   %02lx, %14d, %12d\n",
                       i + 1, mbr.partitions[i].status,
                       mbr.partitions[i].type, mbr.partitions[i].lba_start,
                       mbr.partitions[i].sector_count);
@@ -625,17 +625,17 @@ int ata_read_partition_map(ata_device_t * dev, char *devname)
         return 0;
     } else {
         kloge("Did not find partition table.\n");
-        kloge("Signature was %02x %02x instead of 0x55 0xAA\n",
+        kloge("Signature was %02lx %02lx instead of 0x55 0xAA\n",
               mbr.signature[0], mbr.signature[1]);
 
         kloge("Parsing anyone yields:\n");
 
         for (int i = 0; i < 4; ++i) {
             if (mbr.partitions[i].status & 0x80) {
-                klogi("#%d: @%d+%d\n", i + 1, mbr.partitions[i].lba_start,
+                klogi("#%ld: @%ld+%ld\n", i + 1, mbr.partitions[i].lba_start,
                       mbr.partitions[i].sector_count);
             } else {
-                klogi("#%d: inactive\n", i + 1);
+                klogi("#%ld: inactive\n", i + 1);
             }
         }
     }

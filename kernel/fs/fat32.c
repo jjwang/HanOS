@@ -70,7 +70,7 @@ int fat32_read_entry(vfs_inode_t * this, uint32_t cluster, uint64_t index,
     if (!display) {
         uint32_t *dl = (uint32_t *) dd;
         klogv
-            ("FAT32: Read %x entry from cluster %04d:%04d - 0x%08x 0x%08x 0x%08x...\n",
+            ("FAT32: Read %016lx entry from cluster %04d:%04d - 0x%08lx 0x%08lx 0x%08lx...\n",
              id->blkdev, id->bs.cluster_begin_lba, cluster, dl[0], dl[1],
              dl[2]);
         display = true;
@@ -104,8 +104,8 @@ int fat32_write_entry(vfs_inode_t * this, fat32_entry_t * src)
                      id->bs.sectors_per_cluster, 1, dd);
 
     uint32_t *dl = (uint32_t *) dd;
-    klogv("FAT32: Read %x entry from cluster %04d:%04d - "
-          "0x%08x 0x%08x 0x%08x...\n",
+    klogv("FAT32: Read %016lx entry from cluster %04d:%04d - "
+          "0x%08lx 0x%08lx 0x%08lx...\n",
           id->blkdev, id->bs.cluster_begin_lba, cluster,
           dl[0], dl[1], dl[2]);
 
@@ -119,7 +119,7 @@ int fat32_write_entry(vfs_inode_t * this, fat32_entry_t * src)
 
     char fn[VFS_MAX_NAME_LEN] = { 0 };
     fat32_get_short_filename(de[index].file_name_and_ext, fn, sizeof(fn));
-    klogv("FAT32: Modify directory entry of %s (%d:%d) to length %d\n",
+    klogv("FAT32: Modify directory entry of %s (%ld:%ld) to length %ld\n",
           fn, cluster, index, src->file_size_bytes);
 
     id->blkdev->write(id->blkdev->base.ctx,
@@ -137,7 +137,7 @@ int64_t fat32_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     fat32_ident_t *id = (fat32_ident_t *) this->ident;
 
     uint32_t cluster = id->entry.cluster_begin;
-    klogi("FAT32: Read %4d bytes from cluster %d, offset %d\n", len,
+    klogi("FAT32: Read %4d bytes from cluster %ld, offset %ld\n", len,
           cluster, offset);
 
     uint64_t sector_num =
@@ -160,7 +160,7 @@ int64_t fat32_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         if (temp_cluster == 0)
             break;
         klogi
-            ("FAT32:                      cluster %d, bytes per cluster %d\n",
+            ("FAT32:                      cluster %ld, bytes per cluster %ld\n",
              temp_cluster,
              id->bs.bytes_per_sector * id->bs.sectors_per_cluster);
     }
@@ -188,7 +188,7 @@ int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
     fat32_read(this, 0, sector_num * id->bs.bytes_per_sector, dd);
     memcpy(dd + offset, buff, len);
 
-    klogi("FAT32: Write %4d bytes from cluster %d, offset %d\n",
+    klogi("FAT32: Write %4d bytes from cluster %ld, offset %ld\n",
           len, cluster, offset);
 
     uint32_t temp_cluster = cluster;
@@ -242,7 +242,7 @@ int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
         cluster = temp_cluster;
 
         klogi
-            ("FAT32:                       cluster %d, bytes per cluster %d\n",
+            ("FAT32:                       cluster %ld, bytes per cluster %ld\n",
              cluster,
              id->bs.bytes_per_sector * id->bs.sectors_per_cluster);
     }
@@ -306,7 +306,7 @@ int64_t fat32_refresh(vfs_inode_t * this)
         temp_cluster = 2;
 
     klogi
-        ("FAT32: Read %4d bytes from cluster %d when refreshing (type %d)\n",
+        ("FAT32: Read %4d bytes from cluster %ld when refreshing (type %ld)\n",
          temp_len, temp_cluster, this->type);
 
     while (true) {
@@ -381,7 +381,7 @@ int64_t fat32_refresh(vfs_inode_t * this)
             }
             if (!(lfn_meet && lfn_checksum ==
                   fat32_checksum((char *) fe->file_name_and_ext))) {
-                klogi("FAT32: file attribute %d, name \"%s\"\n",
+                klogi("FAT32: file attribute %ld, name \"%s\"\n",
                       fe->attribute, fn);
             }
 
@@ -401,7 +401,7 @@ int64_t fat32_refresh(vfs_inode_t * this)
         if (temp_cluster >= 0xFFFFFFF8)
             break;
         klogi
-            ("FAT32:                      cluster 0x%x, bytes per cluster %d\n",
+            ("FAT32:                      cluster 0x%016lx, bytes per cluster %ld\n",
              temp_cluster,
              id->bs.bytes_per_sector * id->bs.sectors_per_cluster);
     }
@@ -493,10 +493,10 @@ void fat32_dump_entry(fat32_entry_t fe)
     if (fe.attribute & FAT32_ATTR_LONGNAME)
         klogu("  Attribute    : longname\n");
 
-    klogu("  Cluster begin: %d\n", fe.cluster_begin);
-    klogu("  File size    : %d\n", fe.file_size_bytes);
-    klogu("  Dent cluster : %d\n", fe.dir_entry_cluster);
-    klogu("  Dent index   : %d\n", fe.dir_entry_index);
+    klogu("  Cluster begin: %ld\n", fe.cluster_begin);
+    klogu("  File size    : %ld\n", fe.file_size_bytes);
+    klogu("  Dent cluster : %ld\n", fe.dir_entry_cluster);
+    klogu("  Dent index   : %ld\n", fe.dir_entry_index);
 
     klog_unlock();
 }
@@ -556,7 +556,7 @@ fat32_entry_t fat32_parse_path(vfs_inode_t * this, const char *path)
         }
 
         if (fat32_compare_entry_and_path(&ent, sub_elem)) {
-            klogv("FAT32: [%s] matches with top level %d\n", sub_elem,
+            klogv("FAT32: [%s] matches with top level %ld\n", sub_elem,
                   top_level);
             if (top_level) {
                 /* found file we were looking for */
@@ -683,7 +683,7 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                        ((fat_extbs_32_t *) fat_boot->extended_section)->
                        volume_label, 11);
                 klogi
-                    ("Partition %d: [%s] is a FAT32 partition of device 0x%x\n",
+                    ("Partition %ld: [%s] is a FAT32 partition of device 0x%016lx\n",
                      i, vol_name, blkdev);
 
                 /* Ref: https://www.pjrc.com/tech/8051/ide/fat32.html */
@@ -701,9 +701,9 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                 id->bs.total_sectors = fat_boot->total_sectors_32;
 
                 klogi
-                    ("Partition %d: OEM name %s, bytes per sector %d, sectors per cluster %d, "
-                     "number of reserved sectors 0x%02x, number of FATs %d, "
-                     "sectors per FAT %d, root directory first cluster 0x%2x\n",
+                    ("Partition %ld: OEM name %s, bytes per sector %ld, sectors per cluster %ld, "
+                     "number of reserved sectors 0x%02lx, number of FATs %ld, "
+                     "sectors per FAT %ld, root directory first cluster 0x%2x\n",
                      i, fat_boot->oem_name, id->bs.bytes_per_sector,
                      id->bs.sectors_per_cluster,
                      id->bs.reserved_sector_count, id->bs.num_fats,
@@ -722,13 +722,13 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                 id->fat_len =
                     id->bs.sectors_per_fat * id->bs.bytes_per_sector;
                 id->fat = (uint32_t *) kmalloc(id->fat_len);
-                klogi("FAT32: Read FAT table from %d len %d\n",
+                klogi("FAT32: Read FAT table from %ld len %ld\n",
                       id->bs.fat_begin_lba, id->bs.sectors_per_fat);
                 id->blkdev->read(id->blkdev->base.ctx, id->bs.fat_begin_lba,
                                  id->bs.sectors_per_fat, (void *) id->fat);
 
                 for (uint64_t m = 0; m < 20; m += 4) {
-                    klogi("FAT32: [%04d] 0x%08x 0x%08x 0x%08x 0x%08x\n",
+                    klogi("FAT32: [%04d] 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
                           m, id->fat[m], id->fat[m + 1], id->fat[m + 2],
                           id->fat[m + 3]);
                 }

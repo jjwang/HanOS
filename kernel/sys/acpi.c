@@ -39,7 +39,7 @@ acpi_sdt_t *acpi_get_sdt(const char *sign)
                                                             sdt->data)
                                                          [i]));
         if (memcmp(table->hdr.sign, sign, strlen(sign))) {
-            klogi("ACPI: found SDT \"%s\" 0x%x\n", sign, table);
+            klogi("ACPI: found SDT \"%s\" 0x%016lx\n", sign, table);
             return table;
         }
     }
@@ -64,7 +64,7 @@ void acpi_init(struct limine_rsdp_response *rsdp_info)
         sdt = (acpi_sdt_t *) PHYS_TO_VIRT(rsdp->xsdt_addr);
         use_xsdt = true;
     } else {
-        klogi("ACPI: v1.0 (revision %d) detected\n", rsdp->revision);
+        klogi("ACPI: v1.0 (revision %ld) detected\n", rsdp->revision);
         sdt = (acpi_sdt_t *) PHYS_TO_VIRT(rsdp->rsdt_addr);
         use_xsdt = false;
     }

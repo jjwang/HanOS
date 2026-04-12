@@ -48,8 +48,8 @@ bool eb_publish(task_id_t tid, event_type_t type, event_para_t para)
     lock_release(&eb_lock);
 
     if (eb_debug) {
-        klogi("EB: task id %d published  para 0x%8x with type 0x%8x "
-              "and millis %d, ticks %d\n",
+        klogi("EB: task id %ld published  para 0x%8x with type 0x%8x "
+              "and millis %ld, ticks %ld\n",
               tid, para, type, hpet_get_millis(), sched_get_ticks());
     }
 
@@ -80,8 +80,8 @@ bool eb_subscribe(task_id_t tid, event_type_t type, event_para_t * para)
     *para = e.para;
 
     if (eb_debug) {
-        klogi("EB: task id %d subscribed para 0x%8x with type 0x%8x "
-              "and millis %d, ticks %d\n",
+        klogi("EB: task id %ld subscribed para 0x%8x with type 0x%8x "
+              "and millis %ld, ticks %ld\n",
               tid, e.para, type, hpet_get_millis(), sched_get_ticks());
     }
 

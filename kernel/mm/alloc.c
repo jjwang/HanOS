@@ -74,7 +74,7 @@ static scache_t *getcachefromsize(uint64_t size)
         }
     }
     if (cache == NULL) {
-        kpanic("alloc: cannot get cache for size %d\n", size);
+        kpanic("alloc: cannot get cache for size %ld\n", size);
     }
     return cache;
 }

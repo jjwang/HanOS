@@ -50,9 +50,9 @@ void display_backtrace()
         }
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
-            klogu(" \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
+            klogu(" \t[%02d] \t%016lx (Unknown Function)\n", i, func_addr);
         } else {
-            klogu(" \t[%02d] \t%x (%s+%04x)\n",
+            klogu(" \t[%02d] \t%016lx (%s+%04lx)\n",
                   i, func_addr,
                   _kernel_symtab[idx].name,
                   func_addr - _kernel_symtab[idx].addr);
@@ -61,7 +61,7 @@ void display_backtrace()
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
-        klogu("End of trace. CPU %d System halted.\n \n \n", cpu->cpu_id);
+        klogu("End of trace. CPU %ld System halted.\n \n \n", cpu->cpu_id);
     } else {
         klogu("End of trace. System halted.\n \n \n");
     }
@@ -83,9 +83,9 @@ void dump_backtrace()
         }
         int idx = symbols_get_index(func_addr);
         if (idx < 0) {
-            sprintf(errmsg, " \t[%02d] \t%x (Unknown Function)\n", i, func_addr);
+            sprintf(errmsg, " \t[%02d] \t%016lx (Unknown Function)\n", i, func_addr);
         } else {
-            sprintf(errmsg, " \t[%02d] \t%x (%s+%04x)\n",
+            sprintf(errmsg, " \t[%02d] \t%016lx (%s+%04lx)\n",
                     i, func_addr,
                     _kernel_symtab[idx].name,
                     func_addr - _kernel_symtab[idx].addr);
@@ -93,7 +93,7 @@ void dump_backtrace()
         serial_puts(errmsg);
     }
 
-    sprintf(errmsg, "End of trace. CPU %d System halted.\n\n\n",
+    sprintf(errmsg, "End of trace. CPU %ld System halted.\n\n\n",
             smp_get_current_cpu_id());
     serial_puts(errmsg);
 }

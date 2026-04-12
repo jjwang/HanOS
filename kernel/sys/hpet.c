@@ -47,7 +47,7 @@ uint64_t hpet_get_nanos()
     task_t *t = sched_get_current_task();
     if (t != NULL && debug_info) {
         /* If we use klogi() here, maybe we can not get screen outputs. */
-        kprintf("HPET: tid %d tries to get nanos from 0x%x\n", t->tid,
+        kprintf("HPET: tid %ld tries to get nanos from 0x%016lx\n", t->tid,
                 hpet);
     }
 
@@ -103,7 +103,7 @@ void hpet_init()
     uint64_t counter_clk_period = tmp >> 32;
     uint64_t frequency = 1000000000000000 / counter_clk_period;
 
-    klogi("HPET: Detected frequency of %d Hz\n", frequency);
+    klogi("HPET: Detected frequency of %ld Hz\n", frequency);
     hpet_period = counter_clk_period / 1000000;
 
     /* Set ENABLE_CNF bit */

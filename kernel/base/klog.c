@@ -14,7 +14,6 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <stdbool.h>
 #include <kconfig.h>
 
 #include <base/klog.h>
@@ -26,6 +25,7 @@
 #include <sys/serial.h>
 #include <proc/task.h>
 #include <proc/sched.h>
+#include <libc/printf.h>
 
 static klog_info_t klog_info = { 0 };
 static klog_info_t klog_cli = { 0 };
@@ -38,7 +38,7 @@ static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
 
 void klog_debug(void)
 {
-    klogd("KLOG: clear %d, refresh %d times\n", klog_clear_times,
+    klogd("KLOG: clear %ld, refresh %ld times\n", klog_clear_times,
           klog_refresh_times);
 }
 
@@ -54,85 +54,20 @@ static void klog_putch(klog_info_t * k, uint8_t i)
         k->start = 0;
 }
 
-static void klog_puts(klog_info_t * k, const char *s, int width)
+static void klog_puts_buf(klog_info_t * k, const char *s)
 {
-    int cnt = 0;
-    for (cnt = 0; s[cnt] != '\0'; cnt++)
-        klog_putch(k, s[cnt]);
-    if (width > 0) {
-        for (; cnt < width; cnt++)
-            klog_putch(k, ' ');
-    }
+    for (; *s != '\0'; s++)
+        klog_putch(k, (uint8_t) *s);
 }
 
-static void klog_puthex(klog_info_t * k, uint64_t n, int width)
+void klog_vprintf_wrapper(klog_info_t * k, const char *s, ...)
 {
-    int cnt = 0;
-    for (int i = 60; i >= 0; i -= 4) {
-        cnt++;
-        if (width > 0 && cnt + width <= 16)
-            continue;
-        uint64_t digit = (n >> i) & 0xF;
-        klog_putch(k, (digit <= 9) ? (digit + '0') : (digit - 10 + 'A'));
-    }
-}
-
-static void klog_putbin(klog_info_t * k, uint64_t n, int width,
-                        bool mid_blank)
-{
-    int cnt = 0;
-    for (int i = 63; i >= 0; i--) {
-        cnt++;
-        if (width > 0 && cnt + width <= 64)
-            continue;
-        uint64_t digit = (n >> i) & 0x1;
-        klog_putch(k, (digit == 0) ? '0' : '1');
-        if ((i % 4 == 0) && i > 0 && mid_blank)
-            klog_putch(k, ' ');
-    }
-    klog_putch(k, 'b');
-}
-
-static void klog_putint(klog_info_t * k, int64_t n, int width,
-                        bool zero_filling)
-{
-    int64_t n_val = n;
-    int n_width = 1, zero_width = 0;
-    unsigned long int i = 9;
-    if (n < 0)
-        n_val = -1 * n;
-    while (n_val > (int64_t) i && i < UINT64_MAX) {
-        n_width += 1;
-        i *= 10;
-        i += 9;
-    }
-    if (n < 0)
-        n_width -= 1;
-
-    if (n < 0) {
-        klog_putch(k, '-');
-        n = -n;
-    }
-
-    while (zero_width + n_width < width) {
-        klog_putch(k, zero_filling ? '0' : ' ');
-        zero_width++;
-    }
-
-    if (n == 0)
-        klog_putch(k, '0');
-
-    uint64_t div = 1, temp = n;
-    while (temp > 0) {
-        temp /= 10;
-        div *= 10;
-    }
-
-    while (div >= 10) {
-        uint8_t digit = ((n % div) - (n % (div / 10))) / (div / 10);
-        div /= 10;
-        klog_putch(k, digit + '0');
-    }
+    char buf[512];
+    va_list args;
+    va_start(args, s);
+    vsnprintf(buf, sizeof(buf), s, args);
+    va_end(args);
+    klog_puts_buf(k, buf);
 }
 
 void klog_init()
@@ -150,62 +85,6 @@ void klog_init()
     klog_cli.end = 0;
 
     lock_release(&klog_cli_lock);
-}
-
-void klog_vprintf_core(klog_info_t * k, const char *s, va_list args)
-{
-    for (uint64_t i = 0; s[i] != '\0'; i++) {
-        switch (s[i]) {
-        case '%':{
-                uint32_t arg_width = 0;
-                bool zero_filling = false;
-                if (s[i + 1] == '0')
-                    zero_filling = true;
-                while (s[i + 1] >= '0' && s[i + 1] <= '9') {
-                    arg_width *= 10;
-                    arg_width += s[i + 1] - '0';
-                    ++i;
-                }
-                switch (s[i + 1]) {
-                case '%':
-                    klog_putch(k, '%');
-                    break;
-                case 'd':
-                    klog_putint(k, va_arg(args, int64_t), arg_width,
-                                zero_filling);
-                    break;
-                case 'x':
-                    klog_puthex(k, va_arg(args, uint64_t), arg_width);
-                    break;
-                case 'b':
-                    klog_putbin(k, va_arg(args, uint64_t), arg_width,
-                                !zero_filling);
-                    break;
-                case 's':
-                    klog_puts(k, va_arg(args, const char *), arg_width);
-                    break;
-                case 'c':
-                    klog_putch(k, va_arg(args, int));
-                    break;
-                case 't':
-                    klog_puts(k, va_arg(args, int) ? "true" : "false", 0);
-                    break;
-                }
-                i++;
-            }
-            break;
-        default:
-            klog_putch(k, s[i]);
-        }
-    }
-}
-
-void klog_vprintf_wrapper(klog_info_t * k, const char *s, ...)
-{
-    va_list args;
-    va_start(args, s);
-    klog_vprintf_core(k, s, args);
-    va_end(args);
 }
 
 void klog_vprintf(klog_level_t level, const char *s, ...)
@@ -253,30 +132,30 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
 
     switch (level) {
     case KLOG_LEVEL_VERBOSE:
-        klog_vprintf_wrapper(&logout, "\e[34m[VERB] \e[0m ");
+        klog_puts_buf(&logout, "\e[34m[VERB] \e[0m ");
         break;
     case KLOG_LEVEL_DEBUG:
-        klog_vprintf_wrapper(&logout, "\e[34m[DEBUG]\e[0m ");
+        klog_puts_buf(&logout, "\e[34m[DEBUG]\e[0m ");
         break;
     case KLOG_LEVEL_INFO:
-        klog_vprintf_wrapper(&logout, "\e[32m[INFO] \e[0m ");
+        klog_puts_buf(&logout, "\e[32m[INFO] \e[0m ");
         break;
     case KLOG_LEVEL_WARN:
-        klog_vprintf_wrapper(&logout, "\e[33m[WARN] \e[0m ");
+        klog_puts_buf(&logout, "\e[33m[WARN] \e[0m ");
         break;
     case KLOG_LEVEL_ERROR:
-        klog_vprintf_wrapper(&logout, "\e[31m[ERROR]\e[0m ");
+        klog_puts_buf(&logout, "\e[31m[ERROR]\e[0m ");
         break;
     case KLOG_LEVEL_UNK:
         break;
     }
 
+    char buf[512];
     va_list args;
     va_start(args, s);
-    klog_vprintf_core(&logout, s, args);
+    vsnprintf(buf, sizeof(buf), s, args);
     va_end(args);
-
-    uint64_t msg_len = 0;
+    klog_puts_buf(&logout, buf);
 
     lock_lock(&klog_info_lock);
 
@@ -294,10 +173,8 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         serial_write(logout.buff[i]);
 
         i++;
-        if (i >= KLOG_BUFFER_SIZE) {
+        if (i >= KLOG_BUFFER_SIZE)
             i = 0;
-        }
-        msg_len++;
     }
 
     lock_release(&klog_info_lock);
@@ -312,10 +189,12 @@ void kprintf(const char *s, ...)
     logout.end = 0;
     logout.term = NULL;
 
+    char buf[512];
     va_list args;
     va_start(args, s);
-    klog_vprintf_core(&logout, s, args);
+    vsnprintf(buf, sizeof(buf), s, args);
     va_end(args);
+    klog_puts_buf(&logout, buf);
 
     lock_lock(&klog_cli_lock);
 

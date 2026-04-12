@@ -142,7 +142,7 @@ int64_t ttyfs_ioctl(vfs_inode_t * this, int64_t request, int64_t arg)
     if (request == TIOCGWINSZ) {        /* 0x5413 */
         winsize_t *ws = (winsize_t *) arg;
         term_get_winsize(ws);
-        klogd("ttyfs_ioctl: TIOCGWINSZ returns row %d col %d\n",
+        klogd("ttyfs_ioctl: TIOCGWINSZ returns row %ld col %ld\n",
               ws->row, ws->col);
         ret = 0;
     } else if (request == TIOCSWINSZ) { /* 0x5413 */
@@ -335,7 +335,7 @@ vfs_inode_t *ttyfs_mount(vfs_inode_t * at)
 {
     (void) at;
 
-    klogi("TTYFS: mount to 0x%x and load all files from system assets\n",
+    klogi("TTYFS: mount to 0x%016lx and load all files from system assets\n",
           at);
     vfs_inode_t *ret =
         vfs_alloc_inode(VFS_NODE_MOUNTPOINT, 0777, 0, &ttyfs,

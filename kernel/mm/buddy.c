@@ -212,7 +212,7 @@ static uint64_t buddy_alloc_order(uint64_t order)
 void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
 {
     if (higher_half != PHYS_TO_VIRT(0x0)) {
-        kpanic("buddy_init: cannot handle high half region 0x%x\n",
+        kpanic("buddy_init: cannot handle high half region 0x%016lx\n",
                higher_half);
     }
 
@@ -226,7 +226,7 @@ void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
         buddy_state.free_lists[i] = NULL;
     }
 
-    klogv("Physical memory's entry number: %d\n", map->entry_count);
+    klogv("Physical memory's entry number: %ld\n", map->entry_count);
 
     /* Calculate physical memory limit */
     for (uint64_t i = 0; i < map->entry_count; i++) {
@@ -274,7 +274,7 @@ void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
     }
 
     memset(buddy_state.block_order, 0xFF, order_array_size);
-    klogi("Buddy block order array: 0x%x, size: %d\n",
+    klogi("Buddy block order array: 0x%016lx, size: %ld\n",
           buddy_state.block_order, order_array_size);
 
     /* Add free memory regions to buddy system */
@@ -310,7 +310,7 @@ void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
     }
 
     klogi("Buddy allocator initialization finished\n");
-    klogi("Memory total: %d, phys limit: %d (0x%x), free: %d, used: %d\n",
+    klogi("Memory total: %ld, phys limit: %ld (0x%016lx), free: %ld, used: %ld\n",
           buddy_state.total_size, buddy_state.phys_limit,
           buddy_state.phys_limit, buddy_state.free_size,
           buddy_state.total_size - buddy_state.free_size);
@@ -327,7 +327,7 @@ uint64_t buddy_get(uint64_t numpages, uint64_t baseaddr,
 
     uint64_t order = find_order(numpages);
     if (order > MAX_ORDER) {
-        klogw("buddy_get: request too large (%d pages, order %d)\n",
+        klogw("buddy_get: request too large (%ld pages, order %ld)\n",
               numpages, order);
         return 0;
     }
@@ -363,7 +363,7 @@ void buddy_free(uint64_t addr, uint64_t numpages,
 
     uint64_t order = find_order(numpages);
     if (order > MAX_ORDER) {
-        klogw("buddy_free: block too large (%d pages)\n", numpages);
+        klogw("buddy_free: block too large (%ld pages)\n", numpages);
         return;
     }
 
@@ -419,7 +419,7 @@ void buddy_dump_usage(void)
             block = block->next;
         }
         if (count > 0) {
-            kprintf("    Order %2d (%4d pages): %d blocks\n",
+            kprintf("    Order %2d (%4d pages): %ld blocks\n",
                    order, 1 << order, count);
         }
     }
