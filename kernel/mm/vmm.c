@@ -61,7 +61,7 @@ static void map_page(addrspace_t * addrspace, uint64_t vaddr,
     if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
         void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
-            kpanic("VMM: out of memory for PDPT of PML4 0x%x\n", pml4);
+            kpanic("VMM: out of memory for PDPT of PML4 0x%016lx\n", pml4);
         }
         pdpt = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pdpt, 0, PAGE_SIZE * 8);
@@ -74,7 +74,7 @@ static void map_page(addrspace_t * addrspace, uint64_t vaddr,
     if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
         void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
-            kpanic("VMM: out of memory for PD of PML4 0x%x\n", pml4);
+            kpanic("VMM: out of memory for PD of PML4 0x%016lx\n", pml4);
         }
         pd = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pd, 0, PAGE_SIZE * 8);
@@ -87,7 +87,7 @@ static void map_page(addrspace_t * addrspace, uint64_t vaddr,
     if (!(pd[pde] & VMM_FLAG_PRESENT)) {
         void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
         if (buf == NULL) {
-            kpanic("VMM: out of memory for PT of PML4 0x%x\n", pml4);
+            kpanic("VMM: out of memory for PT of PML4 0x%016lx\n", pml4);
         }
         pt = (uint64_t *) PHYS_TO_VIRT(buf);
         memset(pt, 0, PAGE_SIZE * 8);
@@ -240,7 +240,7 @@ void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np)
         unmap_page(addrspace, vaddr + i);
 
     if (debug_info) {
-        klogd("VMM: PML4 0x%x un-mapped virt 0x%x (%d pages)\n",
+        klogd("VMM: PML4 0x%016lx un-mapped virt 0x%016lx (%ld pages)\n",
               (addrspace == NULL ? kaddrspace.PML4 : addrspace->PML4),
               vaddr, np);
     }
@@ -263,7 +263,7 @@ void vmm_map(addrspace_t * addrspace, uint64_t vaddr, uint64_t paddr,
     }
 
     if (debug_info) {
-        klogd("VMM: PML4 0x%x mapped phys 0x%x to virt 0x%x (%d pages)\n",
+        klogd("VMM: PML4 0x%016lx mapped phys 0x%016lx to virt 0x%016lx (%ld pages)\n",
               (addrspace == NULL ? kaddrspace.PML4 : addrspace->PML4),
               paddr, vaddr, np);
     }
@@ -274,7 +274,7 @@ void vmm_init(struct limine_memmap_response *map,
 {
     kaddrspace.PML4 =
         (void *) PHYS_TO_VIRT(pmm_get(8, 0x0, __func__, __LINE__));
-    klogd("VMM: PML4 of kernel address space - 0x%x\n", kaddrspace.PML4);
+    klogd("VMM: PML4 of kernel address space - 0x%016lx\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
     /* We only need to map all memories as below for kernel task, so we do not
@@ -298,7 +298,7 @@ void vmm_init(struct limine_memmap_response *map,
     for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
         map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
     }
-    klogi("Mapped %d bytes memory to 0x%x\n",
+    klogi("Mapped %ld bytes memory to 0x%016lx\n",
           kmem_info.phys_limit, MEM_VIRT_OFFSET);
 
     for (uint64_t i = 0; i < map->entry_count; i++) {
@@ -310,13 +310,13 @@ void vmm_init(struct limine_memmap_response *map,
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
-            klogi("[K] Mapped kernel 0x%9x to 0x%x (len: %d, #%d)\n",
+            klogi("[K] Mapped kernel 0x%09x to 0x%016lx (len: %ld, #%ld)\n",
                   entry->base, vaddr, entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
-            klogi("[F] Mapped framebuffer 0x%9x to 0x%x (len: %d, #%d)\n",
+            klogi("[F] Mapped framebuffer 0x%09x to 0x%016lx (len: %ld, #%ld)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length,
                   i);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
@@ -330,7 +330,7 @@ void vmm_init(struct limine_memmap_response *map,
             }
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
-            klogi("[U] Mapped 0x%9x to 0x%x(len: %d, type %d, #%d, %s)\n",
+            klogi("[U] Mapped 0x%09x to 0x%016lx(len: %ld, type %ld, #%ld, %s)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length,
                   entry->type, i,
                   is_mem_bitmap_loc ? "all tasks [bitmap]" :
@@ -375,7 +375,7 @@ addrspace_t *create_addrspace(void)
     lock_release(&global_mmap_lock);
 
     as->initialized = true;
-    klogd("VMM: creating address space 0x%x finished\n", as);
+    klogd("VMM: creating address space 0x%016lx finished\n", as);
 
     return as;
 }

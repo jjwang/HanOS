@@ -93,7 +93,7 @@ static uint8_t ustar_type_to_vfs_type(uint8_t type)
 
 void ramfs_init(void *address, uint64_t size)
 {
-    klogi("RAMFS: init from 0x%x with len %d\n", address, size);
+    klogi("RAMFS: init from 0x%016lx with len %ld\n", address, size);
 
     lock_lock(&vfs_lock);
 
@@ -242,7 +242,7 @@ void ramfs_init(void *address, uint64_t size)
             if (debug_info
                 || strcmp(file->name, "usr/x86_64-hanos/bin/as") == 0) {
                 klogi
-                    ("RAMFS: file \"%s\", size %d bytes, last modified %s\n",
+                    ("RAMFS: file \"%s\", size %ld bytes, last modified %s\n",
                      file->name, filesize, file->last_modified);
             }
         }
@@ -342,7 +342,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t * this, const char *pathname)
             uint8_t *buff = (uint8_t *) id->data;
             if (item->entry.size >= 2) {
                 klogd
-                    ("RAMFS: %s writes 0x%x [0x%02x 0x%02x ...] with %d bytes\n",
+                    ("RAMFS: %s writes 0x%016lx [0x%02lx 0x%02lx ...] with %ld bytes\n",
                      path, id->data, buff[0], buff[1], item->entry.size);
             }
 
@@ -358,7 +358,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t * this, const char *pathname)
                     continue;
                 }
 
-                klogd("RAMFS: open \"%s\" whose size is %d\n", item->path,
+                klogd("RAMFS: open \"%s\" whose size is %ld\n", item->path,
                       item->entry.size);
 
                 if (item->entry.size == 0) {
@@ -383,7 +383,7 @@ vfs_tnode_t *ramfs_open(vfs_inode_t * this, const char *pathname)
 
     task_t *t = sched_get_current_task();
     klogd
-        ("RAMFS: finish opening %s and return 0x%x (data 0x%x) in task %d\n",
+        ("RAMFS: finish opening %s and return 0x%016lx (data 0x%016lx) in task %ld\n",
          path, (tnode != NULL) ? tnode->inode : NULL, id->data,
          (t != NULL) ? t->tid : 0);
 
@@ -405,15 +405,15 @@ int64_t ramfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         if (len >= 2) {
             uint8_t *ptr = (uint8_t *) id->data;
             task_t *t = sched_get_current_task();
-            klogd("RAMFS: read %d bytes [0x%2x 0x%2x...] from 0x%x with "
-                  "offset %d and return %d in task %d\n",
+            klogd("RAMFS: read %ld bytes [0x%2x 0x%2x...] from 0x%016lx with "
+                  "offset %ld and return %ld in task %ld\n",
                   len, ptr[0], ptr[1], id->data, offset, retlen,
                   (t != NULL) ? t->tid : 0);
         }
     } else {
         klogd
-            ("RAMFS: read %d bytes from 0x%x with offset %d but failed with "
-             "copy (%d <= %d)\n", len, id->data, offset, offset,
+            ("RAMFS: read %ld bytes from 0x%016lx with offset %ld but failed with "
+             "copy (%ld <= %ld)\n", len, id->data, offset, offset,
              id->alloc_size);
     }
 
@@ -466,7 +466,7 @@ int64_t ramfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
 
     memcpy(((uint8_t *) id->data) + offset, buff, len);
 
-    klogd("RAMFS: write %d to 0x%x with offset %d (%d -> %d)\n",
+    klogd("RAMFS: write %ld to 0x%016lx with offset %ld (%ld -> %ld)\n",
           len, id->data, offset, old_size, this->size);
 
     return 0;
@@ -542,7 +542,7 @@ vfs_inode_t *ramfs_mount(vfs_inode_t * at)
 {
     (void) at;
 
-    klogi("RAMFS: mount to 0x%x and load all files from system assets\n",
+    klogi("RAMFS: mount to 0x%016lx and load all files from system assets\n",
           at);
     vfs_inode_t *ret =
         vfs_alloc_inode(VFS_NODE_MOUNTPOINT, 0777, 0, &ramfs, NULL);

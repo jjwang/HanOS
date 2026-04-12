@@ -115,7 +115,7 @@ void cpu_debug(void)
         if (cpu == NULL)
             cpu = (cpu_t *) read_msr(MSR_GS_BASE);
         if (cpu != NULL) {
-            klogd("CPU: total_num %d, current id %d, kernel stack 0x%x\n",
+            klogd("CPU: total_num %ld, current id %ld, kernel stack 0x%016lx\n",
                   smp_info->num_cpus, cpu->cpu_id, cpu->tss.rsp0);
             return;
         }
@@ -156,7 +156,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     cpu_init(cpuinfo->cpu_id);
     gdt_init(cpuinfo);
 
-    klogi("SMP: continue to initialize core %d (0x%x)\n",
+    klogi("SMP: continue to initialize core %ld (0x%016lx)\n",
           cpuinfo->cpu_id, cpuinfo);
 
     /* put cpu information in gs */
@@ -165,7 +165,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
 
     uint64_t msr_gs_base = read_msr(MSR_GS_BASE);
     uint64_t msr_kern_gs_base = read_msr(MSR_KERN_GS_BASE);
-    klogi("SMP: core %d MSR_GS_BASE 0x%x MSR_KERN_GS_BASE 0x%x\n",
+    klogi("SMP: core %ld MSR_GS_BASE 0x%016lx MSR_KERN_GS_BASE 0x%016lx\n",
           cpuinfo->cpu_id, msr_gs_base, msr_kern_gs_base);
 
     /* initialze gdt and make a tss */
@@ -193,7 +193,7 @@ _Noreturn void smp_ap_entrypoint(cpu_t * cpuinfo)
     /* Remember we need to init all CPUs and then make hearts beat */
     asm volatile ("sti");
 
-    klogi("SMP: finish initialization of core %d (0x%x)\n",
+    klogi("SMP: finish initialization of core %ld (0x%016lx)\n",
           cpuinfo->cpu_id, cpuinfo);
 
     uint64_t cr0;
@@ -235,7 +235,7 @@ static void prepare_trampoline()
     *((uint64_t *) PHYS_TO_VIRT(SMP_TRAMPOLINE_ARG_ENTRYPOINT)) =
         (uint64_t) & smp_ap_entrypoint;
 
-    klogi("Trampoline start 0x%x end 0x%x\n",
+    klogi("Trampoline start 0x%016lx end 0x%016lx\n",
           (uint64_t) & smp_trampoline_blob_start,
           (uint64_t) & smp_trampoline_blob_end);
 }
@@ -256,7 +256,7 @@ void smp_init()
     uint64_t cpunum = madt_get_num_lapic();
     madt_record_lapic_t **lapics = madt_get_lapics();
 
-    klogi("SMP: core number is %d\n", cpunum);
+    klogi("SMP: core number is %ld\n", cpunum);
 
     /* We must have a BSP core whose id is zero */
     memset(&(smp_info->cpus[0]), 0, sizeof(cpu_t));
@@ -269,7 +269,7 @@ void smp_init()
             smp_info->cpus[0].proc_id = lapics[i]->proc_id;
             smp_info->cpus[0].is_bsp = true;
 
-            klogi("SMP: core 0 with proc id %d and apic id 0x%x is BSP\n",
+            klogi("SMP: core 0 with proc id %ld and apic id 0x%016lx is BSP\n",
                   lapics[i]->proc_id, lapics[i]->apic_id);
             break;
         }
@@ -284,7 +284,7 @@ void smp_init()
 
     uint64_t msr_gs_base = read_msr(MSR_GS_BASE);
     uint64_t msr_kern_gs_base = read_msr(MSR_KERN_GS_BASE);
-    klogi("SMP: core %d MSR_GS_BASE 0x%x MSR_KERN_GS_BASE 0x%x\n",
+    klogi("SMP: core %ld MSR_GS_BASE 0x%016lx MSR_KERN_GS_BASE 0x%016lx\n",
           0, msr_gs_base, msr_kern_gs_base);
 
     init_tss(&(smp_info->cpus[0]));
@@ -307,7 +307,7 @@ void smp_init()
         /* if cpu is not online capable, do not initialize it */
         if (!(lapics[i]->flags & MADT_LAPIC_FLAG_ONLINE_CAPABLE)
             && !(lapics[i]->flags & MADT_LAPIC_FLAG_ENABLED)) {
-            klogi("SMP: core %d with prod id %d is not enabled or online "
+            klogi("SMP: core %ld with prod id %ld is not enabled or online "
                   "capable\n", coreid, lapics[i]->proc_id);
             continue;
         }
@@ -316,7 +316,7 @@ void smp_init()
         smp_info->cpus[coreid].lapic_id = lapics[i]->apic_id;
         smp_info->cpus[coreid].proc_id = lapics[i]->proc_id;
 
-        klogi("SMP: initializing core %d (prev: %d) with APIC id 0x%x...\n",
+        klogi("SMP: initializing core %ld (prev: %ld) with APIC id 0x%016lx...\n",
               coreid, counter_prev, lapics[i]->apic_id);
 
         /* allocate and pass the stack */
@@ -352,10 +352,10 @@ void smp_init()
         }
 
         if (!success) {
-            klogi("SMP: core %d initialization failed\n", coreid);
+            klogi("SMP: core %ld initialization failed\n", coreid);
             kmfree(stack);
         } else {
-            klogi("SMP: core %d initialization successed\n", coreid);
+            klogi("SMP: core %ld initialization successed\n", coreid);
             smp_info->cpus[smp_info->num_cpus].is_bsp = false;
         }
         smp_info->num_cpus++;
@@ -369,7 +369,7 @@ void smp_init()
         hpet_sleep(1);
     }
 
-    klogi("SMP: %d processors brought up\n", smp_info->num_cpus);
+    klogi("SMP: %ld processors brought up\n", smp_info->num_cpus);
 
     /* identity mapping is no longer needed */
     vmm_unmap(NULL, 0, NUM_PAGES(0x100000));

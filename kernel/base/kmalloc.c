@@ -31,7 +31,7 @@ void *kmalloc_core(uint64_t size, const char *func, uint64_t line)
 {
 #if SLAB_ALLOCATOR_USED
     if (size >= ALLOC_MAX_SIZE) {
-        klogd("kmalloc: %s:%d needs %d bytes memory (>= %d)\n",
+        klogd("kmalloc: %s:%ld needs %ld bytes memory (>= %ld)\n",
               func, line, size, ALLOC_MAX_SIZE);
         return kmalloc_chunk(size, func, line);
     }
@@ -49,7 +49,7 @@ void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
         PHYS_TO_VIRT(pmm_get(NUM_PAGES(size) + 1, 0x0, func, line));
 
     if (alloc == NULL) {
-        kpanic("Out of memory when allocating %d bytes in %s:%d\n",
+        kpanic("Out of memory when allocating %ld bytes in %s:%ld\n",
                size, func, line);
     }
 
@@ -78,7 +78,7 @@ void kmfree_core(void *addr, const char *func, uint64_t line)
 #if SLAB_ALLOCATOR_USED
     uint64_t *buf = (uint64_t *) addr;
     if (*(buf - 1) >= ALLOC_MAX_SIZE) {
-        klogd("kmfree: %s:%d will free %d bytes memory (>= %d)\n",
+        klogd("kmfree: %s:%ld will free %ld bytes memory (>= %ld)\n",
               func, line, ALLOC_MAX_SIZE);
         return kmfree_chunk(addr, func, line);
     }
@@ -106,7 +106,7 @@ void *kmrealloc_core(void *addr, uint64_t newsize, const char *func,
                      uint64_t line)
 {
     if (newsize >= ALLOC_MAX_SIZE) {
-        klogd("kmalloc: realloc %d bytes (>= %d)\n",
+        klogd("kmalloc: realloc %ld bytes (>= %ld)\n",
               newsize, ALLOC_MAX_SIZE);
     }
 #if SLAB_ALLOCATOR_USED

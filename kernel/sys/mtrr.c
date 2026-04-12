@@ -61,7 +61,7 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
     uint64_t ia32_mtrrcap = read_msr(0xfe);
 
     uint8_t var_reg_count = ia32_mtrrcap & 0xff;
-    klogd("CPU %d: variable register count is %d\n", cpu_id,
+    klogd("CPU %ld: variable register count is %ld\n", cpu_id,
           var_reg_count);
 
     if (saved_mtrrs == NULL) {
@@ -69,7 +69,7 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
                                             +11 /* 11 fixed MTRRs */
                                             + 1 /* 1 default type MTRR */
                                            ) * sizeof(uint64_t));
-        klogd("CPU %d: save mtrrs to 0x%x\n", cpu_id, saved_mtrrs);
+        klogd("CPU %ld: save mtrrs to 0x%016lx\n", cpu_id, saved_mtrrs);
     }
 
     /* save variable range MTRRs */
@@ -86,12 +86,12 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
         uint64_t mask_target = phys_mask & 0xB0000000;
         if (valid) {
             klogi
-                ("CPU %d: variable MTRR #%d - type %d, %s, mask base 0x%x,"
-                 " target 0x%x\n", cpu_id, i / 2, type,
+                ("CPU %ld: variable MTRR #%ld - type %ld, %s, mask base 0x%016lx,"
+                 " target 0x%016lx\n", cpu_id, i / 2, type,
                  (valid ? "valid" : "invalid"), phys_base & phys_mask,
                  mask_target);
             if ((phys_base & phys_mask) == (uint64_t) framebuffer) {
-                klogw("MTRR: set framebuffer 0x%x to WRITE COMBINING\n",
+                klogw("MTRR: set framebuffer 0x%016lx to WRITE COMBINING\n",
                       framebuffer);
                 saved_mtrrs[i] = saved_mtrrs[i] & 0xFFFFFFFFFFFFF000;
                 saved_mtrrs[i] |= MTRR_CACHE_WRITE_COMBINING;
@@ -126,7 +126,7 @@ void mtrr_save(uint16_t cpu_id, void *framebuffer)
     bool enable = (ia32_mtrrdeftype & 0x800) ? true : false;
     bool fenable = (ia32_mtrrdeftype & 0x400) ? true : false;
     uint8_t deftype = ia32_mtrrdeftype & 0xFF;
-    klogi("CPU %d: MTRR %s, fixed range %s, MTRR default type is %d\n",
+    klogi("CPU %ld: MTRR %s, fixed range %s, MTRR default type is %ld\n",
           cpu_id, (enable ? "enabled" : "disabled"),
           (fenable ? "enabled" : "disabled"), deftype);
 
@@ -144,7 +144,7 @@ void mtrr_restore(uint16_t cpu_id)
     uint8_t var_reg_count = ia32_mtrrcap & 0xff;
 
     if (saved_mtrrs == NULL) {
-        kpanic("CPU %d: Attempted restore MTRR without prior save\n",
+        kpanic("CPU %ld: Attempted restore MTRR without prior save\n",
                cpu_id);
     }
 

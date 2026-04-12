@@ -112,6 +112,6 @@ void apic_timer_init(uint64_t cpu_id)
     base_freq =
         ((UINT32_MAX - apic_read_reg(APIC_REG_TIMER_CCR)) * 2) * divisor;
 
-    klogi("CPU %d: APIC timer base frequency: %d Hz. Divisor: 4. IRQ %d.\n",
+    klogi("CPU %ld: APIC timer base frequency: %ld Hz. Divisor: 4. IRQ %ld.\n",
           cpu_id, base_freq, vector);
 }

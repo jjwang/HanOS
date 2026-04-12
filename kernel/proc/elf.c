@@ -84,14 +84,14 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         if (elf_buff != NULL) {
             uint64_t readlen = vfs_read(f, elf_len, elf_buff);
             if (debug_info && readlen >= 3) {
-                klogd("ELF(%s): read %d bytes [0x%02x 0x%02x 0x%02x ...] "
-                      "from %s(%d)\n", path_name, readlen,
+                klogd("ELF(%s): read %ld bytes [0x%02lx 0x%02lx 0x%02lx ...] "
+                      "from %s(%ld)\n", path_name, readlen,
                       elf_buff[0], elf_buff[1], elf_buff[2], fn, f);
             }
 
             if (readlen == 0) {
                 kloge("VFS: open \"%s\" successfully but cannot "
-                      "read data (len: %d)\n", fn, elf_len);
+                      "read data (len: %ld)\n", fn, elf_len);
             }
 
             m.vaddr = (uint64_t) elf_buff;
@@ -130,7 +130,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     aux->phentsize = hdr.phentsize;
 
     if (debug_info) {
-        klogd("ELF(%s): entry address 0x%x, type %d, size %d (%d)\n",
+        klogd("ELF(%s): entry address 0x%016lx, type %ld, size %ld (%ld)\n",
               path_name, hdr.entry, hdr.type, hdr.phentsize,
               sizeof(elf_phdr_t));
     }
@@ -171,7 +171,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
                        phdr[i].filesz);
                 rdtl_path[phdr[i].filesz] = '\0';
                 if (debug_info) {
-                    klogd("ELF(%s): %d hdr has dynamic linking from %s\n",
+                    klogd("ELF(%s): %ld hdr has dynamic linking from %s\n",
                           path_name, i, rdtl_path);
                 }
                 has_dynamic_linking = true;
@@ -183,8 +183,8 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
 
         if (phdr[i].type == PT_PHDR) {
             if (debug_info) {
-                klogd("ELF(%s): %d hdr is entry for header table itself "
-                      "(paddr 0x%x, vaddr 0x%x)\n",
+                klogd("ELF(%s): %ld hdr is entry for header table itself "
+                      "(paddr 0x%016lx, vaddr 0x%016lx)\n",
                       path_name, i, phdr[i].paddr, phdr[i].vaddr);
             }
             aux->phdr = phdr[i].vaddr;
@@ -195,7 +195,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
 
         if (phdr[i].type != PT_LOAD) {
             if (debug_info) {
-                klogd("ELF(%s): %d hdr is not load header (type 0x%x)\n",
+                klogd("ELF(%s): %ld hdr is not load header (type 0x%016lx)\n",
                       path_name, i, phdr[i].type);
             }
             continue;
@@ -204,15 +204,15 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         /* In the below part of this loop, only PT_LOAD will be processed. */
         if (debug_info) {
             if (IS_TEXT(phdr[i])) {
-                klogd("ELF(%s): %d hdr is text program header <<<\n",
+                klogd("ELF(%s): %ld hdr is text program header <<<\n",
                       path_name, i);
             } else if (IS_DATA(phdr[i])) {
-                klogd("ELF(%s): %d hdr is data program header <<<\n",
+                klogd("ELF(%s): %ld hdr is data program header <<<\n",
                       path_name, i);
             }
 
             if (IS_BSS(phdr[i])) {
-                klogd("ELF(%s): %d hdr is bss program header <<<\n",
+                klogd("ELF(%s): %ld hdr is bss program header <<<\n",
                       path_name, i);
             }
         }
@@ -225,7 +225,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
             VIRT_TO_PHYS(kmalloc_chunk
                          (page_count * PAGE_SIZE, __func__, __LINE__));
         if (!addr) {
-            kpanic("ELF(%s): cannot alloc %d bytes memory",
+            kpanic("ELF(%s): cannot alloc %ld bytes memory",
                    path_name, page_count * PAGE_SIZE);
         }
         phaddr[i] = addr;
@@ -248,8 +248,8 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         memset((void *) PHYS_TO_VIRT(addr), 0, PAGE_SIZE * page_count);
 
         if (debug_info) {
-            klogd("ELF(%s): as 0x%x - %d bytes, map 0x%11x to virt 0x%x, "
-                  "PML4 0x%x, page count %d\n",
+            klogd("ELF(%s): as 0x%016lx - %ld bytes, map 0x%11x to virt 0x%016lx, "
+                  "PML4 0x%016lx, page count %ld\n",
                   path_name, task->addrspace, phdr[i].memsz, addr, virt,
                   task->addrspace == NULL ? NULL : task->addrspace->PML4,
                   page_count);
@@ -267,8 +267,8 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
                elf_buff + phdr[i].offset, phdr[i].filesz);
 
         if (debug_info) {
-            klogd("ELF(%s): %d hdr's task binary file size %d "
-                  "(mem size %d) bytes >>>\n",
+            klogd("ELF(%s): %ld hdr's task binary file size %ld "
+                  "(mem size %ld) bytes >>>\n",
                   path_name, i, phdr[i].filesz, phdr[i].memsz);
         }
         /* Need to free in some other places */
@@ -292,7 +292,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     char *header_strs = (char *) &elf_buff[shdr[hdr.shstrndx].offset];
     if (debug_info) {
         for (uint64_t k = 0; k < hdr.shnum; k++) {
-            klogd("ELF(%s): %d 0x%x type %d \"%s\", offset %d, size %d\n",
+            klogd("ELF(%s): %ld 0x%016lx type %ld \"%s\", offset %ld, size %ld\n",
                   path_name, k, shdr[k].addr, shdr[k].type,
                   &header_strs[shdr[k].name], shdr[k].offset,
                   shdr[k].size);
@@ -303,7 +303,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
 
     if (debug_info) {
-        klogd("ELF(%s): symbol table index is %d (0x%x)\n", path_name,
+        klogd("ELF(%s): symbol table index is %ld (0x%016lx)\n", path_name,
               symbol_table_index, symbol_table_index);
     }
 
@@ -313,7 +313,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
             (elf_sym_t *) ((uint8_t *) elf_buff + shdr_sym->offset);
 
         if (debug_info) {
-            klogd("ELF(%s): shdr=0x%x (%d*%d), shdr_sym->link=%d\n",
+            klogd("ELF(%s): shdr=0x%016lx (%ld*%ld), shdr_sym->link=%ld\n",
                   path_name, shdr, hdr.shnum, sizeof(elf_shdr_t),
                   shdr_sym->link);
         }
@@ -322,15 +322,15 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
             (char *) elf_buff + shdr[shdr_sym->link].offset;
 
         if (debug_info) {
-            klogd("ELF(%s): shdr_sym=0x%x, syms=0x%x, strings=0x%x\n",
+            klogd("ELF(%s): shdr_sym=0x%016lx, syms=0x%016lx, strings=0x%016lx\n",
                   path_name, shdr_sym, syms, strings);
         }
 
         for (uint64_t i = 0; i < shdr_sym->size / sizeof(elf_sym_t);
              i += 1) {
             if (strcmp("main", strings + syms[i].name) == 0) {
-                klogd("ELF(%s): Found entry function (main) with len %d, "
-                      "session idx %d, value 0x%x\n",
+                klogd("ELF(%s): Found entry function (main) with len %ld, "
+                      "session idx %ld, value 0x%016lx\n",
                       path_name, syms[i].size, syms[i].shndx,
                       syms[i].value);
             }
@@ -345,7 +345,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
             *entry = aux->entry;
     }
 
-    klogd("ELF(%s): Read header with phnum %d, shnum %d, entry 0x%x\n",
+    klogd("ELF(%s): Read header with phnum %ld, shnum %ld, entry 0x%016lx\n",
           path_name, hdr.phnum, hdr.shnum, hdr.entry);
 
     /* It is time to free phdr, phaddr, shdr and elf_buff when task is dead. */

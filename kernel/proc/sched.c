@@ -116,7 +116,7 @@ _Noreturn void task_idle_proc(task_id_t tid)
         }
 
         if (t != NULL) {
-            klogi("sched: clean memory of dead task #%d (0x%x)\n", t->tid,
+            klogi("sched: clean memory of dead task #%ld (0x%016lx)\n", t->tid,
                   t);
 
             /* Step 1.2: Free all resources of this dead task */
@@ -146,7 +146,7 @@ void do_context_switch(void *stack, int64_t mode)
     smp_info_t *smp_info = smp_get_info();
     uint16_t cpu_id = smp_get_current_cpu_id();
     if (smp_info == NULL) {
-        kpanic("sched: CPU %d cannot get SMP information\n", cpu_id);
+        kpanic("sched: CPU %ld cannot get SMP information\n", cpu_id);
         return;
     }
 
@@ -220,8 +220,8 @@ void do_context_switch(void *stack, int64_t mode)
     tasks_coordinate[cpu_id]++;
 
     if (!(cpu->tss.rsp0 & 0xFFFF000000000000) || next->tid < 1) {
-        kpanic("SCHED: CPU %d kernel stack 0x%x addrspace 0x%x corrputed "
-               "(kernel 0x%x|0x%x user 0x%x|%x in task 0x%x tid %d, last tick %d)\n",
+        kpanic("SCHED: CPU %ld kernel stack 0x%016lx addrspace 0x%016lx corrputed "
+               "(kernel 0x%016lx|0x%016lx user 0x%016lx|%016lx in task 0x%016lx tid %ld, last tick %ld)\n",
                cpu->cpu_id, cpu->tss.rsp0, next->addrspace,
                next->kstack_top, next->kstack_limit, next->ustack_top,
                next->ustack_limit, next, next->tid, next->last_tick);
@@ -417,7 +417,7 @@ void sched_exit(int64_t status)
                 || curr->open_files_table.array[i].data == NULL) {
                 continue;
             }
-            klogd("sched_exit: dead task tid %d close file handle %d\n",
+            klogd("sched_exit: dead task tid %ld close file handle %ld\n",
                   curr->tid, curr->open_files_table.array[i].key);
             vfs_close(curr->open_files_table.array[i].key);
         }
@@ -504,7 +504,7 @@ void sched_init(const char *name, uint16_t cpu_id)
     tasks_idle[cpu_id] = task_make(name, task_idle_proc, 255,
                                    TASK_KERNEL_MODE, NULL);
 
-    klogi("SCHED: create idle task 0x%x with tid %d for CPU %d\n",
+    klogi("SCHED: create idle task 0x%016lx with tid %ld for CPU %ld\n",
         tasks_idle[cpu_id], tasks_idle[cpu_id]->tid, cpu_id);
 
     vec_push_back(&tasks_active_table[cpu_id], tasks_idle[cpu_id]);
@@ -517,7 +517,7 @@ void sched_init(const char *name, uint16_t cpu_id)
     cpu_num++;
 
     klogi
-        ("SCHED: initialization finished for CPU %d with idle task %s:%d\n",
+        ("SCHED: initialization finished for CPU %ld with idle task %s:%ld\n",
          cpu_id, name, tasks_idle[cpu_id]->tid);
 }
 
@@ -541,7 +541,7 @@ void sched_add(task_t *t)
     /* TODO: if we want to assign task to other CPUs, we need to do it carefully.
      */
     uint16_t cpu_id = smp_get_current_cpu_id();
-    klogi("SCHED: CPU %d adds tid %d\n", cpu_id, t->tid);
+    klogi("SCHED: CPU %ld adds tid %ld\n", cpu_id, t->tid);
     vec_push_back(&tasks_active_table[cpu_id], t);
 }
 
@@ -575,7 +575,7 @@ task_t *sched_execve(const char *path, const char *argv[],
         for (i = 0; i < vec_length(&tp->dup_list); i++) {
             file_dup_t dup = vec_at(&tp->dup_list, i);
             vec_push_back(&tc->dup_list, dup);
-            klogd("SCHED: fh pair for tid %d's child task %d - (%d, %d)\n",
+            klogd("SCHED: fh pair for tid %ld's child task %ld - (%ld, %ld)\n",
                   tp->tid, tc->tid, dup.fh, dup.newfh);
         }
 
@@ -601,7 +601,7 @@ task_t *sched_execve(const char *path, const char *argv[],
                 fd->inode->readcount++;
                 fd->inode->writecount++;
             }
-            klogd("SCHED: copy fd %d from tid %d to tid %d\n",
+            klogd("SCHED: copy fd %ld from tid %ld to tid %ld\n",
                   tc->open_files_table.array[i].key, tp->tid, tc->tid);
         }
     }
@@ -632,7 +632,7 @@ task_t *sched_execve(const char *path, const char *argv[],
                 break;
             stack = (void *) stack - (strlen(e) + 1);
             strcpy((char *) stack, e);
-            klogd("         envp: %s (0x%x -> 0x%x, %d)\n",
+            klogd("         envp: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
             nenv++;
         }
@@ -643,7 +643,7 @@ task_t *sched_execve(const char *path, const char *argv[],
                 break;
             stack = (void *) stack - (strlen(e) + 1);
             strcpy((char *) stack, e);
-            klogd("         argv: %s (0x%x -> 0x%x, %d)\n",
+            klogd("         argv: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
             nargs++;
         }
@@ -678,8 +678,8 @@ task_t *sched_execve(const char *path, const char *argv[],
     stack[1] = aux.phnum;
 
     klogi
-        ("SCHED: tid %d aux stack 0x%x (RSP 0x%x), entry 0x%x, phdr 0x%x, "
-         "phentsize %d, phnum %d\n", tc->tid, stack, tc_regs->rsp,
+        ("SCHED: tid %ld aux stack 0x%016lx (RSP 0x%016lx), entry 0x%016lx, phdr 0x%016lx, "
+         "phentsize %ld, phnum %ld\n", tc->tid, stack, tc_regs->rsp,
          aux.entry, aux.phdr, aux.phentsize, aux.phnum);
 
     /* Environment variables */
@@ -714,7 +714,7 @@ task_t *sched_execve(const char *path, const char *argv[],
     tc_regs = (task_regs_t *) stack;
     tc_regs->rsp = (uint64_t) tc->tstack_top + sizeof(task_regs_t);
 
-    klogd("SCHED: task stack top 0x%x, rsp 0x%x, top argc %d\n",
+    klogd("SCHED: task stack top 0x%016lx, rsp 0x%016lx, top argc %ld\n",
           tc->tstack_top, tc_regs->rsp,
           *((uint64_t *) PHYS_TO_VIRT(tc_regs->rsp)));
 
@@ -722,10 +722,10 @@ task_t *sched_execve(const char *path, const char *argv[],
 
     tc_regs->rip = (uint64_t) entry;
 
-    klogd("SCHED: finished initialization with entry 0x%x\n", entry);
+    klogd("SCHED: finished initialization with entry 0x%016lx\n", entry);
 
     if (tp != NULL) {
-        klogi("SCHED: child tid %d and parent tid %d\n", tc->tid, tp->tid);
+        klogi("SCHED: child tid %ld and parent tid %ld\n", tc->tid, tp->tid);
         vec_push_back(&tp->child_list, tc->tid);
         tc->ptid = tp->tid;
     }

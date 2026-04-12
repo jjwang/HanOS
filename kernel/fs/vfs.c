@@ -74,7 +74,7 @@ static void dumpnodes_helper(vfs_tnode_t * from, int lvl)
 {
     for (int i = 0; i < 1 + lvl; i++)
         kprintf(" ");
-    kprintf(" %d: [%s] -> %x inode (%d refs)\n",
+    kprintf(" %ld: [%s] -> %016lx inode (%ld refs)\n",
             lvl, from->name, from->inode, from->inode->refcount);
 
     if (IS_TRAVERSABLE(from->inode))
@@ -260,7 +260,7 @@ uint64_t vfs_tell(vfs_handle_t handle)
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
 
     if (!fd) {
-        kloge("VFS: cannot get fd for file %d\n", handle);
+        kloge("VFS: cannot get fd for file %ld\n", handle);
         return 0;
     } else {
         vfs_inode_t *inode = fd->inode;
@@ -355,7 +355,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
 
     /* Cannot write to read-only files */
     if (fd->mode == VFS_MODE_READ) {
-        kloge("File handle %d is read only, nd = 0x%x\n", handle, fd);
+        kloge("File handle %ld is read only, nd = 0x%016lx\n", handle, fd);
         return 0;
     }
 
@@ -418,8 +418,8 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 
     /* Seek position is out of bounds */
     if (offset > (int64_t) fd->inode->size || offset < 0) {
-        klogd("Seek position out of bounds: %d(0x%x):%d in len %d with "
-              "offset %d\n",
+        klogd("Seek position out of bounds: %ld(0x%016lx):%ld in len %ld with "
+              "offset %ld\n",
               pos, pos, whence, fd->inode->size, fd->seek_pos);
         lock_release(&vfs_lock);
         return -1;
@@ -555,14 +555,14 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
         klogi
-            ("VFS: Open %s with mode 0x%x and return handle %d, task id %d\n",
+            ("VFS: Open %s with mode 0x%016lx and return handle %ld, task id %ld\n",
              path, mode, fh, t != NULL ? t->tid : 0);
     } else if (strcmp(path, "/dev/tty") != 0) {
-        klogd("VFS: Open %s with mode 0x%x and return handle %d, "
-              "nd = 0x%x, inode = 0x%x\n", path, mode, fh, fd, fd->inode);
+        klogd("VFS: Open %s with mode 0x%016lx and return handle %ld, "
+              "nd = 0x%016lx, inode = 0x%016lx\n", path, mode, fh, fd, fd->inode);
     } else {
-        klogv("VFS: Open %s with mode 0x%x and return handle %d, "
-              "nd = 0x%x, inode = 0x%x\n", path, mode, fh, fd, fd->inode);
+        klogv("VFS: Open %s with mode 0x%016lx and return handle %ld, "
+              "nd = 0x%016lx, inode = 0x%016lx\n", path, mode, fh, fd, fd->inode);
     }
 
     return fh;
@@ -589,7 +589,7 @@ int64_t vfs_close(vfs_handle_t handle)
         istty = true;
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
         if ((fd->mode & VFS_MODE_WRITE) && fd->inode->writecount == 1) {
-            klogi("VFS: fh %d write EOF to %s with seek position %d\n",
+            klogi("VFS: fh %ld write EOF to %s with seek position %ld\n",
                   handle, fd->path, fd->seek_pos);
             lock_release(&vfs_lock);
 
@@ -618,7 +618,7 @@ int64_t vfs_close(vfs_handle_t handle)
     if (t != NULL) {
         ht_delete(&(t->open_files_table), handle);
     } else {
-        kloge("VFS: cannot remove file %d because of invalid task\n",
+        kloge("VFS: cannot remove file %ld because of invalid task\n",
               handle);
     }
 
@@ -634,7 +634,7 @@ int64_t vfs_close(vfs_handle_t handle)
     lock_release(&vfs_lock);
 
     if (!istty) {
-        klogv("VFS: close file handle %d\n", handle);
+        klogv("VFS: close file handle %ld\n", handle);
     }
     return 0;
   fail:
