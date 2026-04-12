@@ -118,7 +118,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->gtt_addr =
         (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
-    klogi("\tGTTMMADR: 0x%11x (%d MB) on address space 0x%x\n",
+    klogi("\tGTTMMADR: 0x%11x (%ld MB) on address space 0x%016lx\n",
           bar.u.address, bar.size / MB, as);
 
     vmm_map(as, (uint64_t) pci->mmio_bar, (uint64_t) bar.u.address,
@@ -132,7 +132,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci_get_bar(&bar, id, 2);
     pci->aperture_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->aperture_size = bar.size;
-    klogi("\tGMADR:    0x%11x (%d MB)\n", bar.u.address, bar.size / MB);
+    klogi("\tGMADR:    0x%11x (%ld MB)\n", bar.u.address, bar.size / MB);
 
     vmm_map(as, (uint64_t) pci->aperture_bar, (uint64_t) bar.u.address,
             NUM_PAGES(bar.size), VMM_FLAGS_DEFAULT);
@@ -141,7 +141,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
      * registers within Device #2. */
     pci_get_bar(&bar, id, 4);
     pci->iobase = bar.u.port;
-    klogi("\tIOBASE:   0x%11x (%d bytes)\n", bar.u.port, bar.size);
+    klogi("\tIOBASE:   0x%11x (%ld bytes)\n", bar.u.port, bar.size);
 }
 
 /* The graphics translation tables provide the address mapping from the GPU's
@@ -188,10 +188,10 @@ void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
 
     klogi("GTT Config:\n");
     klogi("\tStolen Mem Base:      0x%11x\n", gtt->stolen_mem_base);
-    klogi("\tStolen Mem Size:      %d MB\n", gtt->stolen_mem_size / MB);
-    klogi("\tGTT Mem Size:         %d MB\n", gtt->gtt_mem_size / MB);
-    klogi("\tGTT Total Entries:    %d\n", gtt->num_total_entries);
-    klogi("\tGTT Mappable Entries: %d\n", gtt->num_mappable_entries);
+    klogi("\tStolen Mem Size:      %ld MB\n", gtt->stolen_mem_size / MB);
+    klogi("\tGTT Mem Size:         %ld MB\n", gtt->gtt_mem_size / MB);
+    klogi("\tGTT Total Entries:    %ld\n", gtt->num_total_entries);
+    klogi("\tGTT Mappable Entries: %ld\n", gtt->num_mappable_entries);
 }
 
 void gfx_init_mem_manager(gfx_pci_t * pci, gfx_gtt_t * gtt,
@@ -208,7 +208,7 @@ void gfx_init_mem_manager(gfx_pci_t * pci, gfx_gtt_t * gtt,
     mgr->shared.base = shared_base;
     mgr->shared.current = shared_base;
     mgr->shared.top = (uint64_t)gtt->num_mappable_entries << GTT_PAGE_SHIFT;
-    klogd("GFX: mem_mgr shared base=0x%x top=0x%x\n",
+    klogd("GFX: mem_mgr shared base=0x%016lx top=0x%016lx\n",
           mgr->shared.base, mgr->shared.top);
 
     mgr->priv.base = (uint64_t)gtt->num_mappable_entries << GTT_PAGE_SHIFT;
@@ -234,7 +234,7 @@ bool gfx_enter_force_wake(gfx_pci_t * pci)
 
     while ((force_wake_ack = gfx_ind(pci, FORCE_WAKE_MT_ACK) & 0xFFFF) != 0) {
         if (--timeout <= 0) {
-            kloge("GFX: Timeout waiting for force wake ACK to clear (0x%x)\n",
+            kloge("GFX: Timeout waiting for force wake ACK to clear (0x%016lx)\n",
                   force_wake_ack);
             return false;
         }
@@ -255,7 +255,7 @@ bool gfx_enter_force_wake(gfx_pci_t * pci)
         pit_wait(1);
     }
 
-    klogd("GFX: Force wake enabled (ACK=0x%x)\n", force_wake_ack);
+    klogd("GFX: Force wake enabled (ACK=0x%016lx)\n", force_wake_ack);
     return true;
 }
 
@@ -329,15 +329,15 @@ bool gfx_init(void)
             klogi("  [PASS] Force wake entered\n");
 
             uint32_t freq = gfx_get_gpu_freq(&gfx_pci);
-            klogi("  Current GPU frequency: %d MHz\n", freq);
+            klogi("  Current GPU frequency: %ld MHz\n", freq);
 
             gfx_perf_status_t perf;
             if (gfx_get_perf_status(&gfx_pci, &perf)) {
                 klogi("  [PASS] Performance status:\n");
-                klogi("    Current freq:   %d MHz\n", perf.current_freq_mhz);
-                klogi("    Requested freq: %d MHz\n", perf.requested_freq_mhz);
-                klogi("    RP0 cap freq:   %d MHz\n", perf.rp0_freq_units * 50);
-                klogi("    Limit reasons:  0x%x\n", perf.perf_limit_reasons);
+                klogi("    Current freq:   %ld MHz\n", perf.current_freq_mhz);
+                klogi("    Requested freq: %ld MHz\n", perf.requested_freq_mhz);
+                klogi("    RP0 cap freq:   %ld MHz\n", perf.rp0_freq_units * 50);
+                klogi("    Limit reasons:  0x%016lx\n", perf.perf_limit_reasons);
             }
 
             /* Test 2: Display pipe status */
@@ -367,8 +367,8 @@ bool gfx_init(void)
                 if (gfx_alloc(&gfx_mgr, &gfx_gtt, &obj, GTT_PAGE_SIZE,
                                GTT_PAGE_SIZE)) {
                     klogi("  [PASS] Allocated 1 page\n");
-                    klogi("    CPU addr: 0x%x\n", obj.cpu_addr);
-                    klogi("    GPU addr: 0x%x\n", obj.gfx_addr);
+                    klogi("    CPU addr: 0x%016lx\n", obj.cpu_addr);
+                    klogi("    GPU addr: 0x%016lx\n", obj.gfx_addr);
 
                     /* Verify CPU access to the mapped page */
                     volatile uint32_t *p = (volatile uint32_t *)obj.cpu_addr;
@@ -389,7 +389,7 @@ bool gfx_init(void)
                                       | ((phys32 >> 28) & 0xFF0)
                                       | GTT_ENTRY_LLC_CACHE_CONTROL
                                       | GTT_ENTRY_VALID;
-                    klogi("  [PASS] GTT[%x] written: phys=0x%x entry=0x%x\n",
+                    klogi("  [PASS] GTT[%016lx] written: phys=0x%016lx entry=0x%016lx\n",
                           gtt_idx, phys32, expected);
 
                     gfx_gtt_clear(&gfx_gtt, obj.gfx_addr, GTT_PAGE_SIZE);
@@ -406,7 +406,7 @@ bool gfx_init(void)
             /* Test 6: Interrupt status */
             klogi("Test 6: Interrupt status\n");
             uint32_t iir = gfx_get_interrupts(&gfx_pci);
-            klogi("  Interrupt status: 0x%x\n", iir);
+            klogi("  Interrupt status: 0x%016lx\n", iir);
             if (iir != 0) {
                 klogi("  Clearing pending interrupts\n");
                 gfx_clear_interrupts(&gfx_pci, iir);
@@ -416,7 +416,7 @@ bool gfx_init(void)
             /* Test 7: Display info summary */
             klogi("Test 7: Display information summary\n");
             klogi("GFX: Display Status:\n");
-            klogi("\tGPU Frequency: %d MHz\n", gfx_get_gpu_freq(&gfx_pci));
+            klogi("\tGPU Frequency: %ld MHz\n", gfx_get_gpu_freq(&gfx_pci));
             klogi("\tPipe A: %s\n", gfx_is_pipe_enabled(&gfx_pci, 0) ? "Enabled" : "Disabled");
             klogi("\tPipe B: %s\n", gfx_is_pipe_enabled(&gfx_pci, 1) ? "Enabled" : "Disabled");
             klogi("\tPipe C: %s\n", gfx_is_pipe_enabled(&gfx_pci, 2) ? "Enabled" : "Disabled");
@@ -438,7 +438,7 @@ bool gfx_init(void)
              * during the next long operation and corrupts the stack → GPF. */
             klogi("Test 9: GPU frequency scaling (skipped - triggers PME/SMI)\n");
             uint32_t original_freq = gfx_get_gpu_freq(&gfx_pci);
-            klogi("  Current frequency: %d MHz\n", original_freq);
+            klogi("  Current frequency: %ld MHz\n", original_freq);
 
             /* Test 10: Cursor control registers (read-only) */
             klogi("Test 10: Cursor control\n");
@@ -462,7 +462,7 @@ bool gfx_init(void)
                      * current resolution; old limine backbuffer is abandoned. */
                     limine_fb->backbuffer     = new_bb;
                     limine_fb->backbuffer_len = fbsize;
-                    klogi("GFX: fb backbuffer reallocated: %dx%d pitch=%d\n",
+                    klogi("GFX: fb backbuffer reallocated: %dx%ld pitch=%ld\n",
                           limine_fb->width, limine_fb->height, limine_fb->pitch);
                 } else {
                     kloge("GFX: kmalloc failed for backbuffer\n");
@@ -485,7 +485,7 @@ bool gfx_mem_enable_swizzle(gfx_pci_t * pci)
     uint32_t dimm_ch0 = gfx_ind(pci, GFX_MCHBAR + MAD_DIMM_CH0);
     uint32_t dimm_ch1 = gfx_ind(pci, GFX_MCHBAR + MAD_DIMM_CH1);
 
-    klogd("GFX: DIMM CH0: 0x%08x, CH1: 0x%08x\n", dimm_ch0, dimm_ch1);
+    klogd("GFX: DIMM CH0: 0x%08lx, CH1: 0x%08lx\n", dimm_ch0, dimm_ch1);
 
     if ((dimm_ch0 & MAD_DIMM_AB_SIZE_MASK) !=
         (dimm_ch1 & MAD_DIMM_AB_SIZE_MASK)) {
@@ -504,7 +504,7 @@ bool gfx_mem_enable_swizzle(gfx_pci_t * pci)
 
     gfx_outd(pci, ARB_MODE, MASKED_ENABLE(ARB_MODE_AS4TS));
 
-    klogd("GFX: Swizzle enabled - ARB_CTL: 0x%08x, TILE_CTL: 0x%08x\n",
+    klogd("GFX: Swizzle enabled - ARB_CTL: 0x%08lx, TILE_CTL: 0x%08lx\n",
           gfx_ind(pci, ARB_CTL), gfx_ind(pci, TILE_CTL));
 
     return true;
@@ -551,7 +551,7 @@ uint32_t gfx_gtt_map(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t phys,
                      uint64_t size)
 {
     if (gpu_addr & (GTT_PAGE_SIZE - 1)) {
-        kloge("GFX: gfx_gtt_map: gpu_addr 0x%x not page-aligned\n", gpu_addr);
+        kloge("GFX: gfx_gtt_map: gpu_addr 0x%016lx not page-aligned\n", gpu_addr);
         return 0;
     }
 
@@ -571,7 +571,7 @@ uint32_t gfx_gtt_map(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t phys,
     /* Posting read to flush GTT writes before GPU uses them */
     (void)gtt->entries[start_idx];
 
-    klogd("GFX: GTT mapped %u pages at GPU 0x%x phys 0x%x\n",
+    klogd("GFX: GTT mapped %u pages at GPU 0x%016lx phys 0x%016lx\n",
           num_pages, (uint32_t)gpu_addr, (uint32_t)phys);
     return num_pages;
 }
@@ -637,7 +637,7 @@ bool gfx_edp_panel_on(gfx_pci_t * pci)
 {
     uint32_t pp = gfx_ind(pci, PP_CONTROL);
     if (pp & PP_CONTROL_POWER_STATE) {
-        klogd("GFX: eDP panel already on (PP_CONTROL=0x%x)\n", pp);
+        klogd("GFX: eDP panel already on (PP_CONTROL=0x%016lx)\n", pp);
         return true;
     }
     pp |= PP_CONTROL_POWER_STATE | PP_CONTROL_VDD_FORCE;
@@ -691,7 +691,7 @@ bool gfx_modeset(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     out_fb->obj.cpu_addr = (volatile uint8_t *)pci->aperture_bar;
     out_fb->obj.gfx_addr = 0;
 
-    klogi("GFX: modeset %dx%d OK (aperture scanout, cpu=0x%x pitch=%d)\n",
+    klogi("GFX: modeset %dx%ld OK (aperture scanout, cpu=0x%016lx pitch=%ld)\n",
           width, height, (uint64_t)pci->aperture_bar, stride);
     return true;
 }
@@ -777,7 +777,7 @@ void gfx_get_display_info(gfx_pci_t * pci)
     }
 
     klogi("GFX: Display Status:\n");
-    klogi("\tGPU Frequency: %d MHz\n", gfx_get_gpu_freq(pci));
+    klogi("\tGPU Frequency: %ld MHz\n", gfx_get_gpu_freq(pci));
     klogi("\tPipe A: %s\n", gfx_is_pipe_enabled(pci, 0) ? "Enabled" : "Disabled");
     klogi("\tPipe B: %s\n", gfx_is_pipe_enabled(pci, 1) ? "Enabled" : "Disabled");
     klogi("\tPipe C: %s\n", gfx_is_pipe_enabled(pci, 2) ? "Enabled" : "Disabled");
@@ -809,7 +809,7 @@ bool gfx_wait_pipe_state(gfx_pci_t * pci, uint8_t pipe, bool enabled)
         pit_wait(1);
     }
 
-    kloge("GFX: Timeout waiting for pipe %d state=%d\n", pipe, enabled);
+    kloge("GFX: Timeout waiting for pipe %ld state=%ld\n", pipe, enabled);
     return false;
 }
 
@@ -825,7 +825,7 @@ bool gfx_enable_pipe(gfx_pci_t * pci, uint8_t pipe)
     uint32_t conf = gfx_ind(pci, pipe_conf_reg);
 
     if (conf & PIPE_ENABLE) {
-        klogd("GFX: Pipe %d already enabled\n", pipe);
+        klogd("GFX: Pipe %ld already enabled\n", pipe);
         return true;
     }
 
@@ -836,7 +836,7 @@ bool gfx_enable_pipe(gfx_pci_t * pci, uint8_t pipe)
         return false;
     }
 
-    klogi("GFX: Pipe %d enabled\n", pipe);
+    klogi("GFX: Pipe %ld enabled\n", pipe);
     return true;
 }
 
@@ -852,7 +852,7 @@ bool gfx_disable_pipe(gfx_pci_t * pci, uint8_t pipe)
     uint32_t conf = gfx_ind(pci, pipe_conf_reg);
 
     if (!(conf & PIPE_ENABLE)) {
-        klogd("GFX: Pipe %d already disabled\n", pipe);
+        klogd("GFX: Pipe %ld already disabled\n", pipe);
         return true;
     }
 
@@ -863,7 +863,7 @@ bool gfx_disable_pipe(gfx_pci_t * pci, uint8_t pipe)
         return false;
     }
 
-    klogi("GFX: Pipe %d disabled\n", pipe);
+    klogi("GFX: Pipe %ld disabled\n", pipe);
     return true;
 }
 
@@ -895,7 +895,7 @@ bool gfx_configure_plane(gfx_pci_t * pci, uint8_t plane, uint32_t format,
     gfx_outd(pci, plane_ctrl_reg, ctrl);
     gfx_ind(pci, plane_ctrl_reg);  /* Posting read */
 
-    klogd("GFX: Plane %d %s (format=0x%x)\n", plane,
+    klogd("GFX: Plane %ld %s (format=0x%016lx)\n", plane,
           enabled ? "enabled" : "disabled", format);
     return true;
 }
@@ -921,7 +921,7 @@ bool gfx_set_plane_fb(gfx_pci_t * pci, uint8_t plane, uint64_t addr,
     gfx_outd(pci, plane_base, (uint32_t) addr);
     gfx_ind(pci, plane_base);  /* Posting read */
 
-    klogd("GFX: Plane %d FB addr=0x%x stride=%d\n", plane, (uint32_t) addr,
+    klogd("GFX: Plane %ld FB addr=0x%016lx stride=%ld\n", plane, (uint32_t) addr,
           stride);
     return true;
 }
@@ -951,7 +951,7 @@ bool gfx_set_timing(gfx_pci_t * pci, uint8_t pipe, uint32_t htotal,
     gfx_outd(pci, base + 0x010, vblank);  /* VBLANK */
     gfx_outd(pci, base + 0x014, vsync);   /* VSYNC */
 
-    klogd("GFX: Pipe %d timing configured\n", pipe);
+    klogd("GFX: Pipe %ld timing configured\n", pipe);
     return true;
 }
 
@@ -980,7 +980,7 @@ bool gfx_enable_interrupts(gfx_pci_t * pci, uint32_t mask)
     ier |= DE_MASTER_IRQ_CONTROL;
     gfx_outd(pci, DEIER, ier);
 
-    klogd("GFX: Interrupts enabled (mask=0x%x)\n", mask);
+    klogd("GFX: Interrupts enabled (mask=0x%016lx)\n", mask);
     return true;
 }
 
@@ -1002,7 +1002,7 @@ bool gfx_disable_interrupts(gfx_pci_t * pci, uint32_t mask)
     imr |= mask;
     gfx_outd(pci, DEIMR, imr);
 
-    klogd("GFX: Interrupts disabled (mask=0x%x)\n", mask);
+    klogd("GFX: Interrupts disabled (mask=0x%016lx)\n", mask);
     return true;
 }
 
@@ -1078,7 +1078,7 @@ bool gfx_set_gpu_freq(gfx_pci_t * pci, uint32_t freq_mhz)
     uint32_t req = GEN6_TURBO_DISABLE | (freq_units << GEN6_FREQ_SHIFT);
     gfx_outd(pci, GEN6_RPNSWREQ, req);
 
-    klogi("GFX: GPU frequency set to %d MHz\n", freq_mhz);
+    klogi("GFX: GPU frequency set to %ld MHz\n", freq_mhz);
     return true;
 }
 
@@ -1160,7 +1160,7 @@ bool gfx_configure_cursor(gfx_pci_t * pci, uint8_t pipe, uint32_t mode,
     gfx_outd(pci, cursor_base, (uint32_t) addr);
     gfx_ind(pci, cursor_base);  /* Posting read */
 
-    klogd("GFX: Cursor configured on pipe %d at (%d,%d)\n", pipe, x, y);
+    klogd("GFX: Cursor configured on pipe %ld at (%ld,%ld)\n", pipe, x, y);
     return true;
 }
 
@@ -1174,7 +1174,7 @@ bool gfx_disable_cursor(gfx_pci_t * pci, uint8_t pipe)
 {
     uint32_t cursor_ctrl = CURACNTR + (pipe * 0x1000);
     gfx_outd(pci, cursor_ctrl, CURSOR_MODE_DISABLE);
-    klogd("GFX: Cursor disabled on pipe %d\n", pipe);
+    klogd("GFX: Cursor disabled on pipe %ld\n", pipe);
     return true;
 }
 
@@ -1203,7 +1203,7 @@ bool gfx_wait_vblank(gfx_pci_t * pci, uint8_t pipe)
         pit_wait(1);
     }
 
-    kloge("GFX: Timeout waiting for vblank on pipe %d\n", pipe);
+    kloge("GFX: Timeout waiting for vblank on pipe %ld\n", pipe);
     return false;
 }
 
@@ -1245,7 +1245,7 @@ bool gfx_test_advanced_features(gfx_pci_t * pci)
             /* Wait a bit and check for interrupts */
             pit_wait(20);
             uint32_t iir = gfx_get_interrupts(pci);
-            klogi("  Interrupt status after 20ms: 0x%x\n", iir);
+            klogi("  Interrupt status after 20ms: 0x%016lx\n", iir);
 
             if (iir & vblank_mask) {
                 klogi("  [PASS] VBlank interrupts firing\n");
@@ -1266,11 +1266,11 @@ bool gfx_test_advanced_features(gfx_pci_t * pci)
             uint32_t plane_ctrl_reg = DSPACNTR + (plane * 0x1000);
             uint32_t ctrl = gfx_ind(pci, plane_ctrl_reg);
 
-            klogi("  Plane %c control: 0x%x\n", 'A' + plane, ctrl);
+            klogi("  Plane %c control: 0x%016lx\n", 'A' + plane, ctrl);
             if (ctrl & DISPLAY_PLANE_ENABLE) {
                 klogi("    Status: ENABLED\n");
                 uint32_t format = ctrl & DISPPLANE_PIXFORMAT_MASK;
-                klogi("    Format: 0x%x\n", format >> 26);
+                klogi("    Format: 0x%016lx\n", format >> 26);
             } else {
                 klogi("    Status: DISABLED\n");
             }
@@ -1286,15 +1286,15 @@ bool gfx_test_advanced_features(gfx_pci_t * pci)
         /* gfx_get_perf_status requires force wake to already be held */
         if (gfx_get_perf_status(pci, &perf1)) {
             klogi("  Initial state:\n");
-            klogi("    Frequency: %d MHz\n", perf1.current_freq_mhz);
-            klogi("    Busy: %d%%\n", perf1.rp0_freq_units);
+            klogi("    Frequency: %ld MHz\n", perf1.current_freq_mhz);
+            klogi("    Busy: %ld%%\n", perf1.rp0_freq_units);
 
             pit_wait(100);
 
             if (gfx_get_perf_status(pci, &perf2)) {
                 klogi("  After 100ms:\n");
-                klogi("    Frequency: %d MHz\n", perf2.current_freq_mhz);
-                klogi("    Busy: %d%%\n", perf2.rp0_freq_units);
+                klogi("    Frequency: %ld MHz\n", perf2.current_freq_mhz);
+                klogi("    Busy: %ld%%\n", perf2.rp0_freq_units);
 
                 if (perf2.current_freq_mhz != perf1.current_freq_mhz)
                     klogi("  [INFO] Frequency changed dynamically\n");
@@ -1315,8 +1315,8 @@ bool gfx_test_advanced_features(gfx_pci_t * pci)
                 uint32_t vtotal = gfx_ind(pci, base + 0x00C);
 
                 klogi("  Pipe %c timing:\n", 'A' + pipe);
-                klogi("    HTOTAL: 0x%x\n", htotal);
-                klogi("    VTOTAL: 0x%x\n", vtotal);
+                klogi("    HTOTAL: 0x%016lx\n", htotal);
+                klogi("    VTOTAL: 0x%016lx\n", vtotal);
             }
         }
         gfx_exit_force_wake(pci);
@@ -1324,23 +1324,23 @@ bool gfx_test_advanced_features(gfx_pci_t * pci)
 
     /* Test 6: Memory manager status */
     klogi("Test 6: Memory manager status\n");
-    klogi("  VRAM range: 0x%x - 0x%x (current: 0x%x)\n",
+    klogi("  VRAM range: 0x%016lx - 0x%016lx (current: 0x%016lx)\n",
           (uint32_t) gfx_mgr.vram.base, (uint32_t) gfx_mgr.vram.top,
           (uint32_t) gfx_mgr.vram.current);
-    klogi("  Shared range: 0x%x - 0x%x (current: 0x%x)\n",
+    klogi("  Shared range: 0x%016lx - 0x%016lx (current: 0x%016lx)\n",
           (uint32_t) gfx_mgr.shared.base, (uint32_t) gfx_mgr.shared.top,
           (uint32_t) gfx_mgr.shared.current);
-    klogi("  Private range: 0x%x - 0x%x (current: 0x%x)\n",
+    klogi("  Private range: 0x%016lx - 0x%016lx (current: 0x%016lx)\n",
           (uint32_t) gfx_mgr.priv.base, (uint32_t) gfx_mgr.priv.top,
           (uint32_t) gfx_mgr.priv.current);
 
     /* Test 7: GTT status */
     klogi("Test 7: GTT status\n");
-    klogi("  Stolen memory: 0x%x (%d MB)\n",
+    klogi("  Stolen memory: 0x%016lx (%ld MB)\n",
           gfx_gtt.stolen_mem_base, gfx_gtt.stolen_mem_size / MB);
-    klogi("  GTT size: %d MB\n", gfx_gtt.gtt_mem_size / MB);
-    klogi("  Total entries: %d\n", gfx_gtt.num_total_entries);
-    klogi("  Mappable entries: %d\n", gfx_gtt.num_mappable_entries);
+    klogi("  GTT size: %ld MB\n", gfx_gtt.gtt_mem_size / MB);
+    klogi("  Total entries: %ld\n", gfx_gtt.num_total_entries);
+    klogi("  Mappable entries: %ld\n", gfx_gtt.num_mappable_entries);
 
     klogi("=== Advanced Feature Test Complete ===\n");
     return true;

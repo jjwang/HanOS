@@ -254,7 +254,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
     uint8_t has_multi_func = pci_func_exist(&device);
 
     if (is_bridge) {
-        klogi("PCI:\t%2x:%2x.%1x - %4x:%4x [bridge] func %s\n",
+        klogi("PCI:\t%02x:%02x.%01x - %04x:%04x [bridge] func %s\n",
               device.bus, device.device, device.func,
               device.vendor_id, device.device_id,
               func_exist ? "existed" : "not existed");
@@ -273,7 +273,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
         device.device_id = pci_read_device_id(&device);
         device.vendor_id = pci_read_vendor_id(&device);
 
-        klogi("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
+        klogi("PCI:\t%02x:%02x.%01x - %04x:%04x %s\n",
               device.bus, device.device, device.func,
               device.vendor_id, device.device_id,
               pci_device_id_to_string(&device));
@@ -290,7 +290,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
                     device2.device_id = pci_read_device_id(&device2);
                     device2.vendor_id = pci_read_vendor_id(&device2);
 
-                    klogi("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
+                    klogi("PCI:\t%02x:%02x.%01x - %04x:%04x %s\n",
                           device2.bus, device2.device, device2.func,
                           device2.vendor_id, device2.device_id,
                           pci_device_id_to_string(&device2));
@@ -316,7 +316,7 @@ void pci_init(void)
         }
     }
 
-    klogi("PCI: Full recursive device scan done, [%d] devices found\n",
+    klogi("PCI: Full recursive device scan done, [%ld] devices found\n",
           vec_length(&pci_devices));
 }
 

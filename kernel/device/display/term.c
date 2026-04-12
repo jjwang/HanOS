@@ -554,7 +554,7 @@ void term_init(struct limine_framebuffer *s)
     term_refresh();
 
     klogi
-        ("Terminal (0x%x) width: %d, height: %d, pitch: %d, addr: %x\n",
+        ("Terminal (0x%016lx) width: %ld, height: %ld, pitch: %ld, addr: %016lx\n",
          (uint64_t) term_act, term_act->fb.width, term_act->fb.height,
          term_act->fb.pitch, term_act->fb.addr);
 }

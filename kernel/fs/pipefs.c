@@ -167,7 +167,7 @@ vfs_tnode_t *pipefs_open(vfs_inode_t * this, const char *path)
     vfs_tnode_t *tnode =
         vfs_path_to_node(path, CREATE, VFS_NODE_CHAR_DEVICE);
 
-    klogi("PIPEFS: open %s and return 0x%x\n", path, tnode);
+    klogi("PIPEFS: open %s and return 0x%016lx\n", path, tnode);
 
     return tnode;
 }
@@ -179,12 +179,12 @@ int64_t pipefs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
 
     if (len == 0) {
         klogd
-            ("PIPEFS: read %d bytes to 0x%x and return 0 bytes [status: %s]\n",
+            ("PIPEFS: read %ld bytes to 0x%016lx and return 0 bytes [status: %s]\n",
              len, buff, (pipe_is_eof(id) ? "EOF" : "normal"));
         return 0;
     } else {
         klogd
-            ("PIPEFS: try to read %d bytes from 0x%x with %d bytes to 0x%x\n",
+            ("PIPEFS: try to read %ld bytes from 0x%016lx with %ld bytes to 0x%016lx\n",
              len, id->buff, id->size, buff);
     }
 
@@ -205,8 +205,8 @@ int64_t pipefs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         lock_lock(&vfs_lock);
     }
 
-    klogd("PIPEFS: read %d bytes from 0x%x to 0x%x and return %d"
-          " bytes [%02x]\n", len, id->buff, buff, rlen,
+    klogd("PIPEFS: read %ld bytes from 0x%016lx to 0x%016lx and return %ld"
+          " bytes [%02lx]\n", len, id->buff, buff, rlen,
           (rlen > 0 ? ((char *) buff)[rlen - 1] : 0));
 
     return rlen;
@@ -217,9 +217,9 @@ int64_t pipefs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
 {
     pipefs_ident_t *id = this->ident;
 
-    klogd("PIPEFS: write %d bytes from %x to %x (PIPE) whose size is "
-          "%d bytes, refcount %d, readcount %d, writecount %d "
-          "[%02x %02x %02x %02x]\n", len, buff, id->buff, id->size,
+    klogd("PIPEFS: write %ld bytes from %016lx to %016lx (PIPE) whose size is "
+          "%ld bytes, refcount %ld, readcount %ld, writecount %ld "
+          "[%02lx %02lx %02lx %02lx]\n", len, buff, id->buff, id->size,
           this->refcount, this->readcount, this->writecount,
           (len >= 4 ? ((char *) buff)[len - 4] : 0),
           (len >= 4 ? ((char *) buff)[len - 3] : 0),
@@ -283,7 +283,7 @@ vfs_inode_t *pipefs_mount(vfs_inode_t * at)
 {
     (void) at;
 
-    klogi("PIPEFS: mount to 0x%x and load all files from system assets\n",
+    klogi("PIPEFS: mount to 0x%016lx and load all files from system assets\n",
           at);
     vfs_inode_t *ret =
         vfs_alloc_inode(VFS_NODE_MOUNTPOINT, 0777, 0, &pipefs,

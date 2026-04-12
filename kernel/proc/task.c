@@ -61,7 +61,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
             VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
         ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
 
-        klogi("TASK: %s task id %d (0x%x) kstack 0x%x ustack 0x%x\n",
+        klogi("TASK: %s task id %ld (0x%016lx) kstack 0x%016lx ustack 0x%016lx\n",
               name, ntask->tid, ntask, ntask->kstack_top,
               ntask->ustack_top);
 
@@ -100,7 +100,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
         ntask->ustack_limit = NULL;
         ntask->ustack_top = NULL;
 
-        klogi("TASK: %s 0x%x kstack 0x%x ustack 0x%x\n",
+        klogi("TASK: %s 0x%016lx kstack 0x%016lx ustack 0x%016lx\n",
               name, ntask, ntask->kstack_top, ntask->ustack_top);
 
         ntask->tstack_top = ntask->kstack_top;
@@ -132,7 +132,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
 
     ht_init(&ntask->open_files_table, HT_DEFAULT_ARRAY_SIZE);
 
-    klogi("TASK: Create tid %d with name \"%s\" (task 0x%x)\n",
+    klogi("TASK: Create tid %ld with name \"%s\" (task 0x%016lx)\n",
           ntask->tid, name, ntask);
 
     curr_tid++;
@@ -157,7 +157,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
 task_t *task_fork(task_t * tp)
 {
     if (tp->mode != TASK_USER_MODE) {
-        kpanic("Task: cannot fork kernel task %d\n", tp->tid);
+        kpanic("Task: cannot fork kernel task %ld\n", tp->tid);
     }
 
     task_t *tc = (task_t *) kmalloc(sizeof(task_t));
@@ -173,7 +173,7 @@ task_t *task_fork(task_t * tp)
     tc->addrspace = create_addrspace();
 
     uint64_t len = vec_length(&(tp->mmap_list));
-    klogi("task_fork: totally %d memory blocks (parent #%d, child #%d)\n",
+    klogi("task_fork: totally %ld memory blocks (parent #%ld, child #%ld)\n",
           len, tp->tid, curr_tid);
 
     uint64_t i;
@@ -185,13 +185,13 @@ task_t *task_fork(task_t * tp)
         memcpy((void *) PHYS_TO_VIRT(ptr), (void *) PHYS_TO_VIRT(m.paddr),
                m.np * PAGE_SIZE);
         if ((uint64_t) tp->ustack_limit == (uint64_t) m.vaddr) {
-            klogi("task_fork: #%d (parent #%d) new user stack 0x%x and "
-                  "map to 0x%x with top 0x%x\n",
+            klogi("task_fork: #%ld (parent #%ld) new user stack 0x%016lx and "
+                  "map to 0x%016lx with top 0x%016lx\n",
                   curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         if ((uint64_t) tp->kstack_limit == (uint64_t) m.vaddr) {
-            klogi("task_fork: #%d (parent #%d) new kern stack 0x%x and "
-                  "map to 0x%x with top 0x%x\n",
+            klogi("task_fork: #%ld (parent #%ld) new kern stack 0x%016lx and "
+                  "map to 0x%016lx with top 0x%016lx\n",
                   curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
@@ -249,7 +249,7 @@ task_t *task_fork(task_t * tp)
             fd->inode->readcount++;
             fd->inode->writecount++;
         }
-        klogd("TASK: copy fd %d from tid %d to tid %d\n",
+        klogd("TASK: copy fd %ld from tid %ld to tid %ld\n",
               tc->open_files_table.array[i].key, tp->tid, tc->tid);
     }
 
@@ -267,7 +267,7 @@ task_t *task_fork(task_t * tp)
             1, VMM_FLAGS_MMIO);
 #endif
 
-    klogd("TASK: child tid %d and parent tid %d\n", tc->tid, tp->tid);
+    klogd("TASK: child tid %ld and parent tid %ld\n", tc->tid, tp->tid);
     vec_push_back(&tp->child_list, tc->tid);
 
     curr_tid++;
@@ -279,7 +279,7 @@ task_t *task_fork(task_t * tp)
 void task_free(task_t * t)
 {
     if (t->mode != TASK_USER_MODE) {
-        kpanic("Task: cannot free kernel task %d\n", t->tid);
+        kpanic("Task: cannot free kernel task %ld\n", t->tid);
     }
 
     uint64_t mmap_num = vec_length(&t->mmap_list);
@@ -292,7 +292,7 @@ void task_free(task_t * t)
     vec_erase_all(&t->child_list);
     vec_erase_all(&t->dup_list);
 
-    klogi("task_free: dead task tid %d free mmap number %d\n",
+    klogi("task_free: dead task tid %ld free mmap number %ld\n",
           t->tid, mmap_num);
 
     kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
@@ -322,7 +322,7 @@ void task_free(task_t * t)
      * when we free resources of a dead task, it's all children tasks must be
      * dead.
      */
-    klogv("TASK: try to free task %d (forked: %s)\n",
+    klogv("TASK: try to free task %ld (forked: %s)\n",
           t->tid, t->isforked ? "true" : "false");
     kmfree(t);
 }

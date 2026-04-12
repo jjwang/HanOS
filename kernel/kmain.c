@@ -176,7 +176,7 @@ _Noreturn void kshell(task_id_t tid)
     if (false) {
         int y = 0, x = 128, z;
         z = x / y;
-        klogi("kshell: 128 / 0 = %d\n", z);
+        klogi("kshell: 128 / 0 = %ld\n", z);
     }
 
     ttyfs_init();
@@ -187,7 +187,7 @@ _Noreturn void kshell(task_id_t tid)
 #if 0                           /* Do not show desktop bitmap to speed up */
     image_t image;
     if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
-        klogi("Background image: %d*%d with bpp %d, size %d\n",
+        klogi("Background image: %ld*%ld with bpp %ld, size %ld\n",
               image.img_width, image.img_height, image.bpp, image.size);
         term_set_bg_image(&image);
     }
@@ -265,7 +265,7 @@ void kmain(void)
     klogi("HanOS version %s starting...\n", VERSION);
 
     if (hhdm_request.response != NULL) {
-        klogi("HHDM offset 0x%x, revision %d\n",
+        klogi("HHDM offset 0x%016lx, revision %ld\n",
               hhdm_request.response->offset,
               hhdm_request.response->revision);
     } else {
@@ -286,7 +286,7 @@ void kmain(void)
 
     term_init(fb);
 
-    klogi("Framebuffer address: 0x%x, EDID size: %d\n",
+    klogi("Framebuffer address: 0x%016lx, EDID size: %ld\n",
           fb->address, fb->edid_size);
 
     klogi("Init CMOS...\n");
@@ -336,7 +336,7 @@ void kmain(void)
 
     if (fb->edid_size == sizeof(edid_info_t)) {
         edid_info_t *edid = (edid_info_t *) fb->edid;
-        klogi("EDID: version %d.%d, screen size %dcm * %dcm\n",
+        klogi("EDID: version %ld.%ld, screen size %dcm * %dcm\n",
               edid->edid_version, edid->edid_revision, edid->max_hor_size,
               edid->max_ver_size);
 
@@ -358,20 +358,20 @@ void kmain(void)
 
         if (edid->dpms_flags & 0x02) {
             klogi("EDID: Preferred timing mode specified in DTD-1\n");
-            klogi("EDID: %d * %d\n",
+            klogi("EDID: %ld * %ld\n",
                   self_info.prefer_res_x, self_info.prefer_res_y);
         }
     } else if (fb->edid_size == 0) {
-        klogi("Framebuffer: totally %d video modes\n", fb->mode_count);
+        klogi("Framebuffer: totally %ld video modes\n", fb->mode_count);
         for (uint64_t i = 0; i < fb->mode_count; i++) {
             struct limine_video_mode *mode = fb->modes[i];
             klogd
-                ("             %d (width) * %d (height), %d (bpp), %d (pitch)\n",
+                ("             %ld (width) * %ld (height), %ld (bpp), %ld (pitch)\n",
                  mode->width, mode->height, mode->bpp, mode->pitch);
         }
     }
 
-    klogi("Framebuffer address 0x%x\n", fb->address);
+    klogi("Framebuffer address 0x%016lx\n", fb->address);
 
     self_info.actual_res_x = fb->width;
     self_info.actual_res_y = fb->height;
@@ -403,7 +403,7 @@ void kmain(void)
     start = hpet_get_nanos();
     for (int64_t ii = 0; ii < 100000000; ++ii) asm volatile("" ::: "memory");
     end = hpet_get_nanos();
-    klogi("Empty loop cost      : %d nano seconds\n", end - start);
+    klogi("Empty loop cost      : %ld nano seconds\n", end - start);
 
     /* Framebuffer write benchmark removed: aperture is uncached MMIO on real
      * hardware, so 100M writes take ~7.6s and stall the scheduler. */
@@ -414,9 +414,9 @@ void kmain(void)
     if (module_response != NULL) {
         for (uint64_t i = 0; i < module_response->module_count; i++) {
             struct limine_file *module = module_response->modules[i];
-            klogi("Module %d path   : %s\n", i, module->path);
-            klogi("Module %d cmdline: %s\n", i, module->cmdline);
-            klogi("Module %d size   : %d\n", i, module->size);
+            klogi("Module %ld path   : %s\n", i, module->path);
+            klogi("Module %ld cmdline: %s\n", i, module->cmdline);
+            klogi("Module %ld size   : %ld\n", i, module->size);
             if (strcmp(module->cmdline, "INITRD") == 0) {
                 /* If we do not call vmm_map() here, there will be Page Fault
                  * exception on real hardware when building in gcc and other

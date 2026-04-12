@@ -109,10 +109,10 @@ void gdt_init(cpu_t * cpuinfo)
                   :);
 
     if (cpuinfo != NULL) {
-        klogi("GDT: initialization finished for CPU %d\n",
+        klogi("GDT: initialization finished for CPU %ld\n",
               cpuinfo->cpu_id);
     } else {
-        klogi("GDT 0x%x initialization finished\n", (uint64_t) gdt);
+        klogi("GDT 0x%016lx initialization finished\n", (uint64_t) gdt);
     }
 }
 
@@ -133,7 +133,7 @@ void gdt_install_tss(cpu_t * cpuinfo)
     gt->tss.segment_present = 1;
     gt->tss.segment_type = 0x9;
 
-    klogv("GDT: load TSS with base address 0x%x\n", baseaddr);
+    klogv("GDT: load TSS with base address 0x%016lx\n", baseaddr);
 
     /* Loading of TSS: The descriptor of the TSS in the GDT (e.g. 0x48 if
      * the tenths entry in your GDT describes your TSS)
@@ -141,9 +141,9 @@ void gdt_install_tss(cpu_t * cpuinfo)
     asm volatile ("ltr %%ax"::"a" (0x48));
 
     if (cpuinfo != NULL) {
-        klogi("GDT: finish loading TSS for CPU %d, base addr 0x%x\n",
+        klogi("GDT: finish loading TSS for CPU %ld, base addr 0x%016lx\n",
               cpuinfo->cpu_id, baseaddr);
     } else {
-        klogi("GDT: finish loading TSS, base addr 0x%x\n", baseaddr);
+        klogi("GDT: finish loading TSS, base addr 0x%016lx\n", baseaddr);
     }
 }

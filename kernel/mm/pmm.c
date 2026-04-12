@@ -74,8 +74,8 @@ void pmm_free(uint64_t addr, uint64_t numpages,
     /* The below log is for debugging memory leaks */
     if (numpages > 8 && debug_info) {
         klogi
-            ("pmm_free: %s(%d) free 0x%11x %d pages and available memory are "
-             "%d bytes\n", func, line, addr, numpages,
+            ("pmm_free: %s(%ld) free 0x%11x %ld pages and available memory are "
+             "%ld bytes\n", func, line, addr, numpages,
              kmem_info.free_size);
     }
 }
@@ -97,8 +97,8 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
         if (pmm_alloc(i, numpages)) {
             if (numpages > 8 && debug_info) {
                 klogi
-                    ("pmm_get: %s(%d) gets 0x%11x with %d pages from memory "
-                     "%d bytes\n", func, line, i, numpages,
+                    ("pmm_get: %s(%ld) gets 0x%11x with %ld pages from memory "
+                     "%ld bytes\n", func, line, i, numpages,
                      kmem_info.free_size);
             }
             return i;
@@ -112,7 +112,7 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
 void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
 {
     if (higher_half != PHYS_TO_VIRT(0x0)) {
-        kpanic("pmm_init: cannot handle high half region 0x%x\n",
+        kpanic("pmm_init: cannot handle high half region 0x%016lx\n",
                higher_half);
     }
 
@@ -120,7 +120,7 @@ void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
     kmem_info.total_size = 0;
     kmem_info.free_size = 0;
 
-    klogv("Physical memory's entry number: %d\n", map->entry_count);
+    klogv("Physical memory's entry number: %ld\n", map->entry_count);
 
     /* Only use memory less than MAX_MEM_USABLE_SIZE for all kernel and user
      * tasks.
@@ -145,14 +145,14 @@ void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
 
         lmsize = cmsize;
         struct limine_memmap_entry *entry = map->entries[cmidx];
-        klogd("PMM: usable memory - 0x%x:%d\n", entry->base,
+        klogd("PMM: usable memory - 0x%016lx:%ld\n", entry->base,
               entry->length);
 
         if (tsize + entry->length > MAX_MEM_USABLE_SIZE
             && tsize < MAX_MEM_USABLE_SIZE) {
             entry->length = MAX_MEM_USABLE_SIZE - tsize;
             tsize += entry->length;
-            klogd("     -> %d\n", entry->length);
+            klogd("     -> %ld\n", entry->length);
         } else if (tsize + entry->length < MAX_MEM_USABLE_SIZE) {
             /* Do nothing */
             tsize += entry->length;
@@ -200,7 +200,7 @@ void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
     }
 
     memset(kmem_info.bitmap, 0, bm_size);
-    klogi("Memory bitmap address: 0x%x, size: %d\n", kmem_info.bitmap,
+    klogi("Memory bitmap address: 0x%016lx, size: %ld\n", kmem_info.bitmap,
           bm_size);
 
     /* now populate the bitmap */
@@ -216,7 +216,7 @@ void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
     pmm_alloc(VIRT_TO_PHYS(kmem_info.bitmap), NUM_PAGES(bm_size));
 
     klogi("PMM initialization finished\n");
-    klogi("Memory total: %d, phys limit: %d (0x%x), free: %d, used: %d\n",
+    klogi("Memory total: %ld, phys limit: %ld (0x%016lx), free: %ld, used: %ld\n",
           kmem_info.total_size, kmem_info.phys_limit, kmem_info.phys_limit,
           kmem_info.free_size, kmem_info.total_size - kmem_info.free_size);
 }
@@ -238,7 +238,7 @@ void pmm_dump_usage(void)
             f / 1024, f / (1024 * 1024), u / 1024, u / (1024 * 1024));
 
 #if ENABLE_MEM_DEBUG
-    kprintf("Checking #%d\n", kmalloc_checkno);
+    kprintf("Checking #%ld\n", kmalloc_checkno);
     int64_t np = MIN(NUM_PAGES(kmem_info.phys_limit), 1024 * 256);
     for (uint64_t addr = 0; addr < (uint64_t)np * PAGE_SIZE; addr += PAGE_SIZE) {
         if (bitmap_isfree(addr, 1))
@@ -247,13 +247,13 @@ void pmm_dump_usage(void)
             (memory_metadata_t *) PHYS_TO_VIRT(addr);
         if (alloc->magic == MEM_MAGIC_NUM) {
             if (alloc->checkno == kmalloc_checkno && kmalloc_checkno > 0) {
-                kprintf("0x%x %s():%d %d bytes\n", alloc, alloc->filename,
+                kprintf("0x%016lx %s():%ld %ld bytes\n", alloc, alloc->filename,
                         alloc->lineno, alloc->size);
             }
         }
     }
     kmalloc_checkno++;
-    kprintf("Update checking point to #%d for kmalloc()\n",
+    kprintf("Update checking point to #%ld for kmalloc()\n",
             kmalloc_checkno);
 #endif
 }

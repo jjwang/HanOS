@@ -71,7 +71,7 @@ int64_t k_debug_log(char *message)
         *s = '\0';
     }
 
-    klogd("debug: %s [message buffer: 0x%x]\n", message, message);
+    klogd("debug: %s [message buffer: 0x%016lx]\n", message, message);
 
     return strlen(message);
 }
@@ -96,7 +96,7 @@ int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
         memcpy(&new, set, sizeof(sigset_t));
     }
 
-    klogd("k_sigprocmask: how %d from old 0x%x to new 0x%x\n",
+    klogd("k_sigprocmask: how %ld from old 0x%016lx to new 0x%016lx\n",
           how, oldset, set);
 
     signal_changemask(t, how, set ? &new : NULL, oldset ? &old : NULL);
@@ -116,7 +116,7 @@ int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
 
     if (signal >= NSIG || signal < 0 || signal == SIGKILL
         || signal == SIGSTOP || t == NULL) {
-        klogd("k_sigaction: signal %d from old 0x%x to new 0x%x "
+        klogd("k_sigaction: signal %ld from old 0x%016lx to new 0x%016lx "
               "and return -1 for invalid parameters\n", signal, old, new);
         cpu_set_errno(EINVAL);
         return -1;
@@ -131,7 +131,7 @@ int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
         }
     }
 
-    klogd("k_sigaction: signal %d from old 0x%x to new 0x%x\n",
+    klogd("k_sigaction: signal %ld from old 0x%016lx to new 0x%016lx\n",
           signal, old, new);
 
     signal_action(t, signal, new ? &newtmp : NULL, old ? &oldtmp : NULL);
@@ -179,7 +179,7 @@ int64_t k_getentropy(void *buffer, uint64_t length)
     }
     return 0;
   err_exit:
-    klogd("k_getentropy: return error with buffer 0x%x and length %d\n",
+    klogd("k_getentropy: return error with buffer 0x%016lx and length %ld\n",
           buffer, length);
     return -1;
 }
@@ -247,8 +247,8 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
 
     if (debug_info) {
         klogi
-            ("k_vm_map: tid %d #%d 0x%x(PML4 0x%x) map 0x%x to 0x%x with %d "
-             "pages, prot 0x%x, flags 0x%x\n", t->tid,
+            ("k_vm_map: tid %ld #%ld 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
+             "pages, prot 0x%016lx, flags 0x%016lx\n", t->tid,
              vec_length(&t->mmap_list), as, as->PML4, phys_ptr, ptr, np,
              prot, flags);
     }
@@ -265,7 +265,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     return ptr;
 
   err_exit:
-    kloge("k_vm_map: tid %d 0x%x(PML4 0x%x) returns NULL in malloc()\n",
+    kloge("k_vm_map: tid %ld 0x%016lx(PML4 0x%016lx) returns NULL in malloc()\n",
           t->tid, as, as->PML4);
     return -1;
 }
@@ -293,7 +293,7 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     vmm_unmap(as, (uint64_t) ptr, np);
 
     if (debug_info) {
-        klogi("k_vm_unmap: 0x%x(PML4 0x%x) unmap 0x%x with %d pages\n",
+        klogi("k_vm_unmap: 0x%016lx(PML4 0x%016lx) unmap 0x%016lx with %ld pages\n",
               as, as->PML4, ptr, np);
     }
 
@@ -383,7 +383,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         }
     }
 
-    klogd("k_openat: dirfh 0x%x, path %s and flags 0x%x\n", dirfh, path,
+    klogd("k_openat: dirfh 0x%016lx, path %s and flags 0x%016lx\n", dirfh, path,
           flags);
     return vfs_open(full_path, openmode);
 }
@@ -392,7 +392,7 @@ int64_t k_chmod(char *path, int64_t flags)
 {
     cpu_set_errno(0);
 
-    klogi("k_chmod: \"%s\" with flags 0x%x\n", path, flags);
+    klogi("k_chmod: \"%s\" with flags 0x%016lx\n", path, flags);
 
     vfs_handle_t fh = k_openat(VFS_FDCWD, path, O_RDWR, 0);
     if (fh != VFS_INVALID_HANDLE) {
@@ -474,7 +474,7 @@ int64_t k_unlink(char *path)
                 return 0;
             } else {
                 klogw
-                    ("k_unlink: failed because of refcount of \"%s\" is %d\n",
+                    ("k_unlink: failed because of refcount of \"%s\" is %ld\n",
                      path, tnode->inode->refcount);
                 cpu_set_errno(EINVAL);
                 return -1;
@@ -491,14 +491,14 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
     cpu_set_errno(0);
 
     if (fh == STDIN || fh == STDOUT || fh == STDERR) {
-        klogv("k_seek: fh %d(0x%x), offset %d, whence %d\n",
+        klogv("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld\n",
               fh, fh, offset, whence);
         return 0;
     }
 
     int64_t ret = vfs_seek(fh, offset, whence);
 
-    klogd("k_seek: fh %d(0x%x), offset %d, whence %d and return %d\n",
+    klogd("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld and return %ld\n",
           fh, fh, offset, whence, ret);
     if (ret < 0)
         cpu_set_errno(EINVAL);
@@ -511,7 +511,7 @@ int64_t k_close(int64_t fh)
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
-    klogd("k_close: close file handle %d\n", fh);
+    klogd("k_close: close file handle %ld\n", fh);
 
     if (t != NULL) {
         lock_lock(&vfs_lock);
@@ -522,7 +522,7 @@ int64_t k_close(int64_t fh)
                 /* Close original file and delete from dup list */
                 if (dup.fh != STDIN && dup.fh != STDOUT
                     && dup.fh != STDERR) {
-                    klogd("k_close: close dup file handle %d\n", dup.fh);
+                    klogd("k_close: close dup file handle %ld\n", dup.fh);
                     /* BUGFIX: we must release vfs_lock here before calling
                      * vfs_close() to avoid dead lock.
                      */
@@ -536,7 +536,7 @@ int64_t k_close(int64_t fh)
             if (dup.fh == fh) {
                 lock_release(&vfs_lock);
                 /* Do not close if mapping to another file handle */
-                klogd("k_close: do not close dup file handle %d <- %d\n",
+                klogd("k_close: do not close dup file handle %ld <- %ld\n",
                       fh, dup.newfh);
                 cpu_set_errno(EINVAL);
                 return -1;
@@ -557,7 +557,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
-    klogd("k_read: read %d from file handle %d\n", count, fh);
+    klogd("k_read: read %ld from file handle %ld\n", count, fh);
 
     if (fh == STDIN) {
         bool found = false;
@@ -580,8 +580,8 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
         }
         if (found) {
             int64_t ret = vfs_read(oldfh, count, buf);
-            klogd("k_read: read from handle %d instead of %d"
-                  " and return %d bytes\n", oldfh, fh, ret);
+            klogd("k_read: read from handle %ld instead of %ld"
+                  " and return %ld bytes\n", oldfh, fh, ret);
             return ret;
         } else {
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
@@ -596,7 +596,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     } else if (fh >= VFS_MIN_HANDLE) {
         int64_t len = vfs_read(fh, count, buf);
         klogd
-            ("k_read: try to read %d bytes from file %d and return %d bytes\n",
+            ("k_read: try to read %ld bytes from file %ld and return %ld bytes\n",
              count, fh, len);
         return len;
     } else {
@@ -636,7 +636,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
             lock_release(&vfs_lock);
         }
         if (found) {
-            klogd("k_write: write %d bytes to oldfh %d <- fh %d\n",
+            klogd("k_write: write %ld bytes to oldfh %ld <- fh %ld\n",
                   count, oldfh, fh);
             int64_t ret = vfs_write(oldfh, count, buf);
             return ret;
@@ -680,7 +680,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
     }
 
     if (fh < 3) {
-        kloge("k_write: invalid file handler fh=%d\n", fh);
+        kloge("k_write: invalid file handler fh=%ld\n", fh);
         cpu_set_errno(EPERM);
         return -1;
     }
@@ -691,7 +691,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 void k_set_fs_base(uint64_t val)
 {
     task_t *t = sched_get_current_task();
-    klogd("k_set_fs_base: task #%d set to 0x%x\n",
+    klogd("k_set_fs_base: task #%ld set to 0x%016lx\n",
           t == NULL ? 0 : t->tid, val);
     write_msr(MSR_FS_BASE, val);
     if (t != NULL)
@@ -735,12 +735,12 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
         vfs_stat_t *st = (vfs_stat_t *) statbuf;
         memcpy(st, &(node->st), sizeof(vfs_stat_t));
         klogd
-            ("k_fstatat: success with dirfh 0x%x and path %s(%s), size %d\n",
+            ("k_fstatat: success with dirfh 0x%016lx and path %s(%s), size %ld\n",
              dirfh, full_path, path, st->st_size);
         cpu_set_errno(0);
         return 0;
     } else {
-        klogd("k_fstatat: fail with dirfh 0x%x and path %s(%s)\n",
+        klogd("k_fstatat: fail with dirfh 0x%016lx and path %s(%s)\n",
               dirfh, full_path, path);
         cpu_set_errno(ENOENT);
         return -1;
@@ -756,7 +756,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
          */
         vfs_stat_t *st = (vfs_stat_t *) statbuf;
         memset(st, 0, sizeof(vfs_stat_t));
-        klogd("k_fstat: success with file handle %d\n", handle);
+        klogd("k_fstat: success with file handle %ld\n", handle);
         return 0;
     }
 
@@ -766,11 +766,11 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     if (fd != NULL) {
         vfs_stat_t *st = (vfs_stat_t *) statbuf;
         memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
-        klogd("k_fstat: success with file handle %d and size %d\n",
+        klogd("k_fstat: success with file handle %ld and size %ld\n",
               handle, st->st_size);
         return 0;
     } else {
-        kloge("k_fstat: fail with file handle %d\n", handle);
+        kloge("k_fstat: fail with file handle %ld\n", handle);
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -790,7 +790,7 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
         return -1;
     }
 
-    klogi("k_faccessat: open \"%s\" at mode 0x%x and flags 0x%x\n",
+    klogi("k_faccessat: open \"%s\" at mode 0x%016lx and flags 0x%016lx\n",
           full_path, mode, flags);
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
@@ -825,7 +825,7 @@ int64_t k_getpid()
     cpu_set_errno(0);
 
     if (t != NULL) {
-        klogd("k_getpid: task #%d\n", t->tid);
+        klogd("k_getpid: task #%ld\n", t->tid);
         if (t->tid >= 1)
             return t->tid;
     }
@@ -1023,7 +1023,7 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
     fh[0] = vfs_open(path, VFS_MODE_READ);
     fh[1] = vfs_open(path, VFS_MODE_WRITE);
 
-    klogi("k_pipe: return reading port %d and writing port %d\n", fh[0],
+    klogi("k_pipe: return reading port %ld and writing port %ld\n", fh[0],
           fh[1]);
 
     return 0;
@@ -1050,8 +1050,8 @@ int64_t k_fork()
     task_id_t tid_child = sched_fork();
     task_t *curr_task = sched_get_current_task();
 
-    klogd("k_fork: parent task id #%d, current task id #%d, PML4 0x%x, "
-          "sched_fork() returns #%d\n",
+    klogd("k_fork: parent task id #%ld, current task id #%ld, PML4 0x%016lx, "
+          "sched_fork() returns #%ld\n",
           t->tid, sched_get_tid(), curr_task->addrspace->PML4, tid_child);
 
     if (tid_child == TID_MAX) {
@@ -1062,12 +1062,12 @@ int64_t k_fork()
          * This should be parent process and returns child task id, but
          * currently it returns parent task id
          */
-        klogd("k_fork: return %d from parent task #%d\n", tid_child,
+        klogd("k_fork: return %ld from parent task #%ld\n", tid_child,
               t->tid);
         return tid_child;
     } else {
         /* This should be child process and returns 0 */
-        klogd("k_fork: return 0 from child task #%d\n", tid_child);
+        klogd("k_fork: return 0 from child task #%ld\n", tid_child);
         return 0;
     }
   err_exit:
@@ -1082,7 +1082,7 @@ int64_t k_getppid()
 
 int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 {
-    klogd("k_fcntl: fd 0x%x, request 0x%x, arg 0x%x\n", fd, request, arg);
+    klogd("k_fcntl: fd 0x%016lx, request 0x%016lx, arg 0x%016lx\n", fd, request, arg);
     cpu_set_errno(ENOSYS);
     return -1;
 }
@@ -1094,7 +1094,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         *status = 0;
 
     if ((int32_t) pid == (int32_t) (-1) && t != NULL) {
-        klogv("k_waitpid: tid %d waits pid -1 (0xFFFFFFFF) status 0x%x flags 0x%x\n",
+        klogv("k_waitpid: tid %ld waits pid -1 (0xFFFFFFFF) status 0x%016lx flags 0x%016lx\n",
               t->tid, status, flags);
 
         cpu_set_errno(0);
@@ -1106,11 +1106,11 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
             task_id_t tid_child = vec_at(&(t->child_list), i);
             task_status_t status_child = sched_get_task_status(tid_child);
             if (status_child == TASK_DEAD) {
-                klogw("    tid %d : child tid %d DEAD\n", t->tid,
+                klogw("    tid %ld : child tid %ld DEAD\n", t->tid,
                       tid_child);
             } else if (status_child != TASK_UNKNOWN) {
                 all_dead = false;
-                klogv("    tid %d : child tid %d ACTIVE\n", t->tid,
+                klogv("    tid %ld : child tid %ld ACTIVE\n", t->tid,
                       tid_child);
             }
         }
@@ -1118,11 +1118,11 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         sched_sleep(100);
 
         if (!all_dead) {
-            klogv("k_waitpid: tid %d waiting pid 0x%x returns with "
+            klogv("k_waitpid: tid %ld waiting pid 0x%016lx returns with "
                   "active children\n", t->tid, pid);
             return 0;
         } else {
-            klogd("k_waitpid: tid %d waiting pid 0x%x returns without "
+            klogd("k_waitpid: tid %ld waiting pid 0x%016lx returns without "
                   "children\n", t->tid, pid);
             cpu_set_errno(ECHILD);
             return -1;
@@ -1132,7 +1132,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
          * call this func with it's task id and wait for all children tasks
          * to be done.
          */
-        klogw("k_waitpid: current task %d waits for itself\n", t->tid);
+        klogw("k_waitpid: current task %ld waits for itself\n", t->tid);
 
         cpu_set_errno(0);
 
@@ -1173,19 +1173,19 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         for (uint64_t i = 0;; i++) {
             task_status_t status = sched_get_task_status(pid);
             if (status != TASK_DEAD && status != TASK_UNKNOWN) {
-                klogv("k_waitpid: waiting pid 0x%x which is still active\n",
+                klogv("k_waitpid: waiting pid 0x%016lx which is still active\n",
                       pid);
                 sched_sleep(100);
                 if (i == 19) {
                     kloge
-                        ("k_waitpid: waiting pid 0x%x which is still active\n",
+                        ("k_waitpid: waiting pid 0x%016lx which is still active\n",
                          pid);
                     cpu_set_errno(EBUSY);
                     return -1;
                 }
             }
         }
-        klogd("k_waitpid: waiting pid 0x%x which is not active and exit\n",
+        klogd("k_waitpid: waiting pid 0x%016lx which is not active and exit\n",
               pid);
         return 0;
     }
@@ -1195,7 +1195,7 @@ void k_exit(int64_t status)
 {
     task_t *t = sched_get_current_task();
     if (t != NULL) {
-        klogi("k_exit: task %d exit with status %d\n", t->tid, status);
+        klogi("k_exit: task %ld exit with status %ld\n", t->tid, status);
     } else {
         goto normal_exit;
     }
@@ -1254,7 +1254,7 @@ int k_getrusage(int64_t who, uint64_t usage)
     /* When gcc is launched, it will call getrusage(). We need to dive into
      * gcc to know the purpose of this function call.
      */
-    klogw("SYSCALL: get 0x%x rusage\n", who);
+    klogw("SYSCALL: get 0x%016lx rusage\n", who);
     memset(u, 0, sizeof(rusage_t));
 
     return 0;
@@ -1268,7 +1268,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         cwd = t->cwd;
 
     if (sched_execve(path, argv, envp, cwd) != NULL) {
-        klogi("k_execve: run \"%s\" and exit from task %d\n", path,
+        klogi("k_execve: run \"%s\" and exit from task %ld\n", path,
               t->tid);
         sched_exit(0);
         cpu_set_errno(0);
@@ -1363,7 +1363,7 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
         return -1;
     }
 
-    klogd("k_dup3: tid %d fh %d <- newfh %d, flags 0x%x\n",
+    klogd("k_dup3: tid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
           t->tid, fh, newfh, flags);
 
     lock_lock(&vfs_lock);
@@ -1377,15 +1377,15 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
 /* TODO: need to add futex implementation */
 int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
 {
-    klogi("k_futex_wait: time spec (%d, %d) with ptr 0x%x, val %d and "
-          "expected %d\n", tv->tv_sec, tv->tv_nsec, ptr, *ptr, expected);
+    klogi("k_futex_wait: time spec (%ld, %ld) with ptr 0x%016lx, val %ld and "
+          "expected %ld\n", tv->tv_sec, tv->tv_nsec, ptr, *ptr, expected);
 
     return 0;
 }
 
 int64_t k_futex_wake(int64_t * ptr)
 {
-    klogi("k_futex_wake: ptr 0x%x and val %d\n", ptr, *ptr);
+    klogi("k_futex_wake: ptr 0x%016lx and val %ld\n", ptr, *ptr);
 
     return 0;
 }
@@ -1452,6 +1452,6 @@ void syscall_init(void)
     write_msr(MSR_SFMASK, X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF
               | X86_EFLAGS_IOPL | X86_EFLAGS_AC | X86_EFLAGS_NT);
 
-    klogi("SYSCALL: MSR_EFER=0x%016x MSR_STAR=0x%016x MSR_LSTAR=0x%016x\n",
+    klogi("SYSCALL: MSR_EFER=0x%016lx MSR_STAR=0x%016lx MSR_LSTAR=0x%016lx\n",
           read_msr(MSR_EFER), read_msr(MSR_STAR), read_msr(MSR_LSTAR));
 }

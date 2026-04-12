@@ -129,7 +129,7 @@ static void *takeobject(scache_t * cache, slab_t * slab)
         void *addr = (void *) objend;
         void *base = (void *) ROUND_DOWN((uintptr_t) slab, PAGE_SIZE);
         if (!(addr >= base && addr < (void *) slab)) {
-            kpanic("slab: addr 0x%x is not in range 0x%x - 0x%x\n",
+            kpanic("slab: addr 0x%016lx is not in range 0x%016lx - 0x%016lx\n",
                    addr, base, slab);
         }
     } else {
@@ -140,7 +140,7 @@ static void *takeobject(scache_t * cache, slab_t * slab)
         if (!(addr >= slab->base
               && (uintptr_t) addr < (uintptr_t) slab->base
               + cache->slabobjcount * cache->truesize)) {
-            kpanic("slab: addr 0x%x is not in range 0x%x - 0x%x\n",
+            kpanic("slab: addr 0x%016lx is not in range 0x%016lx - 0x%016lx\n",
                    addr, slab->base, (uintptr_t) slab->base
                    + cache->slabobjcount * cache->truesize);
         }
@@ -326,7 +326,7 @@ scache_t *slab_newcache(uint64_t size, uint64_t alignment,
 
     memset((void *) &cache->lock, 0, sizeof(lock_t));
 
-    klogd("slab: new cache: size %d align %d true size %d obj count %d\n",
+    klogd("slab: new cache: size %ld align %ld true size %ld obj count %ld\n",
           cache->size, cache->alignment, cache->truesize,
           cache->slabobjcount);
 

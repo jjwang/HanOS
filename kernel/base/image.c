@@ -56,7 +56,7 @@ bool bmp_load_from_file(image_t * image, char *fn)
     if (bmp_buff != NULL) {
         vfs_read(fh, bmp_size, bmp_buff);
     } else {
-        kloge("bmp: cannot malloc %d bytes\n", bmp_size);
+        kloge("bmp: cannot malloc %ld bytes\n", bmp_size);
         return false;
     }
 

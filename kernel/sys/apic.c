@@ -120,12 +120,12 @@ void apic_init()
     uint64_t apic_base_msr = read_msr(IA32_APIC_BASE_MSR);
 
     if (cpuid_check_feature(CPUID_FEATURE_X2APIC)) {
-        klogi("APIC: support x2APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
+        klogi("APIC: support x2APIC feature (IA32_APIC_BASE 0x%04lx, %s)\n",
               apic_base_msr & 0xFFFF,
               (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" :
               "Not BSP core");
     } else if (cpuid_check_feature(CPUID_FEATURE_APIC)) {
-        klogi("APIC: support APIC feature (IA32_APIC_BASE 0x%04x, %s)\n",
+        klogi("APIC: support APIC feature (IA32_APIC_BASE 0x%04lx, %s)\n",
               apic_base_msr & 0xFFFF,
               (apic_base_msr & IA32_APIC_BASE_MSR_BSP) ? "BSP" :
               "Not BSP core");
@@ -153,10 +153,10 @@ void apic_init()
     vmm_map(NULL, (uint64_t) lapic_base, VIRT_TO_PHYS(lapic_base), 1,
             VMM_FLAGS_MMIO);
 
-    klogi("APIC base memory 0x%x mapping finished\n", lapic_base);
+    klogi("APIC base memory 0x%016lx mapping finished\n", lapic_base);
 
     apic_enable();
 
-    klogi("APIC version %08x initialization finished\n",
+    klogi("APIC version %08lx initialization finished\n",
           apic_read_reg(APIC_REG_VERSION));
 }

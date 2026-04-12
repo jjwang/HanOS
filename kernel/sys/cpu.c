@@ -58,7 +58,7 @@ bool cpuid_check_feature(cpuid_feature_t feature)
     /* is the leaf being requested supported? */
     if ((maxleaf < feature.func && feature.func < 0x80000000)
         || (maxhighleaf < feature.func && feature.func >= 0x80000000)) {
-        klogi("CPUID leaf %x not supported\n", feature.func);
+        klogi("CPUID leaf %016lx not supported\n", feature.func);
         return false;
     }
 
@@ -87,7 +87,7 @@ void cpu_init(uint64_t cpuno)
      * aliasing for the same physical memory with multiple virtual addresses.
      */
     if (cpuid_check_feature(CPUID_FEATURE_PAT)) {
-        klogi("CPU %d: enable PAT with write-combining\n", cpuno);
+        klogi("CPU %ld: enable PAT with write-combining\n", cpuno);
         patval = read_msr(MSR_PAT);
         patval &= (uint64_t) (0xFFFFFFFF);
         patval |= (uint64_t) (0x01) << 32;
@@ -140,17 +140,17 @@ void cpu_init(uint64_t cpuno)
     cpuid(1, 0, &a, &b, &c, &d);
 
     if (c & CPUID_XSAVE) {
-        klogi("CPU %d: detect XSAVE flag\n", cpuno);
+        klogi("CPU %ld: detect XSAVE flag\n", cpuno);
     }
 
     cpuid(0x1, 0, &a, &b, &c, &d);
     if (!(c & CPUID_TSC_DEADLINE)) {
-        klogw("CPU %d: No TSC-deadline mode!!!\n", cpuno);
+        klogw("CPU %ld: No TSC-deadline mode!!!\n", cpuno);
     }
 
     cpuid(0x80000007, 0, &a, &b, &c, &d);
     if (!(d & CPUID_INVARIANT_TSC)) {
-        klogw("CPU %d: No invariant TSC!!!\n", cpuno);
+        klogw("CPU %ld: No invariant TSC!!!\n", cpuno);
     }
 
     uint32_t x, y, na;
@@ -170,7 +170,7 @@ void cpu_init(uint64_t cpuno)
         cpu_family = (x >> 8) & 0x0F;
     }
 
-    klogi("CPU %d: model 0x%2x, family 0x%2x, manufacturer %s\n",
+    klogi("CPU %ld: model 0x%2x, family 0x%2x, manufacturer %s\n",
           cpuno, cpu_model, cpu_family, cpu_manufacturer);
 
     cpuid(0x80000000, 0, &x, &na, &na, &na);
@@ -184,7 +184,7 @@ void cpu_init(uint64_t cpuno)
               &(brand[11]));
         memcpy(cpu_model_name, brand, 48);
         cpu_model_name[48] = '\0';
-        klogi("CPU %d: %s\n", cpuno, cpu_model_name);
+        klogi("CPU %ld: %s\n", cpuno, cpu_model_name);
     }
 }
 

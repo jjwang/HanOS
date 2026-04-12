@@ -94,13 +94,13 @@ void exc_handler_proc(
         read_cr("cr3", &cr3val);
 
         kloge("Dump registers for exception: \n"
-              "RIP   : 0x%016x\nCS    : 0x%016x\nRFLAGS: 0x%016x\n"
-              "RSP   : 0x%016x\nSS    : 0x%016x\n"
-              "RAX 0x%016x  RBX 0x%016x  RCX 0x%016x  RDX 0x%016x\n"
-              "RSI 0x%016x  RDI 0x%016x  RBP 0x%016x\n"
-              "R8  0x%016x  R9  0x%016x  R10 0x%016x  R11 0x%016x\n"
-              "R12 0x%016x  R13 0x%016x  R14 0x%016x  R15 0x%016x\n"
-              "CR2 0x%016x  CR3 0x%016x\n",
+              "RIP   : 0x%016lx\nCS    : 0x%016lx\nRFLAGS: 0x%016lx\n"
+              "RSP   : 0x%016lx\nSS    : 0x%016lx\n"
+              "RAX 0x%016lx  RBX 0x%016lx  RCX 0x%016lx  RDX 0x%016lx\n"
+              "RSI 0x%016lx  RDI 0x%016lx  RBP 0x%016lx\n"
+              "R8  0x%016lx  R9  0x%016lx  R10 0x%016lx  R11 0x%016lx\n"
+              "R12 0x%016lx  R13 0x%016lx  R14 0x%016lx  R15 0x%016lx\n"
+              "CR2 0x%016lx  CR3 0x%016lx\n",
               tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
               tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
               tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
@@ -122,7 +122,7 @@ void exc_handler_proc(
 
     /* Some of IRQ130+ are used for scheduler */
     if (excno > IRQ128) {
-        klogi("IRQ: received software interrupt of 0x%02x\n", excno);
+        klogi("IRQ: received software interrupt of 0x%02lx\n", excno);
     }
 
     /* Process other exceptions and interrupts */
@@ -150,19 +150,19 @@ void exc_handler_proc(
     read_cr("cr3", &cr3val);
 
     klogd("Dump registers for exception: \n"
-          "RIP   : 0x%x\nCS    : 0x%x\nRFLAGS: 0x%x\n"
-          "RSP   : 0x%x\nSS    : 0x%x\n"
-          "RAX 0x%x  RBX 0x%x  RCX 0x%x  RDX 0x%x\n"
-          "RSI 0x%x  RDI 0x%x  RBP 0x%x\n"
-          "R8  0x%x  R9  0x%x  R10 0x%x  R11 0x%x\n"
-          "R12 0x%x  R13 0x%x  R14 0x%x  R15 0x%x\n"
-          "CR2 0x%x  CR3 0x%x\n",
+          "RIP   : 0x%016lx\nCS    : 0x%016lx\nRFLAGS: 0x%016lx\n"
+          "RSP   : 0x%016lx\nSS    : 0x%016lx\n"
+          "RAX 0x%016lx  RBX 0x%016lx  RCX 0x%016lx  RDX 0x%016lx\n"
+          "RSI 0x%016lx  RDI 0x%016lx  RBP 0x%016lx\n"
+          "R8  0x%016lx  R9  0x%016lx  R10 0x%016lx  R11 0x%016lx\n"
+          "R12 0x%016lx  R13 0x%016lx  R14 0x%016lx  R15 0x%016lx\n"
+          "CR2 0x%016lx  CR3 0x%016lx\n",
           tr->rip, tr->cs, tr->rflags, tr->rsp, tr->ss,
           tr->rax, tr->rbx, tr->rcx, tr->rdx, tr->rsi, tr->rdi, tr->rbp,
           tr->r8, tr->r9, tr->r10, tr->r11, tr->r12, tr->r13, tr->r14,
           tr->r15, cr2val, cr3val);
 
-    kpanic("Unhandled Exception: %s (%d). Error Code: %d (0x%x)\n",
+    kpanic("Unhandled Exception: %s (%ld). Error Code: %ld (0x%016lx)\n",
          exceptions[excno], excno, errcode, errcode);
 
     for(;;) {
