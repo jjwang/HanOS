@@ -23,7 +23,8 @@
     mov %rsp, %r12
     
     /* Extract CPL from CS register (low 2 bits of CS) */
-    mov 8(%r12), %rax       /* CS is at 8 bytes offset in exception stack */
+    /* After pusham (15 GPRs = 120 bytes), CS is at offset 136 from RSP */
+    mov 136(%r12), %rax     /* CS is at 136 bytes offset (15*8 + EC + RIP) */
     and $0x3, %rax          /* Isolate CPL bits */
     mov $0, %r13            /* Default: kernelspace (CPL=0) */
     cmp $3, %rax            /* Check if userspace (CPL=3) */
@@ -39,11 +40,7 @@
  * Compatible with both kernel/userspace
  * -------------------------------------------------------------------------- */
 .macro pusham
-    /* Save segment registers (critical for SMP: GS = current CPU) */
-    push %fs
-    push %gs
-
-    /* Save 64-bit general purpose registers (symmetric with popam) */
+    /* Save 64-bit general purpose registers (matching task_regs_t / push_all order) */
     push %rax
     push %rbx
     push %rcx
@@ -81,10 +78,6 @@
     pop %rcx
     pop %rbx
     pop %rax
-
-    /* Restore segment registers (reverse order) */
-    pop %gs
-    pop %fs
 .endm
 
 /* -----------------------------------------------------------------------------
@@ -102,13 +95,14 @@ exc\excno:
     detect_cpl
 
     /* Calculate dynamic error code offset (VALID x86-64 syntax) */
+    /* After pusham (15 GPRs = 120 bytes), Error Code is at offset 120 */
     mov %rsp, %rax          /* Base = current stack pointer */
-    mov $136, %rcx          /* Kernelspace offset (136 bytes) */
+    mov $120, %rcx          /* Kernelspace offset (120 bytes = 15*8) */
     cmp $1, %r13            /* Check if userspace */
     je 1f
     jmp 2f
 1:
-    mov $152, %rcx          /* Userspace offset (152 bytes) */
+    mov $136, %rcx          /* Userspace offset (136 bytes = 15*8 + 16 for SS+RSP) */
 2:
     add %rcx, %rax          /* Calculate final address: rsp + offset */
 
@@ -142,11 +136,8 @@ exc\excno:
         mov %rax, %gs       /* Clear GS (SMP CPU ID) */
         cli                 /* Disable interrupts to avoid nested faults */
             
-        /* Step 2: Pre-save CR2 (page fault address) for C handler */
-        push %rax           /* Temp save RAX */
-        mov %cr2, %rax      /* Read fault address from CR2 register */
-        push %rax           /* Save CR2 to stack (offset: 8(%rsp) after pusham) */
-        pop %rax            /* Restore RAX */
+        /* CR2 is passed as a separate argument (4th arg) to exc_handler_proc */
+        /* No need to save it on the stack */
     .endif
 
     cld                     /* Clear direction flag (string ops) */
@@ -156,13 +147,14 @@ exc\excno:
     detect_cpl
 
     /* Calculate dynamic error code offset (VALID x86-64 syntax) */
+    /* After pusham (15 GPRs = 120 bytes), Error Code is at offset 120 */
     mov %rsp, %rax          /* Base = current stack pointer */
-    mov $136, %rcx          /* Kernelspace offset (136 bytes) */
+    mov $120, %rcx          /* Kernelspace offset (120 bytes = 15*8) */
     cmp $1, %r13            /* Check if userspace */
     je 1f
     jmp 2f
 1:
-    mov $152, %rcx          /* Userspace offset (152 bytes) */
+    mov $136, %rcx          /* Userspace offset (136 bytes = 15*8 + 16 for SS+RSP) */
 2:
     add %rcx, %rax          /* Calculate final address: rsp + offset */
 
@@ -217,18 +209,10 @@ irq\irqno:
 .exc_end:
     popam                   /* Restore full context */
     
-    /* Check privilege level for stack cleanup */
-    cmp $1, %r13            /* Check if userspace (r13=1) */
-    je 1f
-    
-    /* Kernelspace cleanup: only dummy error code (8 bytes) */
-    addq $8, %rsp           
-    iretq                   /* Kernelspace return (RIP+CS+RFLAGS) */
-
-1:
-    /* Userspace cleanup: dummy error code + RSP+SS (8+16=24 bytes) */
-    addq $24, %rsp          
-    iretq                   /* Userspace return (RIP+CS+RFLAGS+RSP+SS) */
+    /* Skip error code (8 bytes for both kernel and user).
+     * For user mode, iretq automatically pops RSP+SS based on the CS value. */
+    addq $8, %rsp
+    iretq                   /* Return (pops RIP+CS+RFLAGS, plus RSP+SS if user) */
 
 /* -----------------------------------------------------------------------------
  * Exception Definitions (strict error code classification)

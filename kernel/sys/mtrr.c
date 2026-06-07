@@ -49,6 +49,7 @@
 #include <sys/panic.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
+#include <mm/mm.h>
 
 uint64_t *saved_mtrrs = NULL;
 
@@ -208,4 +209,21 @@ void mtrr_restore(uint16_t cpu_id)
 
     /* restore old value of cr0 */
     asm volatile ("mov %0, %%cr0"::"r" (old_cr0):"memory");
+}
+
+__attribute__((noinline)) void fb_set_wc(uint64_t fb_phys, uint64_t fb_size)
+{
+    if (!cpuid_check_feature(CPUID_FEATURE_PAT)) {
+        return;
+    }
+
+    uint64_t pat = read_msr(MSR_PAT);
+    klogi("FB_WC: PAT current 0x%016lx\n", pat);
+    pat &= ~((uint64_t) 0xFF << 16);
+    pat |= ((uint64_t) MTRR_CACHE_WRITE_COMBINING << 16);
+    write_msr(MSR_PAT, pat);
+    klogi("FB_WC: PAT index2=WC (0x%016lx)\n", pat);
+
+    klogi("FB_WC: framebuffer phys=0x%016lx size=%ld\n", fb_phys, fb_size);
+
 }

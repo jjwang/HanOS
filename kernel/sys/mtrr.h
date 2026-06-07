@@ -24,3 +24,5 @@
 
 void mtrr_save(uint16_t cpu_id, void *framebuffer);
 void mtrr_restore(uint16_t cpu_id);
+
+void fb_set_wc(uint64_t fb_phys, uint64_t fb_size);

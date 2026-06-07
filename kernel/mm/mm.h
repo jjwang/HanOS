@@ -85,6 +85,12 @@ void pmm_register_buddy_allocator(void);
  */
 #define VMM_FLAGS_MMIO          (VMM_FLAGS_DEFAULT | VMM_FLAG_CACHE_DISABLE \
                                 | VMM_FLAG_WRITETHROUGH)
+
+/* Write-combining for framebuffer: PCD=1,PWT=0 selects PAT index 2.
+ * After pat_init() changes index 2 to WC, fb writes become much faster.
+ */
+#define VMM_FLAGS_FB_WC         (VMM_FLAGS_DEFAULT | VMM_FLAG_CACHE_DISABLE)
+
 #define VMM_FLAGS_USERMODE      (VMM_FLAGS_DEFAULT | VMM_FLAG_USER)
 
 #define PAGE_TABLE_ENTRIES      512
