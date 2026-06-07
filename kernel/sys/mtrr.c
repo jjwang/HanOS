@@ -217,6 +217,107 @@ __attribute__((noinline)) void fb_set_wc(uint64_t fb_phys, uint64_t fb_size)
         return;
     }
 
+    /* Dump MTRR state for the framebuffer region and try to set WC */
+    int mtrr_fb_idx = -1;
+    if (cpuid_check_feature(CPUID_FEATURE_MTRR)) {
+        uint64_t mtrrcap = read_msr(0xfe);
+        uint64_t mtrrdef = read_msr(0x2ff);
+        uint8_t vcnt = mtrrcap & 0xff;
+        bool enabled = (mtrrdef >> 11) & 1;
+        bool fenabled = (mtrrdef >> 10) & 1;
+        uint8_t deftype = mtrrdef & 0xff;
+
+        klogi("FB_WC: MTRR %s, fixed %s, default type %u, %u variable ranges\n",
+              enabled ? "EN" : "DIS", fenabled ? "EN" : "DIS", deftype, vcnt);
+
+        uint64_t fb_end = fb_phys + fb_size - 1;
+        for (uint8_t i = 0; i < vcnt; i++) {
+            uint64_t physbase = read_msr(0x200 + i * 2);
+            uint64_t physmask = read_msr(0x200 + i * 2 + 1);
+            bool valid = (physmask >> 11) & 1;
+            if (!valid) continue;
+
+            uint64_t base = physbase & 0x000ffffffffff000;
+            uint64_t mask = physmask & 0x000ffffffffff000;
+            uint8_t type = physbase & 0xff;
+
+            /* MTRR covers all X where (X & mask) == (base & mask).
+             * Check overlap: does any FB address match the MTRR pattern? */
+            bool overlaps = ((fb_phys & mask) == (base & mask)) ||
+                            ((fb_end  & mask) == (base & mask)) ||
+                            ((base & mask) >= fb_phys && (base & mask) <= fb_end);
+
+            if (overlaps) {
+                uint64_t var_bits = ~mask & 0x000ffffffffff000;
+                uint64_t rstart = base & mask;
+                uint64_t rend   = rstart | var_bits;
+                klogi("FB_WC: MTRR #%u type=%u base=0x%016lx mask=0x%016lx"
+                      " [0x%016lx-0x%016lx] overlaps FB\n",
+                      i, type, base, mask, rstart, rend);
+
+                /* If this MTRR covers the entire FB with UC, note it */
+                if (type == MTRR_CACHE_UNCACHEABLE && mtrr_fb_idx < 0) {
+                    if ((fb_phys & mask) == (base & mask) &&
+                        (fb_end  & mask) == (base & mask)) {
+                        mtrr_fb_idx = i;
+                    }
+                }
+            }
+        }
+
+        /* Try to change the first UC MTRR covering FB to WC */
+        if (mtrr_fb_idx >= 0 && enabled) {
+            klogi("FB_WC: Attempting to change MTRR #%d from UC to WC\n",
+                  mtrr_fb_idx);
+
+            /* Step 1: save CR0, set CD, clear NW, flush caches */
+            uintptr_t old_cr0;
+            asm volatile ("mov %%cr0, %0":"=r" (old_cr0)::"memory");
+            uintptr_t new_cr0 = (old_cr0 | (1 << 30)) & ~((uintptr_t) 1 << 29);
+            asm volatile ("mov %0, %%cr0"::"r" (new_cr0):"memory");
+            asm volatile ("wbinvd":::"memory");
+
+            /* Step 2: flush TLB */
+            uintptr_t cr3;
+            asm volatile ("mov %%cr3, %0":"=r" (cr3)::"memory");
+            asm volatile ("mov %0, %%cr3"::"r" (cr3):"memory");
+
+            /* Step 3: disable MTRRs */
+            mtrrdef &= ~((uint64_t) 1 << 11);
+            write_msr(0x2ff, mtrrdef);
+
+            /* Step 4: read current PHYSBASE, change type to WC, write back */
+            uint64_t physbase = read_msr(0x200 + mtrr_fb_idx * 2);
+            physbase = (physbase & ~0xffULL) | MTRR_CACHE_WRITE_COMBINING;
+            write_msr(0x200 + mtrr_fb_idx * 2, physbase);
+
+            /* Step 5: re-enable MTRRs */
+            mtrrdef |= ((uint64_t) 1 << 11);
+            write_msr(0x2ff, mtrrdef);
+
+            /* Step 6: flush TLB and caches again */
+            asm volatile ("mov %%cr3, %0":"=r" (cr3)::"memory");
+            asm volatile ("mov %0, %%cr3"::"r" (cr3):"memory");
+            asm volatile ("wbinvd":::"memory");
+
+            /* Step 7: restore CR0 */
+            asm volatile ("mov %0, %%cr0"::"r" (old_cr0):"memory");
+
+            /* Verify */
+            physbase = read_msr(0x200 + mtrr_fb_idx * 2);
+            uint8_t new_type = physbase & 0xff;
+            klogi("FB_WC: MTRR #%d type now %s (expected WC=%d)\n",
+                  mtrr_fb_idx,
+                  new_type == MTRR_CACHE_WRITE_COMBINING ? "WC" : "FAILED",
+                  MTRR_CACHE_WRITE_COMBINING);
+        } else {
+            klogi("FB_WC: No suitable MTRR to change (idx=%d, enabled=%d)\n",
+                  mtrr_fb_idx, enabled);
+        }
+    } else {
+        klogi("FB_WC: CPU lacks MTRR support\n");
+    }
+
     uint64_t pat = read_msr(MSR_PAT);
     klogi("FB_WC: PAT current 0x%016lx\n", pat);
     pat &= ~((uint64_t) 0xFF << 16);
