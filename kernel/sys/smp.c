@@ -42,6 +42,7 @@
 #include <sys/apic.h>
 #include <sys/pit.h>
 #include <sys/panic.h>
+#include <sys/timer.h>
 #include <proc/syscall.h>
 #include <proc/sched.h>
 
