@@ -85,6 +85,62 @@ The framebuffer was mapped with `VMM_FLAGS_DEFAULT` (PCD=0, PWT=0 → PAT index 
 
 ---
 
+## Bug 3: MTRR Override Makes PAT Ineffective on Real Hardware
+
+### Root Cause
+
+Even after setting PAT index 2 = WC and mapping the framebuffer with `PCD=1,PWT=0` (PAT index 2), the effective memory type was still UC (Uncacheable) on real hardware. According to the Intel/AMD memory type combination rules, when the MTRR for a given address range specifies **UC**, the PAT setting is **completely overridden** and the effective type is always UC, regardless of what PAT says.
+
+On the target machine (AMD Ryzen 7 5700U), the BIOS had configured 4 variable MTRRs with type=0 (UC) covering the framebuffer region at 0xE0000000:
+
+| MTRR | Type | Base | Mask | Range |
+|------|------|------|------|-------|
+| #0 | UC (0) | 0xE0000000 | 0x7FE0000000 | 32 MB @ 0xE0000000 |
+| #1 | UC (0) | 0xDC000000 | 0x7FFC000000 | 16 MB @ 0xDC000000 |
+| #2 | UC (0) | 0xDA000000 | 0x7FFE000000 | 8 MB @ 0xDA000000 |
+| #3 | UC (0) | 0xD9800000 | 0x7FFF800000 | 4 MB @ 0xD9800000 |
+
+MTRR #0 covers 0xE0000000–0xE1FFFFFF (32 MB), which fully contains the framebuffer (0xE0000000, 1920000 bytes ≈ 1.83 MB). With MTRR=UC, PAT=WC yields an effective type of UC, making framebuffer writes slow.
+
+### Fix Applied: Modify MTRR #0 to WC
+
+The `fb_set_wc()` function was extended to:
+
+1. **Detect the covering UC MTRR** — Iterate all variable MTRRs; if one is type=UC, is valid, and fully covers the framebuffer range (both `fb_phys` and `fb_end` match the MTRR pattern), record its index.
+
+2. **Modify the MTRR in place** using the standard cache-control procedure:
+   - Save CR0, set CD=1 (Cache Disable), clear NW=0 (Not Write-through)
+   - Execute `wbinvd` to flush all caches
+   - Flush TLB via CR3 reload
+   - **Disable MTRRs** by clearing the E flag (bit 11) in `IA32_MTRR_DEF_TYPE` (MSR 0x2FF)
+   - Write the MTRR `PHYSBASE` register with type changed from UC (0) to WC (1)
+   - **Re-enable MTRRs** by setting the E flag
+   - Flush TLB and caches again
+   - Restore CR0
+
+3. **Verify** — Read back the MTRR PHYSBASE register and log whether the type was successfully changed to WC.
+
+### Result
+
+After the fix, both MTRR and PAT specify WC for the framebuffer, yielding an effective memory type of WC. Verified on:
+- **QEMU** (Intel i5-3320M): `MTRR #0 type now WC (expected WC=1)`
+- **Physical hardware** (AMD Ryzen 7 5700U): `MTRR #0 type now WC (expected WC=1)`
+
+Framebuffer write performance improved measurably on the physical machine.
+
+### Other Fix: MTRR Range Overlap Calculation
+
+The original range_end computation used `base | ~mask` without limiting `~mask` to the physical address width. Since MTRR masks typically have zeros in bits above MAXPHYADDR (e.g., bits 63:48), `~mask` produced values with high bits set, causing range_end to overflow into the upper address space. This resulted in false overlap positives for MTRRs #1, #2, #3 on both QEMU and the physical machine.
+
+Fixed by limiting the variable bits with `~mask & 0x000ffffffffff000` (covering 52-bit physical address space), and using a three-way overlap check:
+```
+(fb_phys & mask) == (base & mask) ||
+(fb_end  & mask) == (base & mask) ||
+((base & mask) >= fb_phys && (base & mask) <= fb_end)
+```
+
+---
+
 ## LTO Codegen Sensitivity
 
 During debugging, it was discovered that calling `fb_set_wc()` from `kmain()` (after `vmm_init()` returns) caused a deterministic crash at `enter_context_switch+0x26` (a deliberate triple-fault PF). The crash was triggered by the mere presence of the function call — even with all PAT/page-table changes removed and the function body reduced to a simple `return`.

@@ -86,6 +86,63 @@ push %r15      (8 字节)
 
 ---
 
+## Bug 3：MTRR 覆盖使 PAT 在物理机上失效
+
+### 根因
+
+即使已将 PAT 索引 2 设置为 WC 并使用 `PCD=1,PWT=0`（PAT 索引 2）映射帧缓冲，有效内存类型在物理机上仍然是 UC（Uncacheable）。根据 Intel/AMD 内存类型组合规则，当某地址范围的 MTRR 指定为 **UC** 时，PAT 设置会被**完全覆盖**，无论 PAT 如何设置，有效类型始终为 UC。
+
+在目标机器（AMD Ryzen 7 5700U）上，BIOS 配置了 4 个 type=0 (UC) 的变量 MTRR，覆盖了 0xE0000000 处的帧缓冲区域：
+
+| MTRR | 类型 | 基址 | 掩码 | 范围 |
+|------|------|------|------|-------|
+| #0 | UC (0) | 0xE0000000 | 0x7FE0000000 | 32 MB @ 0xE0000000 |
+| #1 | UC (0) | 0xDC000000 | 0x7FFC000000 | 16 MB @ 0xDC000000 |
+| #2 | UC (0) | 0xDA000000 | 0x7FFE000000 | 8 MB @ 0xDA000000 |
+| #3 | UC (0) | 0xD9800000 | 0x7FFF800000 | 4 MB @ 0xD9800000 |
+
+MTRR #0 覆盖 0xE0000000–0xE1FFFFFF（32 MB），完全包含帧缓冲（0xE0000000，1920000 字节 ≈ 1.83 MB）。MTRR=UC 导致 PAT=WC 的有效类型为 UC，帧缓冲写入速度缓慢。
+
+### 修复内容：将 MTRR #0 修改为 WC
+
+在 `fb_set_wc()` 函数中扩展了以下逻辑：
+
+1. **检测覆盖帧缓冲的 UC MTRR** — 遍历所有变量 MTRR；如果某个 MTRR 类型为 UC、有效且完全覆盖帧缓冲范围（`fb_phys` 和 `fb_end` 均匹配 MTRR 模式），则记录其索引。
+
+2. **原地修改 MTRR**，使用标准的缓存控制流程：
+   - 保存 CR0，设置 CD=1（Cache Disable），清除 NW=0（Not Write-through）
+   - 执行 `wbinvd` 刷新所有缓存
+   - 通过 CR3 重载刷新 TLB
+   - **禁用 MTRRs**：清除 `IA32_MTRR_DEF_TYPE`（MSR 0x2FF）的 E 标志（bit 11）
+   - 写入 MTRR `PHYSBASE` 寄存器，将类型从 UC (0) 改为 WC (1)
+   - **重新启用 MTRRs**：设置 E 标志
+   - 再次刷新 TLB 和缓存
+   - 恢复 CR0
+
+3. **验证** — 回读 MTRR PHYSBASE 寄存器，记录类型是否成功更改为 WC。
+
+### 结果
+
+修复后，MTRR 和 PAT 均为帧缓冲指定了 WC，有效内存类型为 WC。在以下环境验证通过：
+- **QEMU**（Intel i5-3320M）：`MTRR #0 type now WC (expected WC=1)`
+- **物理机**（AMD Ryzen 7 5700U）：`MTRR #0 type now WC (expected WC=1)`
+
+帧缓冲写入性能在物理机上得到明显提升。
+
+### 其他修复：MTRR 范围重叠计算
+
+原始的 range_end 计算使用了 `base | ~mask`，但没有将 `~mask` 限制在物理地址宽度内。由于 MTRR 掩码在 MAXPHYADDR 以上的位（如 bits 63:48）通常为零，`~mask` 会产生高位被置 1 的值，导致 range_end 溢出到高位地址空间。这导致 MTRR #1、#2、#3 在 QEMU 和物理机上均出现假阳性重叠报告。
+
+修复方式：使用 `~mask & 0x000ffffffffff000`（覆盖 52 位物理地址空间）限制可变位范围，并使用三种方式检测重叠：
+
+```
+(fb_phys & mask) == (base & mask) ||
+(fb_end  & mask) == (base & mask) ||
+((base & mask) >= fb_phys && (base & mask) <= fb_end)
+```
+
+---
+
 ## LTO 代码生成敏感性
 
 在调试过程中发现，从 `kmain()`（在 `vmm_init()` 返回之后）调用 `fb_set_wc()` 会导致 `enter_context_switch+0x26`（一个故意的三故障 PF）处确定性地崩溃。即使移除所有 PAT/页表更改并将函数体缩减为简单的 `return`，仅函数调用的存在就会触发崩溃。
