@@ -50,6 +50,7 @@
 #include <sys/panic.h>
 #include <sys/pci.h>
 #include <sys/pit.h>
+#include <sys/timer.h>
 #include <device/display/fb.h>
 #include <device/display/term.h>
 #include <device/display/edid.h>
@@ -303,12 +304,6 @@ void kmain(void)
     alloc_init();
 
     vmm_init(mm_request.response, kernel_addr_request.response);
-
-    /* Below code will cause #PF in term_clear() */
-    /*
-     * mtrr_save(0, (void *) VIRT_TO_PHYS(fb->address));
-     * mtrr_restore(0);
-     */
 
     term_start();
 

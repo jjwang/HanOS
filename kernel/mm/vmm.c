@@ -24,6 +24,7 @@
 #include <libc/string.h>
 #include <sys/cpu.h>
 #include <sys/panic.h>
+#include <sys/mtrr.h>
 #include <mm/mm.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
@@ -315,10 +316,11 @@ void vmm_init(struct limine_memmap_response *map,
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
             /* vmm_map: this should share for all tasks */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
-                    NUM_PAGES(entry->length), VMM_FLAGS_DEFAULT);
+                    NUM_PAGES(entry->length), VMM_FLAGS_FB_WC);
             klogi("[F] Mapped framebuffer 0x%09x to 0x%016lx (len: %ld, #%ld)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length,
                   i);
+            fb_set_wc(entry->base, entry->length);
         } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
             /* vmm_map: do nothing */
         } else if (entry->type == LIMINE_MEMMAP_USABLE) {
