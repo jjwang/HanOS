@@ -41,6 +41,7 @@ uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);
 task_id_t sched_get_tid(void);
 task_status_t sched_get_task_status(task_id_t tid);
+void sched_cleanup_local(task_id_t tid);
 
 task_t *sched_execve(const char *path, const char *argv[],
                      const char *envp[], const char *cwd);

@@ -216,6 +216,7 @@ typedef struct task_t {
 
     task_id_t tid;
     task_id_t ptid;
+    task_id_t fork_retval;         /* set by do_context_switch for fork return */
     task_priority_t priority;
     uint64_t last_tick;
     uint64_t wakeup_time;

@@ -292,19 +292,16 @@ void task_free(task_t * t)
     vec_erase_all(&t->child_list);
     vec_erase_all(&t->dup_list);
 
-    klogi("task_free: dead task tid %ld free mmap number %ld\n",
-          t->tid, mmap_num);
-
     kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
 
     uint64_t mem_num = vec_length(&t->addrspace->mem_list);
     for (uint64_t i = 0; i < mem_num; i++) {
         /*
          * Maybe it was already freed in unmap(), but it is also
-         * OK freed here because pmm_free will not crash.
-         *
-         * Mar 2024 - if it was freed in unmap(), it should not be freed here.
-         * The root cause of ELF loading failure is repeatly release of memories
+         * harmless for calling pmm_free() in which it will check
+         * if the referenced physical page is valid and then
+         * do free. VMM_UNMAP() invokes pmm_free() for us, but it
+         * will not free the records represented by uint64_t type
          * in mem_list.
          */
         uint64_t m = vec_at(&t->addrspace->mem_list, i);
@@ -312,17 +309,8 @@ void task_free(task_t * t)
     }
     vec_erase_all(&t->addrspace->mem_list);
 
-    /* TODO: check unclosed file handles */
-
     kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
     kmfree((void *) t->addrspace);
 
-    /*
-     * Feb 2024 - An extra task status - TASK_DYING is defined to make sure
-     * when we free resources of a dead task, it's all children tasks must be
-     * dead.
-     */
-    klogv("TASK: try to free task %ld (forked: %s)\n",
-          t->tid, t->isforked ? "true" : "false");
     kmfree(t);
 }

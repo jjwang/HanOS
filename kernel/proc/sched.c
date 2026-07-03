@@ -172,6 +172,8 @@ void do_context_switch(void *stack, int64_t mode)
                 if (curr_fork->status == TASK_RUNNING)
                     curr_fork->status = TASK_READY;
                 vec_push_back(&tasks_active_table[cpu_id], curr_fork);
+                curr->fork_retval = curr_fork->tid;
+                curr_fork->fork_retval = 0;
             }
             if (curr->status != TASK_RUNNING) {
                 vec_push_back(&tasks_active_table[cpu_id], curr);
@@ -266,23 +268,12 @@ task_id_t sched_get_tid()
 task_id_t sched_fork(void)
 {
     cpu_t *cpu = smp_get_current_cpu(false);
-    if (cpu == NULL) {
-        return TID_MAX;
-    }
-
+    if (cpu == NULL) return TID_MAX;
     uint16_t cpu_id = cpu->cpu_id;
-    task_t *curr = tasks_running[cpu_id];
-    task_id_t tid = TID_MAX;
-    if (curr) {
-        if (curr->tid < 1) {
-            kpanic("SCHED: %s meets corrupted tid\n", __func__);
-        }
-        tid = curr->tid;
-    }
-
+    if (tasks_running[cpu_id] && tasks_running[cpu_id]->tid < 1)
+        kpanic("SCHED: %s meets corrupted tid\n", __func__);
     fork_context_switch();
-
-    return tid;
+    return tasks_running[cpu_id]->fork_retval;
 }
 
 void sched_sleep_impl(time_t millis, bool advanced)
@@ -361,7 +352,7 @@ static task_status_t sched_get_task_status_impl(task_id_t tid)
 
     if (!has_child) {
         if (ntask != NULL) {
-            if (ntask->status == TASK_DEAD || ntask->status == TASK_DYING) {
+            if (ntask->status == TASK_DYING) {
                 status = TASK_UNKNOWN;
             }
         }
@@ -733,5 +724,22 @@ task_t *sched_execve(const char *path, const char *argv[],
     sched_add(tc);
 
     return tc;
+}
+
+void sched_cleanup_local(task_id_t tid)
+{
+    uint16_t cpu_id = smp_get_current_cpu_id();
+    lock_lock(&tasks_lock[cpu_id]);
+    uint64_t alen = vec_length(&tasks_active_table[cpu_id]);
+    for (uint64_t ai = 0; ai < alen; ai++) {
+        task_t *at = vec_at(&tasks_active_table[cpu_id], ai);
+        if (at && at->tid == tid) {
+            vec_erase(&tasks_active_table[cpu_id], ai);
+            lock_release(&tasks_lock[cpu_id]);
+            task_free(at);
+            return;
+        }
+    }
+    lock_release(&tasks_lock[cpu_id]);
 }
 
