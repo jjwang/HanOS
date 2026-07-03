@@ -1094,40 +1094,36 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         *status = 0;
 
     if ((int32_t) pid == (int32_t) (-1) && t != NULL) {
-        klogv("k_waitpid: tid %ld waits pid -1 (0xFFFFFFFF) status 0x%016lx flags 0x%016lx\n",
-              t->tid, status, flags);
-
         cpu_set_errno(0);
 
-        bool all_dead = true;
-        uint64_t len = vec_length(&(t->child_list));
+        while (true) {
+            uint64_t len = vec_length(&(t->child_list));
+            for (uint64_t i = 0; i < len; i++) {
+                task_id_t tid_child = vec_at(&(t->child_list), i);
+                if (sched_get_task_status(tid_child) == TASK_DEAD) {
+                    vec_erase(&(t->child_list), i);
+                    sched_cleanup_local(tid_child);
+                    return tid_child;
+                }
+            }
 
-        for (uint64_t i = 0; i < len; i++) {
-            task_id_t tid_child = vec_at(&(t->child_list), i);
-            task_status_t status_child = sched_get_task_status(tid_child);
-            if (status_child == TASK_DEAD) {
-                klogw("    tid %ld : child tid %ld DEAD\n", t->tid,
-                      tid_child);
-            } else if (status_child != TASK_UNKNOWN) {
-                all_dead = false;
-                klogv("    tid %ld : child tid %ld ACTIVE\n", t->tid,
-                      tid_child);
+            bool all_dead = true;
+            len = vec_length(&(t->child_list));
+            for (uint64_t i = 0; i < len; i++) {
+                if (sched_get_task_status(
+                        vec_at(&(t->child_list), i)) != TASK_UNKNOWN) {
+                    all_dead = false;
+                    break;
+                }
+            }
+
+            if (!all_dead) {
+                sched_sleep(20);
+            } else {
+                cpu_set_errno(ECHILD);
+                return -1;
             }
         }
-
-        sched_sleep(100);
-
-        if (!all_dead) {
-            klogv("k_waitpid: tid %ld waiting pid 0x%016lx returns with "
-                  "active children\n", t->tid, pid);
-            return 0;
-        } else {
-            klogd("k_waitpid: tid %ld waiting pid 0x%016lx returns without "
-                  "children\n", t->tid, pid);
-            cpu_set_errno(ECHILD);
-            return -1;
-        }
-    } else if (t->tid == (task_id_t) pid) {
         /* We should not return immediately. When gcc is compiling, it will
          * call this func with it's task id and wait for all children tasks
          * to be done.
