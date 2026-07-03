@@ -21,28 +21,33 @@
 
 bool spin_lock_impl(lock_t *s, bool waiting)
 {
-    /* Save interrupt state and disable interrupts (CLI) */
+    uint64_t flags;
     asm volatile (
-        "pushfq\n"          /* Push RFLAGS register to stack */
-        "pop %0\n"          /* Pop stack value to 'flags' (preserve original state) */
-        "cli\n"             /* Clear Interrupt Flag (disable maskable interrupts) */
-        : "=r" (s->rflags)  /* Output operand: %0 maps to 'flags' (write-only register) */
-        :                   /* No input operands */
-        : "memory"          /* Tell compiler memory may be modified (prevent optimization) */
+        "pushfq\n"
+        "pop %0\n"
+        "cli\n"
+        : "=r" (flags)
+        :
+        : "memory"
     );
 
-    s->rflags = s->rflags & 0x200;  /* Save only IF flag */
+    flags = flags & 0x200;
 
-    /* Atomic CAS spin to acquire lock (lock cmpxchg under the hood) */
     while (true) {
         if (!__sync_bool_compare_and_swap(&(s->locked), 0, 1)) {
             asm volatile("pause" : : : "memory");
-            if (!waiting) return false;
+            if (!waiting) {
+                if (flags & 0x200)
+                    asm volatile("sti" : : : "memory");
+                return false;
+            }
         } else {
             break;
         }
     }
 
+    /* Lock acquired — safe to write shared rflags now */
+    s->rflags = flags;
     asm volatile ("mfence" : : : "memory");
 
     return true;
