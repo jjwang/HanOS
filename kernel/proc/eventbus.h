@@ -20,6 +20,9 @@
 /* Event related data structures are defined in task.h */
 #include <proc/task.h>
 
+/* Initialise the event bus. Must be called after the allocator is ready. */
+void eb_init(void);
+
 bool eb_publish(task_id_t tid, event_type_t type, event_para_t para);
 bool eb_subscribe(task_id_t tid, event_type_t type, event_para_t * para);
 bool eb_dispatch(void);

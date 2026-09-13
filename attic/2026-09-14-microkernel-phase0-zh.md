@@ -39,8 +39,10 @@
 
 ### notify（`kernel/proc/notify.{h,c}`）
 
-基于 endpoint 的类型化通知（`notify_publish` / `notify_subscribe`）；Phase 1 用它把
-IRQ 投递给服务。
+基于 endpoint 的类型化通知（`notify_publish` / `notify_subscribe`）。旧的事件总线
+（`kernel/proc/eventbus.c`）现在只是它之上的薄封装：`eb_publish`/`eb_subscribe`
+收发通知，`eb_dispatch` 变为空操作，键盘路径不再轮询。`eb_init()` 在分配器就绪后
+由 `kmain` 调用。
 
 ### 服务路由（`kernel/service/service.{h,c}`）
 
@@ -59,14 +61,16 @@ IRQ 投递给服务。
 
 ### 改造
 
-`k_getcwd()` 与 `k_openat()` 改走 uaccess 层（路径先拷进内核再使用）。
+用户缓冲区 syscall 现在走 uaccess 层：`k_openat`、`k_getcwd`、`k_chdir`、
+`k_unlink`、`k_chmod`、`k_faccessat`、`k_fstatat`、`k_readlink` 先把路径/字符串拷进
+内核（新增 `copy_user_path()` 辅助）；`k_read`、`k_write`、`k_fstat`、`k_readdir`
+校验缓冲区，并在输出时使用 `copy_to_user`/`clear_user`。
 
 ## 尚未完成
 
-- 其余用户缓冲区 syscall（`k_read`/`k_write` 需要 bounce buffer；
-  `k_chdir`/`k_unlink`/… 的路径；`execve` 的 argv/envp；信号）。
-- 用于安全拷贝的 `#PF` 修复。
-- 把 `syscall_funcs[]` 接到路由器，以及用 `notify` 重实现 `eventbus`。
+- `k_execve` 的 argv/envp 与信号结构仍直接访问。
+- 用于安全拷贝的 `#PF` 修复（P0.1b）——当前拷贝会先校验范围，但无法从缺页中恢复。
+- 把 `syscall_funcs[]` 接到服务路由器（路由模块已存在，但尚无 syscall 调用它）。
 
 ## 变更文件
 
@@ -78,6 +82,7 @@ IRQ 投递给服务。
 | `kernel/ipc/ipc.{h,c}` | endpoint 与 IPC |
 | `kernel/ipc/selftest.{h,c}` | 启动自测 |
 | `kernel/proc/notify.{h,c}` | 通知原语 |
+| `kernel/proc/eventbus.{h,c}` | 事件总线改用 notify 实现；`eb_init()` |
 | `kernel/service/service.{h,c}` | 服务路由脚手架 |
 | `kernel/proc/task.{h,c}` | 句柄表、`wakeup_key`、`EVENT_IPC` |
 | `kernel/proc/sched.{h,c}` | `sched_wait_key()` / `sched_wake_key()` |
