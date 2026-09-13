@@ -44,7 +44,7 @@
 static bool vfs_initialized = false;
 
 /* VFS wide lock */
-lock_t vfs_lock = lock_new();
+spinlock_t vfs_lock;
 
 /* Available dev & ino new id */
 static dev_t next_new_dev_id = 1;
@@ -149,7 +149,7 @@ void vfs_init()
 int64_t vfs_create(char *path, vfs_node_type_t type)
 {
     int64_t status = 0;
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     vfs_tnode_t *tnode = vfs_path_to_node(path, CREATE, type);
     if (tnode == NULL) {
@@ -170,7 +170,7 @@ int64_t vfs_create(char *path, vfs_node_type_t type)
         tnode->st.st_ctim.tv_nsec = 0;
     }
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return status;
 }
 
@@ -210,7 +210,7 @@ int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg)
 /* Mounts a block device with specified filesystem at a path */
 int64_t vfs_mount(char *device, char *path, char *fsname)
 {
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     /* Get the fs info */
     vfs_fsinfo_t *fs = vfs_get_fs(fsname);
@@ -243,14 +243,14 @@ int64_t vfs_mount(char *device, char *path, char *fsname)
     at->inode = fs->mount(dev ? dev->inode : NULL);
     at->inode->mountpoint = at;
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
 
     klogi("Mounted %s at %s as %s\n", device ? device : "<no-device>",
           path, fsname);
     return 0;
 
   fail:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return -1;
 }
 
@@ -276,7 +276,7 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
         return 0;
     }
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     vfs_inode_t *inode = fd->inode;
 
@@ -300,7 +300,7 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
 
     fd->seek_pos += len;
   end:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return (int64_t) len;
 }
 
@@ -311,7 +311,7 @@ int64_t vfs_unlink(char *path)
 {
     klogd("VFS: unlink %s\n", path);
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     /* Find the node and set st_nlink parameter */
     vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
@@ -338,11 +338,11 @@ int64_t vfs_unlink(char *path)
         }
     }
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return 0;
 
   fail:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return -1;
 }
 
@@ -359,7 +359,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
         return 0;
     }
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
     vfs_inode_t *inode = fd->inode;
 
     /* Expand file if writing more data than its size */
@@ -382,7 +382,7 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
     fd->tnode->st.st_blocks =
         DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return (int64_t) len;
 }
 
@@ -393,7 +393,7 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
     if (!fd)
         return -1;
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     int64_t offset = -1;
     switch (whence) {
@@ -421,7 +421,7 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
         klogd("Seek position out of bounds: %ld(0x%016lx):%ld in len %ld with "
               "offset %ld\n",
               pos, pos, whence, fd->inode->size, fd->seek_pos);
-        lock_release(&vfs_lock);
+        spinlock_release(&vfs_lock);
         return -1;
     }
 
@@ -431,7 +431,7 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
         ret = offset;
     }
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return ret;
 }
 
@@ -479,7 +479,7 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 {
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     /* Find the node */
     vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
@@ -551,7 +551,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
         kloge("VFS: cannot insert \"%s\" because of invalid task\n", path);
     }
 
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
 
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
         klogi
@@ -567,7 +567,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 
     return fh;
   fail:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     kloge("VFS: failed when opening %s with mode 0x%8x\n", path, mode);
     return VFS_INVALID_HANDLE;
 }
@@ -576,7 +576,7 @@ int64_t vfs_close(vfs_handle_t handle)
 {
     bool istty = false;
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
@@ -591,7 +591,7 @@ int64_t vfs_close(vfs_handle_t handle)
         if ((fd->mode & VFS_MODE_WRITE) && fd->inode->writecount == 1) {
             klogi("VFS: fh %ld write EOF to %s with seek position %ld\n",
                   handle, fd->path, fd->seek_pos);
-            lock_release(&vfs_lock);
+            spinlock_release(&vfs_lock);
 
             uint8_t magic_word[4] = { (VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
                 (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
@@ -600,7 +600,7 @@ int64_t vfs_close(vfs_handle_t handle)
             };
             vfs_write(handle, 4, magic_word);
 
-            lock_lock(&vfs_lock);
+            spinlock_acquire(&vfs_lock);
         }
     }
 
@@ -631,14 +631,14 @@ int64_t vfs_close(vfs_handle_t handle)
     }
 
     kmfree(fd);
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
 
     if (!istty) {
         klogv("VFS: close file handle %ld\n", handle);
     }
     return 0;
   fail:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return -1;
 }
 
@@ -648,7 +648,7 @@ int64_t vfs_refresh(vfs_handle_t handle)
     if (!fd)
         return -1;
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
     fd->inode->fs->refresh(fd->inode);
     for (uint64_t i = 0;; i++) {
         vfs_dirent_t de;
@@ -663,7 +663,7 @@ int64_t vfs_refresh(vfs_handle_t handle)
         memcpy(&tn->inode->tm, &de.tm, sizeof(tm_t));
         tn->inode->size = de.size;
     }
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
 
     return 0;
 }
@@ -676,7 +676,7 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t * dirent)
     if (!fd)
         return -1;
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
 
     /* Can only traverse folders */
     if (!IS_TRAVERSABLE(fd->inode)) {
@@ -704,6 +704,6 @@ int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t * dirent)
     fd->seek_pos++;
 
   done:
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
     return status;
 }

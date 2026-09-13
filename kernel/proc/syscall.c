@@ -48,7 +48,7 @@ extern int64_t syscall_handler();
 
 typedef int64_t(*syscall_ptr_t) (void);
 
-extern lock_t vfs_lock;
+extern spinlock_t vfs_lock;
 
 static bool debug_info = false;
 
@@ -515,7 +515,7 @@ int64_t k_close(int64_t fh)
     klogd("k_close: close file handle %ld\n", fh);
 
     if (t != NULL) {
-        lock_lock(&vfs_lock);
+        spinlock_acquire(&vfs_lock);
         /* Check whether there is file redirection */
         for (uint64_t i = 0; i < vec_length(&t->dup_list); i++) {
             file_dup_t dup = vec_at(&t->dup_list, i);
@@ -527,15 +527,15 @@ int64_t k_close(int64_t fh)
                     /* BUGFIX: we must release vfs_lock here before calling
                      * vfs_close() to avoid dead lock.
                      */
-                    lock_release(&vfs_lock);
+                    spinlock_release(&vfs_lock);
                     vfs_close(dup.fh);
-                    lock_lock(&vfs_lock);
+                    spinlock_acquire(&vfs_lock);
                 }
                 vec_erase(&t->dup_list, i);
                 break;
             }
             if (dup.fh == fh) {
-                lock_release(&vfs_lock);
+                spinlock_release(&vfs_lock);
                 /* Do not close if mapping to another file handle */
                 klogd("k_close: do not close dup file handle %ld <- %ld\n",
                       fh, dup.newfh);
@@ -543,7 +543,7 @@ int64_t k_close(int64_t fh)
                 return -1;
             }
         }
-        lock_release(&vfs_lock);
+        spinlock_release(&vfs_lock);
     }
 
     if (fh == STDIN || fh == STDOUT || fh == STDERR) {
@@ -564,7 +564,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
         bool found = false;
         vfs_handle_t oldfh = -1;
         if (t != NULL) {
-            lock_lock(&vfs_lock);
+            spinlock_acquire(&vfs_lock);
             /* Check whether it is redirected from some file */
             for (uint64_t i; i < vec_length(&t->dup_list); i++) {
                 file_dup_t dup = vec_at(&t->dup_list, i);
@@ -577,7 +577,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
                     found = true;
                 }
             }
-            lock_release(&vfs_lock);
+            spinlock_release(&vfs_lock);
         }
         if (found) {
             int64_t ret = vfs_read(oldfh, count, buf);
@@ -619,7 +619,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
         bool found = false;
         vfs_handle_t oldfh = -1;
         if (t != NULL) {
-            lock_lock(&vfs_lock);
+            spinlock_acquire(&vfs_lock);
             /* Check whether it is redirected from some file */
             for (uint64_t i; i < vec_length(&t->dup_list); i++) {
                 file_dup_t dup = vec_at(&t->dup_list, i);
@@ -633,7 +633,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                     break;
                 }
             }
-            lock_release(&vfs_lock);
+            spinlock_release(&vfs_lock);
         }
         if (found) {
             klogd("k_write: write %ld bytes to oldfh %ld <- fh %ld\n",
@@ -660,10 +660,10 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                 }
             }
 
-            lock_lock(&vfs_lock);
+            spinlock_acquire(&vfs_lock);
             last_write_task_id = t->tid;
             last_write_nanos = hpet_get_nanos();
-            lock_release(&vfs_lock);
+            spinlock_release(&vfs_lock);
 
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
             if (ttyfh != VFS_INVALID_HANDLE) {
@@ -1098,7 +1098,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
             task_id_t *children = NULL;
             uint64_t len;
 
-            lock_lock(&t->child_lock);
+            spinlock_acquire(&t->child_lock);
             len = vec_length(&(t->child_list));
             if (len > 0) {
                 children = kmalloc(len * sizeof(task_id_t));
@@ -1107,7 +1107,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
                         children[i] = vec_at(&(t->child_list), i);
                 }
             }
-            lock_release(&t->child_lock);
+            spinlock_release(&t->child_lock);
 
             if (len > 0 && children == NULL) {
                 sched_sleep(20);
@@ -1133,14 +1133,14 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
             }
 
             if (dead_child != TID_NONE) {
-                lock_lock(&t->child_lock);
+                spinlock_acquire(&t->child_lock);
                 for (uint64_t i = 0; i < vec_length(&(t->child_list)); i++) {
                     if (vec_at(&(t->child_list), i) == dead_child) {
                         vec_erase(&(t->child_list), i);
                         break;
                     }
                 }
-                lock_release(&t->child_lock);
+                spinlock_release(&t->child_lock);
                 sched_cleanup(dead_child);
                 return dead_child;
             }
@@ -1390,10 +1390,10 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
     klogd("k_dup3: tid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
           t->tid, fh, newfh, flags);
 
-    lock_lock(&vfs_lock);
+    spinlock_acquire(&vfs_lock);
     file_dup_t dup = {.fh = fh,.newfh = newfh };
     vec_push_back(&t->dup_list, dup);
-    lock_release(&vfs_lock);
+    spinlock_release(&vfs_lock);
 
     return 0;
 }

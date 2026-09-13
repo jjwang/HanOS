@@ -346,7 +346,7 @@ void term_refresh(void)
 {
     term_info_t *term_act = &term_cli;
 
-    lock_lock(&(term_act->lock));
+    spinlock_acquire(&(term_act->lock));
 
     if (term_cursor != 0) {
         if (term_act->state != STATE_UNKNOWN) {
@@ -369,7 +369,7 @@ void term_refresh(void)
     fb_refresh(&(term_act->fb));
 
 exit:
-    lock_release(&(term_act->lock));
+    spinlock_release(&(term_act->lock));
 }
 
 void term_clear(void)

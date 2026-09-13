@@ -204,7 +204,7 @@ static slab_t *returnobject(scache_t * cache, void *obj)
 
 void *slab_allocate(scache_t * cache)
 {
-    lock_lock(&cache->lock);
+    spinlock_acquire(&cache->lock);
 
     slab_t *slab = NULL;
     if (cache->partial != NULL)
@@ -249,13 +249,13 @@ void *slab_allocate(scache_t * cache)
     }
 
   cleanup:
-    lock_release(&cache->lock);
+    spinlock_release(&cache->lock);
     return ret;
 }
 
 void slab_free(scache_t * cache, void *addr)
 {
-    lock_lock(&cache->lock);
+    spinlock_acquire(&cache->lock);
 
     slab_t *slab = returnobject(cache, addr);
     ASSERT(slab);
@@ -292,7 +292,7 @@ void slab_free(scache_t * cache, void *addr)
         cache->partial = slab;
     }
 
-    lock_release(&cache->lock);
+    spinlock_release(&cache->lock);
 }
 
 scache_t *slab_newcache(uint64_t size, uint64_t alignment,
@@ -304,7 +304,7 @@ scache_t *slab_newcache(uint64_t size, uint64_t alignment,
 
     if (selfcacheinit == false) {
         selfcacheinit = true;
-        memset((void *) &selfcache.lock, 0, sizeof(lock_t));
+        memset((void *) &selfcache.lock, 0, sizeof(spinlock_t));
     }
 
     scache_t *cache = slab_allocate(&selfcache);
@@ -324,7 +324,7 @@ scache_t *slab_newcache(uint64_t size, uint64_t alignment,
     cache->empty = NULL;
     cache->partial = NULL;
 
-    memset((void *) &cache->lock, 0, sizeof(lock_t));
+    memset((void *) &cache->lock, 0, sizeof(spinlock_t));
 
     klogd("slab: new cache: size %ld align %ld true size %ld obj count %ld\n",
           cache->size, cache->alignment, cache->truesize,
@@ -361,7 +361,7 @@ static uint64_t purge(scache_t * cache, uint64_t maxcount)
 
 void slab_freecache(scache_t * cache)
 {
-    lock_lock(&cache->lock);
+    spinlock_acquire(&cache->lock);
 
     ASSERT(cache->partial == NULL);
     ASSERT(cache->full == NULL);
@@ -370,5 +370,5 @@ void slab_freecache(scache_t * cache)
 
     slab_free(&selfcache, cache);
 
-    lock_release(&cache->lock);
+    spinlock_release(&cache->lock);
 }

@@ -98,7 +98,7 @@ void pmm_register_buddy_allocator(void);
 typedef struct {
     uint64_t *PML4;
      vec_struct(uint64_t) mem_list;
-    lock_t lock;
+    spinlock_t lock;
     bool initialized;
 } addrspace_t;
 

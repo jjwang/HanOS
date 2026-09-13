@@ -55,7 +55,7 @@ static volatile int *ap_boot_counter =
 
 static smp_info_t *smp_info = NULL;
 
-static lock_t smp_lock = lock_new();
+static spinlock_t smp_lock;
 
 bool smp_is_initialized(void)
 {
@@ -94,18 +94,18 @@ cpu_t *smp_get_current_cpu(bool force_read)
  */
 bool cpu_set_errno(int64_t val)
 {
-    lock_lock(&smp_lock);
+    spinlock_acquire(&smp_lock);
     if (smp_is_initialized()) {
         cpu_t *cpu = (cpu_t *) read_msr(MSR_KERN_GS_BASE);
         if (cpu == NULL)
             cpu = (cpu_t *) read_msr(MSR_GS_BASE);
         if (cpu != NULL) {
             cpu->errno = val;
-            lock_release(&smp_lock);
+            spinlock_release(&smp_lock);
             return true;
         }
     }
-    lock_release(&smp_lock);
+    spinlock_release(&smp_lock);
     return false;
 }
 

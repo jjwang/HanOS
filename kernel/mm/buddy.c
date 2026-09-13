@@ -54,7 +54,7 @@ typedef struct {
     uint64_t phys_limit;
     uint64_t total_size;
     uint64_t free_size;
-    lock_t lock;
+    spinlock_t lock;
     uint8_t *block_order;  /* Track order of each block */
     uint64_t num_blocks;
 } buddy_state_t;
@@ -219,7 +219,7 @@ void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
     buddy_state.phys_limit = 0;
     buddy_state.total_size = 0;
     buddy_state.free_size = 0;
-    buddy_state.lock = lock_new();
+    spinlock_init(&buddy_state.lock);
 
     /* Initialize free lists */
     for (int i = 0; i <= MAX_ORDER; i++) {
@@ -332,9 +332,9 @@ uint64_t buddy_get(uint64_t numpages, uint64_t baseaddr,
         return 0;
     }
 
-    lock_lock(&buddy_state.lock);
+    spinlock_acquire(&buddy_state.lock);
     uint64_t block_idx = buddy_alloc_order(order);
-    lock_release(&buddy_state.lock);
+    spinlock_release(&buddy_state.lock);
 
     if (block_idx == 0) {
         kpanic("Out of Physical Memory");
@@ -369,7 +369,7 @@ void buddy_free(uint64_t addr, uint64_t numpages,
 
     uint64_t block_idx = addr_to_block(addr);
 
-    lock_lock(&buddy_state.lock);
+    spinlock_acquire(&buddy_state.lock);
 
     /* Add to free list */
     add_to_free_list(block_idx, order);
@@ -388,7 +388,7 @@ void buddy_free(uint64_t addr, uint64_t numpages,
         add_to_free_list(coalesced_idx, new_order);
     }
 
-    lock_release(&buddy_state.lock);
+    spinlock_release(&buddy_state.lock);
 }
 
 uint64_t buddy_get_total_memory(void)

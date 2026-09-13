@@ -60,7 +60,7 @@ void signal_action(task_t * t, int64_t signal, sigaction_t * new,
     if (t == NULL)
         return;
 
-    lock_lock(&t->signals.lock);
+    spinlock_acquire(&t->signals.lock);
 
     if (old != NULL) {
         memcpy(old, &(t->signals.actions[signal]), sizeof(sigaction_t));
@@ -70,7 +70,7 @@ void signal_action(task_t * t, int64_t signal, sigaction_t * new,
         memcpy(&(t->signals.actions[signal]), new, sizeof(sigaction_t));
     }
 
-    lock_release(&t->signals.lock);
+    spinlock_release(&t->signals.lock);
 }
 
 void signal_changemask(task_t * t, int64_t how, sigset_t * new,
@@ -78,7 +78,7 @@ void signal_changemask(task_t * t, int64_t how, sigset_t * new,
 {
     if (t == NULL)
         return;
-    lock_lock(&t->signals.lock);
+    spinlock_acquire(&t->signals.lock);
 
     if (old != NULL) {
         memcpy(old, &(t->signals.mask), sizeof(sigset_t));
@@ -110,5 +110,5 @@ void signal_changemask(task_t * t, int64_t how, sigset_t * new,
         }
     }
 
-    lock_release(&t->signals.lock);;
+    spinlock_release(&t->signals.lock);;
 }

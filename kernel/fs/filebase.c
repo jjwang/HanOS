@@ -161,7 +161,7 @@ vfs_inode_t *vfs_alloc_inode(vfs_node_type_t type, uint32_t perms,
     inode->mountpoint = mountpoint;
     inode->refcount = 0;
     inode->size = 0;
-    inode->lock = lock_new();
+    spinlock_init(&inode->lock);
 
     return inode;
 }

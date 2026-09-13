@@ -27,7 +27,7 @@
 #define CREATE          0b0010U
 #define ERR_ON_EXIST    0b0100U
 
-extern lock_t vfs_lock;
+extern spinlock_t vfs_lock;
 extern vfs_tnode_t vfs_root;
 
 int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,

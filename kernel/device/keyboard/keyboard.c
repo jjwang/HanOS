@@ -40,7 +40,7 @@ static volatile uint8_t write_index = 0;
 
 static volatile keyboard_t ps2_kb = { 0 };
 
-static volatile lock_t kb_lock = lock_new();
+static spinlock_t kb_lock;
 
 void keyboard_set_key(bool state, uint8_t keycode)
 {
@@ -78,14 +78,14 @@ static void keyboard_callback()
     while (key_state && ch != 0) {
         if (ps2_kb.key_pressed[KB_LCTRL]) {
             if (buffer_length < KB_BUFFER_SIZE && (ch == 'd' || ch == 'D')) {
-                lock_lock(&kb_lock);
+                spinlock_acquire(&kb_lock);
                 key_buffer[write_index] = EOF;
                 write_index++;
                 buffer_length++;
                 if (write_index == KB_BUFFER_SIZE) {
                     write_index = 0;
                 }
-                lock_release(&kb_lock);
+                spinlock_release(&kb_lock);
 
                 eb_publish(TID_NONE, EVENT_KEY_PRESSED, EOF);
                 klogd("keyboard: EOF recevied!\n");
@@ -94,14 +94,14 @@ static void keyboard_callback()
         }
 
         if (buffer_length < KB_BUFFER_SIZE) {
-            lock_lock(&kb_lock);
+            spinlock_acquire(&kb_lock);
             key_buffer[write_index] = ch;
             write_index++;
             buffer_length++;
             if (write_index == KB_BUFFER_SIZE) {
                 write_index = 0;
             }
-            lock_release(&kb_lock);
+            spinlock_release(&kb_lock);
         }
 
         eb_publish(TID_NONE, EVENT_KEY_PRESSED, ch);
@@ -117,13 +117,13 @@ uint8_t keyboard_get_key()
 
     uint8_t ch = key_buffer[read_index];
 
-    lock_lock(&kb_lock);
+    spinlock_acquire(&kb_lock);
     read_index++;
     buffer_length--;
     if (read_index == KB_BUFFER_SIZE) {
         read_index = 0;
     }
-    lock_release(&kb_lock);
+    spinlock_release(&kb_lock);
 
     return ch;
 }
