@@ -59,6 +59,7 @@
 #include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
+#include <proc/eventbus.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
@@ -303,6 +304,10 @@ void kmain(void)
 #endif
     pmm_init(mm_request.response, hhdm_request.response->offset);
     alloc_init();
+
+    /* Event bus is built on IPC endpoints, so initialise it once the
+     * allocator is up and before any driver can publish. */
+    eb_init();
 
     vmm_init(mm_request.response, kernel_addr_request.response);
 

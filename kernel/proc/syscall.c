@@ -55,6 +55,15 @@ extern spinlock_t vfs_lock;
 
 static bool debug_info = false;
 
+/* Copy a user path into a kernel buffer. Returns false on a bad pointer or a
+ * path that is not NUL-terminated within ksize. */
+static bool copy_user_path(const char *upath, char *kpath, uint64_t ksize)
+{
+    if (upath == NULL)
+        return false;
+    return strncpy_from_user(kpath, upath, ksize) >= 0;
+}
+
 int64_t k_print_log()
 {
     klogd("SYSCALL: useless log is just for debug purpose\n");
@@ -404,6 +413,13 @@ int64_t k_chmod(char *path, int64_t flags)
 {
     cpu_set_errno(0);
 
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
+
     klogi("k_chmod: \"%s\" with flags 0x%016lx\n", path, flags);
 
     vfs_handle_t fh = k_openat(VFS_FDCWD, path, O_RDWR, 0);
@@ -436,6 +452,13 @@ int64_t k_chmod(char *path, int64_t flags)
 int64_t k_unlink(char *path)
 {
     cpu_set_errno(0);
+
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
 
     klogi("k_unlink: %s\n", path);
 
@@ -569,6 +592,11 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
+    if (buf != NULL && count > 0 && !user_range_ok(t, buf, count)) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
     klogd("k_read: read %ld from file handle %ld\n", count, fh);
 
     if (fh == STDIN) {
@@ -625,6 +653,11 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
     task_t *t = sched_get_current_task();
 
     cpu_set_errno(0);
+
+    if (buf != NULL && count > 0 && !user_range_ok(t, buf, count)) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
 
     if (fh == STDOUT || fh == STDERR) {
         bool found = false;
@@ -731,6 +764,13 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
 {
     (void) flags;
 
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
+
     char full_path[VFS_MAX_PATH_LEN] = { 0 };
     if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
         return -1;
@@ -739,11 +779,14 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
     if (node != NULL && node->st.st_nlink > 0) {
-        vfs_stat_t *st = (vfs_stat_t *) statbuf;
-        memcpy(st, &(node->st), sizeof(vfs_stat_t));
+        if (copy_to_user((void *) statbuf, &(node->st),
+                         sizeof(vfs_stat_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
         klogd
             ("k_fstatat: success with dirfh 0x%016lx and path %s(%s), size %ld\n",
-             dirfh, full_path, path, st->st_size);
+             dirfh, full_path, path, node->st.st_size);
         cpu_set_errno(0);
         return 0;
     } else {
@@ -761,8 +804,10 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
          * Set the file stat buffer to zero. If we do nothing here, maybe it
          * will cause crash in some apps, e.g., cat in coreutils.
          */
-        vfs_stat_t *st = (vfs_stat_t *) statbuf;
-        memset(st, 0, sizeof(vfs_stat_t));
+        if (clear_user((void *) statbuf, sizeof(vfs_stat_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
         klogd("k_fstat: success with file handle %ld\n", handle);
         return 0;
     }
@@ -771,10 +816,13 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     cpu_set_errno(0);
 
     if (fd != NULL) {
-        vfs_stat_t *st = (vfs_stat_t *) statbuf;
-        memcpy(st, &(fd->tnode->st), sizeof(vfs_stat_t));
+        if (copy_to_user((void *) statbuf, &(fd->tnode->st),
+                         sizeof(vfs_stat_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
         klogd("k_fstat: success with file handle %ld and size %ld\n",
-              handle, st->st_size);
+              handle, fd->tnode->st.st_size);
         return 0;
     } else {
         kloge("k_fstat: fail with file handle %ld\n", handle);
@@ -790,6 +838,13 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
     (void) flags;
 
     cpu_set_errno(0);
+
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
 
     char full_path[VFS_MAX_PATH_LEN] = { 0 };
     if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
@@ -846,10 +901,12 @@ int64_t k_chdir(char *dir)
     task_t *t = sched_get_current_task();
     cpu_set_errno(0);
 
-    if (dir == NULL) {
-        cpu_set_errno(EINVAL);
+    char kdir[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(dir, kdir, sizeof(kdir))) {
+        cpu_set_errno(EFAULT);
         goto err_exit;
     }
+    dir = kdir;
 
     /* TODO: Need to add bound check */
     while (*dir == ' ') {
@@ -931,7 +988,6 @@ int64_t k_chdir(char *dir)
 
 int64_t k_readdir(int64_t handle, uint64_t buff)
 {
-    dirent_t *de = (dirent_t *) buff;
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     int64_t errno = 0;
 
@@ -965,12 +1021,18 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
         fd->curr_dir_idx++;
     }
 
-    strcpy(de->d_name, fd->curr_dir_ent->name);
+    dirent_t kde;
+    memset(&kde, 0, sizeof(kde));
+    strncpy(kde.d_name, fd->curr_dir_ent->name, sizeof(kde.d_name) - 1);
+    kde.d_ino = fd->curr_dir_ent->st.st_ino;
+    kde.d_off = 0;
+    kde.d_reclen = sizeof(dirent_t);
+    kde.d_type = DT_UNKNOWN;
 
-    de->d_ino = fd->curr_dir_ent->st.st_ino;
-    de->d_off = 0;
-    de->d_reclen = sizeof(dirent_t);
-    de->d_type = DT_UNKNOWN;
+    if (copy_to_user((void *) buff, &kde, sizeof(kde)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
 
     return 0;
   err_exit:
@@ -1334,6 +1396,13 @@ int64_t k_readlink(int64_t dirfh, const char *path, void *buffer,
 {
     cpu_set_errno(0);
 
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
+
     char full_path[VFS_MAX_PATH_LEN] = { 0 };
     vfs_get_full_path(dirfh, path, full_path, sizeof(full_path));
 
@@ -1344,13 +1413,17 @@ int64_t k_readlink(int64_t dirfh, const char *path, void *buffer,
     if (tnode->inode->type != VFS_NODE_SYMLINK)
         goto err_exit;
 
-    if ((uint64_t) strlen(tnode->inode->link) < max_size) {
+    uint64_t link_len = strlen(tnode->inode->link);
+    if (link_len < max_size) {
         klogd("k_readlink: %s -> %s\n", full_path, tnode->inode->link);
-        strcpy(buffer, tnode->inode->link);
+        if (copy_to_user(buffer, tnode->inode->link, link_len + 1) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
     } else {
         goto err_exit;
     }
-    return strlen(buffer);
+    return (int64_t) link_len;
 
   err_exit:
     cpu_set_errno(EINVAL);
