@@ -1,12 +1,11 @@
-# 2026-09-14：微内核 Phase 0 内核机制
+# 2026-09-14：微内核内核基础（uaccess、句柄、IPC）
 
 ## 概述
 
-混合式微内核迁移的第一步：落地后续阶段依赖的内核机制，**不改变任何可观测行为**。
-本阶段尚未把任何服务搬到用户态。
+落地混合式微内核迁移所依赖的内核机制，**不改变任何可观测行为**。尚未把任何服务
+搬到用户态。
 
-完整计划见本地设计文档 `design/microkernel-phase0-zh.md` 与
-`design/microkernel-plan-phase0-1-zh.md`（未纳入仓库）。
+迁移计划以本地设计笔记形式保存（不纳入仓库）。
 
 ## 交付物
 
@@ -46,7 +45,7 @@
 
 ### 服务路由（`kernel/service/service.{h,c}`）
 
-`service_register` / `service_lookup` / `service_forward`。Phase 0 不注册任何服务，
+`service_register` / `service_lookup` / `service_forward`。尚未注册任何服务，
 因此路由器休眠，syscall 走内核内路径。
 
 ### 新增 syscall
@@ -69,7 +68,7 @@
 ## 尚未完成
 
 - `k_execve` 的 argv/envp 与信号结构仍直接访问。
-- 用于安全拷贝的 `#PF` 修复（P0.1b）——当前拷贝会先校验范围，但无法从缺页中恢复。
+- 用于安全拷贝的 `#PF` 修复——当前拷贝会先校验范围，但无法从缺页中恢复。
 - 把 `syscall_funcs[]` 接到服务路由器（路由模块已存在，但尚无 syscall 调用它）。
 
 ## 变更文件

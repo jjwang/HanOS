@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    selftest.c
- @brief   Boot-time self-test for the Phase 0 IPC/handle layer
+ @brief   Boot-time self-test for the IPC/handle layer
  @details
  @verbatim
 

@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    selftest.h
- @brief   Kernel-side self-test for the Phase 0 IPC/handle layer
+ @brief   Kernel-side self-test for the IPC/handle layer
 
  **-----------------------------------------------------------------------------
  */
