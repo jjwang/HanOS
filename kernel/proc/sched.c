@@ -413,10 +413,34 @@ task_status_t sched_get_task_status(task_id_t tid)
     return ntask->status;
 }
 
+/* Wake up a parent that is sleeping in waitpid() for one of its children to
+ * exit. The parent re-checks its child list after waking, so it is enough to
+ * mark every sleeper that waits on EVENT_CHILD_EXIT as ready.
+ */
+static void sched_wake_child_waiter(task_id_t parent_tid)
+{
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
+        if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
+            continue;
+
+        spinlock_acquire(&tasks_lock[c]);
+
+        for (uint64_t i = 0; i < vec_length(&tasks_active_table[c]); i++) {
+            task_t *t = vec_at(&tasks_active_table[c], i);
+            if (t != NULL && t->tid == parent_tid
+                && t->status == TASK_SLEEPING
+                && t->wakeup_event.type == EVENT_CHILD_EXIT) {
+                t->wakeup_time = 0;
+                t->status = TASK_READY;
+            }
+        }
+
+        spinlock_release(&tasks_lock[c]);
+    }
+}
+
 void sched_exit(int64_t status)
 {
-    (void) status;
-
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
         return;
@@ -432,6 +456,7 @@ void sched_exit(int64_t status)
     task_t *curr = tasks_running[cpu_id];
     if (curr) {
         curr->status = TASK_DYING;
+        curr->exit_status = status;
         if (curr->tid < 1) {
             kpanic("SCHED: %s meets corrupted tid\n", __func__);
         }
@@ -475,6 +500,8 @@ void sched_exit(int64_t status)
             curr->open_files_table.array = NULL;
         }
         curr->open_files_table.size = 0;
+
+        sched_wake_child_waiter(curr->ptid);
     }
 
     force_context_switch();
@@ -526,6 +553,32 @@ event_t sched_wait_event(event_t event)
     force_context_switch();
 
     return curr->wakeup_event;
+}
+
+/* Sleep until a child of the current task exits, or until the timeout
+ * expires. The timeout guarantees progress even if the wakeup is missed
+ * because the child exited just before this task went to sleep.
+ */
+void sched_wait_child(time_t millis)
+{
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        hpet_sleep(millis);
+        return;
+    }
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t *curr = tasks_running[cpu_id];
+    if (curr == NULL) {
+        return;
+    }
+
+    curr->wakeup_event.type = EVENT_CHILD_EXIT;
+    curr->wakeup_event.para = 0;
+    curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
+    curr->status = TASK_SLEEPING;
+
+    force_context_switch();
 }
 
 task_t *sched_get_current_task()
@@ -791,33 +844,65 @@ task_t *sched_execve(const char *path, const char *argv[],
     return tc;
 }
 
-void sched_cleanup(task_id_t tid)
+/* Try to reap a task that has already exited.
+ *
+ * Returns 1 and stores the task's exit status in *status when a dead task was
+ * found, removed from its run queue and freed; 0 when the task still exists but
+ * is alive; -1 when no task with that tid can be found (it was already reaped
+ * by another core's idle task).
+ */
+int sched_reap(task_id_t tid, int64_t *status)
 {
-    task_t *found = NULL;
-    uint16_t found_cpu = 0;
+    /* Use the effective status: a TASK_DYING task that has no live children is
+     * reported as TASK_DEAD, so an exec wrapper whose replacement has exited
+     * can be reaped even if the idle task never finalized it. */
+    task_status_t st = sched_get_task_status(tid);
 
-    for (uint16_t c = 0; c < CPU_MAX && found == NULL; c++) {
+    if (st == TASK_UNKNOWN)
+        return -1;              /* already reaped */
+    if (st != TASK_DEAD)
+        return 0;               /* still alive */
+
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
         if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
             continue;
 
         spinlock_acquire(&tasks_lock[c]);
-        uint64_t alen = vec_length(&tasks_active_table[c]);
-        for (uint64_t ai = 0; ai < alen; ai++) {
-            task_t *at = vec_at(&tasks_active_table[c], ai);
-            if (at != NULL && at->tid == tid) {
-                vec_erase(&tasks_active_table[c], ai);
-                found = at;
-                found_cpu = c;
-                break;
-            }
+
+        task_t *rt = tasks_running[c];
+        if (rt != NULL && rt->tid == tid) {
+            /* Still running (possibly about to finalize its own exit). */
+            spinlock_release(&tasks_lock[c]);
+            return 0;
         }
+
+        for (uint64_t i = 0; i < vec_length(&tasks_active_table[c]); i++) {
+            task_t *t = vec_at(&tasks_active_table[c], i);
+            if (t == NULL || t->tid != tid)
+                continue;
+
+            bool dead = (t->status == TASK_DEAD || t->status == TASK_DYING);
+            int64_t exit_status = t->exit_status;
+
+            if (!dead) {
+                spinlock_release(&tasks_lock[c]);
+                return 0;
+            }
+
+            vec_erase(&tasks_active_table[c], i);
+            spinlock_release(&tasks_lock[c]);
+
+            klogi("SCHED: CPU %ld reaps dead task #%ld from CPU %ld\n",
+                  smp_get_current_cpu_id(), tid, c);
+            if (status != NULL)
+                *status = exit_status;
+            task_free(t);
+            return 1;
+        }
+
         spinlock_release(&tasks_lock[c]);
     }
 
-    if (found != NULL) {
-        klogi("SCHED: CPU %ld cleans up dead task #%ld from CPU %ld\n",
-              smp_get_current_cpu_id(), tid, found_cpu);
-        task_free(found);
-    }
+    return -1;
 }
 
