@@ -1471,7 +1471,7 @@ int64_t k_futex_wake(int64_t * ptr)
     return 0;
 }
 
-/* ----- Microkernel Phase 0: endpoints, IPC and handles ----- */
+/* ----- Microkernel: endpoints, IPC and handles ----- */
 
 int64_t k_ep_create(void)
 {

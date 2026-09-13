@@ -60,7 +60,7 @@
 #define SYSCALL_SIGPROCMASK 42
 #define SYSCALL_SIGACTION   43
 
-/* Microkernel Phase 0: IPC and capability handles */
+/* Microkernel: IPC and capability handles */
 #define SYSCALL_EP_CREATE   50
 #define SYSCALL_IPC_SEND    51
 #define SYSCALL_IPC_RECV    52

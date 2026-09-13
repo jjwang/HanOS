@@ -22,7 +22,7 @@
 #define ENABLE_MEM_DEBUG        false   /* default: false */
 #define ENABLE_BASH             false   /* default: false */
 
-/* Phase 0 microkernel self-test: IPC endpoints and handles at boot. */
+/* Microkernel self-test: IPC endpoints and handles at boot. */
 #define ENABLE_MICROKERNEL_SELFTEST false
 
 /* Memory allocator selection */

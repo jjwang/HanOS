@@ -5,7 +5,7 @@
  @details
  @verbatim
 
-   Phase 0 IPC: an endpoint is a kernel object holding a small message queue.
+   An endpoint is a kernel object holding a small message queue.
    ipc_send() enqueues a message and wakes a receiver; ipc_recv() blocks (with
    a timeout) until a message is available. ipc_call()/ipc_reply() build a
    request/reply protocol on top of an ephemeral reply endpoint.

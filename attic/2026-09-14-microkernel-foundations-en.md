@@ -1,13 +1,12 @@
-# 2026-09-14: Microkernel Phase 0 Kernel Mechanisms
+# 2026-09-14: Microkernel Kernel Foundations (uaccess, handles, IPC)
 
 ## Overview
 
-First step of the hybrid microkernel migration: land the kernel mechanisms that
-later phases depend on, **without changing any observable behaviour**. No
-service is moved to user space yet.
+Add the kernel mechanisms that the hybrid microkernel migration depends on,
+**without changing any observable behaviour**. No service is moved to user
+space yet.
 
-The full plan lives in the local design documents `design/microkernel-phase0-en.md`
-and `design/microkernel-plan-phase0-1-en.md` (kept out of the repository).
+The migration plan is kept as local design notes (not part of the repository).
 
 ## Deliverables
 
@@ -51,8 +50,7 @@ the allocator is ready.
 ### Service router (`kernel/service/service.{h,c}`)
 
 `service_register` / `service_lookup` / `service_forward`. No service is
-registered in Phase 0, so the router is dormant and syscalls take the in-kernel
-path.
+registered yet, so the router is dormant and syscalls take the in-kernel path.
 
 ### New syscalls
 
@@ -76,8 +74,8 @@ The user-buffer syscalls now go through the uaccess layer: `k_openat`,
 ## Not yet done
 
 - `k_execve` argv/envp and the signal structures are still accessed directly.
-- `#PF` fixup for fault-safe copies (P0.1b) — the current copies validate the
-  range before dereferencing but do not recover from a fault.
+- `#PF` fixup for fault-safe copies — the current copies validate the range
+  before dereferencing but do not recover from a fault.
 - Wiring `syscall_funcs[]` through the service router (the router module exists
   but no syscall calls it yet).
 
