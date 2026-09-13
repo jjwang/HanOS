@@ -37,6 +37,8 @@ void sched_exit(int64_t status);
 event_t sched_wait_event(event_t event);
 bool sched_resume_event(event_t event);
 void sched_wait_child(time_t ms);
+void sched_wait_key(void *key, time_t ms);
+void sched_wake_key(void *key);
 task_t *sched_get_current_task(void);
 uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);

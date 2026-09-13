@@ -221,6 +221,46 @@ uint64_t vmm_get_paddr(addrspace_t * addrspace, uint64_t vaddr)
     return (pt[pte] & 0xFFFFFFFFFFFFF000);
 }
 
+/* Return the raw leaf PTE (physical address plus flag bits) for vaddr, or 0
+ * when the page is not mapped. Used by the user-access helpers to check that
+ * a range is present and user-accessible.
+ */
+uint64_t vmm_query(addrspace_t * addrspace, uint64_t vaddr)
+{
+    addrspace_t *as = (addrspace == NULL ? &kaddrspace : addrspace);
+
+    uint16_t pte = (vaddr >> 12) & 0x1ff;
+    uint16_t pde = (vaddr >> 21) & 0x1ff;
+    uint16_t pdpe = (vaddr >> 30) & 0x1ff;
+    uint16_t pml4e = (vaddr >> 39) & 0x1ff;
+
+    uint64_t *pml4 = as->PML4;
+    if (!(pml4[pml4e] & VMM_FLAG_PRESENT))
+        return 0;
+
+    uint64_t *pdpt = (uint64_t *) PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
+    if (!(pdpt[pdpe] & VMM_FLAG_PRESENT))
+        return 0;
+
+    uint64_t *pd = (uint64_t *) PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
+    if (!(pd[pde] & VMM_FLAG_PRESENT))
+        return 0;
+
+    uint64_t *pt = (uint64_t *) PHYS_TO_VIRT(pd[pde] & ~(0xfff));
+    if (!(pt[pte] & VMM_FLAG_PRESENT))
+        return 0;
+
+    return pt[pte];
+}
+
+/* Map a physical range into a task address space. Intended for device MMIO and
+ * memory-object grants; the caller is responsible for the rights (flags). */
+void vmm_map_task_phys(addrspace_t * addrspace, uint64_t vaddr,
+                       uint64_t paddr, uint64_t np, uint64_t flags)
+{
+    vmm_map(addrspace, vaddr, paddr, np, flags);
+}
+
 void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np)
 {
     if (addrspace == NULL) {

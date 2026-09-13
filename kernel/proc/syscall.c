@@ -30,6 +30,8 @@
 #include <base/klog.h>
 #include <base/vector.h>
 #include <base/kmalloc.h>
+#include <mm/uaccess.h>
+#include <ipc/ipc.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/wait.h>
@@ -311,6 +313,14 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     /* "mode" is always zero */
     (void) mode;
     cpu_set_errno(0);
+
+    /* Copy the user path into the kernel before touching it. */
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (path == NULL || strncpy_from_user(kpath, path, sizeof(kpath)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    path = kpath;
 
     char full_path[VFS_MAX_PATH_LEN] = { 0 };
     if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
@@ -1230,7 +1240,10 @@ int k_getcwd(char *buffer, uint64_t size)
 
     uint64_t len = strlen(t->cwd);
     if (len < size - 1) {
-        strcpy(buffer, t->cwd);
+        if (copy_to_user(buffer, t->cwd, len + 1) != 0) {
+            cpu_set_errno(EFAULT);
+            goto err_exit;
+        }
     } else {
         cpu_set_errno(ENAMETOOLONG);
         goto err_exit;
@@ -1385,6 +1398,158 @@ int64_t k_futex_wake(int64_t * ptr)
     return 0;
 }
 
+/* ----- Microkernel Phase 0: endpoints, IPC and handles ----- */
+
+int64_t k_ep_create(void)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    endpoint_t *ep = endpoint_create();
+    if (ep == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    handle_t h = handle_alloc(&t->handles, endpoint_object(ep),
+                              HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV);
+    /* The creation reference is dropped; the handle owns the object now. */
+    object_unref(endpoint_object(ep));
+
+    if (h == HANDLE_INVALID) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return (int64_t) h;
+}
+
+static endpoint_t *k_ipc_resolve(int64_t handle, uint32_t rights)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL)
+        return NULL;
+
+    kernel_object_t *o = handle_get(&t->handles, (handle_t) handle, rights);
+    if (o == NULL || o->type != OBJ_ENDPOINT)
+        return NULL;
+
+    return (endpoint_t *) o->impl;
+}
+
+int64_t k_ipc_send(int64_t handle, void *umsg)
+{
+    endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_SEND);
+    if (ep == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t m;
+    if (copy_from_user(&m, umsg, sizeof(m)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (ipc_send(ep, &m) != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_ipc_recv(int64_t handle, void *umsg)
+{
+    endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_RECV);
+    if (ep == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t m;
+    if (ipc_recv(ep, &m) != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_ipc_call(int64_t handle, void *ureq, void *urep)
+{
+    endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_SEND);
+    if (ep == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t req, rep;
+    if (copy_from_user(&req, ureq, sizeof(req)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (ipc_call(ep, &req, &rep) != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    if (copy_to_user(urep, &rep, sizeof(rep)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_ipc_reply(int64_t handle, void *umsg)
+{
+    endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_SEND);
+    if (ep == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t m;
+    if (copy_from_user(&m, umsg, sizeof(m)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (ipc_send(ep, &m) != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_handle_close(int64_t handle)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL || handle_close(&t->handles, (handle_t) handle) != 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -1431,7 +1596,13 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,      /* 42 */
     [SYSCALL_SIGACTION] = (syscall_ptr_t) k_sigaction,
     (syscall_ptr_t) k_not_implemented,
-    (syscall_ptr_t) k_not_implemented
+    (syscall_ptr_t) k_not_implemented,
+    [SYSCALL_EP_CREATE] = (syscall_ptr_t) k_ep_create,  /* 50 */
+    [SYSCALL_IPC_SEND] = (syscall_ptr_t) k_ipc_send,
+    [SYSCALL_IPC_RECV] = (syscall_ptr_t) k_ipc_recv,
+    [SYSCALL_IPC_CALL] = (syscall_ptr_t) k_ipc_call,
+    [SYSCALL_IPC_REPLY] = (syscall_ptr_t) k_ipc_reply,
+    [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close      /* 60 */
 };
 
 void syscall_init(void)

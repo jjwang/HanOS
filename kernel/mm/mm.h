@@ -111,5 +111,8 @@ void vmm_map(addrspace_t * addrspace, uint64_t vaddr, uint64_t paddr,
              uint64_t np, uint64_t flags);
 void vmm_unmap(addrspace_t * addrspace, uint64_t vaddr, uint64_t np);
 uint64_t vmm_get_paddr(addrspace_t * addrspace, uint64_t vaddr);
+uint64_t vmm_query(addrspace_t * addrspace, uint64_t vaddr);
+void vmm_map_task_phys(addrspace_t * addrspace, uint64_t vaddr,
+                       uint64_t paddr, uint64_t np, uint64_t flags);
 
 addrspace_t *create_addrspace(void);
