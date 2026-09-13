@@ -35,7 +35,7 @@ bool notify_subscribe(notify_t * n, uint64_t type, uint64_t *para)
     if (n == NULL || n->ep == NULL)
         return false;
 
-    /* Phase 0: a single queue, so the requested type is not filtered yet. */
+    /* A single queue is used, so the requested type is not filtered yet. */
     (void) type;
 
     ipc_msg_t m;

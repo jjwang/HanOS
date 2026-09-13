@@ -10,8 +10,8 @@
    syscall wrapper calls service_lookup() and either runs the in-kernel
    implementation (NULL) or forwards an IPC request to the server endpoint.
 
-   In Phase 0 no service is registered, so the router is dormant and all
-   syscalls take the in-kernel path.
+   No service is registered yet, so the router is dormant and all syscalls
+   take the in-kernel path.
 
  @endverbatim
 
