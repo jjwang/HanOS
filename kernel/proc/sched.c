@@ -581,6 +581,53 @@ void sched_wait_child(time_t millis)
     force_context_switch();
 }
 
+/* Block the current task until sched_wake_key(key) is called or the timeout
+ * expires. Used by the IPC receive path. */
+void sched_wait_key(void *key, time_t millis)
+{
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL) {
+        hpet_sleep(millis);
+        return;
+    }
+
+    uint16_t cpu_id = cpu->cpu_id;
+    task_t *curr = tasks_running[cpu_id];
+    if (curr == NULL)
+        return;
+
+    curr->wakeup_event.type = EVENT_IPC;
+    curr->wakeup_event.para = 0;
+    curr->wakeup_key = key;
+    curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
+    curr->status = TASK_SLEEPING;
+
+    force_context_switch();
+}
+
+/* Wake every task sleeping on the given key, on any core. */
+void sched_wake_key(void *key)
+{
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
+        if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
+            continue;
+
+        spinlock_acquire(&tasks_lock[c]);
+
+        for (uint64_t i = 0; i < vec_length(&tasks_active_table[c]); i++) {
+            task_t *t = vec_at(&tasks_active_table[c], i);
+            if (t != NULL && t->status == TASK_SLEEPING
+                && t->wakeup_event.type == EVENT_IPC
+                && t->wakeup_key == key) {
+                t->wakeup_time = 0;
+                t->status = TASK_READY;
+            }
+        }
+
+        spinlock_release(&tasks_lock[c]);
+    }
+}
+
 task_t *sched_get_current_task()
 {
     cpu_t *cpu = smp_get_current_cpu(false);
