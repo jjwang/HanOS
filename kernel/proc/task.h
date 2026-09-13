@@ -186,7 +186,8 @@ typedef struct[[gnu::packed]] {
 
 typedef enum {
     EVENT_UNDEFINED = 1,
-    EVENT_KEY_PRESSED
+    EVENT_KEY_PRESSED,
+    EVENT_CHILD_EXIT
 } event_type_t;
 
 typedef uint64_t event_para_t;
@@ -224,6 +225,7 @@ typedef struct task_t {
     task_status_t status;
     task_mode_t mode;
     bool isforked;
+    int64_t exit_status;           /* status passed to sched_exit() */
 
     auxval_t aux;
     spinlock_t child_lock;             /* protects child_list across CPUs */

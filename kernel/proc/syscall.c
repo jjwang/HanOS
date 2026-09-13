@@ -32,6 +32,7 @@
 #include <base/kmalloc.h>
 #include <proc/task.h>
 #include <proc/sched.h>
+#include <proc/wait.h>
 #include <proc/syscall.h>
 #include <proc/eventbus.h>
 #include <proc/signal.h>
@@ -1085,133 +1086,103 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 
 int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 {
-    (void)flags;
+    task_t *parent = sched_get_current_task();
 
-    task_t *t = sched_get_current_task();
     if (status != NULL)
         *status = 0;
 
-    if ((int32_t) pid == (int32_t) (-1) && t != NULL) {
-        cpu_set_errno(0);
+    if (parent == NULL) {
+        cpu_set_errno(ECHILD);
+        return -1;
+    }
 
-        while (true) {
-            task_id_t *children = NULL;
-            uint64_t len;
+    /* pid is passed as a 32-bit signed value, so truncate before comparing:
+     * a userland wait(-1) arrives as 0x00000000FFFFFFFF. */
+    int32_t wpid = (int32_t) pid;
+    bool wait_any = (wpid == -1 || wpid == 0);
+    bool nohang = (flags & WNOHANG) != 0;
 
-            spinlock_acquire(&t->child_lock);
-            len = vec_length(&(t->child_list));
-            if (len > 0) {
-                children = kmalloc(len * sizeof(task_id_t));
-                if (children != NULL) {
-                    for (uint64_t i = 0; i < len; i++)
-                        children[i] = vec_at(&(t->child_list), i);
-                }
-            }
-            spinlock_release(&t->child_lock);
+    while (true) {
+        task_id_t *children = NULL;
+        uint64_t len;
 
-            if (len > 0 && children == NULL) {
-                sched_sleep(20);
-                continue;
-            }
-
-            task_id_t dead_child = TID_NONE;
-            bool all_dead = true;
-
-            for (uint64_t i = 0; i < len; i++) {
-                task_status_t st = sched_get_task_status(children[i]);
-                if (st == TASK_DEAD) {
-                    dead_child = children[i];
-                    break;
-                }
-                if (st != TASK_UNKNOWN) {
-                    all_dead = false;
-                }
-            }
-
+        spinlock_acquire(&parent->child_lock);
+        len = vec_length(&(parent->child_list));
+        if (len > 0) {
+            children = kmalloc(len * sizeof(task_id_t));
             if (children != NULL) {
-                kmfree(children);
+                for (uint64_t i = 0; i < len; i++)
+                    children[i] = vec_at(&(parent->child_list), i);
             }
+        }
+        spinlock_release(&parent->child_lock);
 
-            if (dead_child != TID_NONE) {
-                spinlock_acquire(&t->child_lock);
-                for (uint64_t i = 0; i < vec_length(&(t->child_list)); i++) {
-                    if (vec_at(&(t->child_list), i) == dead_child) {
-                        vec_erase(&(t->child_list), i);
-                        break;
-                    }
-                }
-                spinlock_release(&t->child_lock);
-                sched_cleanup(dead_child);
-                return dead_child;
-            }
-
-            if (!all_dead) {
-                sched_sleep(20);
-            } else {
-                cpu_set_errno(ECHILD);
+        if (len > 0 && children == NULL) {
+            if (nohang) {
+                cpu_set_errno(ENOMEM);
                 return -1;
             }
+            sched_wait_child(10);
+            continue;
         }
-        /* We should not return immediately. When gcc is compiling, it will
-         * call this func with it's task id and wait for all children tasks
-         * to be done.
-         */
-        klogw("k_waitpid: current task %ld waits for itself\n", t->tid);
 
-        cpu_set_errno(0);
+        bool have_child = false;
+        bool reaped = false;
+        task_id_t reaped_tid = TID_NONE;
+        int64_t exit_status = 0;
 
-        uint64_t retry_times = 0;
-        while (true) {
-            bool all_dead = true;
-            uint64_t len = vec_length(&(t->child_list));
+        for (uint64_t i = 0; i < len; i++) {
+            if (!wait_any && (int64_t) children[i] != (int64_t) wpid)
+                continue;
 
-            for (uint64_t i = 0; i < len; i++) {
-                task_id_t tid_child = vec_at(&(t->child_list), i);
-                task_status_t status_child =
-                    sched_get_task_status(tid_child);
-                if (status_child != TASK_UNKNOWN
-                    && status_child != TASK_DEAD
-                    && status_child != TASK_DYING) {
-                    all_dead = false;
+            have_child = true;
+
+            int64_t st = 0;
+            int rc = sched_reap(children[i], &st);
+            if (rc == 1) {
+                reaped = true;
+                reaped_tid = children[i];
+                exit_status = st;
+                break;
+            }
+            if (rc == -1) {
+                /* The child was already reaped by an idle core. */
+                reaped = true;
+                reaped_tid = children[i];
+                break;
+            }
+        }
+
+        if (children != NULL)
+            kmfree(children);
+
+        if (reaped) {
+            spinlock_acquire(&parent->child_lock);
+            for (uint64_t i = 0; i < vec_length(&(parent->child_list)); i++) {
+                if (vec_at(&(parent->child_list), i) == reaped_tid) {
+                    vec_erase(&(parent->child_list), i);
                     break;
                 }
             }
+            spinlock_release(&parent->child_lock);
 
-            if (!all_dead) {
-                sched_sleep(100);
-                retry_times++;
-                if (retry_times >= 5000) {
-                    /* Retry for 500 seconds and return an error code.
-                     * I think it is a long time span enough for everything
-                     * done.
-                     */
-                    cpu_set_errno(ECHILD);
-                    return -1;
-                }
-            } else {
-                return 0;
-            }
+            if (status != NULL)
+                *status = (int32_t) exit_status;
+            cpu_set_errno(0);
+            return reaped_tid;
         }
-    } else {
-        /* Retry for 20 times */
-        for (uint64_t i = 0;; i++) {
-            task_status_t status = sched_get_task_status(pid);
-            if (status != TASK_DEAD && status != TASK_UNKNOWN) {
-                klogv("k_waitpid: waiting pid 0x%016lx which is still active\n",
-                      pid);
-                sched_sleep(100);
-                if (i == 19) {
-                    kloge
-                        ("k_waitpid: waiting pid 0x%016lx which is still active\n",
-                         pid);
-                    cpu_set_errno(EBUSY);
-                    return -1;
-                }
-            }
+
+        if (!have_child) {
+            cpu_set_errno(ECHILD);
+            return -1;
         }
-        klogd("k_waitpid: waiting pid 0x%016lx which is not active and exit\n",
-              pid);
-        return 0;
+
+        if (nohang) {
+            cpu_set_errno(0);
+            return 0;
+        }
+
+        sched_wait_child(10);
     }
 }
 
