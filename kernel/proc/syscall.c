@@ -29,6 +29,7 @@
 #include <sys/isr_base.h>
 #include <base/klog.h>
 #include <base/vector.h>
+#include <base/kmalloc.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
@@ -606,12 +607,11 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
 }
 
 static task_id_t last_write_task_id = 0;
-static uint64_t last_write_ticks = 0;
+static uint64_t last_write_nanos = 0;
 
 int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 {
     task_t *t = sched_get_current_task();
-    uint64_t ticks = sched_get_ticks();
 
     cpu_set_errno(0);
 
@@ -653,20 +653,16 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                 }
             }
 
-            if (last_write_task_id != t->tid) {
-                while (true) {
-                    if (ticks > last_write_ticks
-                        && ticks - last_write_ticks > 250) {
-                        break;
-                    }
+            if (last_write_task_id != t->tid && last_write_nanos != 0) {
+                while (hpet_get_nanos() - last_write_nanos
+                       <= MILLIS_TO_NANOS(250)) {
                     sched_sleep(100);
-                    ticks = sched_get_ticks();
                 }
             }
 
             lock_lock(&vfs_lock);
             last_write_task_id = t->tid;
-            last_write_ticks = ticks;
+            last_write_nanos = hpet_get_nanos();
             lock_release(&vfs_lock);
 
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
@@ -1089,6 +1085,8 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 
 int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 {
+    (void)flags;
+
     task_t *t = sched_get_current_task();
     if (status != NULL)
         *status = 0;
@@ -1097,24 +1095,54 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         cpu_set_errno(0);
 
         while (true) {
-            uint64_t len = vec_length(&(t->child_list));
+            task_id_t *children = NULL;
+            uint64_t len;
+
+            lock_lock(&t->child_lock);
+            len = vec_length(&(t->child_list));
+            if (len > 0) {
+                children = kmalloc(len * sizeof(task_id_t));
+                if (children != NULL) {
+                    for (uint64_t i = 0; i < len; i++)
+                        children[i] = vec_at(&(t->child_list), i);
+                }
+            }
+            lock_release(&t->child_lock);
+
+            if (len > 0 && children == NULL) {
+                sched_sleep(20);
+                continue;
+            }
+
+            task_id_t dead_child = TID_NONE;
+            bool all_dead = true;
+
             for (uint64_t i = 0; i < len; i++) {
-                task_id_t tid_child = vec_at(&(t->child_list), i);
-                if (sched_get_task_status(tid_child) == TASK_DEAD) {
-                    vec_erase(&(t->child_list), i);
-                    sched_cleanup_local(tid_child);
-                    return tid_child;
+                task_status_t st = sched_get_task_status(children[i]);
+                if (st == TASK_DEAD) {
+                    dead_child = children[i];
+                    break;
+                }
+                if (st != TASK_UNKNOWN) {
+                    all_dead = false;
                 }
             }
 
-            bool all_dead = true;
-            len = vec_length(&(t->child_list));
-            for (uint64_t i = 0; i < len; i++) {
-                if (sched_get_task_status(
-                        vec_at(&(t->child_list), i)) != TASK_UNKNOWN) {
-                    all_dead = false;
-                    break;
+            if (children != NULL) {
+                kmfree(children);
+            }
+
+            if (dead_child != TID_NONE) {
+                lock_lock(&t->child_lock);
+                for (uint64_t i = 0; i < vec_length(&(t->child_list)); i++) {
+                    if (vec_at(&(t->child_list), i) == dead_child) {
+                        vec_erase(&(t->child_list), i);
+                        break;
+                    }
                 }
+                lock_release(&t->child_lock);
+                sched_cleanup(dead_child);
+                return dead_child;
             }
 
             if (!all_dead) {

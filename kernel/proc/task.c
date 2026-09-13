@@ -34,7 +34,8 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
                   task_priority_t priority, task_mode_t mode,
                   addrspace_t * pas)
 {
-    if(curr_tid == TID_MAX) {
+    task_id_t new_tid = __atomic_fetch_add(&curr_tid, 1, __ATOMIC_RELAXED);
+    if (new_tid >= TID_MAX) {
         klogw("Could not allocate tid\n");
         return NULL;
     }
@@ -42,7 +43,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
     task_t *ntask = kmalloc(sizeof(task_t));
     memset(ntask, 0, sizeof(task_t));
 
-    ntask->tid = curr_tid;
+    ntask->tid = new_tid;
     ntask->isforked = false;
 
     task_regs_t *ntask_regs = NULL;
@@ -118,7 +119,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
     ntask_regs->rsp = (uint64_t) ntask->tstack_top;
     ntask_regs->rflags = DEFAULT_RFLAGS;
     ntask_regs->rip = (uint64_t) entry;
-    ntask_regs->rdi = curr_tid;
+    ntask_regs->rdi = new_tid;
 
     ntask->mode = mode;
     ntask->tstack_top = ntask_regs;
@@ -134,8 +135,6 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
 
     klogi("TASK: Create tid %ld with name \"%s\" (task 0x%016lx)\n",
           ntask->tid, name, ntask);
-
-    curr_tid++;
 
     if (mode == TASK_USER_MODE) {
         vmm_unmap(pas, (uint64_t) ntask->ustack_limit,
@@ -169,12 +168,16 @@ task_t *task_fork(task_t * tp)
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
     memset(&tc->child_list, 0, sizeof(tc->child_list));
 
+    task_id_t new_tid = __atomic_fetch_add(&curr_tid, 1, __ATOMIC_RELAXED);
+    tc->child_lock.locked = 0;
+    tc->child_lock.rflags = 0;
+
     tc->isforked = true;
     tc->addrspace = create_addrspace();
 
     uint64_t len = vec_length(&(tp->mmap_list));
     klogi("task_fork: totally %ld memory blocks (parent #%ld, child #%ld)\n",
-          len, tp->tid, curr_tid);
+          len, tp->tid, new_tid);
 
     uint64_t i;
     for (i = 0; i < len; i++) {
@@ -187,12 +190,12 @@ task_t *task_fork(task_t * tp)
         if ((uint64_t) tp->ustack_limit == (uint64_t) m.vaddr) {
             klogi("task_fork: #%ld (parent #%ld) new user stack 0x%016lx and "
                   "map to 0x%016lx with top 0x%016lx\n",
-                  curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
+                  new_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         if ((uint64_t) tp->kstack_limit == (uint64_t) m.vaddr) {
             klogi("task_fork: #%ld (parent #%ld) new kern stack 0x%016lx and "
                   "map to 0x%016lx with top 0x%016lx\n",
-                  curr_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
+                  new_tid, tp->tid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
         vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
 
@@ -200,7 +203,7 @@ task_t *task_fork(task_t * tp)
         vec_push_back(&tc->mmap_list, m);
     }
 
-    tc->tid = curr_tid;
+    tc->tid = new_tid;
     tc->ptid = tp->tid;
 
     tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
@@ -268,9 +271,9 @@ task_t *task_fork(task_t * tp)
 #endif
 
     klogd("TASK: child tid %ld and parent tid %ld\n", tc->tid, tp->tid);
+    lock_lock(&tp->child_lock);
     vec_push_back(&tp->child_list, tc->tid);
-
-    curr_tid++;
+    lock_release(&tp->child_lock);
 
   norm_exit:
     return tc;

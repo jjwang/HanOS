@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ENABLE_KLOG_DEBUG       true    /* default: false */
+#define ENABLE_KLOG_DEBUG       false   /* default: false */
 #define ENABLE_MEM_DEBUG        false   /* default: false */
 #define ENABLE_BASH             false   /* default: false */
 
