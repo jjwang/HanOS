@@ -169,8 +169,7 @@ task_t *task_fork(task_t * tp)
     memset(&tc->child_list, 0, sizeof(tc->child_list));
 
     task_id_t new_tid = __atomic_fetch_add(&curr_tid, 1, __ATOMIC_RELAXED);
-    tc->child_lock.locked = 0;
-    tc->child_lock.rflags = 0;
+    spinlock_init(&tc->child_lock);
 
     tc->isforked = true;
     tc->addrspace = create_addrspace();
@@ -271,9 +270,9 @@ task_t *task_fork(task_t * tp)
 #endif
 
     klogd("TASK: child tid %ld and parent tid %ld\n", tc->tid, tp->tid);
-    lock_lock(&tp->child_lock);
+    spinlock_acquire(&tp->child_lock);
     vec_push_back(&tp->child_list, tc->tid);
-    lock_release(&tp->child_lock);
+    spinlock_release(&tp->child_lock);
 
   norm_exit:
     return tc;

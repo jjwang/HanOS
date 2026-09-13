@@ -46,7 +46,7 @@ vfs_fsinfo_t pipefs = {
     .ioctl = NULL
 };
 
-extern lock_t vfs_lock;
+extern spinlock_t vfs_lock;
 
 /* Identifying information for a node */
 typedef struct {
@@ -200,9 +200,9 @@ int64_t pipefs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         if (rlen >= 0)
             break;
 
-        lock_release(&vfs_lock);
+        spinlock_release(&vfs_lock);
         sched_sleep(0);
-        lock_lock(&vfs_lock);
+        spinlock_acquire(&vfs_lock);
     }
 
     klogd("PIPEFS: read %ld bytes from 0x%016lx to 0x%016lx and return %ld"
@@ -242,9 +242,9 @@ int64_t pipefs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
         if (wlen >= 0)
             break;
 
-        lock_release(&vfs_lock);
+        spinlock_release(&vfs_lock);
         sched_sleep(0);
-        lock_lock(&vfs_lock);
+        spinlock_acquire(&vfs_lock);
     }
 
     return wlen;

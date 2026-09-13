@@ -127,7 +127,7 @@ typedef struct {
 
 typedef struct {
     block_device_ops_t *blkdev;
-    lock_t lock;
+    spinlock_t lock;
     fat32_bs_info_t bs;
     fat32_entry_t entry;
 

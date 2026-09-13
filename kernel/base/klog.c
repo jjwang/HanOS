@@ -30,9 +30,9 @@
 static klog_info_t klog_info = { 0 };
 static klog_info_t klog_cli = { 0 };
 
-lock_t klog_info_lock = lock_new();
+spinlock_t klog_info_lock;
 
-static lock_t klog_cli_lock = lock_new();
+static spinlock_t klog_cli_lock;
 
 static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
 
@@ -72,19 +72,19 @@ void klog_vprintf_wrapper(klog_info_t * k, const char *s, ...)
 
 void klog_init()
 {
-    lock_lock(&klog_info_lock);
+    spinlock_acquire(&klog_info_lock);
 
     klog_info.start = 0;
     klog_info.end = 0;
 
-    lock_release(&klog_info_lock);
+    spinlock_release(&klog_info_lock);
 
-    lock_lock(&klog_cli_lock);
+    spinlock_acquire(&klog_cli_lock);
 
     klog_cli.start = 0;
     klog_cli.end = 0;
 
-    lock_release(&klog_cli_lock);
+    spinlock_release(&klog_cli_lock);
 }
 
 void klog_vprintf(klog_level_t level, const char *s, ...)
@@ -157,7 +157,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     va_end(args);
     klog_puts_buf(&logout, buf);
 
-    lock_lock(&klog_info_lock);
+    spinlock_acquire(&klog_info_lock);
 
     for (uint64_t i = logout.start; i < logout.end;) {
         klog_info.buff[klog_info.end] = logout.buff[i];
@@ -177,7 +177,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
             i = 0;
     }
 
-    lock_release(&klog_info_lock);
+    spinlock_release(&klog_info_lock);
 
     klog_refresh_times++;
 }
@@ -196,7 +196,7 @@ void kprintf(const char *s, ...)
     va_end(args);
     klog_puts_buf(&logout, buf);
 
-    lock_lock(&klog_cli_lock);
+    spinlock_acquire(&klog_cli_lock);
 
     for (uint64_t i = logout.start; i < logout.end;) {
         klog_cli.buff[klog_info.end] = logout.buff[i];
@@ -216,7 +216,7 @@ void kprintf(const char *s, ...)
             i = 0;
     }
 
-    lock_release(&klog_cli_lock);
+    spinlock_release(&klog_cli_lock);
 
     term_refresh();
     klog_refresh_times++;

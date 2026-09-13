@@ -62,7 +62,7 @@ typedef struct {
     uint8_t lastch;
     bool last_qu_char;
     int skip_left;
-    lock_t lock;
+    spinlock_t lock;
 } term_info_t;
 
 typedef struct[[gnu::packed]] {

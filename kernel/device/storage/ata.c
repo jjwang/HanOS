@@ -58,8 +58,6 @@ static ata_device_t ata_secondary_slave = {.io_base = 0x170,.control =
         0x376,.slave = 1
 };
 
-static lock_t ata_lock;
-
 /* Function Definition */
 static int ata_read_partition_map(ata_device_t * dev, char *devname);
 static uint64_t ata_max_offset(ata_device_t * dev);

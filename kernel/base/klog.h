@@ -58,8 +58,8 @@ void kprintf(const char *, ...);
 
 #define klog_printf(s, ...) klog_vprintf(KLOG_LEVEL_INFO, s, ##__VA_ARGS__)
 
-extern lock_t klog_info_lock;
+extern spinlock_t klog_info_lock;
 
-#define klog_lock()         lock_lock(&klog_info_lock)
-#define klog_unlock()       lock_release(&klog_info_lock)
+#define klog_lock()         spinlock_acquire(&klog_info_lock)
+#define klog_unlock()       spinlock_release(&klog_info_lock)
 
