@@ -99,7 +99,7 @@ vfs_fsinfo_t ttyfs = {
     .ioctl = ttyfs_ioctl
 };
 
-lock_t tty_lock = lock_new();
+spinlock_t tty_lock;
 
 /* Identifying information for a node */
 typedef struct {
@@ -137,7 +137,7 @@ int64_t ttyfs_ioctl(vfs_inode_t * this, int64_t request, int64_t arg)
     ttyfs_ident_t *id = this->ident;
     int64_t ret = -1;
 
-    lock_lock(&tty_lock);
+    spinlock_acquire(&tty_lock);
 
     if (request == TIOCGWINSZ) {        /* 0x5413 */
         winsize_t *ws = (winsize_t *) arg;
@@ -163,7 +163,7 @@ int64_t ttyfs_ioctl(vfs_inode_t * this, int64_t request, int64_t arg)
         klogd("ttyfs_ioctl: TCSETS sets termios\n");
     }
 
-    lock_release(&tty_lock);
+    spinlock_release(&tty_lock);
 
     if (ret < 0)
         cpu_set_errno(EINVAL);
@@ -183,7 +183,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
 {
     ttyfs_ident_t *id = this->ident;
 
-    lock_lock(&tty_lock);
+    spinlock_acquire(&tty_lock);
 
     /* Do not care about offset in current implementation */
     (void) offset;
@@ -191,11 +191,11 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     /* If read less than len bytes, wait until there are enough data */
     while (id->isize < (int64_t) len) {
         event_para_t para = 0;
-        lock_release(&tty_lock);
-        lock_release(&vfs_lock);        /* If waiting, we need to release lock */
+        spinlock_release(&tty_lock);
+        spinlock_release(&vfs_lock);        /* If waiting, we need to release lock */
         if (eb_subscribe(sched_get_tid(), EVENT_KEY_PRESSED, &para)) {
-            lock_lock(&vfs_lock);
-            lock_lock(&tty_lock);
+            spinlock_acquire(&vfs_lock);
+            spinlock_acquire(&tty_lock);
 
             /* We maximumly backtrace half of TTY_BUFFER_SIZE to determine
              * whether the backspace key should be accepted or not
@@ -220,8 +220,8 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
                 }
             }
         } else {
-            lock_lock(&vfs_lock);
-            lock_lock(&tty_lock);
+            spinlock_acquire(&vfs_lock);
+            spinlock_acquire(&tty_lock);
         }
     }
 
@@ -251,7 +251,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     id->icursor %= TTY_BUFFER_SIZE;
     id->isize -= rlen;
 
-    lock_release(&tty_lock);
+    spinlock_release(&tty_lock);
 
     return rlen;
 }
@@ -262,7 +262,7 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
     ttyfs_ident_t *id = this->ident;
     int64_t wlen = 0;
 
-    lock_lock(&tty_lock);
+    spinlock_acquire(&tty_lock);
 
     /* Do not care about offset in current implementation */
     (void) offset;
@@ -279,7 +279,7 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
         msg[len] = '\0';
         memcpy(msg, buff, len);
 
-        lock_release(&tty_lock);
+        spinlock_release(&tty_lock);
 
         cursor_visible = CURSOR_HIDE;
 
@@ -295,7 +295,7 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
             kmfree(msg);
         wlen = len;
     } else {
-        lock_release(&tty_lock);
+        spinlock_release(&tty_lock);
     }
 
     return wlen;

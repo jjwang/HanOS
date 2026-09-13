@@ -109,16 +109,16 @@ void done(void)
 }
 
 vec_new_static(char *, messages_info);
-static lock_t messages_info_lock = lock_new();
+static spinlock_t messages_info_lock;
 
 void kdisplay(char *s, uint64_t len)
 {
     (void)len;
 
     /* Here we just store the string into the temporary buffer */
-    lock_lock(&messages_info_lock);
+    spinlock_acquire(&messages_info_lock);
     vec_push_back(&messages_info, s);
-    lock_release(&messages_info_lock);
+    spinlock_release(&messages_info_lock);
 }
 
 _Noreturn void kupdateui(task_id_t tid)
@@ -130,10 +130,10 @@ _Noreturn void kupdateui(task_id_t tid)
 
         if (now_ms - last_ms <= 500) {
             if (vec_length(&messages_info) > 0) {
-                lock_lock(&messages_info_lock);
+                spinlock_acquire(&messages_info_lock);
                 char *s = vec_at(&messages_info, 0);
                 vec_erase(&messages_info, 0);
-                lock_release(&messages_info_lock);
+                spinlock_release(&messages_info_lock);
 
                 for (uint64_t i = 0; ; i++) {
                     if (s[i] == '\0') break;

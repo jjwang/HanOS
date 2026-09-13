@@ -1,17 +1,18 @@
 /**-----------------------------------------------------------------------------
 
  @file    spinlock.h
- @brief   Definition of spinlock related data structures and functions
+ @brief   Definition of the interrupt-safe spinlock
  @details
  @verbatim
 
-  Busy waiting is a technique in which a process repeatedly checks to see if a
-  condition is true (from Wikipedia).
+   Busy waiting is a technique in which a process repeatedly checks to see if a
+   condition is true (from Wikipedia). A spinlock uses this technique to protect
+   a critical section on a multiprocessor system.
 
-  Spinlock uses the above technique for the purpose of checking if a lock is
-  available.
-  
-  Three functions are implemented here: init (new), acquire (lock) and release.
+   The lock is interrupt-safe: spinlock_acquire() disables interrupts on the
+   local core before spinning and spinlock_release() restores the interrupt
+   state that was active when the lock was acquired. The saved RFLAGS value
+   belongs to the current owner only and is stored inside the lock.
 
  @endverbatim
 
@@ -22,17 +23,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef volatile struct {
-    uint32_t locked;            /* The value is zero if-and-only-if the lock is
-                                 * in the unlocked stated */
-    uint64_t rflags;
-} lock_t;
+typedef struct {
+    volatile uint32_t locked;   /* 0: free, 1: held */
+    uint64_t irq_flags;         /* RFLAGS of the core that owns the lock */
+} spinlock_t;
 
-#define lock_new()          (lock_t){0}
-#define lock_try(x)         spin_lock_impl(x, false)
-#define lock_lock(x)        spin_lock_impl(x, true)
-#define lock_release(x)     spin_unlock_impl(x)
-
-bool spin_lock_impl(lock_t *s, bool waiting);
-void spin_unlock_impl(lock_t *s);
-
+void spinlock_init(spinlock_t *lock);
+bool spinlock_acquire(spinlock_t *lock);
+bool spinlock_try_acquire(spinlock_t *lock);
+void spinlock_release(spinlock_t *lock);
