@@ -59,6 +59,7 @@
 #include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
+#include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
 #include <fs/ramfs.h>
@@ -436,6 +437,11 @@ void kmain(void)
 
     task_t *tshell = sched_new("kshell", kshell, false);
     sched_add(tshell);
+
+#if ENABLE_MICROKERNEL_SELFTEST
+    task_t *tmktest = sched_new("mktest", mk_selftest_task, false);
+    sched_add(tmktest);
+#endif
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {

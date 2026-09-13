@@ -132,6 +132,7 @@ task_t *task_make(const char *name, void (*entry)(task_id_t),
     strncpy(ntask->name, name, sizeof(ntask->name));
 
     ht_init(&ntask->open_files_table, HT_DEFAULT_ARRAY_SIZE);
+    handle_table_init(&ntask->handles);
 
     klogi("TASK: Create tid %ld with name \"%s\" (task 0x%016lx)\n",
           ntask->tid, name, ntask);
@@ -167,6 +168,7 @@ task_t *task_fork(task_t * tp)
 
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
     memset(&tc->child_list, 0, sizeof(tc->child_list));
+    handle_table_init(&tc->handles);
 
     task_id_t new_tid = __atomic_fetch_add(&curr_tid, 1, __ATOMIC_RELAXED);
     spinlock_init(&tc->child_lock);
@@ -313,6 +315,8 @@ void task_free(task_t * t)
 
     kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
     kmfree((void *) t->addrspace);
+
+    handle_table_destroy(&t->handles);
 
     kmfree(t);
 }

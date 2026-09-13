@@ -60,6 +60,14 @@
 #define SYSCALL_SIGPROCMASK 42
 #define SYSCALL_SIGACTION   43
 
+/* Microkernel Phase 0: IPC and capability handles */
+#define SYSCALL_EP_CREATE   50
+#define SYSCALL_IPC_SEND    51
+#define SYSCALL_IPC_RECV    52
+#define SYSCALL_IPC_CALL    53
+#define SYSCALL_IPC_REPLY   54
+#define SYSCALL_HANDLE_CLOSE 60
+
 /* Standard I/O devices */
 #define STDIN               0
 #define STDOUT              1

@@ -42,6 +42,7 @@
 #include <mm/mm.h>
 #include <fs/vfs.h>
 #include <proc/signal.h>
+#include <ipc/object.h>
 
 #define DEFAULT_KMODE_CODE      0b00101000      /* 0x28 */
 #define DEFAULT_KMODE_DATA      0b00110000      /* 0x30 */
@@ -187,7 +188,8 @@ typedef struct[[gnu::packed]] {
 typedef enum {
     EVENT_UNDEFINED = 1,
     EVENT_KEY_PRESSED,
-    EVENT_CHILD_EXIT
+    EVENT_CHILD_EXIT,
+    EVENT_IPC
 } event_type_t;
 
 typedef uint64_t event_para_t;
@@ -222,6 +224,7 @@ typedef struct task_t {
     uint64_t last_tick;
     uint64_t wakeup_time;
     event_t wakeup_event;
+    void *wakeup_key;              /* opaque wake key for EVENT_IPC */
     task_status_t status;
     task_mode_t mode;
     bool isforked;
@@ -230,6 +233,7 @@ typedef struct task_t {
     auxval_t aux;
     spinlock_t child_lock;             /* protects child_list across CPUs */
      vec_struct(task_id_t) child_list;
+    handle_table_t handles;            /* per-task capability handles */
 
     ht_t open_files_table;
      vec_struct(file_dup_t) dup_list;
