@@ -42,8 +42,11 @@ and `design/microkernel-plan-phase0-1-en.md` (kept out of the repository).
 
 ### notify (`kernel/proc/notify.{h,c}`)
 
-Typed notification built on an endpoint (`notify_publish` / `notify_subscribe`);
-the mechanism Phase 1 will use to deliver IRQs to servers.
+Typed notification built on an endpoint (`notify_publish` / `notify_subscribe`).
+The legacy event bus (`kernel/proc/eventbus.c`) is now a thin wrapper over it:
+`eb_publish`/`eb_subscribe` send/receive notifications, `eb_dispatch` is a no-op
+and the keyboard path no longer polls. `eb_init()` is called from `kmain` once
+the allocator is ready.
 
 ### Service router (`kernel/service/service.{h,c}`)
 
@@ -64,16 +67,19 @@ logging `MK: selftest PASS` / `FAIL`.
 
 ### Conversions
 
-`k_getcwd()` and `k_openat()` now go through the uaccess layer (the path is
-copied into the kernel before use).
+The user-buffer syscalls now go through the uaccess layer: `k_openat`,
+`k_getcwd`, `k_chdir`, `k_unlink`, `k_chmod`, `k_faccessat`, `k_fstatat`,
+`k_readlink` copy paths/strings into the kernel first (a new
+`copy_user_path()` helper), while `k_read`, `k_write`, `k_fstat` and
+`k_readdir` validate the buffer and use `copy_to_user`/`clear_user` for output.
 
 ## Not yet done
 
-- Converting the remaining user-buffer syscalls (`k_read`/`k_write` need bounce
-  buffers; `k_chdir`/`k_unlink`/`...` paths; `execve` argv/envp; signals).
-- `#PF` fixup for fault-safe copies.
-- Wiring `syscall_funcs[]` through the router and reimplementing `eventbus` on
-  `notify`.
+- `k_execve` argv/envp and the signal structures are still accessed directly.
+- `#PF` fixup for fault-safe copies (P0.1b) — the current copies validate the
+  range before dereferencing but do not recover from a fault.
+- Wiring `syscall_funcs[]` through the service router (the router module exists
+  but no syscall calls it yet).
 
 ## Files Changed
 
@@ -85,6 +91,7 @@ copied into the kernel before use).
 | `kernel/ipc/ipc.{h,c}` | endpoints and IPC |
 | `kernel/ipc/selftest.{h,c}` | boot self-test |
 | `kernel/proc/notify.{h,c}` | notification primitive |
+| `kernel/proc/eventbus.{h,c}` | event bus reimplemented over notify; `eb_init()` |
 | `kernel/service/service.{h,c}` | service router scaffolding |
 | `kernel/proc/task.{h,c}` | handle table, `wakeup_key`, `EVENT_IPC` |
 | `kernel/proc/sched.{h,c}` | `sched_wait_key()` / `sched_wake_key()` |
