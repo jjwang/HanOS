@@ -226,6 +226,7 @@ typedef struct task_t {
     bool isforked;
 
     auxval_t aux;
+    lock_t child_lock;             /* protects child_list across CPUs */
      vec_struct(task_id_t) child_list;
 
     ht_t open_files_table;

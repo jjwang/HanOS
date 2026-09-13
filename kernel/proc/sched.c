@@ -61,6 +61,64 @@ extern void fork_context_switch(void);
 
 extern addrspace_t kaddrspace;
 
+/* Pick the core a newly created task should be dispatched to. Tasks are
+ * spread across all online cores in a round-robin fashion so that a single
+ * core does not have to run the whole workload.
+ */
+static uint16_t sched_pick_cpu(void)
+{
+    smp_info_t *info = smp_get_info();
+    uint16_t ids[CPU_MAX];
+    uint16_t n = 0;
+
+    if (info != NULL) {
+        for (uint16_t i = 0; i < info->num_cpus && i < CPU_MAX; i++)
+            ids[n++] = info->cpus[i].cpu_id;
+    }
+    if (n == 0) {
+        ids[0] = smp_get_current_cpu_id();
+        n = 1;
+    }
+
+    static uint32_t rr_index;
+    uint16_t idx =
+        (uint16_t) (__atomic_fetch_add(&rr_index, 1, __ATOMIC_RELAXED) % n);
+
+    return ids[idx];
+}
+
+/* Locate a task by its tid on any core. The returned pointer is only valid
+ * until the task is reaped, so callers that need to keep it must ensure the
+ * task cannot be freed concurrently (e.g. because it still has children).
+ */
+static task_t *sched_find_task(task_id_t tid)
+{
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
+        if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
+            continue;
+
+        lock_lock(&tasks_lock[c]);
+
+        task_t *rt = tasks_running[c];
+        if (rt != NULL && rt->tid == tid) {
+            lock_release(&tasks_lock[c]);
+            return rt;
+        }
+
+        for (uint64_t i = 0; i < vec_length(&tasks_active_table[c]); i++) {
+            task_t *t = vec_at(&tasks_active_table[c], i);
+            if (t != NULL && t->tid == tid) {
+                lock_release(&tasks_lock[c]);
+                return t;
+            }
+        }
+
+        lock_release(&tasks_lock[c]);
+    }
+
+    return NULL;
+}
+
 _Noreturn void task_idle_proc(task_id_t tid)
 {
     /* TODO: need to check why there will be #PF exception without sleeping. */
@@ -76,57 +134,49 @@ _Noreturn void task_idle_proc(task_id_t tid)
     (void) tid;
 
     while (true) {
-        lock_lock(&(tasks_lock[cpu_id]));
-        /* 1. Free resouces of dead tasks in idle task */
         task_t *t = NULL;
 
-        /* Step 1.1: Find a dead task */
+        /* Step 1: Find a dead task in this core's run queue */
+        lock_lock(&(tasks_lock[cpu_id]));
         uint64_t task_num = vec_length(&tasks_active_table[cpu_id]);
-        uint64_t i;
-        if (task_num > 0) {
-            for (i = 0; i < task_num; i++) {
-                t = vec_at(&tasks_active_table[cpu_id], i);
-                if (t->status == TASK_DEAD) {
-                    vec_erase(&tasks_active_table[cpu_id], i);
-                    break;
-                } else {
-                    t = NULL;
-                }
+        for (uint64_t i = 0; i < task_num; i++) {
+            task_t *cur = vec_at(&tasks_active_table[cpu_id], i);
+            if (cur != NULL && cur->status == TASK_DEAD) {
+                vec_erase(&tasks_active_table[cpu_id], i);
+                t = cur;
+                break;
             }
         }
-        if (t != NULL) {
-            for (i = 0; i < task_num; i++) {
-                task_t *tp = vec_at(&tasks_active_table[cpu_id], i);
-                if (t->ptid == tp->tid) {
-                    for (uint64_t k = 0; k < vec_length(&tp->child_list);
-                         k++) {
-                        task_id_t tid_child = vec_at(&tp->child_list, k);
-                        if (tid_child == t->tid) {
-                            vec_erase(&tp->child_list, k);
-                            if (vec_length(&tp->child_list) == 0
-                                && tp->status == TASK_DYING) {
-                                tp->status = TASK_DEAD;
-                            }
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-        }
+        lock_release(&(tasks_lock[cpu_id]));
 
-        if (t != NULL) {
-            klogi("sched: clean memory of dead task #%ld (0x%016lx)\n", t->tid,
-                  t);
-
-            /* Step 1.2: Free all resources of this dead task */
-            task_free(t);
-            lock_release(&(tasks_lock[cpu_id]));
-        } else {
-            lock_release(&(tasks_lock[cpu_id]));
+        if (t == NULL) {
             /* If we cannot find dead tasks, then fall into sleep */
             asm volatile ("hlt");
+            continue;
         }
+
+        /* Step 2: Remove the task from its parent's child list. The parent
+         * may live on another core, so search all cores. */
+        task_t *tp = sched_find_task(t->ptid);
+        if (tp != NULL) {
+            lock_lock(&tp->child_lock);
+            for (uint64_t k = 0; k < vec_length(&tp->child_list); k++) {
+                if (vec_at(&tp->child_list, k) == t->tid) {
+                    vec_erase(&tp->child_list, k);
+                    break;
+                }
+            }
+            if (vec_length(&tp->child_list) == 0
+                && tp->status == TASK_DYING) {
+                tp->status = TASK_DEAD;
+            }
+            lock_release(&tp->child_lock);
+        }
+
+        klogi("sched: clean memory of dead task #%ld (0x%016lx)\n", t->tid, t);
+
+        /* Step 3: Free all resources of this dead task */
+        task_free(t);
     }
 }
 
@@ -188,6 +238,11 @@ void do_context_switch(void *stack, int64_t mode)
     task_t *next = NULL;
     int64_t tasks_num = vec_length(&tasks_active_table[cpu_id]);
 
+    /* Prefer runnable tasks and only fall back to a task whose sleep has
+     * expired when no ready task exists. Otherwise a task that performs
+     * sched_sleep(0) as a yield can starve ready tasks queued behind it
+     * (e.g. a process dispatched to this core by another core).
+     */
     for (int64_t i = 0; i < tasks_num; i++) {
         task_t *t = vec_at(&tasks_active_table[cpu_id], i);
         if (t->status == TASK_READY) {
@@ -195,8 +250,14 @@ void do_context_switch(void *stack, int64_t mode)
             vec_erase(&tasks_active_table[cpu_id], i);
             break;
         }
-        if (t->status == TASK_SLEEPING) {
-            if ((hpet_get_nanos() >= t->wakeup_time) && (t->wakeup_time > 0)) {
+    }
+
+    if (next == NULL) {
+        for (int64_t i = 0; i < tasks_num; i++) {
+            task_t *t = vec_at(&tasks_active_table[cpu_id], i);
+            if (t->status == TASK_SLEEPING
+                && t->wakeup_time > 0
+                && hpet_get_nanos() >= t->wakeup_time) {
                 next = t;
                 vec_erase(&tasks_active_table[cpu_id], i);
                 break;
@@ -303,73 +364,53 @@ void sched_sleep_impl(time_t millis, bool advanced)
     force_context_switch();
 }
 
-static task_status_t sched_get_task_status_impl(task_id_t tid)
-{
-    cpu_t *cpu = smp_get_current_cpu(false);
-    ASSERT (cpu != NULL);
-
-    uint16_t cpu_id = cpu->cpu_id;
-
-    task_t *ntask = NULL;
-    task_status_t status = TASK_UNKNOWN;
-    bool has_child = false;
-
-    uint64_t i;
-    for (i = 0; i < vec_length(&tasks_active_table[cpu_id]); i++) {
-        task_t *t = vec_at(&tasks_active_table[cpu_id], i);
-        if (t) {
-            if (t->tid == tid) {
-                status = t->status;
-                ntask = t;
-            }
-            if (t->ptid == tid) {
-                if (t->status != TASK_DEAD && t->status != TASK_UNKNOWN) {
-                    has_child = true;
-                } else if (sched_get_task_status_impl(t->tid) ==
-                           TASK_RUNNING) {
-                    has_child = true;
-                }
-            }
-        }
-    }
-    for (i = 0; i < CPU_MAX && !has_child; i++) {
-        task_t *t = tasks_running[i];
-        if (t) {
-            if (t->tid == tid) {
-                status = t->status;
-                ntask = t;
-            }
-            if (t->ptid == tid) {
-                if (t->status != TASK_DEAD && t->status != TASK_UNKNOWN) {
-                    has_child = true;
-                } else if (sched_get_task_status_impl(t->tid) ==
-                           TASK_RUNNING) {
-                    has_child = true;
-                }
-            }
-        }
-    }
-
-    if (!has_child) {
-        if (ntask != NULL) {
-            if (ntask->status == TASK_DYING) {
-                status = TASK_UNKNOWN;
-            }
-        }
-    } else {
-        status = TASK_RUNNING;
-    }
-
-    return status;
-}
-
+/* Compute the status of a task, taking all cores into account. A task may
+ * have been dispatched to a core other than the caller's, so every run queue
+ * has to be inspected. A parent is reported as TASK_RUNNING as long as one
+ * of its children is still alive.
+ */
 task_status_t sched_get_task_status(task_id_t tid)
 {
-    task_status_t status = TASK_UNKNOWN;
+    task_t *ntask = NULL;
+    bool has_child = false;
 
-    status = sched_get_task_status_impl(tid);
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
+        if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
+            continue;
 
-    return status;
+        lock_lock(&tasks_lock[c]);
+
+        task_t *rt = tasks_running[c];
+        if (rt != NULL) {
+            if (rt->tid == tid)
+                ntask = rt;
+            if (rt->ptid == tid && rt->status != TASK_DEAD
+                && rt->status != TASK_UNKNOWN)
+                has_child = true;
+        }
+
+        for (uint64_t i = 0; i < vec_length(&tasks_active_table[c]); i++) {
+            task_t *t = vec_at(&tasks_active_table[c], i);
+            if (t == NULL)
+                continue;
+            if (t->tid == tid)
+                ntask = t;
+            if (t->ptid == tid && t->status != TASK_DEAD
+                && t->status != TASK_UNKNOWN)
+                has_child = true;
+        }
+
+        lock_release(&tasks_lock[c]);
+    }
+
+    if (has_child)
+        return TASK_RUNNING;
+    if (ntask == NULL)
+        return TASK_UNKNOWN;
+    if (ntask->status == TASK_DYING)
+        return TASK_DEAD;
+
+    return ntask->status;
 }
 
 void sched_exit(int64_t status)
@@ -381,6 +422,12 @@ void sched_exit(int64_t status)
         return;
     }
 
+    /* The DYING -> DEAD transition must not be preempted: a task that is
+     * switched out while TASK_DYING is never selected again, so it would stay
+     * DYING forever and its parent would keep seeing a live child. Keep
+     * interrupts disabled until the final context switch. */
+    asm volatile ("cli" ::: "memory");
+
     uint16_t cpu_id = cpu->cpu_id;
     task_t *curr = tasks_running[cpu_id];
     if (curr) {
@@ -388,17 +435,28 @@ void sched_exit(int64_t status)
         if (curr->tid < 1) {
             kpanic("SCHED: %s meets corrupted tid\n", __func__);
         }
+        lock_lock(&curr->child_lock);
         uint64_t len = vec_length(&(curr->child_list));
-        bool all_children_dead = true;
-        for (uint64_t i = 0; i < len; i++) {
-            task_id_t tid_child = vec_at(&(curr->child_list), i);
-            task_status_t status_child =
-                sched_get_task_status_impl(tid_child);
-            if (status_child != TASK_DEAD) {
-                all_children_dead = false;
-                break;
+        task_id_t *children = NULL;
+        if (len > 0) {
+            children = kmalloc(len * sizeof(task_id_t));
+            if (children != NULL) {
+                for (uint64_t i = 0; i < len; i++)
+                    children[i] = vec_at(&(curr->child_list), i);
             }
         }
+        lock_release(&curr->child_lock);
+
+        bool all_children_dead = (children != NULL || len == 0);
+        for (uint64_t i = 0; all_children_dead && i < len; i++) {
+            if (sched_get_task_status(children[i]) != TASK_DEAD) {
+                all_children_dead = false;
+            }
+        }
+        if (children != NULL) {
+            kmfree(children);
+        }
+
         if (all_children_dead) {  /* This also includes no-children situation */
             curr->status = TASK_DEAD;
         }
@@ -431,6 +489,7 @@ bool sched_resume_event(event_t event)
 
     bool ret = false;
 
+    lock_lock(&tasks_lock[cpu_id]);
     for (uint64_t i = 0; i < vec_length(&tasks_active_table[cpu_id]); i++) {
         task_t *t = vec_at(&tasks_active_table[cpu_id], i);
         if (t) {
@@ -442,6 +501,7 @@ bool sched_resume_event(event_t event)
             }
         }
     }
+    lock_release(&tasks_lock[cpu_id]);
 
     return ret;
 }
@@ -529,11 +589,14 @@ task_t *sched_new(const char *name, void (*entry)(task_id_t),
 
 void sched_add(task_t *t)
 {
-    /* TODO: if we want to assign task to other CPUs, we need to do it carefully.
-     */
-    uint16_t cpu_id = smp_get_current_cpu_id();
-    klogi("SCHED: CPU %ld adds tid %ld\n", cpu_id, t->tid);
-    vec_push_back(&tasks_active_table[cpu_id], t);
+    uint16_t target = sched_pick_cpu();
+
+    lock_lock(&tasks_lock[target]);
+    vec_push_back(&tasks_active_table[target], t);
+    lock_release(&tasks_lock[target]);
+
+    klogi("SCHED: CPU %ld dispatches tid %ld to CPU %ld\n",
+          smp_get_current_cpu_id(), t->tid, target);
 }
 
 task_t *sched_execve(const char *path, const char *argv[],
@@ -717,7 +780,9 @@ task_t *sched_execve(const char *path, const char *argv[],
 
     if (tp != NULL) {
         klogi("SCHED: child tid %ld and parent tid %ld\n", tc->tid, tp->tid);
+        lock_lock(&tp->child_lock);
         vec_push_back(&tp->child_list, tc->tid);
+        lock_release(&tp->child_lock);
         tc->ptid = tp->tid;
     }
 
@@ -726,20 +791,33 @@ task_t *sched_execve(const char *path, const char *argv[],
     return tc;
 }
 
-void sched_cleanup_local(task_id_t tid)
+void sched_cleanup(task_id_t tid)
 {
-    uint16_t cpu_id = smp_get_current_cpu_id();
-    lock_lock(&tasks_lock[cpu_id]);
-    uint64_t alen = vec_length(&tasks_active_table[cpu_id]);
-    for (uint64_t ai = 0; ai < alen; ai++) {
-        task_t *at = vec_at(&tasks_active_table[cpu_id], ai);
-        if (at && at->tid == tid) {
-            vec_erase(&tasks_active_table[cpu_id], ai);
-            lock_release(&tasks_lock[cpu_id]);
-            task_free(at);
-            return;
+    task_t *found = NULL;
+    uint16_t found_cpu = 0;
+
+    for (uint16_t c = 0; c < CPU_MAX && found == NULL; c++) {
+        if (tasks_idle[c] == NULL && tasks_running[c] == NULL)
+            continue;
+
+        lock_lock(&tasks_lock[c]);
+        uint64_t alen = vec_length(&tasks_active_table[c]);
+        for (uint64_t ai = 0; ai < alen; ai++) {
+            task_t *at = vec_at(&tasks_active_table[c], ai);
+            if (at != NULL && at->tid == tid) {
+                vec_erase(&tasks_active_table[c], ai);
+                found = at;
+                found_cpu = c;
+                break;
+            }
         }
+        lock_release(&tasks_lock[c]);
     }
-    lock_release(&tasks_lock[cpu_id]);
+
+    if (found != NULL) {
+        klogi("SCHED: CPU %ld cleans up dead task #%ld from CPU %ld\n",
+              smp_get_current_cpu_id(), tid, found_cpu);
+        task_free(found);
+    }
 }
 
