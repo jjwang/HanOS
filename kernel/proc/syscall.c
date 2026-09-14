@@ -64,6 +64,46 @@ static bool copy_user_path(const char *upath, char *kpath, uint64_t ksize)
     return strncpy_from_user(kpath, upath, ksize) >= 0;
 }
 
+#define EXEC_MAX_ARGS   32
+#define EXEC_MAX_STRLEN VFS_MAX_PATH_LEN
+
+static void free_exec_argv(char **kargv)
+{
+    for (int i = 0; kargv != NULL && kargv[i] != NULL; i++)
+        kmfree(kargv[i]);
+}
+
+/* Copy a NULL-terminated array of user strings into kernel memory. The caller
+ * must provide room for EXEC_MAX_ARGS + 1 entries. Returns 0 on success. */
+static int copy_exec_argv(const char *uarr[], char **karr)
+{
+    for (int i = 0; i <= EXEC_MAX_ARGS; i++)
+        karr[i] = NULL;
+
+    if (uarr == NULL)
+        return 0;
+
+    for (int i = 0; i < EXEC_MAX_ARGS; i++) {
+        uint64_t uptr = 0;
+
+        if (copy_from_user(&uptr, &uarr[i], sizeof(uptr)) != 0)
+            return -1;
+        if (uptr == 0)
+            return 0;
+
+        char *s = kmalloc(EXEC_MAX_STRLEN);
+        if (s == NULL)
+            return -1;
+        if (strncpy_from_user(s, (const char *) uptr, EXEC_MAX_STRLEN) < 0) {
+            kmfree(s);
+            return -1;
+        }
+        karr[i] = s;
+    }
+
+    return 0;
+}
+
 int64_t k_print_log()
 {
     klogd("SYSCALL: useless log is just for debug purpose\n");
@@ -78,15 +118,23 @@ int64_t k_not_implemented()
 
 int64_t k_debug_log(char *message)
 {
-    char *s = strchr(message, '\n');
+    char kmsg[256];
+
+    if (message == NULL
+        || strncpy_from_user(kmsg, message, sizeof(kmsg)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    char *s = strchr(kmsg, '\n');
 
     if (s != NULL && (*(s + 1) == '\0')) {
         *s = '\0';
     }
 
-    klogd("debug: %s [message buffer: 0x%016lx]\n", message, message);
+    klogd("debug: %s [message buffer: 0x%016lx]\n", kmsg, kmsg);
 
-    return strlen(message);
+    return strlen(kmsg);
 }
 
 int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
@@ -106,7 +154,10 @@ int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
             cpu_set_errno(EINVAL);
             return -1;
         }
-        memcpy(&new, set, sizeof(sigset_t));
+        if (copy_from_user(&new, set, sizeof(sigset_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
     }
 
     klogd("k_sigprocmask: how %ld from old 0x%016lx to new 0x%016lx\n",
@@ -114,8 +165,12 @@ int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
 
     signal_changemask(t, how, set ? &new : NULL, oldset ? &old : NULL);
 
-    if (oldset != NULL)
-        memcpy(oldset, &old, sizeof(sigset_t));
+    if (oldset != NULL) {
+        if (copy_to_user(oldset, &old, sizeof(sigset_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+    }
 
     return 0;
 }
@@ -137,7 +192,10 @@ int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
 
     sigaction_t newtmp = { 0 }, oldtmp = { 0 };
     if (new != NULL) {
-        memcpy(&newtmp, new, sizeof(sigaction_t));
+        if (copy_from_user(&newtmp, new, sizeof(sigaction_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
 
         if ((newtmp.flags & SA_RESTORER) == 0) {
             /* How to handle? cpu_set_errno(EINVAL) */
@@ -149,15 +207,26 @@ int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
 
     signal_action(t, signal, new ? &newtmp : NULL, old ? &oldtmp : NULL);
 
-    if (old != NULL)
-        memcpy(old, &oldtmp, sizeof(sigaction_t));
+    if (old != NULL) {
+        if (copy_to_user(old, &oldtmp, sizeof(sigaction_t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+    }
 
     return 0;
 }
 
 int64_t k_runcmd(char *cmd)
 {
-    if (strcmp(cmd, "lspci") == 0) {
+    char kcmd[64];
+
+    if (cmd == NULL || strncpy_from_user(kcmd, cmd, sizeof(kcmd)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (strcmp(kcmd, "lspci") == 0) {
         pci_list();
         gfx_start();
         return 0;
@@ -176,20 +245,29 @@ int64_t k_getentropy(void *buffer, uint64_t length)
         goto err_exit;
     }
 
-    uint8_t *ret_buf = (uint8_t *) buffer;
-    while (length >= 8) {
+    uint8_t kbuf[256];
+    uint64_t remaining = length;
+    uint8_t *p = kbuf;
+
+    while (remaining >= 8) {
         uint64_t value = (uint64_t) ((rand(1337, 0, 0x8FFFFFFF) % 65535)
                                      * (hpet_get_nanos() % 65535));
-        *((uint64_t *) (ret_buf)) = value;
-        ret_buf += 8;
-        length -= 8;
+        memcpy(p, &value, sizeof(value));
+        p += 8;
+        remaining -= 8;
     }
 
-    if (length > 0) {
+    if (remaining > 0) {
         uint64_t value = (uint64_t) ((rand(1337, 0, 0x8FFFFFFF) % 65535)
                                      * (hpet_get_nanos() % 65535));
-        memcpy(ret_buf, &value, length);
+        memcpy(p, &value, remaining);
     }
+
+    if (copy_to_user(buffer, kbuf, length) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
     return 0;
   err_exit:
     klogd("k_getentropy: return error with buffer 0x%016lx and length %ld\n",
@@ -1089,11 +1167,17 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
     vfs_create(path, VFS_NODE_CHAR_DEVICE);
 
     /* fh[0] is the reading port, fh[1] is the writing port */
-    fh[0] = vfs_open(path, VFS_MODE_READ);
-    fh[1] = vfs_open(path, VFS_MODE_WRITE);
+    int32_t kfh[2];
+    kfh[0] = vfs_open(path, VFS_MODE_READ);
+    kfh[1] = vfs_open(path, VFS_MODE_WRITE);
 
-    klogi("k_pipe: return reading port %ld and writing port %ld\n", fh[0],
-          fh[1]);
+    if (fh == NULL || copy_to_user(fh, kfh, sizeof(kfh)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    klogi("k_pipe: return reading port %ld and writing port %ld\n", kfh[0],
+          kfh[1]);
 
     return 0;
 
@@ -1160,8 +1244,10 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 {
     task_t *parent = sched_get_current_task();
 
-    if (status != NULL)
-        *status = 0;
+    if (status != NULL && clear_user(status, sizeof(*status)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
 
     if (parent == NULL) {
         cpu_set_errno(ECHILD);
@@ -1238,8 +1324,13 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
             }
             spinlock_release(&parent->child_lock);
 
-            if (status != NULL)
-                *status = (int32_t) exit_status;
+            if (status != NULL) {
+                int32_t st32 = (int32_t) exit_status;
+                if (copy_to_user(status, &st32, sizeof(st32)) != 0) {
+                    cpu_set_errno(EFAULT);
+                    return -1;
+                }
+            }
             cpu_set_errno(0);
             return reaped_tid;
         }
@@ -1319,13 +1410,15 @@ int k_getcwd(char *buffer, uint64_t size)
 
 int k_getrusage(int64_t who, uint64_t usage)
 {
-    rusage_t *u = (rusage_t *) usage;
-
     /* When gcc is launched, it will call getrusage(). We need to dive into
      * gcc to know the purpose of this function call.
      */
     klogw("SYSCALL: get 0x%016lx rusage\n", who);
-    memset(u, 0, sizeof(rusage_t));
+
+    if (clear_user((void *) usage, sizeof(rusage_t)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
 
     return 0;
 }
@@ -1337,23 +1430,47 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     if (t != NULL)
         cwd = t->cwd;
 
-    if (sched_execve(path, argv, envp, cwd) != NULL) {
-        klogi("k_execve: run \"%s\" and exit from task %ld\n", path,
-              t->tid);
+    char kpath[VFS_MAX_PATH_LEN] = { 0 };
+    if (path == NULL || strncpy_from_user(kpath, path, sizeof(kpath)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    char *kargv[EXEC_MAX_ARGS + 1];
+    char *kenvp[EXEC_MAX_ARGS + 1];
+
+    if (copy_exec_argv(argv, kargv) != 0
+        || copy_exec_argv(envp, kenvp) != 0) {
+        free_exec_argv(kargv);
+        free_exec_argv(kenvp);
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char **kargv_p = (argv != NULL) ? (const char **) kargv : NULL;
+    const char **kenvp_p = (envp != NULL) ? (const char **) kenvp : NULL;
+
+    if (sched_execve(kpath, kargv_p, kenvp_p, cwd) != NULL) {
+        klogi("k_execve: run \"%s\" and exit from task %ld\n", kpath,
+              t != NULL ? t->tid : 0);
+        free_exec_argv(kargv);
+        free_exec_argv(kenvp);
         sched_exit(0);
         cpu_set_errno(0);
         return 0;
-    } else {
-        cpu_set_errno(EINVAL);
-        return -1;
     }
+
+    free_exec_argv(kargv);
+    free_exec_argv(kenvp);
+    cpu_set_errno(EINVAL);
+    return -1;
 }
 
 int k_getclock(void *_, int64_t which, vfs_timespec_t * out)
 {
     (void) _;
 
-    int64_t ret = -1;
+    vfs_timespec_t ts = { 0 };
     cpu_set_errno(0);
 
     uint64_t now_sec = hpet_get_nanos() / 1000000000;
@@ -1364,31 +1481,33 @@ int k_getclock(void *_, int64_t which, vfs_timespec_t * out)
     switch (which) {
     case CLOCK_REALTIME:
     case CLOCK_REALTIME_COARSE:
-        *out = (vfs_timespec_t) {
+        ts = (vfs_timespec_t) {
         .tv_sec = now_sec + boot_time,.tv_nsec =
                 now_ns + boot_time * 1000000000};
-        ret = 0;
-        goto cleanup;
+        break;
     case CLOCK_BOOTTIME:
     case CLOCK_MONOTONIC:
     case CLOCK_MONOTONIC_RAW:
     case CLOCK_MONOTONIC_COARSE:
-        *out = (vfs_timespec_t) {
+        ts = (vfs_timespec_t) {
         .tv_sec = now_sec,.tv_nsec = now_ns};
-        ret = 0;
-        goto cleanup;
+        break;
     case CLOCK_PROCESS_CPUTIME_ID:
     case CLOCK_THREAD_CPUTIME_ID:
-        *out = (vfs_timespec_t) {
+        ts = (vfs_timespec_t) {
         .tv_sec = 0,.tv_nsec = 0};
-        ret = 0;
-        goto cleanup;
+        break;
+    default:
+        cpu_set_errno(EINVAL);
+        return -1;
     }
 
-    cpu_set_errno(EINVAL);
+    if (copy_to_user(out, &ts, sizeof(ts)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
 
-  cleanup:
-    return ret;
+    return 0;
 }
 
 int64_t k_readlink(int64_t dirfh, const char *path, void *buffer,
@@ -1458,15 +1577,36 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
 /* TODO: need to add futex implementation */
 int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
 {
+    int64_t val = 0;
+    vfs_timespec_t ktv = { 0 };
+
+    if (ptr == NULL || copy_from_user(&val, ptr, sizeof(val)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (tv != NULL
+        && copy_from_user(&ktv, tv, sizeof(ktv)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
     klogi("k_futex_wait: time spec (%ld, %ld) with ptr 0x%016lx, val %ld and "
-          "expected %ld\n", tv->tv_sec, tv->tv_nsec, ptr, *ptr, expected);
+          "expected %ld\n", ktv.tv_sec, ktv.tv_nsec, ptr, val, expected);
 
     return 0;
 }
 
 int64_t k_futex_wake(int64_t * ptr)
 {
-    klogi("k_futex_wake: ptr 0x%016lx and val %ld\n", ptr, *ptr);
+    int64_t val = 0;
+
+    if (ptr == NULL || copy_from_user(&val, ptr, sizeof(val)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    klogi("k_futex_wake: ptr 0x%016lx and val %ld\n", ptr, val);
 
     return 0;
 }
