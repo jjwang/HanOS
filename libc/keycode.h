@@ -17,6 +17,9 @@
  */
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #define KB_ARROW_UP     72
 #define KB_BACKSPACE    14
 #define KB_CAPS_LOCK    58

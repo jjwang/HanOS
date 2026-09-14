@@ -54,6 +54,15 @@ static volatile uint16_t cpu_num = 0;
 typedef vec_struct(task_t*) task_vector_t;
 task_vector_t tasks_active_table[CPU_MAX] = {0};
 
+/* Optional hook run just before a freshly exec'd task is made runnable, so a
+ * spawner can attach granted resources without racing with the new task. */
+static void (*sched_spawn_hook)(task_t * tc) = NULL;
+
+void sched_set_spawn_hook(void (*hook) (task_t *))
+{
+    sched_spawn_hook = hook;
+}
+
 extern void enter_context_switch(void *v);
 extern void exit_context_switch(task_t * next, uint64_t cr3val);
 extern void force_context_switch(void);
@@ -885,6 +894,9 @@ task_t *sched_execve(const char *path, const char *argv[],
         spinlock_release(&tp->child_lock);
         tc->ptid = tp->tid;
     }
+
+    if (sched_spawn_hook != NULL)
+        sched_spawn_hook(tc);
 
     sched_add(tc);
 

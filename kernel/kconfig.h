@@ -25,6 +25,9 @@
 /* Microkernel self-test: IPC endpoints and handles at boot. */
 #define ENABLE_MICROKERNEL_SELFTEST false
 
+/* Spawn the userspace input server instead of the in-kernel keyboard path. */
+#define ENABLE_INPUT_SERVER     false
+
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
@@ -34,7 +37,7 @@
 #define DEFAULT_SHELL_APP       "/usr/bin/bash"
 #endif
 
-#define DEFAULT_INPUT_SVR       "/server/input"
+#define DEFAULT_INPUT_SVR       "/bin/input"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

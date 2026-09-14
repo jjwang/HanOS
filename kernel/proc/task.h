@@ -43,6 +43,7 @@
 #include <fs/vfs.h>
 #include <proc/signal.h>
 #include <ipc/object.h>
+#include <libc/bootinfo.h>
 
 #define DEFAULT_KMODE_CODE      0b00101000      /* 0x28 */
 #define DEFAULT_KMODE_DATA      0b00110000      /* 0x30 */
@@ -234,6 +235,7 @@ typedef struct task_t {
     spinlock_t child_lock;             /* protects child_list across CPUs */
      vec_struct(task_id_t) child_list;
     handle_table_t handles;            /* per-task capability handles */
+    bootinfo_t *bootinfo;              /* server startup resources */
     struct {
         uint16_t first;
         uint16_t last;
