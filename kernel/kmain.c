@@ -61,6 +61,7 @@
 #include <proc/syscall.h>
 #include <proc/notify.h>
 #include <ipc/input_srv.h>
+#include <ipc/console_srv.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
@@ -153,17 +154,20 @@ _Noreturn void kupdateui(task_id_t tid)
 
         last_ms = now_ms;
 
-        if (cursor_visible == CURSOR_INVISIBLE) {
-            term_set_cursor('_');
-            cursor_visible = CURSOR_VISIBLE;
-        } else if (cursor_visible == CURSOR_VISIBLE) {
-            term_set_cursor(' ');
-            cursor_visible = CURSOR_INVISIBLE;
-        } else {
-            term_set_cursor(' ');
-        }
+        /* The console server owns the framebuffer and blinks its own cursor. */
+        if (!console_server_active()) {
+            if (cursor_visible == CURSOR_INVISIBLE) {
+                term_set_cursor('_');
+                cursor_visible = CURSOR_VISIBLE;
+            } else if (cursor_visible == CURSOR_VISIBLE) {
+                term_set_cursor(' ');
+                cursor_visible = CURSOR_INVISIBLE;
+            } else {
+                term_set_cursor(' ');
+            }
 
-        term_refresh();
+            term_refresh();
+        }
     }
 
     (void) tid;
@@ -185,6 +189,11 @@ _Noreturn void kshell(task_id_t tid)
 
     ttyfs_init();
     pipefs_init();
+
+#if ENABLE_CONSOLE_SERVER
+    if (!console_server_start())
+        klogw("console: server failed to start, using in-kernel terminal\n");
+#endif
 
     ata_init();
 

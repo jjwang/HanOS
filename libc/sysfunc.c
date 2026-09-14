@@ -118,6 +118,7 @@
 #define SYSCALL_HANDLE_CLOSE 60
 #define SYSCALL_IOPORT_ACCESS 61
 #define SYSCALL_BOOTINFO     63
+#define SYSCALL_IPC_RECV_NB  64
 
 void sys_libc_log(const char *message)
 {
@@ -311,6 +312,13 @@ int sys_ipc_recv(int64_t handle, sys_ipc_msg_t * msg)
 {
     int64_t ret, errno;
     SYSCALL2(SYSCALL_IPC_RECV, handle, msg);
+    return (int) ret;
+}
+
+int sys_ipc_recv_nb(int64_t handle, sys_ipc_msg_t * msg)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_IPC_RECV_NB, handle, msg);
     return (int) ret;
 }
 

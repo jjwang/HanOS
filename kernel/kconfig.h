@@ -28,6 +28,9 @@
 /* Spawn the userspace input server instead of the in-kernel keyboard path. */
 #define ENABLE_INPUT_SERVER     false
 
+/* Spawn the userspace console server and forward terminal output to it. */
+#define ENABLE_CONSOLE_SERVER   false
+
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
@@ -38,6 +41,7 @@
 #endif
 
 #define DEFAULT_INPUT_SVR       "/bin/input"
+#define DEFAULT_CONSOLE_SVR     "/bin/console"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

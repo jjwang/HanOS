@@ -25,6 +25,8 @@
 #include <sys/serial.h>
 #include <proc/task.h>
 #include <proc/sched.h>
+#include <ipc/console_srv.h>
+#include <libc/string.h>
 #include <libc/printf.h>
 
 static klog_info_t klog_info = { 0 };
@@ -209,7 +211,8 @@ void kprintf(const char *s, ...)
         if (klog_cli.start >= KLOG_BUFFER_SIZE)
             klog_cli.start = 0;
 
-        term_putch(logout.buff[i]);
+        if (!console_server_active())
+            term_putch(logout.buff[i]);
 
         i++;
         if (i >= KLOG_BUFFER_SIZE)
@@ -218,6 +221,7 @@ void kprintf(const char *s, ...)
 
     spinlock_release(&klog_cli_lock);
 
-    term_refresh();
+    if (!console_write_buf(buf, strlen(buf)))
+        term_refresh();
     klog_refresh_times++;
 }

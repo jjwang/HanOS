@@ -575,3 +575,15 @@ fb_info_t *term_get_fb(void)
     return &term_cli.fb;
 }
 
+void term_get_pos(uint32_t *x, uint32_t *y, uint32_t *fg, uint32_t *bg)
+{
+    if (x != NULL)
+        *x = term_cli.cursor_x;
+    if (y != NULL)
+        *y = term_cli.cursor_y;
+    if (fg != NULL)
+        *fg = term_cli.fgcolor;
+    if (bg != NULL)
+        *bg = term_cli.bgcolor;
+}
+

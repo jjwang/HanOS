@@ -71,6 +71,7 @@
 #define SYSCALL_HANDLE_CLOSE 60
 #define SYSCALL_IOPORT_ACCESS 61
 #define SYSCALL_BOOTINFO    63
+#define SYSCALL_IPC_RECV_NB 64
 
 /* Standard I/O devices */
 #define STDIN               0
