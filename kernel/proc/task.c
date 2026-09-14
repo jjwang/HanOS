@@ -318,5 +318,8 @@ void task_free(task_t * t)
 
     handle_table_destroy(&t->handles);
 
+    if (t->bootinfo != NULL)
+        kmfree(t->bootinfo);
+
     kmfree(t);
 }

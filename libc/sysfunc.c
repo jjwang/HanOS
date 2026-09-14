@@ -117,6 +117,7 @@
 #define SYSCALL_IRQ_ACK      58
 #define SYSCALL_HANDLE_CLOSE 60
 #define SYSCALL_IOPORT_ACCESS 61
+#define SYSCALL_BOOTINFO     63
 
 void sys_libc_log(const char *message)
 {
@@ -354,4 +355,11 @@ int64_t sys_ioport_access(int op, int port, int width, int value)
     int64_t ret, errno;
     SYSCALL4(SYSCALL_IOPORT_ACCESS, op, port, width, value);
     return ret;
+}
+
+int sys_bootinfo(bootinfo_t * bi)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_BOOTINFO, bi);
+    return (int) ret;
 }

@@ -27,6 +27,7 @@ _Noreturn void task_idle_proc(task_id_t tid);
 void sched_debug(bool showlog);
 
 void sched_init(const char *name, uint16_t cpu_id);
+void sched_set_spawn_hook(void (*hook) (task_t *));
 task_t *sched_new(const char *name, void (*entry)(task_id_t),
                   bool usermode);
 void sched_add(task_t *t);

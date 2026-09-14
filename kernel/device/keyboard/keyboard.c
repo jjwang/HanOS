@@ -20,7 +20,7 @@
 #include <libc/stdio.h>
 
 #include <device/keyboard/keyboard.h>
-#include <device/keyboard/keycode.h>
+#include <libc/keycode.h>
 #include <device/display/term.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
