@@ -28,6 +28,7 @@
 #include <sys/cmos.h>
 #include <mm/mm.h>
 #include <proc/eventbus.h>
+#include <ipc/input_srv.h>
 #include <device/display/term.h>
 
 /* This is a linux extension */
@@ -232,18 +233,22 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         int64_t index = (id->icursor + i) % TTY_BUFFER_SIZE;
         ((char *) buff)[i] = id->ibuff[index];
 
-        cursor_visible = CURSOR_HIDE;
-        term_set_cursor(' ');
+        /* When the userspace input server owns the keyboard it echoes typed
+         * keys itself, so the kernel must not echo them again. */
+        if (!input_server_active()) {
+            cursor_visible = CURSOR_HIDE;
+            term_set_cursor(' ');
 
-        term_refresh();
+            term_refresh();
 
-        if (id->ibuff[index] != (char) EOF) {
-            kprintf("%c", id->ibuff[index]);
-        } else {
-            kprintf("[EOF]\n");
+            if (id->ibuff[index] != (char) EOF) {
+                kprintf("%c", id->ibuff[index]);
+            } else {
+                kprintf("[EOF]\n");
+            }
+
+            cursor_visible = CURSOR_INVISIBLE;
         }
-
-        cursor_visible = CURSOR_INVISIBLE;
     }
 
     /* Update start and size of input buffer */

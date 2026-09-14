@@ -29,11 +29,14 @@
 #define INPUT_KEY_TAG       0x40
 /* Value used for the end-of-file key (Ctrl-D). */
 #define INPUT_KEY_EOF       0x04
+/* Message tag used by a server to write a byte to the kernel console. */
+#define CONSOLE_WRITE_TAG   0x50
 
 typedef struct {
     uint64_t magic;
     uint64_t irq_ep;            /* endpoint handle: IRQ notifications in */
     uint64_t key_ep;            /* endpoint handle: decoded keys out */
+    uint64_t console_ep;        /* endpoint handle: console bytes out */
     uint64_t irq_num;
     struct {
         uint16_t first;

@@ -29,6 +29,14 @@ static void send_key(uint64_t key_ep, uint64_t ch)
     sys_ipc_send((int64_t) key_ep, &m);
 }
 
+static void send_console(uint64_t console_ep, uint64_t ch)
+{
+    sys_ipc_msg_t m = { 0 };
+    m.tag = CONSOLE_WRITE_TAG;
+    m.words[0] = ch;
+    sys_ipc_send((int64_t) console_ep, &m);
+}
+
 int main(void)
 {
     bootinfo_t bi;
@@ -71,8 +79,10 @@ int main(void)
             } else if (pressed) {
                 char ch = keyboard_get_ascii(sc, shift, caps);
                 if (ctrl && (ch == 'd' || ch == 'D')) {
+                    send_console(bi.console_ep, '\n');
                     send_key(bi.key_ep, INPUT_KEY_EOF);
                 } else if (ch != 0) {
+                    send_console(bi.console_ep, (uint64_t) (uint8_t) ch);
                     send_key(bi.key_ep, (uint64_t) (uint8_t) ch);
                 }
             }
