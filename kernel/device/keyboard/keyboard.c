@@ -29,7 +29,7 @@
 #include <sys/isr_base.h>
 #include <sys/cpu.h>
 #include <sys/idt.h>
-#include <proc/eventbus.h>
+#include <proc/notify.h>
 
 #define KB_BUFFER_SIZE    128
 
@@ -87,7 +87,7 @@ static void keyboard_callback()
                 }
                 spinlock_release(&kb_lock);
 
-                eb_publish(TID_NONE, EVENT_KEY_PRESSED, EOF);
+                notify_publish(&notify_system, EVENT_KEY_PRESSED, EOF);
                 klogd("keyboard: EOF recevied!\n");
                 break;
             }
@@ -104,7 +104,7 @@ static void keyboard_callback()
             spinlock_release(&kb_lock);
         }
 
-        eb_publish(TID_NONE, EVENT_KEY_PRESSED, ch);
+        notify_publish(&notify_system, EVENT_KEY_PRESSED, ch);
         break;
     }
 }

@@ -30,7 +30,6 @@
 #include <base/hash.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
-#include <proc/eventbus.h>
 #include <sys/smp.h>
 #include <sys/timer.h>
 #include <sys/apic.h>
@@ -208,9 +207,6 @@ void do_context_switch(void *stack, int64_t mode)
         kpanic("sched: CPU %ld cannot get SMP information\n", cpu_id);
         return;
     }
-
-    /* Firstly all events on event bus should be processed */
-    eb_dispatch();
 
     cpu_t *cpu = smp_get_current_cpu(true);
     uint64_t ticks = tasks_coordinate[cpu_id];
@@ -514,54 +510,6 @@ void sched_exit(int64_t status)
     }
 
     force_context_switch();
-}
-
-bool sched_resume_event(event_t event)
-{
-    cpu_t *cpu = smp_get_current_cpu(false);
-    ASSERT (cpu != NULL);
-
-    uint16_t cpu_id = cpu->cpu_id;
-
-    bool ret = false;
-
-    spinlock_acquire(&tasks_lock[cpu_id]);
-    for (uint64_t i = 0; i < vec_length(&tasks_active_table[cpu_id]); i++) {
-        task_t *t = vec_at(&tasks_active_table[cpu_id], i);
-        if (t) {
-            if (t->status == TASK_SLEEPING
-                && t->wakeup_event.type == event.type) {
-                t->status = TASK_READY;
-                t->wakeup_event.para = event.para;
-                ret = true;
-            }
-        }
-    }
-    spinlock_release(&tasks_lock[cpu_id]);
-
-    return ret;
-}
-
-event_t sched_wait_event(event_t event)
-{
-    event_t e = { 0 };
-    cpu_t *cpu = smp_get_current_cpu(false);
-    if (cpu == NULL) {
-        return e;
-    }
-
-    uint16_t cpu_id = cpu->cpu_id;
-    task_t *curr = tasks_running[cpu_id];
-    curr->wakeup_time = 0;
-    curr->wakeup_event = event;
-    curr->status = TASK_SLEEPING;
-
-    if (curr->tid < 1)
-        kpanic("SCHED: %s meets corrupted tid\n", __func__);
-
-    force_context_switch();
-
-    return curr->wakeup_event;
 }
 
 /* Sleep until a child of the current task exits, or until the timeout

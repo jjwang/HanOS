@@ -10,6 +10,13 @@
 #include <ipc/ipc.h>
 #include <proc/notify.h>
 
+notify_t notify_system;
+
+void notify_system_init(void)
+{
+    notify_init(&notify_system);
+}
+
 void notify_init(notify_t * n)
 {
     n->ep = endpoint_create();
