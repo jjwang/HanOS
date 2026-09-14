@@ -27,7 +27,7 @@
 #include <ipc/object.h>
 
 #define IPC_WORDS       6
-#define IPC_QUEUE_LEN   16
+#define IPC_QUEUE_LEN   64
 
 typedef struct {
     uint64_t tag;

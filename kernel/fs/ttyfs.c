@@ -29,6 +29,7 @@
 #include <mm/mm.h>
 #include <proc/notify.h>
 #include <ipc/input_srv.h>
+#include <ipc/console_srv.h>
 #include <device/display/term.h>
 
 /* This is a linux extension */
@@ -297,15 +298,16 @@ int64_t ttyfs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
 
         spinlock_release(&tty_lock);
 
-        cursor_visible = CURSOR_HIDE;
-
-        term_set_cursor(' ');
-
-        term_refresh();
+        if (!console_server_active()) {
+            cursor_visible = CURSOR_HIDE;
+            term_set_cursor(' ');
+            term_refresh();
+        }
 
         kprintf("%s", msg);
 
-        cursor_visible = CURSOR_INVISIBLE;
+        if (!console_server_active())
+            cursor_visible = CURSOR_INVISIBLE;
 
         if (len > 1)
             kmfree(msg);
