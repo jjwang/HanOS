@@ -37,7 +37,6 @@
 #include <proc/sched.h>
 #include <proc/wait.h>
 #include <proc/syscall.h>
-#include <proc/eventbus.h>
 #include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>

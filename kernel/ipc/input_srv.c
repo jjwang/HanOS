@@ -23,7 +23,7 @@
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <proc/sched.h>
-#include <proc/eventbus.h>
+#include <proc/notify.h>
 #include <libc/bootinfo.h>
 
 static endpoint_t *input_irq_ep = NULL;
@@ -77,7 +77,8 @@ _Noreturn static void input_kthread(task_id_t tid)
     for (;;) {
         ipc_msg_t m;
         if (ipc_recv(input_key_ep, &m) == 0 && m.tag == INPUT_KEY_TAG)
-            eb_publish(TID_NONE, EVENT_KEY_PRESSED, (event_para_t) m.words[0]);
+            notify_publish(&notify_system, EVENT_KEY_PRESSED,
+                           (event_para_t) m.words[0]);
     }
 }
 

@@ -59,7 +59,7 @@
 #include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
-#include <proc/eventbus.h>
+#include <proc/notify.h>
 #include <ipc/input_srv.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
@@ -310,9 +310,9 @@ void kmain(void)
     pmm_init(mm_request.response, hhdm_request.response->offset);
     alloc_init();
 
-    /* Event bus is built on IPC endpoints, so initialise it once the
-     * allocator is up and before any driver can publish. */
-    eb_init();
+    /* The notification object is built on IPC endpoints, so initialise it
+     * once the allocator is up and before any driver can publish. */
+    notify_system_init();
 
     vmm_init(mm_request.response, kernel_addr_request.response);
 

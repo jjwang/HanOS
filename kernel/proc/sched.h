@@ -35,8 +35,6 @@ void sched_sleep_impl(time_t ms, bool advanced);
 #define sched_sleep(x)  sched_sleep_impl(x, false)
 task_id_t sched_fork(void);
 void sched_exit(int64_t status);
-event_t sched_wait_event(event_t event);
-bool sched_resume_event(event_t event);
 void sched_wait_child(time_t ms);
 void sched_wait_key(void *key, time_t ms);
 void sched_wake_key(void *key);
