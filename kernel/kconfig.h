@@ -26,10 +26,10 @@
 #define ENABLE_MICROKERNEL_SELFTEST false
 
 /* Spawn the userspace input server instead of the in-kernel keyboard path. */
-#define ENABLE_INPUT_SERVER     false
+#define ENABLE_INPUT_SERVER     true
 
 /* Spawn the userspace console server and forward terminal output to it. */
-#define ENABLE_CONSOLE_SERVER   false
+#define ENABLE_CONSOLE_SERVER   true
 
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
