@@ -17,6 +17,7 @@
 
 #include <base/klog.h>
 #include <ipc/ipc.h>
+#include <ipc/irq.h>
 #include <ipc/selftest.h>
 #include <proc/sched.h>
 #include <proc/task.h>
@@ -64,6 +65,28 @@ _Noreturn void mk_selftest_task(task_id_t tid)
         }
 
         object_unref(endpoint_object(ep));
+    }
+
+    /* IRQ object delivery to a bound endpoint. Line 20 is outside the
+     * hardware range so this cannot interfere with a real driver. */
+    if (ok) {
+        irq_obj_t *io = irq_create(20);
+        endpoint_t *iep = endpoint_create();
+        if (io == NULL || iep == NULL) {
+            ok = false;
+        } else {
+            irq_bind(io, iep);
+            if (!irq_deliver(20))
+                ok = false;
+
+            ipc_msg_t im;
+            if (ipc_recv_timeout(iep, &im, 100) != 0
+                || im.tag != IRQ_NOTIFY_TAG || im.words[0] != 20)
+                ok = false;
+
+            object_unref(endpoint_object(iep));
+            object_unref(irq_object(io));
+        }
     }
 
     klogi("MK: selftest %s\n", ok ? "PASS" : "FAIL");

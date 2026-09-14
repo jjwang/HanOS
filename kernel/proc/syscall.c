@@ -32,6 +32,7 @@
 #include <base/kmalloc.h>
 #include <mm/uaccess.h>
 #include <ipc/ipc.h>
+#include <ipc/irq.h>
 #include <proc/task.h>
 #include <proc/sched.h>
 #include <proc/wait.h>
@@ -1623,6 +1624,93 @@ int64_t k_handle_close(int64_t handle)
     return 0;
 }
 
+int64_t k_irq_bind(int64_t irq_handle, int64_t ep_handle)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    kernel_object_t *io =
+        handle_get(&t->handles, (handle_t) irq_handle, 0);
+    kernel_object_t *ep =
+        handle_get(&t->handles, (handle_t) ep_handle, HANDLE_RIGHT_RECV);
+
+    if (io == NULL || io->type != OBJ_IRQ || ep == NULL
+        || ep->type != OBJ_ENDPOINT) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    irq_bind((irq_obj_t *) io->impl, (endpoint_t *) ep->impl);
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_irq_ack(int64_t irq_handle)
+{
+    task_t *t = sched_get_current_task();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    kernel_object_t *io =
+        handle_get(&t->handles, (handle_t) irq_handle, 0);
+    if (io == NULL || io->type != OBJ_IRQ) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    irq_ack((irq_obj_t *) io->impl);
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_ioport_access(int64_t op, int64_t port, int64_t width,
+                        int64_t value)
+{
+    task_t *t = sched_get_current_task();
+    cpu_set_errno(0);
+
+    bool allowed = false;
+    if (t != NULL) {
+        for (uint8_t i = 0; i < t->io_port_count; i++) {
+            if (port >= t->io_ports[i].first
+                && port <= t->io_ports[i].last) {
+                allowed = true;
+                break;
+            }
+        }
+    }
+
+    if (!allowed) {
+        cpu_set_errno(EPERM);
+        return -1;
+    }
+
+    if (op == 0) {              /* input */
+        uint64_t v = 0;
+        if (width == 1)
+            v = port_inb((uint16_t) port);
+        else if (width == 2)
+            v = port_inw((uint16_t) port);
+        else
+            v = port_ind((uint16_t) port);
+        return (int64_t) v;
+    }
+
+    if (width == 1)
+        port_outb((uint16_t) port, (uint8_t) value);
+    else if (width == 2)
+        port_outw((uint16_t) port, (uint16_t) value);
+    else
+        port_outd((uint16_t) port, (uint32_t) value);
+
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -1675,7 +1763,10 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_IPC_RECV] = (syscall_ptr_t) k_ipc_recv,
     [SYSCALL_IPC_CALL] = (syscall_ptr_t) k_ipc_call,
     [SYSCALL_IPC_REPLY] = (syscall_ptr_t) k_ipc_reply,
-    [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close      /* 60 */
+    [SYSCALL_IRQ_BIND] = (syscall_ptr_t) k_irq_bind,
+    [SYSCALL_IRQ_ACK] = (syscall_ptr_t) k_irq_ack,
+    [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close,     /* 60 */
+    [SYSCALL_IOPORT_ACCESS] = (syscall_ptr_t) k_ioport_access
 };
 
 void syscall_init(void)
