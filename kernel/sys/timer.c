@@ -37,6 +37,7 @@
 static uint64_t base_freq = 0;
 static uint8_t divisor = 0;
 static uint8_t vector = 0;
+static uint32_t timer_count = 0;
 
 [[gnu::interrupt]]
 void apic_timer_handler(void *v);
@@ -51,6 +52,12 @@ void apic_timer_start(void)
 {
     uint32_t val = apic_read_reg(APIC_REG_TIMER_LVT);
     apic_write_reg(APIC_REG_TIMER_LVT, val & ~(APIC_TIMER_FLAG_MASKED));
+
+    /* Reload the initial count after the mask is cleared. Loading it while the
+     * timer was masked leaves the periodic reload unarmed on some platforms,
+     * so the timer would deliver a single interrupt and then stop.
+     */
+    apic_write_reg(APIC_REG_TIMER_ICR, timer_count);
 }
 
 void apic_timer_set_handler(void (*h)(void *))
@@ -60,7 +67,8 @@ void apic_timer_set_handler(void (*h)(void *))
 
 void apic_timer_set_frequency(uint64_t freq)
 {
-    apic_write_reg(APIC_REG_TIMER_ICR, base_freq / (freq * divisor));
+    timer_count = base_freq / (freq * divisor);
+    apic_write_reg(APIC_REG_TIMER_ICR, timer_count);
 }
 
 void apic_timer_set_period(time_t tv)
