@@ -43,4 +43,15 @@ typedef struct {
         uint16_t last;
     } io_ports[BOOTINFO_MAX_IO_RANGES];
     uint64_t io_port_count;
+
+    /* Framebuffer granted to the console server. */
+    uint64_t fb_vaddr;
+    uint64_t fb_width;
+    uint64_t fb_height;
+    uint64_t fb_pitch;
+    uint64_t fb_size;
+    uint64_t cursor_x;
+    uint64_t cursor_y;
+    uint64_t fgcolor;
+    uint64_t bgcolor;
 } bootinfo_t;

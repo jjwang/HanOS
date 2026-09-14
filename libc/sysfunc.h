@@ -66,6 +66,7 @@ typedef struct {
 int64_t sys_ep_create(void);
 int sys_ipc_send(int64_t handle, const sys_ipc_msg_t *msg);
 int sys_ipc_recv(int64_t handle, sys_ipc_msg_t *msg);
+int sys_ipc_recv_nb(int64_t handle, sys_ipc_msg_t *msg);
 int sys_ipc_call(int64_t handle, const sys_ipc_msg_t *req, sys_ipc_msg_t *rep);
 int sys_ipc_reply(int64_t handle, const sys_ipc_msg_t *msg);
 int sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
