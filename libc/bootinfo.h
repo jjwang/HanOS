@@ -27,8 +27,8 @@
 #define IRQ_NOTIFY_TAG      0x01
 /* Message tag used by the input server to hand a decoded key to the kernel. */
 #define INPUT_KEY_TAG       0x40
-/* Value used for the end-of-file key (Ctrl-D). */
-#define INPUT_KEY_EOF       0x04
+/* Value used for the end-of-file key (Ctrl-D). Matches the kernel's EOF. */
+#define INPUT_KEY_EOF       0xFF
 /* Message tag used by a server to write a byte to the kernel console. */
 #define CONSOLE_WRITE_TAG   0x50
 
