@@ -18,6 +18,7 @@
 #pragma once
 
 #include <libc/stdio.h>
+#include <libc/bootinfo.h>
 
 #define AT_FDCWD            -100
 
@@ -71,6 +72,7 @@ int sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
 int sys_irq_ack(int64_t irq_handle);
 int sys_handle_close(int64_t handle);
 int64_t sys_ioport_access(int op, int port, int width, int value);
+int sys_bootinfo(bootinfo_t *bi);
 
 void sys_libc_log(const char *message);
 int sys_meminfo();

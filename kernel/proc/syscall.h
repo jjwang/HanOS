@@ -70,6 +70,7 @@
 #define SYSCALL_IRQ_ACK     58
 #define SYSCALL_HANDLE_CLOSE 60
 #define SYSCALL_IOPORT_ACCESS 61
+#define SYSCALL_BOOTINFO    63
 
 /* Standard I/O devices */
 #define STDIN               0

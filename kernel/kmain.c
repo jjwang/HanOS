@@ -60,6 +60,7 @@
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <proc/eventbus.h>
+#include <ipc/input_srv.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
@@ -228,6 +229,10 @@ _Noreturn void kshell(task_id_t tid)
     }
 
     /* Start all programs */
+#if ENABLE_INPUT_SERVER
+    if (!input_server_start())
+        klogw("input: server failed to start, using in-kernel keyboard\n");
+#endif
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {
