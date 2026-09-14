@@ -234,6 +234,11 @@ typedef struct task_t {
     spinlock_t child_lock;             /* protects child_list across CPUs */
      vec_struct(task_id_t) child_list;
     handle_table_t handles;            /* per-task capability handles */
+    struct {
+        uint16_t first;
+        uint16_t last;
+    } io_ports[4];                     /* granted I/O-port ranges */
+    uint8_t io_port_count;
 
     ht_t open_files_table;
      vec_struct(file_dup_t) dup_list;

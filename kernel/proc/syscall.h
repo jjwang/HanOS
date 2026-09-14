@@ -66,7 +66,10 @@
 #define SYSCALL_IPC_RECV    52
 #define SYSCALL_IPC_CALL    53
 #define SYSCALL_IPC_REPLY   54
+#define SYSCALL_IRQ_BIND    57
+#define SYSCALL_IRQ_ACK     58
 #define SYSCALL_HANDLE_CLOSE 60
+#define SYSCALL_IOPORT_ACCESS 61
 
 /* Standard I/O devices */
 #define STDIN               0

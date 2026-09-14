@@ -108,6 +108,16 @@
 #define SYSCALL_UNLINK      36
 #define SYSCALL_RUNCMD      40
 
+#define SYSCALL_EP_CREATE    50
+#define SYSCALL_IPC_SEND     51
+#define SYSCALL_IPC_RECV     52
+#define SYSCALL_IPC_CALL     53
+#define SYSCALL_IPC_REPLY    54
+#define SYSCALL_IRQ_BIND     57
+#define SYSCALL_IRQ_ACK      58
+#define SYSCALL_HANDLE_CLOSE 60
+#define SYSCALL_IOPORT_ACCESS 61
+
 void sys_libc_log(const char *message)
 {
     int ret, errno;
@@ -279,5 +289,69 @@ int sys_readdir(int fd, void *buffer)
 {
     int ret, errno;
     SYSCALL2(SYSCALL_READDIR, fd, buffer);
+    return ret;
+}
+
+int64_t sys_ep_create(void)
+{
+    int64_t ret, errno;
+    SYSCALL0(SYSCALL_EP_CREATE);
+    return ret;
+}
+
+int sys_ipc_send(int64_t handle, const sys_ipc_msg_t * msg)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_IPC_SEND, handle, msg);
+    return (int) ret;
+}
+
+int sys_ipc_recv(int64_t handle, sys_ipc_msg_t * msg)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_IPC_RECV, handle, msg);
+    return (int) ret;
+}
+
+int sys_ipc_call(int64_t handle, const sys_ipc_msg_t * req,
+                 sys_ipc_msg_t * rep)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_IPC_CALL, handle, req, rep);
+    return (int) ret;
+}
+
+int sys_ipc_reply(int64_t handle, const sys_ipc_msg_t * msg)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_IPC_REPLY, handle, msg);
+    return (int) ret;
+}
+
+int sys_irq_bind(int64_t irq_handle, int64_t ep_handle)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_IRQ_BIND, irq_handle, ep_handle);
+    return (int) ret;
+}
+
+int sys_irq_ack(int64_t irq_handle)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_IRQ_ACK, irq_handle);
+    return (int) ret;
+}
+
+int sys_handle_close(int64_t handle)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_HANDLE_CLOSE, handle);
+    return (int) ret;
+}
+
+int64_t sys_ioport_access(int op, int port, int width, int value)
+{
+    int64_t ret, errno;
+    SYSCALL4(SYSCALL_IOPORT_ACCESS, op, port, width, value);
     return ret;
 }
