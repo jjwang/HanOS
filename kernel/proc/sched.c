@@ -36,6 +36,7 @@
 #include <sys/hpet.h>
 #include <sys/pit.h>
 #include <sys/isr_base.h>
+#include <sys/idt.h>
 #include <sys/panic.h>
 #include <sys/cpu.h>
 #include <sys/serial.h>
@@ -47,6 +48,9 @@ static task_t *tasks_running[CPU_MAX] = { 0 };
 static task_t *tasks_idle[CPU_MAX] = { 0 };
 static uint64_t tasks_coordinate[CPU_MAX] = { 0 };
 static spinlock_t tasks_lock[CPU_MAX] = {0};
+
+/* Vector used to notify a core that new work was queued on it. */
+static uint8_t sched_ipi_vector = 0;
 
 static volatile uint16_t cpu_num = 0;
 
@@ -622,6 +626,14 @@ void sched_init(const char *name, uint16_t cpu_id)
     apic_timer_set_mode(APIC_TIMER_MODE_PERIODIC);
     apic_timer_set_handler(enter_context_switch);
 
+    /* A core waiting in its idle loop relies on its own timer to notice a task
+     * queued by another core. Reserving a separate vector lets a dispatcher
+     * kick the target core directly instead. */
+    if (sched_ipi_vector == 0) {
+        sched_ipi_vector = idt_get_available_vector();
+        idt_set_handler(sched_ipi_vector, enter_context_switch);
+    }
+
     cpu_num++;
 
     klogi
@@ -647,10 +659,16 @@ task_t *sched_new(const char *name, void (*entry)(task_id_t),
 void sched_add(task_t *t)
 {
     uint16_t target = sched_pick_cpu();
+    uint16_t current = smp_get_current_cpu_id();
 
     spinlock_acquire(&tasks_lock[target]);
     vec_push_back(&tasks_active_table[target], t);
     spinlock_release(&tasks_lock[target]);
+
+    /* Wake the target core if it is not this one; otherwise it only finds the
+     * new task on its next timer tick. */
+    if (target != current && sched_ipi_vector != 0)
+        apic_send_ipi(target, sched_ipi_vector, 0);
 
     klogi("SCHED: CPU %ld dispatches tid %ld to CPU %ld\n",
           smp_get_current_cpu_id(), t->tid, target);
