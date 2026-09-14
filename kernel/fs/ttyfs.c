@@ -198,22 +198,33 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
             spinlock_acquire(&vfs_lock);
             spinlock_acquire(&tty_lock);
 
-            /* We maximumly backtrace half of TTY_BUFFER_SIZE to determine
-             * whether the backspace key should be accepted or not
+            /* The input server already applies the line discipline (it only
+             * emits a backspace when the line is non-empty), so the kernel
+             * stores what it receives. The in-kernel keyboard driver leaves
+             * that decision to the tty, which checks the visible line length.
              */
-            int64_t dlen = 0;
             int64_t iend = (id->icursor + id->isize) % TTY_BUFFER_SIZE;
-            id->ibegin = MAX(id->ibegin, id->icursor - TTY_BUFFER_SIZE / 2)
-                % TTY_BUFFER_SIZE;
-            for (int64_t k = id->ibegin;; k++) {
-                int64_t index = (id->ibegin + k) % TTY_BUFFER_SIZE;
-                if (index == iend)
-                    break;
-                dlen += ((id->ibuff[index] != '\b') ? 1 : -1);
-            }
             uint8_t keycode = para & 0xFF;
-            if ((keycode && keycode != '\b')
-                || (keycode == '\b' && dlen > 0)) {
+            bool store = false;
+
+            if (input_server_active()) {
+                store = (keycode != 0);
+            } else {
+                int64_t dlen = 0;
+                id->ibegin = MAX(id->ibegin,
+                                 id->icursor - TTY_BUFFER_SIZE / 2)
+                    % TTY_BUFFER_SIZE;
+                for (int64_t k = id->ibegin;; k++) {
+                    int64_t index = (id->ibegin + k) % TTY_BUFFER_SIZE;
+                    if (index == iend)
+                        break;
+                    dlen += ((id->ibuff[index] != '\b') ? 1 : -1);
+                }
+                store = ((keycode && keycode != '\b')
+                         || (keycode == '\b' && dlen > 0));
+            }
+
+            if (store) {
                 id->ibuff[iend] = keycode;
                 id->isize += 1;
                 if (id->isize >= TTY_BUFFER_SIZE) {

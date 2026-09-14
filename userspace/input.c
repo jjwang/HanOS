@@ -49,6 +49,7 @@ int main(void)
     bool shift = false;
     bool caps = false;
     bool ctrl = false;
+    int line_len = 0;
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -81,9 +82,22 @@ int main(void)
                 if (ctrl && (ch == 'd' || ch == 'D')) {
                     send_console(bi.console_ep, '\n');
                     send_key(bi.key_ep, INPUT_KEY_EOF);
+                    line_len = 0;
+                } else if (ch == '\b') {
+                    /* Erase only when there is something on the line. */
+                    if (line_len > 0) {
+                        send_console(bi.console_ep, '\b');
+                        send_key(bi.key_ep, '\b');
+                        line_len--;
+                    }
+                } else if (ch == '\n') {
+                    send_console(bi.console_ep, '\n');
+                    send_key(bi.key_ep, '\n');
+                    line_len = 0;
                 } else if (ch != 0) {
                     send_console(bi.console_ep, (uint64_t) (uint8_t) ch);
                     send_key(bi.key_ep, (uint64_t) (uint8_t) ch);
+                    line_len++;
                 }
             }
         }
