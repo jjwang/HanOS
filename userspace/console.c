@@ -54,6 +54,38 @@ static uint32_t cy;
 static uint32_t fg = COLOR_GREY;
 static uint32_t bg = COLOR_BLACK;
 
+/* Rows changed since the last blit, so only those are copied to the
+ * framebuffer instead of the whole screen. */
+static int dirty_min = -1;
+static int dirty_max = -1;
+
+static void mark_row(uint32_t y)
+{
+    if (dirty_min < 0 || (int) y < dirty_min)
+        dirty_min = (int) y;
+    if (dirty_max < 0 || (int) y > dirty_max)
+        dirty_max = (int) y;
+}
+
+static void mark_all(void)
+{
+    dirty_min = 0;
+    dirty_max = (int) fb_h - 1;
+}
+
+static void flush(void)
+{
+    if (dirty_min < 0)
+        return;
+
+    uint64_t off = (uint64_t) dirty_min * fb_pitch;
+    uint64_t len = (uint64_t) (dirty_max - dirty_min + 1) * fb_pitch;
+    memcpy(fbio + off, back + off, len);
+
+    dirty_min = -1;
+    dirty_max = -1;
+}
+
 static void putpixel(uint32_t x, uint32_t y, uint32_t c)
 {
     if (x >= fb_w || y >= fb_h)
@@ -73,6 +105,7 @@ static void draw_ch(uint8_t ch)
                 ? fg : bg;
             putpixel(cx * FONT_W + k, cy * FONT_H + i, c);
         }
+        mark_row(cy * FONT_H + i);
     }
 }
 
@@ -87,6 +120,7 @@ static void scroll(void)
         d[i] = s[i];
 
     memset(back + n, 0, line);
+    mark_all();
 }
 
 static void newline(void)
@@ -230,7 +264,7 @@ int main(void)
         while (sys_ipc_recv_nb((int64_t) bi.console_ep, &m) == 0)
             process(&m);
 
-        memcpy(fbio, back, (uint64_t) fb_pitch * fb_h);
+        flush();
     }
 
     return 0;

@@ -10,6 +10,7 @@
 #include <kconfig.h>
 #include <base/kmalloc.h>
 #include <base/klog.h>
+#include <base/spinlock.h>
 #include <ipc/console_srv.h>
 #include <ipc/ipc.h>
 #include <proc/sched.h>
@@ -21,6 +22,23 @@ static endpoint_t *console_in_ep = NULL;
 static bool console_active = false;
 static task_id_t console_spawner = TID_MAX;
 static uint64_t console_fb_size = 0;
+
+/* Output from kprintf() is buffered here and forwarded by a kernel thread.
+ * A syscall runs with interrupts disabled, so kprintf() must never wait for
+ * the userspace server: doing so would keep the CPU and starve the server. */
+#define CONSOLE_RING_SIZE   8192
+
+static char console_ring[CONSOLE_RING_SIZE];
+static uint32_t console_ring_head = 0;
+static uint32_t console_ring_tail = 0;
+static spinlock_t console_ring_lock = { 0 };
+
+static bool console_ring_empty(void)
+{
+    return console_ring_head == console_ring_tail;
+}
+
+_Noreturn static void console_flush_kthread(task_id_t tid);
 
 static void console_spawn_attach(task_t * tc)
 {
@@ -86,6 +104,10 @@ bool console_server_start(void)
     if (tc == NULL)
         return false;
 
+    task_t *tf = sched_new("conflush", console_flush_kthread, false);
+    if (tf != NULL)
+        sched_add(tf);
+
     console_active = true;
     klogi("console: server started (fb 0x%016lx, %ldx%ld)\n",
           (uint64_t) fb->addr, fb->width, fb->height);
@@ -102,23 +124,49 @@ bool console_write_buf(const char *buf, uint64_t len)
     if (!console_active || console_in_ep == NULL)
         return false;
 
-    uint64_t i = 0;
-    while (i < len) {
-        ipc_msg_t m;
-        memset(&m, 0, sizeof(m));
-        m.tag = CONSOLE_WRITE_TAG;
+    spinlock_acquire(&console_ring_lock);
 
-        uint64_t n = 0;
-        while (n < IPC_WORDS - 1 && i < len)
-            m.words[n++] = (uint8_t) buf[i++];
-        m.words[IPC_WORDS - 1] = n;
-
-        /* Spin until the server drains its queue; a bounded retry avoids
-         * hanging forever if the server is gone. */
-        uint64_t retries = 0;
-        while (ipc_send(console_in_ep, &m) != 0 && retries++ < 10000000)
-            asm volatile ("pause" ::: "memory");
+    for (uint64_t i = 0; i < len; i++) {
+        uint32_t next = (console_ring_head + 1) % CONSOLE_RING_SIZE;
+        if (next == console_ring_tail)
+            break;              /* ring full: drop the remainder */
+        console_ring[console_ring_head] = buf[i];
+        console_ring_head = next;
     }
 
+    spinlock_release(&console_ring_lock);
     return true;
+}
+
+/* Forward buffered output to the userspace server. This runs as its own task
+ * so it may yield while the server drains, unlike the kprintf() caller. */
+_Noreturn static void console_flush_kthread(task_id_t tid)
+{
+    (void) tid;
+
+    for (;;) {
+        while (!console_ring_empty()) {
+            ipc_msg_t m;
+            memset(&m, 0, sizeof(m));
+            m.tag = CONSOLE_WRITE_TAG;
+
+            uint64_t n = 0;
+            spinlock_acquire(&console_ring_lock);
+            while (n < IPC_WORDS - 1 && !console_ring_empty()) {
+                m.words[n++] = (uint8_t) console_ring[console_ring_tail];
+                console_ring_tail = (console_ring_tail + 1) % CONSOLE_RING_SIZE;
+            }
+            spinlock_release(&console_ring_lock);
+            m.words[IPC_WORDS - 1] = n;
+
+            uint64_t tries = 0;
+            while (ipc_send(console_in_ep, &m) != 0) {
+                if (++tries > 1000)
+                    break;
+                sched_sleep(0);
+            }
+        }
+
+        sched_sleep(1);
+    }
 }
