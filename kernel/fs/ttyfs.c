@@ -27,7 +27,7 @@
 #include <sys/hpet.h>
 #include <sys/cmos.h>
 #include <mm/mm.h>
-#include <proc/eventbus.h>
+#include <proc/notify.h>
 #include <ipc/input_srv.h>
 #include <device/display/term.h>
 
@@ -194,7 +194,7 @@ int64_t ttyfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         event_para_t para = 0;
         spinlock_release(&tty_lock);
         spinlock_release(&vfs_lock);        /* If waiting, we need to release lock */
-        if (eb_subscribe(sched_get_tid(), EVENT_KEY_PRESSED, &para)) {
+        if (notify_subscribe(&notify_system, EVENT_KEY_PRESSED, &para)) {
             spinlock_acquire(&vfs_lock);
             spinlock_acquire(&tty_lock);
 

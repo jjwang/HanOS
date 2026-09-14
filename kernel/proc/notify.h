@@ -21,6 +21,7 @@
 
 #include <base/spinlock.h>
 #include <ipc/ipc.h>
+#include <proc/task.h>
 
 typedef struct {
     endpoint_t *ep;
@@ -31,3 +32,8 @@ typedef struct {
 void notify_init(notify_t *n);
 void notify_publish(notify_t *n, uint64_t type, uint64_t para);
 bool notify_subscribe(notify_t *n, uint64_t type, uint64_t *para);
+
+/* System-wide notification object used for keyboard/misc events. Initialised
+ * once by notify_system_init() after the allocator is ready. */
+extern notify_t notify_system;
+void notify_system_init(void);
