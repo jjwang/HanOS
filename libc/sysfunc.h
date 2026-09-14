@@ -53,6 +53,25 @@ typedef struct {
     char desc[256];
 } command_help_t;
 
+/* Layout shared with the kernel ipc_msg_t. */
+typedef struct {
+    uint64_t tag;
+    uint64_t words[6];
+    uint64_t xfer[2];
+    uint8_t xfer_count;
+} sys_ipc_msg_t;
+
+/* Microkernel IPC and capability calls. */
+int64_t sys_ep_create(void);
+int sys_ipc_send(int64_t handle, const sys_ipc_msg_t *msg);
+int sys_ipc_recv(int64_t handle, sys_ipc_msg_t *msg);
+int sys_ipc_call(int64_t handle, const sys_ipc_msg_t *req, sys_ipc_msg_t *rep);
+int sys_ipc_reply(int64_t handle, const sys_ipc_msg_t *msg);
+int sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
+int sys_irq_ack(int64_t irq_handle);
+int sys_handle_close(int64_t handle);
+int64_t sys_ioport_access(int op, int port, int width, int value);
+
 void sys_libc_log(const char *message);
 int sys_meminfo();
 int sys_fork();

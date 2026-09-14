@@ -23,6 +23,7 @@
 #include <sys/timer.h>
 #include <proc/sched.h>
 #include <proc/task.h>
+#include <ipc/irq.h>
 
 #include <libc/printf.h>
 
@@ -123,6 +124,19 @@ void exc_handler_proc(
     /* Some of IRQ130+ are used for scheduler */
     if (excno > IRQ128) {
         klogi("IRQ: received software interrupt of 0x%02lx\n", excno);
+    }
+
+    /* If a userspace driver has bound this line, deliver a notification and
+     * let the driver service the device instead of running the in-kernel
+     * handler. */
+    if (excno >= IRQ0 && excno < IRQ0 + 16 && irq_deliver(excno - IRQ0)) {
+        if (excno >= IRQ0 + 8 && excno < IRQ128) {
+            port_outb(PIC1, PIC_EOI);
+            port_outb(PIC2, PIC_EOI);
+        } else {
+            port_outb(PIC1, PIC_EOI);
+        }
+        return;
     }
 
     /* Process other exceptions and interrupts */
