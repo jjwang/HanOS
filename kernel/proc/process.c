@@ -93,13 +93,13 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         return NULL;
     }
 
-    process_t *ntask = kmalloc(sizeof(process_t));
-    memset(ntask, 0, sizeof(process_t));
+    process_t *nproc = kmalloc(sizeof(process_t));
+    memset(nproc, 0, sizeof(process_t));
 
-    ntask->pid = new_pid;
-    ntask->forked = false;
+    nproc->pid = new_pid;
+    nproc->forked = false;
 
-    process_regs_t *ntask_regs = NULL;
+    process_regs_t *nproc_regs = NULL;
 
     /* All kernel processes share the same address space */
     addrspace_t *as = NULL;
@@ -107,104 +107,104 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     if (mode == PROC_USER_MODE) {
         as = create_addrspace();
 
-        ntask->kstack_limit =
+        nproc->kstack_limit =
             (void *) kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
-        ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
+        nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
 
-        ntask->ustack_limit = (void *)
+        nproc->ustack_limit = (void *)
             VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
-        ntask->ustack_top = ntask->ustack_limit + STACK_SIZE;
+        nproc->ustack_top = nproc->ustack_limit + STACK_SIZE;
 
         klogi("PROC: %s process id %ld (0x%016lx) kstack 0x%016lx ustack 0x%016lx\n",
-              name, ntask->pid, ntask, ntask->kstack_top,
-              ntask->ustack_top);
+              name, nproc->pid, nproc, nproc->kstack_top,
+              nproc->ustack_top);
 
-        ntask->context = ntask->ustack_top;
+        nproc->context = nproc->ustack_top;
 
         /* Notice that the below should be unmapped at the end of this func */
-        vmm_map(pas, (uint64_t) ntask->ustack_limit,
-                (uint64_t) ntask->ustack_limit,
+        vmm_map(pas, (uint64_t) nproc->ustack_limit,
+                (uint64_t) nproc->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
                 VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
-        vmm_map(as, (uint64_t) ntask->ustack_limit,
-                (uint64_t) ntask->ustack_limit,
+        vmm_map(as, (uint64_t) nproc->ustack_limit,
+                (uint64_t) nproc->ustack_limit,
                 NUM_PAGES(STACK_SIZE),
                 VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
         mem_map_t m;
 
-        m.vaddr = (uint64_t) ntask->ustack_limit;
-        m.paddr = (uint64_t) ntask->ustack_limit;
+        m.vaddr = (uint64_t) nproc->ustack_limit;
+        m.paddr = (uint64_t) nproc->ustack_limit;
         m.np = NUM_PAGES(STACK_SIZE);
         m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
 
-        vec_push_back(&ntask->mmap_list, m);
+        vec_push_back(&nproc->mmap_list, m);
 
-        ntask_regs = ntask->ustack_top - sizeof(process_regs_t);
+        nproc_regs = nproc->ustack_top - sizeof(process_regs_t);
 
-        ntask_regs->cs = DEFAULT_UMODE_CODE;
-        ntask_regs->ss = DEFAULT_UMODE_DATA;
+        nproc_regs->cs = DEFAULT_UMODE_CODE;
+        nproc_regs->ss = DEFAULT_UMODE_DATA;
     } else {
-        ntask->kstack_limit =
+        nproc->kstack_limit =
             kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
-        ntask->kstack_top = ntask->kstack_limit + STACK_SIZE;
+        nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
 
-        ntask->ustack_limit = NULL;
-        ntask->ustack_top = NULL;
+        nproc->ustack_limit = NULL;
+        nproc->ustack_top = NULL;
 
         klogi("PROC: %s 0x%016lx kstack 0x%016lx ustack 0x%016lx\n",
-              name, ntask, ntask->kstack_top, ntask->ustack_top);
+              name, nproc, nproc->kstack_top, nproc->ustack_top);
 
-        ntask->context = ntask->kstack_top;
+        nproc->context = nproc->kstack_top;
 
-        ntask_regs = ntask->kstack_top - sizeof(process_regs_t);
+        nproc_regs = nproc->kstack_top - sizeof(process_regs_t);
 
-        ntask_regs->cs = DEFAULT_KMODE_CODE;
-        ntask_regs->ss = DEFAULT_KMODE_DATA;
+        nproc_regs->cs = DEFAULT_KMODE_CODE;
+        nproc_regs->ss = DEFAULT_KMODE_DATA;
     }
 
     /* If temporarily set to NULL, CR3 switch will be disabled */
-    ntask->addrspace = as;
+    nproc->addrspace = as;
 
-    ntask_regs->rsp = (uint64_t) ntask->context;
-    ntask_regs->rflags = DEFAULT_RFLAGS;
-    ntask_regs->rip = (uint64_t) entry;
-    ntask_regs->rdi = new_pid;
+    nproc_regs->rsp = (uint64_t) nproc->context;
+    nproc_regs->rflags = DEFAULT_RFLAGS;
+    nproc_regs->rip = (uint64_t) entry;
+    nproc_regs->rdi = new_pid;
 
-    ntask->mode = mode;
-    ntask->context = ntask_regs;
-    ntask->ppid = PID_MAX;
-    ntask->priority = priority;
-    ntask->last_tick = 0;
-    ntask->status = PROC_READY;
+    nproc->mode = mode;
+    nproc->context = nproc_regs;
+    nproc->ppid = PID_MAX;
+    nproc->priority = priority;
+    nproc->last_tick = 0;
+    nproc->status = PROC_READY;
 
-    strcpy(ntask->cwd, "/");
-    strncpy(ntask->name, name, sizeof(ntask->name));
+    strcpy(nproc->cwd, "/");
+    strncpy(nproc->name, name, sizeof(nproc->name));
 
-    ht_init(&ntask->open_files_table, HT_DEFAULT_ARRAY_SIZE);
-    handle_table_init(&ntask->handles);
+    ht_init(&nproc->open_files_table, HT_DEFAULT_ARRAY_SIZE);
+    handle_table_init(&nproc->handles);
 
     klogi("PROC: Create pid %ld with name \"%s\" (process 0x%016lx)\n",
-          ntask->pid, name, ntask);
+          nproc->pid, name, nproc);
 
     if (mode == PROC_USER_MODE) {
-        vmm_unmap(pas, (uint64_t) ntask->ustack_limit,
+        vmm_unmap(pas, (uint64_t) nproc->ustack_limit,
                   NUM_PAGES(STACK_SIZE));
     }
 #ifndef ENABLE_MEM_DEBUG
     /* MEMMAP: hpet should be visible for all kernel processes */
-    vmm_map(ntask->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
+    vmm_map(nproc->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
             1, VMM_FLAGS_MMIO);
 
     /* MEMMAP: lapic_base should be visible for all kernel processes */
-    vmm_map(ntask->addrspace, (uint64_t) lapic_base,
+    vmm_map(nproc->addrspace, (uint64_t) lapic_base,
             VIRT_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
 #endif
 
-    process_table_add(ntask);
+    process_table_add(nproc);
 
-    return ntask;
+    return nproc;
 }
 
 process_t *process_fork(process_t * tp)

@@ -36,6 +36,6 @@ int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max);
 
 /* Cross-process copy used by IPC, where the kernel is not running on either
  * process's page tables. Translate through vmm_get_paddr() and the kernel HHDM. */
-uint64_t copy_from_task(process_t * t, void *kdst, const void *usrc,
+uint64_t copy_from_process(process_t * t, void *kdst, const void *usrc,
                         uint64_t len);
-uint64_t copy_to_task(process_t * t, void *udst, const void *ksrc, uint64_t len);
+uint64_t copy_to_process(process_t * t, void *udst, const void *ksrc, uint64_t len);

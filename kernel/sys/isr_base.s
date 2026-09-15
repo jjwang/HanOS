@@ -40,7 +40,7 @@
  * Compatible with both kernel/userspace
  * -------------------------------------------------------------------------- */
 .macro pusham
-    /* Save 64-bit general purpose registers (matching task_regs_t: r15 first, rax last) */
+    /* Save 64-bit general purpose registers (matching process_regs_t: r15 first, rax last) */
     push %r15
     push %r14
     push %r13
@@ -127,7 +127,7 @@ exc\excno:
     /* Only apply to Exception 14 (Page Fault) - prevent recursive fault */
     .if \excno == 14
         /* Step 1: Emergency restore kernel segment registers */
-        mov $0x10, %rax     /* Kernel data segment selector (refer to task.h) */
+        mov $0x10, %rax     /* Kernel data segment selector (refer to process.h) */
         mov %rax, %ds       /* Restore DS to valid kernel data segment */
         mov %rax, %es       /* Restore ES */
         mov %rax, %ss       /* Restore SS (critical for stack operations) */
