@@ -7,7 +7,7 @@
 
 ## 变更
 
-- `userspace/console.c`：在下一个单元绘制光标字形，并每 500 毫秒闪烁一次；
+- `userspace/console.c`：在下一个单元绘制方块光标，并每 500 毫秒闪烁一次；
   有输出绘制时保持常亮。渲染拆分为 `draw_cell()`，可绘制任意单元，包括
   光标。
 - `kernel/proc/syscall.{c,h}` 与 `libc/sysfunc.{c,h}`：新增

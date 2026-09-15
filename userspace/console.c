@@ -117,11 +117,24 @@ static void draw_ch(uint8_t ch)
     draw_cell(cx, cy, ch);
 }
 
-/* Draw the cursor glyph in the next cell: an underscore when visible, a
- * space when hidden. */
+/* Fill a whole cell with a single colour. */
+static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
+{
+    if (col >= cols || row >= rows)
+        return;
+
+    for (uint32_t i = 0; i < FONT_H; i++) {
+        for (uint32_t k = 0; k < FONT_W; k++)
+            putpixel(col * FONT_W + k, row * FONT_H + i, color);
+        mark_row(row * FONT_H + i);
+    }
+}
+
+/* A block cursor: fill the next cell with the foreground colour, or clear it
+ * when hidden. */
 static void draw_cursor(bool visible)
 {
-    draw_cell(cx, cy, visible ? '_' : ' ');
+    fill_cell(cx, cy, visible ? fg : bg);
 }
 
 static void scroll(void)
