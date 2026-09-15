@@ -44,10 +44,10 @@ uint64_t hpet_get_nanos()
         return pit_get_ticks();
     }
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t != NULL && debug_info) {
         /* If we use klogi() here, maybe we can not get screen outputs. */
-        kprintf("HPET: tid %ld tries to get nanos from 0x%016lx\n", t->tid,
+        kprintf("HPET: pid %ld tries to get nanos from 0x%016lx\n", t->pid,
                 hpet);
     }
 
@@ -85,7 +85,7 @@ void hpet_init()
         return;
     }
 
-    /* MEMMAP: hpet should be visible for all kernel tasks */
+    /* MEMMAP: hpet should be visible for all kernel processes */
     vmm_map(NULL, PHYS_TO_VIRT(hpet_sdt->base_addr.address),
             (uint64_t) hpet_sdt->base_addr.address, 1, VMM_FLAGS_MMIO);
 

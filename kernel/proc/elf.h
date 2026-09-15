@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <proc/task.h>
+#include <proc/process.h>
 #include <mm/mm.h>
 
 #define ELF_MAGIC       0x464C457FU     /* "\x7FELF" in little endian */
@@ -132,5 +132,5 @@ typedef struct {
     uint64_t size;              /* Symbol size */
 } elf_sym_t;
 
-int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
+int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
                  auxval_t * aux);

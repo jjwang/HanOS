@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 #include <ipc/ipc.h>
-#include <proc/task.h>
+#include <proc/process.h>
 
 typedef enum {
     SVC_MM = 0,
@@ -34,6 +34,6 @@ typedef enum {
     SVC_COUNT
 } service_id_t;
 
-void service_register(service_id_t id, endpoint_t *ep, task_id_t owner);
+void service_register(service_id_t id, endpoint_t *ep, pid_t owner);
 endpoint_t *service_lookup(service_id_t id);
 bool service_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep);

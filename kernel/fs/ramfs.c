@@ -381,11 +381,11 @@ vfs_tnode_t *ramfs_open(vfs_inode_t * this, const char *pathname)
     if (tnode != NULL && islink)
         tnode->inode->size = id->alloc_size;
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     klogd
-        ("RAMFS: finish opening %s and return 0x%016lx (data 0x%016lx) in task %ld\n",
+        ("RAMFS: finish opening %s and return 0x%016lx (data 0x%016lx) in process %ld\n",
          path, (tnode != NULL) ? tnode->inode : NULL, id->data,
-         (t != NULL) ? t->tid : 0);
+         (t != NULL) ? t->pid : 0);
 
     return tnode;
 }
@@ -404,11 +404,11 @@ int64_t ramfs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
         memcpy(buff, ((uint8_t *) id->data) + offset, len);
         if (len >= 2) {
             uint8_t *ptr = (uint8_t *) id->data;
-            task_t *t = sched_get_current_task();
+            process_t *t = sched_get_current_process();
             klogd("RAMFS: read %ld bytes [0x%2x 0x%2x...] from 0x%016lx with "
-                  "offset %ld and return %ld in task %ld\n",
+                  "offset %ld and return %ld in process %ld\n",
                   len, ptr[0], ptr[1], id->data, offset, retlen,
-                  (t != NULL) ? t->tid : 0);
+                  (t != NULL) ? t->pid : 0);
         }
     } else {
         klogd

@@ -7,7 +7,7 @@
 
    The input server owns the PS/2 keyboard interrupt and the data/status ports.
    The kernel hands it two endpoints (IRQ notifications in, decoded keys out),
-   the I/O-port range and the interrupt line. A small kernel task relays the
+   the I/O-port range and the interrupt line. A small kernel process relays the
    decoded keys onto the event bus so the existing tty path is unchanged.
 
  @endverbatim
@@ -30,13 +30,13 @@ static endpoint_t *input_irq_ep = NULL;
 static endpoint_t *input_key_ep = NULL;
 static endpoint_t *console_ep = NULL;
 static bool input_active = false;
-static task_id_t input_spawner = TID_MAX;
+static pid_t input_spawner = PID_MAX;
 
-/* Run inside sched_execve() before the new task becomes runnable, so the
+/* Run inside sched_execve() before the new process becomes runnable, so the
  * resources are in place before the server can read its bootinfo. */
-static void input_spawn_attach(task_t * tc)
+static void input_spawn_attach(process_t * tc)
 {
-    if (sched_get_tid() != input_spawner)
+    if (sched_get_pid() != input_spawner)
         return;
 
     handle_t h_irq = handle_alloc(&tc->handles, endpoint_object(input_irq_ep),
@@ -70,9 +70,9 @@ static void input_spawn_attach(task_t * tc)
     tc->bootinfo = bi;
 }
 
-_Noreturn static void input_kthread(task_id_t tid)
+_Noreturn static void input_kthread(pid_t pid)
 {
-    (void) tid;
+    (void) pid;
 
     for (;;) {
         ipc_msg_t m;
@@ -83,9 +83,9 @@ _Noreturn static void input_kthread(task_id_t tid)
 }
 
 /* Write bytes handed over by a server to the kernel terminal. */
-_Noreturn static void console_kthread(task_id_t tid)
+_Noreturn static void console_kthread(pid_t pid)
 {
-    (void) tid;
+    (void) pid;
 
     for (;;) {
         ipc_msg_t m;
@@ -109,20 +109,20 @@ bool input_server_start(void)
 
     const char *argv[] = { "input", NULL };
 
-    input_spawner = sched_get_tid();
+    input_spawner = sched_get_pid();
     sched_set_spawn_hook(input_spawn_attach);
-    task_t *tc = sched_execve(DEFAULT_INPUT_SVR, argv, NULL, "/");
+    process_t *tc = sched_execve(DEFAULT_INPUT_SVR, argv, NULL, "/");
     sched_set_spawn_hook(NULL);
 
     if (tc == NULL)
         return false;
 
-    task_t *tk = sched_new("inkbd", input_kthread, false);
+    process_t *tk = sched_new("inkbd", input_kthread, false);
     if (tk == NULL)
         return false;
     sched_add(tk);
 
-    task_t *tcon = sched_new("conkbd", console_kthread, false);
+    process_t *tcon = sched_new("conkbd", console_kthread, false);
     if (tcon == NULL)
         return false;
     sched_add(tcon);
