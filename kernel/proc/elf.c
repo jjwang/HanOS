@@ -17,7 +17,7 @@
 #include <libc/string.h>
 
 #include <proc/elf.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <base/klib.h>
 #include <base/klog.h>
 #include <fs/vfs.h>
@@ -59,7 +59,7 @@ void *elf_find_sym(const char *name, elf_shdr_t * shdr,
 }
 
 /* Need to free aux->phaddr after calling elf_load()  ... */
-int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
+int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
                  auxval_t * aux)
 {
     uint8_t *elf_buff = NULL;
@@ -98,7 +98,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
             m.paddr = VIRT_TO_PHYS(elf_buff);
             m.np = NUM_PAGES(elf_len);
 
-            vec_push_back(&task->mmap_list, m);
+            vec_push_back(&process->mmap_list, m);
         }
         vfs_close(f);
     } else {
@@ -145,7 +145,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(phdr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(elf_phdr_t));
 
-    vec_push_back(&task->mmap_list, m);
+    vec_push_back(&process->mmap_list, m);
 
     phaddr =
         (uint64_t *) kmalloc_chunk(hdr.phnum * sizeof(uint64_t), __func__,
@@ -158,7 +158,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(phaddr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(uint64_t));
 
-    vec_push_back(&task->mmap_list, m);
+    vec_push_back(&process->mmap_list, m);
 
     for (uint64_t i = 0; i < hdr.phnum; i++) {
         phaddr[i] = (uint64_t) NULL;
@@ -175,7 +175,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
                           path_name, i, rdtl_path);
                 }
                 has_dynamic_linking = true;
-                elf_load(task, rdtl_path, NULL, &dynamic_aux);
+                elf_load(process, rdtl_path, NULL, &dynamic_aux);
                 kmfree(rdtl_path);
             }
             continue;
@@ -239,7 +239,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         if (hdr.type == ET_SHARED)
             virt += RTDL_ADDR;
 
-        vmm_map(task->addrspace, virt, addr, page_count, pf);
+        vmm_map(process->addrspace, virt, addr, page_count, pf);
 
         /*
          * It is better if we set initialized data to zero which is also a NULL
@@ -250,8 +250,8 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         if (debug_info) {
             klogd("ELF(%s): as 0x%016lx - %ld bytes, map 0x%11x to virt 0x%016lx, "
                   "PML4 0x%016lx, page count %ld\n",
-                  path_name, task->addrspace, phdr[i].memsz, addr, virt,
-                  task->addrspace == NULL ? NULL : task->addrspace->PML4,
+                  path_name, process->addrspace, phdr[i].memsz, addr, virt,
+                  process->addrspace == NULL ? NULL : process->addrspace->PML4,
                   page_count);
         }
 
@@ -261,13 +261,13 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
         m1.np = page_count;
         m1.flags = pf;
 
-        vec_push_back(&task->mmap_list, m1);
+        vec_push_back(&process->mmap_list, m1);
 
         memcpy((void *) PHYS_TO_VIRT(addr + misalign),
                elf_buff + phdr[i].offset, phdr[i].filesz);
 
         if (debug_info) {
-            klogd("ELF(%s): %ld hdr's task binary file size %ld "
+            klogd("ELF(%s): %ld hdr's process binary file size %ld "
                   "(mem size %ld) bytes >>>\n",
                   path_name, i, phdr[i].filesz, phdr[i].memsz);
         }
@@ -284,7 +284,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(shdr);
     m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
 
-    vec_push_back(&task->mmap_list, m);
+    vec_push_back(&process->mmap_list, m);
 
     aux->shdr = (uint64_t) shdr;
     memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));
@@ -348,7 +348,7 @@ int64_t elf_load(task_t * task, const char *path_name, uint64_t * entry,
     klogd("ELF(%s): Read header with phnum %ld, shnum %ld, entry 0x%016lx\n",
           path_name, hdr.phnum, hdr.shnum, hdr.entry);
 
-    /* It is time to free phdr, phaddr, shdr and elf_buff when task is dead. */
+    /* It is time to free phdr, phaddr, shdr and elf_buff when process is dead. */
     return 0;
 
   err_exit:

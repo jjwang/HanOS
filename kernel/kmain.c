@@ -10,12 +10,12 @@
   ACPI, HPET, CMOS, APIC, PIT, keyboard, VFS, SMP, syscall, INITRD, and terminal.
 
   It also sets up the background image, prints system information, and starts
-  the kupdateui task.
+  the kupdateui process.
 
   Finally, it executes the default shell application.
 
   History:
-    Feb 19, 2022  Added CLI task which supports some simple commands.
+    Feb 19, 2022  Added CLI process which supports some simple commands.
     May 21, 2022  Changed boot protocol to limine with corresponding
                   modifications.
     Jul 13, 2024  Added SLAB-based memory allocator.
@@ -125,7 +125,7 @@ void kdisplay(char *s, uint64_t len)
     spinlock_release(&messages_info_lock);
 }
 
-_Noreturn void kupdateui(task_id_t tid)
+_Noreturn void kupdateui(pid_t pid)
 {
     uint64_t last_ms = (hpet_get_nanos() / 1000000) % 1000;
 
@@ -170,12 +170,12 @@ _Noreturn void kupdateui(task_id_t tid)
         }
     }
 
-    (void) tid;
+    (void) pid;
 }
 
-_Noreturn void kshell(task_id_t tid)
+_Noreturn void kshell(pid_t pid)
 {
-    (void) tid;
+    (void) pid;
 
     /* If we want to trigger an exception, uncomment below code */
     /* TODO: note that below codes cannot print exception messages. We need to
@@ -258,10 +258,10 @@ _Noreturn void kshell(task_id_t tid)
     sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
 #endif
 
-    /* This should be idle task which frees resources of all dead tasks */
-    task_t *t = sched_get_current_task();
+    /* This should be idle process which frees resources of all dead processes */
+    process_t *t = sched_get_current_process();
     if (t != NULL) {
-        task_idle_proc(t->tid);
+        process_idle(t->pid);
     } else {
         while (true) {
             done();
@@ -449,16 +449,16 @@ void kmain(void)
 
     klog_debug();
 
-    task_t *tupdateui = sched_new("kupdateui", kupdateui, false);
+    process_t *tupdateui = sched_new("kupdateui", kupdateui, false);
     sched_add(tupdateui);
 
     term_clear();
 
-    task_t *tshell = sched_new("kshell", kshell, false);
+    process_t *tshell = sched_new("kshell", kshell, false);
     sched_add(tshell);
 
 #if ENABLE_MICROKERNEL_SELFTEST
-    task_t *tmktest = sched_new("mktest", mk_selftest_task, false);
+    process_t *tmktest = sched_new("mktest", mk_selftest_task, false);
     sched_add(tmktest);
 #endif
 

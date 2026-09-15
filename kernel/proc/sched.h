@@ -7,7 +7,7 @@
 
   This header file provides the definitions for scheduling-related functions 
   used in the HanOS kernel. It includes declarations for context switching, 
-  scheduling algorithms, task management, and various scheduler utilities.
+  scheduling algorithms, process management, and various scheduler utilities.
 
  @endverbatim
 
@@ -15,35 +15,35 @@
  */
 #pragma once
 
-#include <proc/task.h>
+#include <proc/process.h>
 #include <base/time.h>
 
 #define SCHED_SWITCH_TIME_CYCLE         0
 #define SCHED_SWITCH_SLEEP              1
 #define SCHED_SWITCH_FORK               2
 
-_Noreturn void task_idle_proc(task_id_t tid);
+_Noreturn void process_idle(pid_t pid);
 
 void sched_debug(bool showlog);
 
 void sched_init(const char *name, uint16_t cpu_id);
-void sched_set_spawn_hook(void (*hook) (task_t *));
-task_t *sched_new(const char *name, void (*entry)(task_id_t),
+void sched_set_spawn_hook(void (*hook) (process_t *));
+process_t *sched_new(const char *name, void (*entry)(pid_t),
                   bool usermode);
-void sched_add(task_t *t);
+void sched_add(process_t *t);
 void sched_sleep_impl(time_t ms, bool advanced);
 #define sched_sleep(x)  sched_sleep_impl(x, false)
-task_id_t sched_fork(void);
+pid_t sched_fork(void);
 void sched_exit(int64_t status);
 void sched_wait_child(time_t ms);
 void sched_wait_key(void *key, time_t ms);
 void sched_wake_key(void *key);
-task_t *sched_get_current_task(void);
+process_t *sched_get_current_process(void);
 uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);
-task_id_t sched_get_tid(void);
-task_status_t sched_get_task_status(task_id_t tid);
-int sched_reap(task_id_t tid, int64_t *status);
+pid_t sched_get_pid(void);
+process_status_t sched_get_task_status(pid_t pid);
+int sched_reap(pid_t pid, int64_t *status);
 
-task_t *sched_execve(const char *path, const char *argv[],
+process_t *sched_execve(const char *path, const char *argv[],
                      const char *envp[], const char *cwd);

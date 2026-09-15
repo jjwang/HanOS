@@ -8,7 +8,7 @@
   This file contains the implementation of functions required to handle signals
   within the HanOS kernel. It includes functions to set signal actions, change
   signal masks, and manage the default actions for various signals. The signal
-  handling mechanism allows tasks to handle asynchronous events such as interrupts,
+  handling mechanism allows processes to handle asynchronous events such as interrupts,
   exceptions, and inter-process communication.
 
  @endverbatim
@@ -17,7 +17,7 @@
  */
 #include <base/klog.h>
 #include <proc/signal.h>
-#include <proc/task.h>
+#include <proc/process.h>
 
 int32_t signal_defaultactions[NSIG] = {
     [SIGABRT] = SIG_ACTION_CORE,
@@ -52,7 +52,7 @@ int32_t signal_defaultactions[NSIG] = {
     [SIGWINCH] = SIG_ACTION_IGN
 };
 
-void signal_action(task_t * t, int64_t signal, sigaction_t * new,
+void signal_action(process_t * t, int64_t signal, sigaction_t * new,
                    sigaction_t * old)
 {
     if (!((signal) < NSIG && (signal) >= 0))
@@ -73,7 +73,7 @@ void signal_action(task_t * t, int64_t signal, sigaction_t * new,
     spinlock_release(&t->signals.lock);
 }
 
-void signal_changemask(task_t * t, int64_t how, sigset_t * new,
+void signal_changemask(process_t * t, int64_t how, sigset_t * new,
                        sigset_t * old)
 {
     if (t == NULL)
@@ -105,8 +105,8 @@ void signal_changemask(task_t * t, int64_t how, sigset_t * new,
                 break;
             }
         default:
-            kloge("signal_changemask: bad how %ld for task %ld\n",
-                  how, t->tid);
+            kloge("signal_changemask: bad how %ld for process %ld\n",
+                  how, t->pid);
         }
     }
 

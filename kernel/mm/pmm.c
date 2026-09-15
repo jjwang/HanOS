@@ -123,7 +123,7 @@ void pmm_init(struct limine_memmap_response *map, uint64_t higher_half)
     klogv("Physical memory's entry number: %ld\n", map->entry_count);
 
     /* Only use memory less than MAX_MEM_USABLE_SIZE for all kernel and user
-     * tasks.
+     * processes.
      */
     uint64_t tsize = 0;         /* Total usable size according to maximum limit */
     uint64_t lmsize = 0;        /* Last minimum usable size */

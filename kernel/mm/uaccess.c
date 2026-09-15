@@ -5,10 +5,10 @@
  @details
  @verbatim
 
-   The current HanOS address spaces map user pages into the task's own page
-   tables, and the kernel runs with the task's CR3 while handling a syscall.
-   Therefore a "copy" is a range check followed by memcpy for the current task,
-   while a cross-task copy walks the page tables and reads through the kernel
+   The current HanOS address spaces map user pages into the process's own page
+   tables, and the kernel runs with the process's CR3 while handling a syscall.
+   Therefore a "copy" is a range check followed by memcpy for the current process,
+   while a cross-process copy walks the page tables and reads through the kernel
    HHDM window.
 
  @endverbatim
@@ -19,10 +19,10 @@
 
 #include <mm/mm.h>
 #include <mm/uaccess.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <proc/sched.h>
 
-bool user_range_ok(task_t * t, const void *uptr, uint64_t len)
+bool user_range_ok(process_t * t, const void *uptr, uint64_t len)
 {
     if (len == 0)
         return true;
@@ -49,7 +49,7 @@ bool user_range_ok(task_t * t, const void *uptr, uint64_t len)
 
 uint64_t copy_from_user(void *kdst, const void *usrc, uint64_t len)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     if (!user_range_ok(t, usrc, len))
         return len;
@@ -60,7 +60,7 @@ uint64_t copy_from_user(void *kdst, const void *usrc, uint64_t len)
 
 uint64_t copy_to_user(void *udst, const void *ksrc, uint64_t len)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     if (!user_range_ok(t, udst, len))
         return len;
@@ -71,7 +71,7 @@ uint64_t copy_to_user(void *udst, const void *ksrc, uint64_t len)
 
 uint64_t clear_user(void *udst, uint64_t len)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     if (!user_range_ok(t, udst, len))
         return len;
@@ -82,7 +82,7 @@ uint64_t clear_user(void *udst, uint64_t len)
 
 int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     if (max == 0)
         return -1;
@@ -99,7 +99,7 @@ int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max)
     return -1;
 }
 
-uint64_t copy_from_task(task_t * t, void *kdst, const void *usrc,
+uint64_t copy_from_task(process_t * t, void *kdst, const void *usrc,
                         uint64_t len)
 {
     uint8_t *dst = (uint8_t *) kdst;
@@ -127,7 +127,7 @@ uint64_t copy_from_task(task_t * t, void *kdst, const void *usrc,
     return 0;
 }
 
-uint64_t copy_to_task(task_t * t, void *udst, const void *ksrc, uint64_t len)
+uint64_t copy_to_task(process_t * t, void *udst, const void *ksrc, uint64_t len)
 {
     uint64_t dst = (uint64_t) udst;
     const uint8_t *src = (const uint8_t *) ksrc;

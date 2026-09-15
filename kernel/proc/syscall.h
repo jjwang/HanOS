@@ -119,7 +119,7 @@
 #define X86_EFLAGS_DF   0x00000400      /* Direction Flag */
 #define X86_EFLAGS_OF   0x00000800      /* Overflow Flag */
 #define X86_EFLAGS_IOPL 0x00003000      /* IOPL mask */
-#define X86_EFLAGS_NT   0x00004000      /* Nested Task */
+#define X86_EFLAGS_NT   0x00004000      /* Nested Process */
 #define X86_EFLAGS_RF   0x00010000      /* Resume Flag */
 #define X86_EFLAGS_VM   0x00020000      /* Virtual Mode */
 #define X86_EFLAGS_AC   0x00040000      /* Alignment Check */

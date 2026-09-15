@@ -8,7 +8,7 @@
    A notify_t is an endpoint plus a pending-type mask. It is the mechanism that
    will replace the ad-hoc event bus once servers move out of the kernel: an
    interrupt handler or a driver publishes a typed notification and a sleeping
-   task subscribes to it.
+   process subscribes to it.
 
  @endverbatim
 
@@ -21,7 +21,7 @@
 
 #include <base/spinlock.h>
 #include <ipc/ipc.h>
-#include <proc/task.h>
+#include <proc/process.h>
 
 typedef struct {
     endpoint_t *ep;

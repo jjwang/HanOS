@@ -543,20 +543,20 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     /* Return the handle */
     vfs_handle_t fh = vfs_next_handle++;
 
-    /* Add to current task */
-    task_t *t = sched_get_current_task();
+    /* Add to current process */
+    process_t *t = sched_get_current_process();
     if (t != NULL) {
         ht_insert(&(t->open_files_table), fh, fd);
     } else {
-        kloge("VFS: cannot insert \"%s\" because of invalid task\n", path);
+        kloge("VFS: cannot insert \"%s\" because of invalid process\n", path);
     }
 
     spinlock_release(&vfs_lock);
 
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
         klogi
-            ("VFS: Open %s with mode 0x%016lx and return handle %ld, task id %ld\n",
-             path, mode, fh, t != NULL ? t->tid : 0);
+            ("VFS: Open %s with mode 0x%016lx and return handle %ld, process id %ld\n",
+             path, mode, fh, t != NULL ? t->pid : 0);
     } else if (strcmp(path, "/dev/tty") != 0) {
         klogd("VFS: Open %s with mode 0x%016lx and return handle %ld, "
               "nd = 0x%016lx, inode = 0x%016lx\n", path, mode, fh, fd, fd->inode);
@@ -614,11 +614,11 @@ int64_t vfs_close(vfs_handle_t handle)
         fd->inode->writecount--;
     }
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t != NULL) {
         ht_delete(&(t->open_files_table), handle);
     } else {
-        kloge("VFS: cannot remove file %ld because of invalid task\n",
+        kloge("VFS: cannot remove file %ld because of invalid process\n",
               handle);
     }
 

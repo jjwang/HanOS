@@ -27,7 +27,7 @@
 #include <base/vector.h>
 #include <base/klog.h>
 #include <base/time.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <proc/sched.h>
 #include <device/display/gfx.h>
 #include <device/display/gfx_reg.h>
@@ -99,7 +99,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
 {
     uint32_t id = PCI_MAKE_ID(dev.bus, dev.device, dev.func);
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     addrspace_t *as = NULL;
 
     if (t != NULL)

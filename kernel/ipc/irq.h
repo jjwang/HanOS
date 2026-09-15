@@ -5,7 +5,7 @@
  @details
  @verbatim
 
-   An irq_obj_t represents one hardware interrupt line. A driver task binds it
+   An irq_obj_t represents one hardware interrupt line. A driver process binds it
    to an endpoint; when the interrupt fires, the kernel sends a short IPC
    message to that endpoint and the driver acknowledges it with irq_ack().
    Until a line is bound to an endpoint, the in-kernel handler runs as before.
