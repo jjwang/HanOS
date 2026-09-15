@@ -93,20 +93,35 @@ static void putpixel(uint32_t x, uint32_t y, uint32_t c)
     *(uint32_t *) (back + (uint64_t) y * fb_pitch + (uint64_t) x * 4) = c;
 }
 
-static void draw_ch(uint8_t ch)
+static void draw_cell(uint32_t col, uint32_t row, uint8_t ch)
 {
     psf1_t *f = &term_font_norm;
     uint32_t off = (uint32_t) ch * f->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
+    if (col >= cols || row >= rows)
+        return;
+
     for (uint32_t i = 0; i < FONT_H; i++) {
         for (uint32_t k = 0; k < FONT_W; k++) {
             uint32_t c = (i < f->charsize && (f->data[off + i] & masks[k]))
                 ? fg : bg;
-            putpixel(cx * FONT_W + k, cy * FONT_H + i, c);
+            putpixel(col * FONT_W + k, row * FONT_H + i, c);
         }
-        mark_row(cy * FONT_H + i);
+        mark_row(row * FONT_H + i);
     }
+}
+
+static void draw_ch(uint8_t ch)
+{
+    draw_cell(cx, cy, ch);
+}
+
+/* Draw the cursor glyph in the next cell: an underscore when visible, a
+ * space when hidden. */
+static void draw_cursor(bool visible)
+{
+    draw_cell(cx, cy, visible ? '_' : ' ');
 }
 
 static void scroll(void)
@@ -255,14 +270,33 @@ int main(void)
     /* Keep whatever the kernel already drew. */
     memcpy(back, fbio, (uint64_t) fb_pitch * fb_h);
 
+    /* Blink the cursor while the queue is idle; keep it solid while output
+     * is being drawn. */
+    bool cursor_drawn = false;
+    bool blink_on = true;
+
     for (;;) {
         sys_ipc_msg_t m;
-        if (sys_ipc_recv((int64_t) bi.console_ep, &m) != 0)
-            continue;
+        int r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m, 500);
 
-        process(&m);
-        while (sys_ipc_recv_nb((int64_t) bi.console_ep, &m) == 0)
+        if (cursor_drawn) {
+            draw_cursor(false);
+            cursor_drawn = false;
+        }
+
+        if (r == 0) {
             process(&m);
+            while (sys_ipc_recv_nb((int64_t) bi.console_ep, &m) == 0)
+                process(&m);
+            blink_on = true;
+        } else {
+            blink_on = !blink_on;
+        }
+
+        if (blink_on) {
+            draw_cursor(true);
+            cursor_drawn = true;
+        }
 
         flush();
     }
