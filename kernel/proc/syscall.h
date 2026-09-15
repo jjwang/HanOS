@@ -72,6 +72,7 @@
 #define SYSCALL_IOPORT_ACCESS 61
 #define SYSCALL_BOOTINFO    63
 #define SYSCALL_IPC_RECV_NB 64
+#define SYSCALL_IPC_RECV_TIMEOUT 65
 
 /* Standard I/O devices */
 #define STDIN               0

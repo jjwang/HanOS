@@ -1873,6 +1873,29 @@ int64_t k_ipc_recv_nb(int64_t handle, void *umsg)
     return 0;
 }
 
+int64_t k_ipc_recv_timeout(int64_t handle, void *umsg, int64_t timeout)
+{
+    endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_RECV);
+    if (ep == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t m;
+    if (ipc_recv_timeout(ep, &m, (time_t) timeout) != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
 int64_t k_bootinfo(void *ubi)
 {
     task_t *t = sched_get_current_task();
@@ -1948,7 +1971,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close,     /* 60 */
     [SYSCALL_IOPORT_ACCESS] = (syscall_ptr_t) k_ioport_access,
     [SYSCALL_BOOTINFO] = (syscall_ptr_t) k_bootinfo,              /* 63 */
-    [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb
+    [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb,
+    [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout
 };
 
 void syscall_init(void)
