@@ -74,7 +74,7 @@ void pmm_free(uint64_t addr, uint64_t numpages,
     /* The below log is for debugging memory leaks */
     if (numpages > 8 && debug_info) {
         klogi
-            ("pmm_free: %s(%ld) free 0x%11x %ld pages and available memory are "
+            ("pmm_free: %s(%ld) free 0x%11lx %ld pages and available memory are "
              "%ld bytes\n", func, line, addr, numpages,
              kmem_info.free_size);
     }
@@ -97,7 +97,7 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
         if (pmm_alloc(i, numpages)) {
             if (numpages > 8 && debug_info) {
                 klogi
-                    ("pmm_get: %s(%ld) gets 0x%11x with %ld pages from memory "
+                    ("pmm_get: %s(%ld) gets 0x%11lx with %ld pages from memory "
                      "%ld bytes\n", func, line, i, numpages,
                      kmem_info.free_size);
             }

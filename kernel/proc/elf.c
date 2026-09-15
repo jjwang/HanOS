@@ -248,7 +248,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
         memset((void *) PHYS_TO_VIRT(addr), 0, PAGE_SIZE * page_count);
 
         if (debug_info) {
-            klogd("ELF(%s): as 0x%016lx - %ld bytes, map 0x%11x to virt 0x%016lx, "
+            klogd("ELF(%s): as 0x%016lx - %ld bytes, map 0x%11lx to virt 0x%016lx, "
                   "PML4 0x%016lx, page count %ld\n",
                   path_name, process->addrspace, phdr[i].memsz, addr, virt,
                   process->addrspace == NULL ? NULL : process->addrspace->PML4,
