@@ -119,6 +119,7 @@
 #define SYSCALL_IOPORT_ACCESS 61
 #define SYSCALL_BOOTINFO     63
 #define SYSCALL_IPC_RECV_NB  64
+#define SYSCALL_IPC_RECV_TIMEOUT 65
 
 void sys_libc_log(const char *message)
 {
@@ -319,6 +320,14 @@ int sys_ipc_recv_nb(int64_t handle, sys_ipc_msg_t * msg)
 {
     int64_t ret, errno;
     SYSCALL2(SYSCALL_IPC_RECV_NB, handle, msg);
+    return (int) ret;
+}
+
+int sys_ipc_recv_timeout(int64_t handle, sys_ipc_msg_t * msg,
+                         int64_t timeout_ms)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_IPC_RECV_TIMEOUT, handle, msg, timeout_ms);
     return (int) ret;
 }
 
