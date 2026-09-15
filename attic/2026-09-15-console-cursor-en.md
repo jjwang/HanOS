@@ -7,7 +7,7 @@ screen; the server previously rendered text but never drew a cursor.
 
 ## Changes
 
-- `userspace/console.c`: draw the cursor glyph in the next cell and blink it
+- `userspace/console.c`: draw a block cursor in the next cell and blink it
   every 500 ms, keeping it solid while output is being drawn. Rendering was
   split into `draw_cell()` so any cell can be drawn, including the cursor.
 - `kernel/proc/syscall.{c,h}` and `libc/sysfunc.{c,h}`: add `IPC_RECV_TIMEOUT`
