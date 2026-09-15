@@ -118,8 +118,8 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->gtt_addr =
         (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
-    klogi("\tGTTMMADR: 0x%11x (%ld MB) on address space 0x%016lx\n",
-          bar.u.address, bar.size / MB, as);
+    klogi("\tGTTMMADR: 0x%11lx (%ld MB) on address space 0x%016lx\n",
+          (uint64_t) bar.u.address, bar.size / MB, as);
 
     vmm_map(as, (uint64_t) pci->mmio_bar, (uint64_t) bar.u.address,
             NUM_PAGES(bar.size), VMM_FLAGS_MMIO);
@@ -132,7 +132,8 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci_get_bar(&bar, id, 2);
     pci->aperture_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->aperture_size = bar.size;
-    klogi("\tGMADR:    0x%11x (%ld MB)\n", bar.u.address, bar.size / MB);
+    klogi("\tGMADR:    0x%11lx (%ld MB)\n", (uint64_t) bar.u.address,
+          bar.size / MB);
 
     vmm_map(as, (uint64_t) pci->aperture_bar, (uint64_t) bar.u.address,
             NUM_PAGES(bar.size), VMM_FLAGS_DEFAULT);

@@ -823,8 +823,8 @@ static int _vsnprintf(out_fct_type out, char* buffer, const uint64_t maxlen, con
       }
 
       case 'p' : {
-        width = sizeof(void*) * 2U;
-        flags |= FLAGS_ZEROPAD | FLAGS_UPPERCASE;
+        // standard: "0x" followed by the pointer in lowercase hex
+        flags |= FLAGS_HASH;
 #if defined(PRINTF_SUPPORT_LONG_LONG)
         const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
         if (is_ll) {
