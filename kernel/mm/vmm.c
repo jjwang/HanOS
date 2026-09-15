@@ -253,7 +253,7 @@ uint64_t vmm_query(addrspace_t * addrspace, uint64_t vaddr)
     return pt[pte];
 }
 
-/* Map a physical range into a task address space. Intended for device MMIO and
+/* Map a physical range into a process address space. Intended for device MMIO and
  * memory-object grants; the caller is responsible for the rights (flags). */
 void vmm_map_task_phys(addrspace_t * addrspace, uint64_t vaddr,
                        uint64_t paddr, uint64_t np, uint64_t flags)
@@ -318,14 +318,14 @@ void vmm_init(struct limine_memmap_response *map,
     klogd("VMM: PML4 of kernel address space - 0x%016lx\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
-    /* We only need to map all memories as below for kernel task, so we do not
+    /* We only need to map all memories as below for kernel process, so we do not
      * call vmm_map() function.
      *
      * - For ENABLE_MEM_DEBUG definition
      *
-     * For memory debuging purpose, we totally map 1GB memory for all tasks
+     * For memory debuging purpose, we totally map 1GB memory for all processes
      * to access these memories. If we map all physical memories, there will be
-     * #PF (page fault) exception when forking 2 or more tasks.
+     * #PF (page fault) exception when forking 2 or more processes.
      * 
      * - For UEFI mode
      *
@@ -348,13 +348,13 @@ void vmm_init(struct limine_memmap_response *map,
         if (entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
             uint64_t vaddr = kernel->virtual_base
                 + entry->base - kernel->physical_base;
-            /* vmm_map: this should share for all tasks */
+            /* vmm_map: this should share for all processes */
             vmm_map(NULL, vaddr, entry->base, NUM_PAGES(entry->length),
                     VMM_FLAGS_DEFAULT);
             klogi("[K] Mapped kernel 0x%09x to 0x%016lx (len: %ld, #%ld)\n",
                   entry->base, vaddr, entry->length, i);
         } else if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
-            /* vmm_map: this should share for all tasks */
+            /* vmm_map: this should share for all processes */
             vmm_map(NULL, PHYS_TO_VIRT(entry->base), entry->base,
                     NUM_PAGES(entry->length), VMM_FLAGS_FB_WC);
             klogi("[F] Mapped framebuffer 0x%09x to 0x%016lx (len: %ld, #%ld)\n",
@@ -375,7 +375,7 @@ void vmm_init(struct limine_memmap_response *map,
             klogi("[U] Mapped 0x%09x to 0x%016lx(len: %ld, type %ld, #%ld, %s)\n",
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length,
                   entry->type, i,
-                  is_mem_bitmap_loc ? "all tasks [bitmap]" :
+                  is_mem_bitmap_loc ? "all processes [bitmap]" :
                   "kernel only");
         }
     }

@@ -10,12 +10,12 @@
 
 static struct {
     endpoint_t *ep;
-    task_id_t owner;
+    pid_t owner;
 } services[SVC_COUNT];
 
 static spinlock_t service_lock;
 
-void service_register(service_id_t id, endpoint_t *ep, task_id_t owner)
+void service_register(service_id_t id, endpoint_t *ep, pid_t owner)
 {
     if (id >= SVC_COUNT)
         return;

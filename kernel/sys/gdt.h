@@ -23,7 +23,7 @@
 #define AC_DC       0x4         /* direction */
 #define AC_EX       0x8         /* executable, code segment */
 #define AC_ST       0x10        /* Descriptor type bit. If clear (0) the descriptor
-                                 * defines a system segment (eg. a Task State Segment).
+                                 * defines a system segment (eg. a Process State Segment).
                                  * If set (1) it defines a code or data segment
                                  */
 #define AC_PR       0x80        /* persent in memory, Must be set (1) for any valid

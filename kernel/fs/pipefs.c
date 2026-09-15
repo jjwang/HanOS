@@ -191,7 +191,7 @@ int64_t pipefs_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     /* We do not use offset here */
     (void) offset;
 
-    /* According to standard pipe implementation, the task should be blocked
+    /* According to standard pipe implementation, the process should be blocked
      * here until there are data available.
      */
     int64_t rlen = 0;
@@ -233,7 +233,7 @@ int64_t pipefs_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
     /* We do not use offset here */
     (void) offset;
 
-    /* According to standard pipe implementation, the task should be blocked
+    /* According to standard pipe implementation, the process should be blocked
      * here until there are rooms available in the pipe.
      */
     int64_t wlen = 0;

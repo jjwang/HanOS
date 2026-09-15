@@ -1,13 +1,13 @@
 /**-----------------------------------------------------------------------------
 
  @file    object.h
- @brief   Kernel object and per-task handle model
+ @brief   Kernel object and per-process handle model
  @details
  @verbatim
 
    Every kernel object that can be referenced from user space (endpoints,
    memory objects, IRQs, ...) is wrapped in a kernel_object_t and only reachable
-   through a handle stored in the owning task's handle table. A handle encodes
+   through a handle stored in the owning process's handle table. A handle encodes
    the slot index and a generation so a stale handle fails after its slot is
    reused. This is the basis for capability passing in later phases.
 

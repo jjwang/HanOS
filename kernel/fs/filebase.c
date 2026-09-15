@@ -49,8 +49,8 @@ int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
     full_path[0] = '\0';
 
     if ((int32_t) dirfh == (int32_t) VFS_FDCWD) {
-        /* Get the parent path name from TCB (task control block) */
-        task_t *t = sched_get_current_task();
+        /* Get the parent path name from TCB (process control block) */
+        process_t *t = sched_get_current_process();
         if (t != NULL) {
             if (path[0] != '/') 
                 strcpy(full_path, t->cwd);
@@ -178,15 +178,15 @@ void vfs_free_nodes(vfs_tnode_t * tnode)
 /* Return the node descriptor for a handle */
 vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t != NULL) {
         vfs_node_desc_t *fd =
             (vfs_node_desc_t *) ht_search(&(t->open_files_table), handle);
         if (fd != NULL)
             return fd;
         klogw
-            ("VFS: %s() cannot locate %ld (0x%016lx) in file list of task %ld\n",
-             func, handle, handle, t->tid);
+            ("VFS: %s() cannot locate %ld (0x%016lx) in file list of process %ld\n",
+             func, handle, handle, t->pid);
     }
     return NULL;
 }

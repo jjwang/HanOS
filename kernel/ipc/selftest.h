@@ -7,6 +7,6 @@
  */
 #pragma once
 
-#include <proc/task.h>
+#include <proc/process.h>
 
-_Noreturn void mk_selftest_task(task_id_t tid);
+_Noreturn void mk_selftest_task(pid_t pid);

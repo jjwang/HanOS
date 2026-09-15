@@ -33,7 +33,7 @@
 #include <mm/uaccess.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <proc/sched.h>
 #include <proc/wait.h>
 #include <proc/syscall.h>
@@ -139,7 +139,7 @@ int64_t k_debug_log(char *message)
 
 int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -177,7 +177,7 @@ int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
 
 int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     int64_t signal = (int64_t) ((int32_t) s);
 
     cpu_set_errno(0);
@@ -287,12 +287,12 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
 
     cpu_set_errno(0);
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     addrspace_t *as = NULL;
 
     if (t != NULL) {
-        if (t->tid < 1)
-            kpanic("SYSCALL: %s meets corrupted tid\n", __func__);
+        if (t->pid < 1)
+            kpanic("SYSCALL: %s meets corrupted pid\n", __func__);
         as = t->addrspace;
     }
 
@@ -338,8 +338,8 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
 
     if (debug_info) {
         klogi
-            ("k_vm_map: tid %ld #%ld 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
-             "pages, prot 0x%016lx, flags 0x%016lx\n", t->tid,
+            ("k_vm_map: pid %ld #%ld 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
+             "pages, prot 0x%016lx, flags 0x%016lx\n", t->pid,
              vec_length(&t->mmap_list), as, as->PML4, phys_ptr, ptr, np,
              prot, flags);
     }
@@ -356,8 +356,8 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     return ptr;
 
   err_exit:
-    kloge("k_vm_map: tid %ld 0x%016lx(PML4 0x%016lx) returns NULL in malloc()\n",
-          t->tid, as, as->PML4);
+    kloge("k_vm_map: pid %ld 0x%016lx(PML4 0x%016lx) returns NULL in malloc()\n",
+          t->pid, as, as->PML4);
     return -1;
 }
 
@@ -366,12 +366,12 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     /* Need to implement memory free */
     cpu_set_errno(0);
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     addrspace_t *as = NULL;
 
     if (t != NULL) {
-        if (t->tid < 1)
-            kpanic("SYSCALL: %s meets corrupted tid\n", __func__);
+        if (t->pid < 1)
+            kpanic("SYSCALL: %s meets corrupted pid\n", __func__);
         as = t->addrspace;
     }
 
@@ -621,7 +621,7 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
 
 int64_t k_close(int64_t fh)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     klogd("k_close: close file handle %ld\n", fh);
@@ -667,7 +667,7 @@ int64_t k_close(int64_t fh)
 
 int64_t k_read(int64_t fh, void *buf, uint64_t count)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (buf != NULL && count > 0 && !user_range_ok(t, buf, count)) {
@@ -723,12 +723,12 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     }
 }
 
-static task_id_t last_write_task_id = 0;
+static pid_t last_write_task_id = 0;
 static uint64_t last_write_nanos = 0;
 
 int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     cpu_set_errno(0);
 
@@ -775,7 +775,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                 }
             }
 
-            if (last_write_task_id != t->tid && last_write_nanos != 0) {
+            if (last_write_task_id != t->pid && last_write_nanos != 0) {
                 while (hpet_get_nanos() - last_write_nanos
                        <= MILLIS_TO_NANOS(250)) {
                     sched_sleep(100);
@@ -783,7 +783,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
             }
 
             spinlock_acquire(&vfs_lock);
-            last_write_task_id = t->tid;
+            last_write_task_id = t->pid;
             last_write_nanos = hpet_get_nanos();
             spinlock_release(&vfs_lock);
 
@@ -808,9 +808,9 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 
 void k_set_fs_base(uint64_t val)
 {
-    task_t *t = sched_get_current_task();
-    klogd("k_set_fs_base: task #%ld set to 0x%016lx\n",
-          t == NULL ? 0 : t->tid, val);
+    process_t *t = sched_get_current_process();
+    klogd("k_set_fs_base: process #%ld set to 0x%016lx\n",
+          t == NULL ? 0 : t->pid, val);
     write_msr(MSR_FS_BASE, val);
     if (t != NULL)
         t->fs_base = val;
@@ -961,13 +961,13 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
 
 int64_t k_getpid()
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (t != NULL) {
-        klogd("k_getpid: task #%ld\n", t->tid);
-        if (t->tid >= 1)
-            return t->tid;
+        klogd("k_getpid: process #%ld\n", t->pid);
+        if (t->pid >= 1)
+            return t->pid;
     }
 
     cpu_set_errno(EINVAL);
@@ -976,7 +976,7 @@ int64_t k_getpid()
 
 int64_t k_chdir(char *dir)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     char kdir[VFS_MAX_PATH_LEN] = { 0 };
@@ -1001,7 +1001,7 @@ int64_t k_chdir(char *dir)
         goto err_exit;
     }
 
-    if (t->tid < 1) {
+    if (t->pid < 1) {
         cpu_set_errno(ESRCH);
         goto err_exit;
     }
@@ -1120,7 +1120,7 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
 
 int64_t k_meminfo()
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (t == NULL) {
@@ -1128,7 +1128,7 @@ int64_t k_meminfo()
         goto err_exit;
     }
 
-    if (t->tid < 1) {
+    if (t->pid < 1) {
         cpu_set_errno(ESRCH);
         goto err_exit;
     }
@@ -1144,7 +1144,7 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
 {
     (void) flags;
 
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (t == NULL) {
@@ -1152,7 +1152,7 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
         goto err_exit;
     }
 
-    if (t->tid < 1) {
+    if (t->pid < 1) {
         cpu_set_errno(ESRCH);
         goto err_exit;
     }
@@ -1187,7 +1187,7 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
 
 int64_t k_fork()
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (t == NULL) {
@@ -1195,32 +1195,32 @@ int64_t k_fork()
         goto err_exit;
     }
 
-    if (t->tid < 1) {
+    if (t->pid < 1) {
         cpu_set_errno(ESRCH);
         goto err_exit;
     }
 
-    task_id_t tid_child = sched_fork();
-    task_t *curr_task = sched_get_current_task();
+    pid_t tid_child = sched_fork();
+    process_t *curr_task = sched_get_current_process();
 
-    klogd("k_fork: parent task id #%ld, current task id #%ld, PML4 0x%016lx, "
+    klogd("k_fork: parent process id #%ld, current process id #%ld, PML4 0x%016lx, "
           "sched_fork() returns #%ld\n",
-          t->tid, sched_get_tid(), curr_task->addrspace->PML4, tid_child);
+          t->pid, sched_get_pid(), curr_task->addrspace->PML4, tid_child);
 
-    if (tid_child == TID_MAX) {
+    if (tid_child == PID_MAX) {
         cpu_set_errno(ECHILD);
         return -1;
-    } else if (t->tid == sched_get_tid()) {
+    } else if (t->pid == sched_get_pid()) {
         /*
-         * This should be parent process and returns child task id, but
-         * currently it returns parent task id
+         * This should be parent process and returns child process id, but
+         * currently it returns parent process id
          */
-        klogd("k_fork: return %ld from parent task #%ld\n", tid_child,
-              t->tid);
+        klogd("k_fork: return %ld from parent process #%ld\n", tid_child,
+              t->pid);
         return tid_child;
     } else {
         /* This should be child process and returns 0 */
-        klogd("k_fork: return 0 from child task #%ld\n", tid_child);
+        klogd("k_fork: return 0 from child process #%ld\n", tid_child);
         return 0;
     }
   err_exit:
@@ -1242,7 +1242,7 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 
 int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 {
-    task_t *parent = sched_get_current_task();
+    process_t *parent = sched_get_current_process();
 
     if (status != NULL && clear_user(status, sizeof(*status)) != 0) {
         cpu_set_errno(EFAULT);
@@ -1261,13 +1261,13 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
     bool nohang = (flags & WNOHANG) != 0;
 
     while (true) {
-        task_id_t *children = NULL;
+        pid_t *children = NULL;
         uint64_t len;
 
         spinlock_acquire(&parent->child_lock);
         len = vec_length(&(parent->child_list));
         if (len > 0) {
-            children = kmalloc(len * sizeof(task_id_t));
+            children = kmalloc(len * sizeof(pid_t));
             if (children != NULL) {
                 for (uint64_t i = 0; i < len; i++)
                     children[i] = vec_at(&(parent->child_list), i);
@@ -1286,7 +1286,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 
         bool have_child = false;
         bool reaped = false;
-        task_id_t reaped_tid = TID_NONE;
+        pid_t reaped_pid = PID_NONE;
         int64_t exit_status = 0;
 
         for (uint64_t i = 0; i < len; i++) {
@@ -1299,14 +1299,14 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
             int rc = sched_reap(children[i], &st);
             if (rc == 1) {
                 reaped = true;
-                reaped_tid = children[i];
+                reaped_pid = children[i];
                 exit_status = st;
                 break;
             }
             if (rc == -1) {
                 /* The child was already reaped by an idle core. */
                 reaped = true;
-                reaped_tid = children[i];
+                reaped_pid = children[i];
                 break;
             }
         }
@@ -1317,7 +1317,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
         if (reaped) {
             spinlock_acquire(&parent->child_lock);
             for (uint64_t i = 0; i < vec_length(&(parent->child_list)); i++) {
-                if (vec_at(&(parent->child_list), i) == reaped_tid) {
+                if (vec_at(&(parent->child_list), i) == reaped_pid) {
                     vec_erase(&(parent->child_list), i);
                     break;
                 }
@@ -1332,7 +1332,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
                 }
             }
             cpu_set_errno(0);
-            return reaped_tid;
+            return reaped_pid;
         }
 
         if (!have_child) {
@@ -1351,9 +1351,9 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 
 void k_exit(int64_t status)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t != NULL) {
-        klogi("k_exit: task %ld exit with status %ld\n", t->tid, status);
+        klogi("k_exit: process %ld exit with status %ld\n", t->pid, status);
     } else {
         goto normal_exit;
     }
@@ -1373,7 +1373,7 @@ void k_exit(int64_t status)
 
 int k_getcwd(char *buffer, uint64_t size)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (buffer == NULL || size <= 0) {
@@ -1386,7 +1386,7 @@ int k_getcwd(char *buffer, uint64_t size)
         goto err_exit;
     }
 
-    if (t->tid < 1) {
+    if (t->pid < 1) {
         cpu_set_errno(ESRCH);
         goto err_exit;
     }
@@ -1426,7 +1426,7 @@ int k_getrusage(int64_t who, uint64_t usage)
 int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 {
     char *cwd = NULL;
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t != NULL)
         cwd = t->cwd;
 
@@ -1451,8 +1451,8 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     const char **kenvp_p = (envp != NULL) ? (const char **) kenvp : NULL;
 
     if (sched_execve(kpath, kargv_p, kenvp_p, cwd) != NULL) {
-        klogi("k_execve: run \"%s\" and exit from task %ld\n", kpath,
-              t != NULL ? t->tid : 0);
+        klogi("k_execve: run \"%s\" and exit from process %ld\n", kpath,
+              t != NULL ? t->pid : 0);
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
         sched_exit(0);
@@ -1555,7 +1555,7 @@ void k_uname(void)
 
 int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     if (t == NULL) {
@@ -1563,8 +1563,8 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
         return -1;
     }
 
-    klogd("k_dup3: tid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
-          t->tid, fh, newfh, flags);
+    klogd("k_dup3: pid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
+          t->pid, fh, newfh, flags);
 
     spinlock_acquire(&vfs_lock);
     file_dup_t dup = {.fh = fh,.newfh = newfh };
@@ -1615,7 +1615,7 @@ int64_t k_futex_wake(int64_t * ptr)
 
 int64_t k_ep_create(void)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -1643,7 +1643,7 @@ int64_t k_ep_create(void)
 
 static endpoint_t *k_ipc_resolve(int64_t handle, uint32_t rights)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL)
         return NULL;
 
@@ -1753,7 +1753,7 @@ int64_t k_ipc_reply(int64_t handle, void *umsg)
 
 int64_t k_handle_close(int64_t handle)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL || handle_close(&t->handles, (handle_t) handle) != 0) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -1765,7 +1765,7 @@ int64_t k_handle_close(int64_t handle)
 
 int64_t k_irq_bind(int64_t irq_handle, int64_t ep_handle)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -1789,7 +1789,7 @@ int64_t k_irq_bind(int64_t irq_handle, int64_t ep_handle)
 
 int64_t k_irq_ack(int64_t irq_handle)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     if (t == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -1810,7 +1810,7 @@ int64_t k_irq_ack(int64_t irq_handle)
 int64_t k_ioport_access(int64_t op, int64_t port, int64_t width,
                         int64_t value)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
     bool allowed = false;
@@ -1898,7 +1898,7 @@ int64_t k_ipc_recv_timeout(int64_t handle, void *umsg, int64_t timeout)
 
 int64_t k_bootinfo(void *ubi)
 {
-    task_t *t = sched_get_current_task();
+    process_t *t = sched_get_current_process();
 
     if (t == NULL || t->bootinfo == NULL) {
         cpu_set_errno(ENOENT);

@@ -20,7 +20,7 @@
 
 static endpoint_t *console_in_ep = NULL;
 static bool console_active = false;
-static task_id_t console_spawner = TID_MAX;
+static pid_t console_spawner = PID_MAX;
 static uint64_t console_fb_size = 0;
 
 /* Output from kprintf() is buffered here and forwarded by a kernel thread.
@@ -38,11 +38,11 @@ static bool console_ring_empty(void)
     return console_ring_head == console_ring_tail;
 }
 
-_Noreturn static void console_flush_kthread(task_id_t tid);
+_Noreturn static void console_flush_kthread(pid_t pid);
 
-static void console_spawn_attach(task_t * tc)
+static void console_spawn_attach(process_t * tc)
 {
-    if (sched_get_tid() != console_spawner)
+    if (sched_get_pid() != console_spawner)
         return;
 
     fb_info_t *fb = term_get_fb();
@@ -96,15 +96,15 @@ bool console_server_start(void)
 
     const char *argv[] = { "console", NULL };
 
-    console_spawner = sched_get_tid();
+    console_spawner = sched_get_pid();
     sched_set_spawn_hook(console_spawn_attach);
-    task_t *tc = sched_execve(DEFAULT_CONSOLE_SVR, argv, NULL, "/");
+    process_t *tc = sched_execve(DEFAULT_CONSOLE_SVR, argv, NULL, "/");
     sched_set_spawn_hook(NULL);
 
     if (tc == NULL)
         return false;
 
-    task_t *tf = sched_new("conflush", console_flush_kthread, false);
+    process_t *tf = sched_new("conflush", console_flush_kthread, false);
     if (tf != NULL)
         sched_add(tf);
 
@@ -138,11 +138,11 @@ bool console_write_buf(const char *buf, uint64_t len)
     return true;
 }
 
-/* Forward buffered output to the userspace server. This runs as its own task
+/* Forward buffered output to the userspace server. This runs as its own process
  * so it may yield while the server drains, unlike the kprintf() caller. */
-_Noreturn static void console_flush_kthread(task_id_t tid)
+_Noreturn static void console_flush_kthread(pid_t pid)
 {
-    (void) tid;
+    (void) pid;
 
     for (;;) {
         while (!console_ring_empty()) {

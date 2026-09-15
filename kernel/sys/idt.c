@@ -7,7 +7,7 @@
 
   The Interrupt Descriptor Table (idt) telling the CPU where the Interrupt
   Service Routines (ISR) are located (one per interrupt vector). The idt
-  entries are called gates. It can contain Interrupt Gates, Task Gates and
+  entries are called gates. It can contain Interrupt Gates, Process Gates and
   Trap Gates. As the first step, only trap gates (exceptions) are
   implemented.
 

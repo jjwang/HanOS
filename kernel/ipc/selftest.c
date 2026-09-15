@@ -5,8 +5,8 @@
  @details
  @verbatim
 
-   Runs in a kernel task once the scheduler is up. It exercises the endpoint
-   queue, the IPC timeout path, and the per-task handle table, then logs
+   Runs in a kernel process once the scheduler is up. It exercises the endpoint
+   queue, the IPC timeout path, and the per-process handle table, then logs
    "MK: selftest PASS" or "MK: selftest FAIL".
 
  @endverbatim
@@ -20,11 +20,11 @@
 #include <ipc/irq.h>
 #include <ipc/selftest.h>
 #include <proc/sched.h>
-#include <proc/task.h>
+#include <proc/process.h>
 
-_Noreturn void mk_selftest_task(task_id_t tid)
+_Noreturn void mk_selftest_task(pid_t pid)
 {
-    (void) tid;
+    (void) pid;
 
     bool ok = true;
     endpoint_t *ep = endpoint_create();
@@ -51,7 +51,7 @@ _Noreturn void mk_selftest_task(task_id_t tid)
             ok = false;
 
         /* Handle table round trip. */
-        task_t *t = sched_get_current_task();
+        process_t *t = sched_get_current_process();
         handle_t h = handle_alloc(&t->handles, endpoint_object(ep),
                                   HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV);
         if (h == HANDLE_INVALID) {

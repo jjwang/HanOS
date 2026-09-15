@@ -1,11 +1,11 @@
 /**-----------------------------------------------------------------------------
 
- @file    task.h
- @brief   Definition of task related functions
+ @file    process.h
+ @brief   Definition of process related functions
  @details
  @verbatim
 
-  Create and return task data structure which contains registers and other task
+  Create and return process data structure which contains registers and other process
   related information.
 
   Below is interrupt related information.
@@ -106,7 +106,7 @@
  * 10       DF  Direction flag
  * 11       OF  Overflow flag
  * 12-13    IOPL    I/O privilege level
- * 14       NT  Nested task flag
+ * 14       NT  Nested process flag
  * 16       RF  Resume flag
  * 17       VM  Virtual 8086 mode flag
  * 18       AC  Alignment check
@@ -133,11 +133,11 @@
  */
 #define DEFAULT_RFLAGS          0b0000001000000010      /* 0x0202 */
 
-#define TID_MAX                 UINT64_MAX
-#define TID_NONE                0
+#define PID_MAX                 UINT64_MAX
+#define PID_NONE                0
 
-typedef uint64_t task_id_t;
-typedef uint8_t task_priority_t;
+typedef uint64_t pid_t;
+typedef uint8_t process_priority_t;
 
 typedef struct[[gnu::packed]] {
     uint64_t entry;
@@ -150,18 +150,18 @@ typedef struct[[gnu::packed]] {
 } auxval_t;
 
 typedef enum {
-    TASK_KERNEL_MODE,
-    TASK_USER_MODE
-} task_mode_t;
+    PROC_KERNEL_MODE,
+    PROC_USER_MODE
+} process_mode_t;
 
 typedef enum {
-    TASK_READY,
-    TASK_RUNNING,
-    TASK_SLEEPING,
-    TASK_DYING,
-    TASK_DEAD,
-    TASK_UNKNOWN
-} task_status_t;
+    PROC_READY,
+    PROC_RUNNING,
+    PROC_SLEEPING,
+    PROC_DYING,
+    PROC_DEAD,
+    PROC_UNKNOWN
+} process_status_t;
 
 typedef struct[[gnu::packed]] {
     uint64_t r15;
@@ -184,7 +184,7 @@ typedef struct[[gnu::packed]] {
     uint64_t rflags;
     uint64_t rsp;
     uint64_t ss;
-} task_regs_t;
+} process_regs_t;
 
 typedef enum {
     EVENT_UNDEFINED = 1,
@@ -196,11 +196,8 @@ typedef enum {
 typedef uint64_t event_para_t;
 
 typedef struct {
-    task_id_t pub_tid;
-    task_id_t sub_tid;
     event_type_t type;
     event_para_t para;
-    uint64_t timestamp;
 } event_t;
 
 typedef struct {
@@ -208,62 +205,71 @@ typedef struct {
     vfs_handle_t newfh;
 } file_dup_t;
 
-typedef struct task_t {
-    void *tstack_top;
-    void *tstack_limit;
+/* Signal dispositions and mask of a process. */
+typedef struct {
+    spinlock_t lock;
+    sigaction_t actions[NSIG];
+    sigset_t mask;
+} signal_state_t;
 
+typedef struct process {
+    /* Saved CPU context (restored by exit_context_switch) and the kernel and
+     * user stacks the process uses. */
+    void *context;
     void *kstack_top;
     void *kstack_limit;
-
     void *ustack_top;
     void *ustack_limit;
 
-    task_id_t tid;
-    task_id_t ptid;
-    task_id_t fork_retval;         /* set by do_context_switch for fork return */
-    task_priority_t priority;
+    /* Identity and scheduling state. */
+    pid_t pid;
+    pid_t ppid;
+    pid_t fork_retval;          /* set by do_context_switch for fork */
+    process_priority_t priority;
     uint64_t last_tick;
     uint64_t wakeup_time;
     event_t wakeup_event;
-    void *wakeup_key;              /* opaque wake key for EVENT_IPC */
-    task_status_t status;
-    task_mode_t mode;
-    bool isforked;
-    int64_t exit_status;           /* status passed to sched_exit() */
+    void *wakeup_key;               /* opaque wake key for EVENT_IPC */
+    process_status_t status;
+    process_mode_t mode;
+    bool forked;
+    int64_t exit_status;            /* status passed to sched_exit() */
 
-    auxval_t aux;
-    spinlock_t child_lock;             /* protects child_list across CPUs */
-     vec_struct(task_id_t) child_list;
-    handle_table_t handles;            /* per-task capability handles */
-    bootinfo_t *bootinfo;              /* server startup resources */
-    struct {
-        uint16_t first;
-        uint16_t last;
-    } io_ports[4];                     /* granted I/O-port ranges */
+    /* Global process table chain (pid -> process lookup). */
+    struct process *table_next;
+
+    /* Parent/child relationship. */
+    spinlock_t child_lock;          /* protects child_list across CPUs */
+    vec_struct(pid_t) child_list;
+
+    /* Capability handles and resources granted by the kernel. */
+    handle_table_t handles;         /* per-process capability handles */
+    bootinfo_t *bootinfo;           /* server startup resources */
+    io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint8_t io_port_count;
 
     ht_t open_files_table;
-     vec_struct(file_dup_t) dup_list;
+    vec_struct(file_dup_t) dup_list;
 
     int64_t errno;
 
+    /* Address space. */
     addrspace_t *addrspace;
-     vec_struct(mem_map_t) mmap_list;
+    vec_struct(mem_map_t) mmap_list;
     uint64_t fs_base;
 
     char cwd[VFS_MAX_PATH_LEN];
     char name[64];
 
-    struct {
-        spinlock_t lock;
-        sigaction_t actions[NSIG];
-        sigset_t mask;
-    } signals;
-} task_t;
+    signal_state_t signals;
+} process_t;
 
-task_t *task_make(const char *name, void (*entry)(task_id_t),
-                  task_priority_t priority, task_mode_t mode,
+/* Look a process up in the global process table by pid, or NULL if not found. */
+process_t *process_lookup(pid_t pid);
+
+process_t *process_make(const char *name, void (*entry)(pid_t),
+                  process_priority_t priority, process_mode_t mode,
                   addrspace_t * pas);
 
-task_t *task_fork(task_t * tp);
-void task_free(task_t * t);
+process_t *process_fork(process_t * tp);
+void process_free(process_t * t);

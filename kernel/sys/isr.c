@@ -22,7 +22,7 @@
 #include <sys/serial.h>
 #include <sys/timer.h>
 #include <proc/sched.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <ipc/irq.h>
 
 #include <libc/printf.h>
@@ -71,7 +71,7 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
 }
 
 void exc_handler_proc(
-    uint64_t excno, task_regs_t * tr, uint64_t errcode,
+    uint64_t excno, process_regs_t * tr, uint64_t errcode,
     uint64_t original_rsp, uint8_t is_userspace)
 {
     (void)original_rsp;

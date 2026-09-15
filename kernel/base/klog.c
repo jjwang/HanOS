@@ -23,7 +23,7 @@
 #include <sys/cmos.h>
 #include <sys/smp.h>
 #include <sys/serial.h>
-#include <proc/task.h>
+#include <proc/process.h>
 #include <proc/sched.h>
 #include <ipc/console_srv.h>
 #include <libc/string.h>

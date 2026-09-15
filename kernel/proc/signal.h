@@ -9,7 +9,7 @@
   within the HanOS kernel. It includes definitions for signal sets, signal
   actions, and various signal-related constants. The functions provided allow
   for setting signal actions, changing signal masks, and managing signals
-  within tasks.
+  within processes.
 
  @endverbatim
 
@@ -81,7 +81,7 @@ typedef struct {
         struct {
             union {
                 struct {
-                    pid_t si_pid;
+                    posix_pid_t si_pid;
                     uid_t si_uid;
                 } __piduid;
                 struct {
@@ -169,9 +169,9 @@ typedef struct {
 #define SIG_ACTION_STOP 3
 #define SIG_ACTION_CONT 4
 
-typedef struct task_t task_t;   /* Definition in task.h */
+typedef struct process process_t;   /* Definition in process.h */
 
-void signal_action(task_t * t, int64_t signal, sigaction_t * new,
+void signal_action(process_t * t, int64_t signal, sigaction_t * new,
                    sigaction_t * old);
-void signal_changemask(task_t * t, int64_t how, sigset_t * new,
+void signal_changemask(process_t * t, int64_t how, sigset_t * new,
                        sigset_t * old);
