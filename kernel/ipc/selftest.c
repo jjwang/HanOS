@@ -22,7 +22,7 @@
 #include <proc/sched.h>
 #include <proc/process.h>
 
-_Noreturn void mk_selftest_task(pid_t pid)
+_Noreturn void mk_selftest_process(pid_t pid)
 {
     (void) pid;
 

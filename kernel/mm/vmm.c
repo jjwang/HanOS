@@ -255,7 +255,7 @@ uint64_t vmm_query(addrspace_t * addrspace, uint64_t vaddr)
 
 /* Map a physical range into a process address space. Intended for device MMIO and
  * memory-object grants; the caller is responsible for the rights (flags). */
-void vmm_map_task_phys(addrspace_t * addrspace, uint64_t vaddr,
+void vmm_map_process_phys(addrspace_t * addrspace, uint64_t vaddr,
                        uint64_t paddr, uint64_t np, uint64_t flags)
 {
     vmm_map(addrspace, vaddr, paddr, np, flags);

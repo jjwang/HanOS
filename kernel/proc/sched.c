@@ -47,8 +47,8 @@
 /* Per-CPU scheduler state. Each core owns a run queue holding the processes
  * assigned to it (ready, sleeping or dying) plus the process currently running.
  * Global pid lookup goes through the process table in process.c. */
-static process_t *running_task[CPU_MAX] = { 0 };
-static process_t *idle_task[CPU_MAX] = { 0 };
+static process_t *running_process[CPU_MAX] = { 0 };
+static process_t *idle_process[CPU_MAX] = { 0 };
 static uint64_t tick_count[CPU_MAX] = { 0 };
 static spinlock_t run_queue_lock[CPU_MAX] = {0};
 
@@ -105,7 +105,7 @@ static uint16_t sched_pick_cpu(void)
 /* Locate a process by its pid through the global process table. The returned
  * pointer is only valid until the process is reaped.
  */
-static process_t *sched_find_task(pid_t pid)
+static process_t *sched_find_process(pid_t pid)
 {
     return process_lookup(pid);
 }
@@ -129,8 +129,8 @@ _Noreturn void process_idle(pid_t pid)
 
         /* Step 1: Find a dead process in this core's run queue */
         spinlock_acquire(&(run_queue_lock[cpu_id]));
-        uint64_t task_num = vec_length(&run_queues[cpu_id]);
-        for (uint64_t i = 0; i < task_num; i++) {
+        uint64_t queue_len = vec_length(&run_queues[cpu_id]);
+        for (uint64_t i = 0; i < queue_len; i++) {
             process_t *cur = vec_at(&run_queues[cpu_id], i);
             if (cur != NULL && cur->status == PROC_DEAD) {
                 vec_erase(&run_queues[cpu_id], i);
@@ -148,7 +148,7 @@ _Noreturn void process_idle(pid_t pid)
 
         /* Step 2: Remove the process from its parent's child list. The parent
          * may live on another core, so search all cores. */
-        process_t *tp = sched_find_task(t->ppid);
+        process_t *tp = sched_find_process(t->ppid);
         if (tp != NULL) {
             spinlock_acquire(&tp->child_lock);
             for (uint64_t k = 0; k < vec_length(&tp->child_list); k++) {
@@ -196,7 +196,7 @@ void do_context_switch(void *stack, int64_t mode)
 
     spinlock_acquire(&(run_queue_lock[cpu_id]));
 
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
 
     if (curr != NULL) {
         /* Process status: 0 - ready, 1 - running, 2 - sleeping */
@@ -204,7 +204,7 @@ void do_context_switch(void *stack, int64_t mode)
         curr->last_tick = ticks;
         curr->errno = cpu->errno;
 
-        if ((uint64_t) curr != (uint64_t) idle_task[cpu_id]) {
+        if ((uint64_t) curr != (uint64_t) idle_process[cpu_id]) {
             if (mode == SCHED_SWITCH_FORK) {
                 process_t *curr_fork = process_fork(curr);
                 if (curr_fork->status == PROC_RUNNING)
@@ -215,7 +215,7 @@ void do_context_switch(void *stack, int64_t mode)
             }
             if (curr->status != PROC_RUNNING) {
                 vec_push_back(&run_queues[cpu_id], curr);
-                running_task[cpu_id] = NULL;
+                running_process[cpu_id] = NULL;
                 curr = NULL;
             }
         } else {
@@ -224,14 +224,14 @@ void do_context_switch(void *stack, int64_t mode)
     }
 
     process_t *next = NULL;
-    int64_t tasks_num = vec_length(&run_queues[cpu_id]);
+    int64_t queue_len = vec_length(&run_queues[cpu_id]);
 
     /* Prefer runnable processes and only fall back to a process whose sleep has
      * expired when no ready process exists. Otherwise a process that performs
      * sched_sleep(0) as a yield can starve ready processes queued behind it
      * (e.g. a process dispatched to this core by another core).
      */
-    for (int64_t i = 0; i < tasks_num; i++) {
+    for (int64_t i = 0; i < queue_len; i++) {
         process_t *t = vec_at(&run_queues[cpu_id], i);
         if (t->status == PROC_READY) {
             next = t;
@@ -241,7 +241,7 @@ void do_context_switch(void *stack, int64_t mode)
     }
 
     if (next == NULL) {
-        for (int64_t i = 0; i < tasks_num; i++) {
+        for (int64_t i = 0; i < queue_len; i++) {
             process_t *t = vec_at(&run_queues[cpu_id], i);
             if (t->status == PROC_SLEEPING
                 && t->wakeup_time > 0
@@ -259,11 +259,11 @@ void do_context_switch(void *stack, int64_t mode)
             vec_push_back(&run_queues[cpu_id], curr);
         }
     } else {
-        next = (curr == NULL) ? idle_task[cpu_id] : curr;
+        next = (curr == NULL) ? idle_process[cpu_id] : curr;
     }
 
     next->status = PROC_RUNNING;
-    running_task[cpu_id] = next;
+    running_process[cpu_id] = next;
 
     cpu->errno = next->errno;
     cpu->tss.rsp0 = (uint64_t) next->kstack_top;
@@ -305,7 +305,7 @@ pid_t sched_get_pid()
     }
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
     pid_t pid = curr->pid;
 
     if (pid < 1)
@@ -319,10 +319,10 @@ pid_t sched_fork(void)
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu == NULL) return PID_MAX;
     uint16_t cpu_id = cpu->cpu_id;
-    if (running_task[cpu_id] && running_task[cpu_id]->pid < 1)
+    if (running_process[cpu_id] && running_process[cpu_id]->pid < 1)
         kpanic("SCHED: %s meets corrupted pid\n", __func__);
     fork_context_switch();
-    return running_task[cpu_id]->fork_retval;
+    return running_process[cpu_id]->fork_retval;
 }
 
 void sched_sleep_impl(time_t millis, bool advanced)
@@ -339,7 +339,7 @@ void sched_sleep_impl(time_t millis, bool advanced)
     }
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
     if (curr) {
         curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
         curr->wakeup_event.type = EVENT_UNDEFINED;
@@ -355,7 +355,7 @@ void sched_sleep_impl(time_t millis, bool advanced)
 /* Report the status of a process. A process that still has a live child is reported
  * as PROC_RUNNING so that it is not reaped before its children.
  */
-process_status_t sched_get_task_status(pid_t pid)
+process_status_t sched_get_process_status(pid_t pid)
 {
     process_t *t = process_lookup(pid);
     if (t == NULL)
@@ -390,7 +390,7 @@ process_status_t sched_get_task_status(pid_t pid)
 static void sched_wake_child_waiter(pid_t parent_pid)
 {
     for (uint16_t c = 0; c < CPU_MAX; c++) {
-        if (idle_task[c] == NULL && running_task[c] == NULL)
+        if (idle_process[c] == NULL && running_process[c] == NULL)
             continue;
 
         spinlock_acquire(&run_queue_lock[c]);
@@ -423,7 +423,7 @@ void sched_exit(int64_t status)
     asm volatile ("cli" ::: "memory");
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
     if (curr) {
         curr->status = PROC_DYING;
         curr->exit_status = status;
@@ -444,7 +444,7 @@ void sched_exit(int64_t status)
 
         bool all_children_dead = (children != NULL || len == 0);
         for (uint64_t i = 0; all_children_dead && i < len; i++) {
-            if (sched_get_task_status(children[i]) != PROC_DEAD) {
+            if (sched_get_process_status(children[i]) != PROC_DEAD) {
                 all_children_dead = false;
             }
         }
@@ -490,7 +490,7 @@ void sched_wait_child(time_t millis)
     }
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
     if (curr == NULL) {
         return;
     }
@@ -514,7 +514,7 @@ void sched_wait_key(void *key, time_t millis)
     }
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_task[cpu_id];
+    process_t *curr = running_process[cpu_id];
     if (curr == NULL)
         return;
 
@@ -531,7 +531,7 @@ void sched_wait_key(void *key, time_t millis)
 void sched_wake_key(void *key)
 {
     for (uint16_t c = 0; c < CPU_MAX; c++) {
-        if (idle_task[c] == NULL && running_task[c] == NULL)
+        if (idle_process[c] == NULL && running_process[c] == NULL)
             continue;
 
         spinlock_acquire(&run_queue_lock[c]);
@@ -558,7 +558,7 @@ process_t *sched_get_current_process()
         return NULL;
     }
 
-    return running_task[cpu->cpu_id];
+    return running_process[cpu->cpu_id];
 }
 
 uint64_t sched_get_ticks()
@@ -574,13 +574,13 @@ uint64_t sched_get_ticks()
 
 void sched_init(const char *name, uint16_t cpu_id)
 {
-    idle_task[cpu_id] = process_make(name, process_idle, 255,
+    idle_process[cpu_id] = process_make(name, process_idle, 255,
                                    PROC_KERNEL_MODE, NULL);
 
     klogi("SCHED: create idle process 0x%016lx with pid %ld for CPU %ld\n",
-        idle_task[cpu_id], idle_task[cpu_id]->pid, cpu_id);
+        idle_process[cpu_id], idle_process[cpu_id]->pid, cpu_id);
 
-    vec_push_back(&run_queues[cpu_id], idle_task[cpu_id]);
+    vec_push_back(&run_queues[cpu_id], idle_process[cpu_id]);
 
     apic_timer_init(cpu_id);
     apic_timer_set_period(TIMESLICE_DEFAULT);
@@ -599,7 +599,7 @@ void sched_init(const char *name, uint16_t cpu_id)
 
     klogi
         ("SCHED: initialization finished for CPU %ld with idle process %s:%ld\n",
-         cpu_id, name, idle_task[cpu_id]->pid);
+         cpu_id, name, idle_process[cpu_id]->pid);
 }
 
 uint16_t sched_get_cpu_num()
@@ -842,7 +842,7 @@ int sched_reap(pid_t pid, int64_t *status)
     /* Use the effective status: a PROC_DYING process that has no live children is
      * reported as PROC_DEAD, so an exec wrapper whose replacement has exited
      * can be reaped even if the idle process never finalized it. */
-    process_status_t st = sched_get_task_status(pid);
+    process_status_t st = sched_get_process_status(pid);
 
     if (st == PROC_UNKNOWN)
         return -1;              /* already reaped */
@@ -850,12 +850,12 @@ int sched_reap(pid_t pid, int64_t *status)
         return 0;               /* still alive */
 
     for (uint16_t c = 0; c < CPU_MAX; c++) {
-        if (idle_task[c] == NULL && running_task[c] == NULL)
+        if (idle_process[c] == NULL && running_process[c] == NULL)
             continue;
 
         spinlock_acquire(&run_queue_lock[c]);
 
-        process_t *rt = running_task[c];
+        process_t *rt = running_process[c];
         if (rt != NULL && rt->pid == pid) {
             /* Still running (possibly about to finalize its own exit). */
             spinlock_release(&run_queue_lock[c]);
