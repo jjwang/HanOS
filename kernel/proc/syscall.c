@@ -723,7 +723,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     }
 }
 
-static pid_t last_write_task_id = 0;
+static pid_t last_write_pid = 0;
 static uint64_t last_write_nanos = 0;
 
 int64_t k_write(int64_t fh, const void *buf, uint64_t count)
@@ -775,7 +775,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                 }
             }
 
-            if (last_write_task_id != t->pid && last_write_nanos != 0) {
+            if (last_write_pid != t->pid && last_write_nanos != 0) {
                 while (hpet_get_nanos() - last_write_nanos
                        <= MILLIS_TO_NANOS(250)) {
                     sched_sleep(100);
@@ -783,7 +783,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
             }
 
             spinlock_acquire(&vfs_lock);
-            last_write_task_id = t->pid;
+            last_write_pid = t->pid;
             last_write_nanos = hpet_get_nanos();
             spinlock_release(&vfs_lock);
 
@@ -1201,11 +1201,11 @@ int64_t k_fork()
     }
 
     pid_t tid_child = sched_fork();
-    process_t *curr_task = sched_get_current_process();
+    process_t *curr_proc = sched_get_current_process();
 
     klogd("k_fork: parent process id #%ld, current process id #%ld, PML4 0x%016lx, "
           "sched_fork() returns #%ld\n",
-          t->pid, sched_get_pid(), curr_task->addrspace->PML4, tid_child);
+          t->pid, sched_get_pid(), curr_proc->addrspace->PML4, tid_child);
 
     if (tid_child == PID_MAX) {
         cpu_set_errno(ECHILD);

@@ -42,7 +42,7 @@ int main(void)
     bootinfo_t bi;
 
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
-        /* The kernel sets the bootinfo before the task is runnable, so this
+        /* The kernel sets the bootinfo before the process is runnable, so this
          * loop normally runs at most once. */
     }
 

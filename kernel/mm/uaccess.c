@@ -99,7 +99,7 @@ int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max)
     return -1;
 }
 
-uint64_t copy_from_task(process_t * t, void *kdst, const void *usrc,
+uint64_t copy_from_process(process_t * t, void *kdst, const void *usrc,
                         uint64_t len)
 {
     uint8_t *dst = (uint8_t *) kdst;
@@ -127,7 +127,7 @@ uint64_t copy_from_task(process_t * t, void *kdst, const void *usrc,
     return 0;
 }
 
-uint64_t copy_to_task(process_t * t, void *udst, const void *ksrc, uint64_t len)
+uint64_t copy_to_process(process_t * t, void *udst, const void *ksrc, uint64_t len)
 {
     uint64_t dst = (uint64_t) udst;
     const uint8_t *src = (const uint8_t *) ksrc;

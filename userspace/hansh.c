@@ -107,7 +107,7 @@ void runcmd(cmd_t * cmd)
             sys_exit(1);
         snprintf(pathname, sizeof(pathname), "%s%s",
                  (pathname[0] != '/') ? "/bin/" : "", ecmd->argv[0]);
-        sys_libc_log("hansh: start to execute process for current task\n");
+        sys_libc_log("hansh: start to execute process for current process\n");
         if (sys_exec(pathname, ecmd->argv) < 0) {
             fprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
         }
@@ -118,7 +118,7 @@ void runcmd(cmd_t * cmd)
         if (sys_pipe(p) < 0)
             sys_panic("pipe");
         sys_libc_log
-            ("hansh: start to fork pipe processes for left and right tasks\n");
+            ("hansh: start to fork pipe processes for left and right processes\n");
         if (fork1() == 0) {
             /* Child process */
             sys_close(p[0]);

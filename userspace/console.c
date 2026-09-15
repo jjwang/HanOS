@@ -262,7 +262,7 @@ int main(void)
     bootinfo_t bi;
 
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
-        /* The kernel sets bootinfo before the task is runnable. */
+        /* The kernel sets bootinfo before the process is runnable. */
     }
 
     fbio = (uint8_t *) bi.fb_vaddr;

@@ -458,7 +458,7 @@ void kmain(void)
     sched_add(tshell);
 
 #if ENABLE_MICROKERNEL_SELFTEST
-    process_t *tmktest = sched_new("mktest", mk_selftest_task, false);
+    process_t *tmktest = sched_new("mktest", mk_selftest_process, false);
     sched_add(tmktest);
 #endif
 

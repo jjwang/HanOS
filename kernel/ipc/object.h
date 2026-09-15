@@ -26,7 +26,7 @@ typedef enum {
     OBJ_ENDPOINT,
     OBJ_MEMORY,
     OBJ_IRQ,
-    OBJ_TASK
+    OBJ_PROCESS
 } obj_type_t;
 
 typedef struct kernel_object {
