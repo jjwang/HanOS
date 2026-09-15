@@ -424,3 +424,16 @@
 
 /* Pipe A source size (active area): (width-1)<<16 | (height-1) */
 #define PIPEASRC                        0x6001C
+
+/* Pipe timing registers (pipe stride is 0x1000) */
+#define PIPE_HTOTAL(pipe)               (0x60000 + (pipe) * 0x1000)
+#define PIPE_HBLANK(pipe)               (0x60004 + (pipe) * 0x1000)
+#define PIPE_HSYNC(pipe)                (0x60008 + (pipe) * 0x1000)
+#define PIPE_VTOTAL(pipe)               (0x6000C + (pipe) * 0x1000)
+#define PIPE_VBLANK(pipe)               (0x60010 + (pipe) * 0x1000)
+#define PIPE_VSYNC(pipe)                (0x60014 + (pipe) * 0x1000)
+
+/* Plane surface registers relative to DSPxCNTR (stride is 0x1000). DSPxSURF
+ * is the surface address; DSPxLINOFF (0x04) is not the surface address. */
+#define DSP_SURF(plane)                 (DSPACNTR + (plane) * 0x1000 + 0x1C)
+#define DSP_STRIDE(plane)               (DSPACNTR + (plane) * 0x1000 + 0x08)
