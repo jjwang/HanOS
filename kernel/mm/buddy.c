@@ -403,9 +403,9 @@ void buddy_dump_usage(void)
     uint64_t u = t - f;
 
     kprintf("Physical memory usage (Buddy Allocator):\n"
-            "  Total: %8d KB (%4d MB)\n"
-            "  Free : %8d KB (%4d MB)\n"
-            "  Used : %8d KB (%4d MB)\n",
+            "  Total: %d KB (%d MB)\n"
+            "  Free : %d KB (%d MB)\n"
+            "  Used : %d KB (%d MB)\n",
             t / 1024, t / (1024 * 1024),
             f / 1024, f / (1024 * 1024),
             u / 1024, u / (1024 * 1024));
@@ -419,7 +419,7 @@ void buddy_dump_usage(void)
             block = block->next;
         }
         if (count > 0) {
-            kprintf("    Order %2d (%4d pages): %ld blocks\n",
+            kprintf("    Order %d (%d pages): %ld blocks\n",
                    order, 1 << order, count);
         }
     }

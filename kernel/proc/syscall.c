@@ -770,7 +770,7 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                         || (c >= 'A' && c <= 'Z') || c == '[') {
                         klogd("k_write: write [%c]\n", c);
                     } else {
-                        klogd("k_write: write [0x%2x]\n", c);
+                        klogd("k_write: write [0x%02x]\n", c);
                     }
                 }
             }

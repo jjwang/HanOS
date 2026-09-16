@@ -264,7 +264,7 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
         if (is_bridge) {
             uint8_t sub_bus_id = pci_read_sub_bus(&device);
             if (sub_bus_id != bus_id) {
-                klogi("PCI:\tRead sub bus %2x\n", sub_bus_id);
+                klogi("PCI:\tRead sub bus %02x\n", sub_bus_id);
                 pci_scan_bus(pci_read_sub_bus(&device));
             }
         }
@@ -324,7 +324,7 @@ void pci_list(void)
 {
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i);
-        kprintf("PCI:\t%2x:%2x.%1x - %4x:%4x %s\n",
+        kprintf("PCI:\t%02x:%02x.%01x - %04x:%04x %s\n",
                 dev.bus, dev.device, dev.func, dev.vendor_id,
                 dev.device_id, pci_device_id_to_string(&dev));
     }
