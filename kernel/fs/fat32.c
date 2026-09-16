@@ -137,7 +137,7 @@ int64_t fat32_read(vfs_inode_t * this, uint64_t offset, uint64_t len,
     fat32_ident_t *id = (fat32_ident_t *) this->ident;
 
     uint32_t cluster = id->entry.cluster_begin;
-    klogi("FAT32: Read %4d bytes from cluster %ld, offset %ld\n", len,
+    klogi("FAT32: Read %d bytes from cluster %ld, offset %ld\n", len,
           cluster, offset);
 
     uint64_t sector_num =
@@ -188,7 +188,7 @@ int64_t fat32_write(vfs_inode_t * this, uint64_t offset, uint64_t len,
     fat32_read(this, 0, sector_num * id->bs.bytes_per_sector, dd);
     memcpy(dd + offset, buff, len);
 
-    klogi("FAT32: Write %4d bytes from cluster %ld, offset %ld\n",
+    klogi("FAT32: Write %d bytes from cluster %ld, offset %ld\n",
           len, cluster, offset);
 
     uint32_t temp_cluster = cluster;
@@ -306,7 +306,7 @@ int64_t fat32_refresh(vfs_inode_t * this)
         temp_cluster = 2;
 
     klogi
-        ("FAT32: Read %4d bytes from cluster %ld when refreshing (type %ld)\n",
+        ("FAT32: Read %d bytes from cluster %ld when refreshing (type %ld)\n",
          temp_len, temp_cluster, this->type);
 
     while (true) {
@@ -703,7 +703,7 @@ vfs_inode_t *fat32_mount(vfs_inode_t * at)
                 klogi
                     ("Partition %ld: OEM name %s, bytes per sector %ld, sectors per cluster %ld, "
                      "number of reserved sectors 0x%02lx, number of FATs %ld, "
-                     "sectors per FAT %ld, root directory first cluster 0x%2x\n",
+                     "sectors per FAT %ld, root directory first cluster 0x%04x\n",
                      i, fat_boot->oem_name, id->bs.bytes_per_sector,
                      id->bs.sectors_per_cluster,
                      id->bs.reserved_sector_count, id->bs.num_fats,

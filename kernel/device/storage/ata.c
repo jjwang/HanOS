@@ -386,7 +386,7 @@ static int ata_device_detect(ata_device_t * dev)
     unsigned char cl = port_inb(dev->io_base + ATA_REG_LBA1);   /* CYL_LO */
     unsigned char ch = port_inb(dev->io_base + ATA_REG_LBA2);   /* CYL_HI */
 
-    klogi("Device detected: %2x %2x\n", cl, ch);
+    klogi("Device detected: %02x %02x\n", cl, ch);
     if (cl == 0xFF && ch == 0xFF) {
         /* Nothing here */
         return 0;
@@ -417,7 +417,7 @@ static int ata_device_detect(ata_device_t * dev)
         return 1;
     } else if ((cl == 0x14 && ch == 0xEB) || (cl == 0x69 && ch == 0x96)) {
         klogi
-            ("Detected ATAPI device at io-base %3x, control %3x, slave %ld\n",
+            ("Detected ATAPI device at io-base %03x, control %03x, slave %ld\n",
              dev->io_base, dev->control, dev->slave);
 
         if (!atapi_device_init(dev)) {
@@ -589,7 +589,7 @@ int ata_read_partition_map(ata_device_t * dev, char *devname)
             ("              status, type, lba 1st sector, sector count\n");
         for (int i = 0; i < 4; ++i) {
             if (mbr.partitions[i].status & 0x80) {
-                klogi("#%2d: @%ld + %ld\n", i + 1,
+                klogi("#%d: @%ld + %ld\n", i + 1,
                       mbr.partitions[i].lba_start,
                       mbr.partitions[i].sector_count);
             } else {

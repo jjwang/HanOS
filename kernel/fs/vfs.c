@@ -568,7 +568,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     return fh;
   fail:
     spinlock_release(&vfs_lock);
-    kloge("VFS: failed when opening %s with mode 0x%8x\n", path, mode);
+    kloge("VFS: failed when opening %s with mode 0x%x\n", path, mode);
     return VFS_INVALID_HANDLE;
 }
 

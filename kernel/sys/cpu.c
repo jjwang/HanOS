@@ -170,7 +170,7 @@ void cpu_init(uint64_t cpuno)
         cpu_family = (x >> 8) & 0x0F;
     }
 
-    klogi("CPU %ld: model 0x%2x, family 0x%2x, manufacturer %s\n",
+    klogi("CPU %ld: model 0x%x, family 0x%x, manufacturer %s\n",
           cpuno, cpu_model, cpu_family, cpu_manufacturer);
 
     cpuid(0x80000000, 0, &x, &na, &na, &na);

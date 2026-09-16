@@ -105,7 +105,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->gtt_addr =
         (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
-    klogi("\tGTTMMADR: 0x%11lx (%ld MB) on address space 0x%016lx\n",
+    klogi("\tGTTMMADR: 0x%lx (%ld MB) on address space 0x%016lx\n",
           (uint64_t) bar.u.address, bar.size / MB, as);
 
     vmm_map(as, (uint64_t) pci->mmio_bar, (uint64_t) bar.u.address,
@@ -119,7 +119,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
     pci_get_bar(&bar, id, 2);
     pci->aperture_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->aperture_size = bar.size;
-    klogi("\tGMADR:    0x%11lx (%ld MB)\n", (uint64_t) bar.u.address,
+    klogi("\tGMADR:    0x%lx (%ld MB)\n", (uint64_t) bar.u.address,
           bar.size / MB);
 
     vmm_map(as, (uint64_t) pci->aperture_bar, (uint64_t) bar.u.address,
@@ -129,7 +129,7 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
      * registers within Device #2. */
     pci_get_bar(&bar, id, 4);
     pci->iobase = bar.u.port;
-    klogi("\tIOBASE:   0x%11x (%ld bytes)\n", bar.u.port, bar.size);
+    klogi("\tIOBASE:   0x%x (%ld bytes)\n", bar.u.port, bar.size);
 }
 
 /* The graphics translation tables provide the address mapping from the GPU's
@@ -175,7 +175,7 @@ void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
     gtt->entries = pci->gtt_addr;
 
     klogi("GTT Config:\n");
-    klogi("\tStolen Mem Base:      0x%11x\n", gtt->stolen_mem_base);
+    klogi("\tStolen Mem Base:      0x%x\n", gtt->stolen_mem_base);
     klogi("\tStolen Mem Size:      %u MB\n", gtt->stolen_mem_size / MB);
     klogi("\tGTT Mem Size:         %u MB\n", gtt->gtt_mem_size / MB);
     klogi("\tGTT Total Entries:    %u\n", gtt->num_total_entries);
@@ -267,7 +267,7 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev)
         if (dev.vendor_id != VENDOR_INTEL || dev.device_id != DEVICE_HD520) {
             continue;
         }
-        klogi("Found GFX device %2x:%2x.%1x - %4x:%4x %s\n",
+        klogi("Found GFX device %02x:%02x.%01x - %04x:%04x %s\n",
               dev.bus, dev.device, dev.func, dev.vendor_id, dev.device_id,
               pci_device_id_to_string(&dev));
         found = true;
@@ -554,7 +554,7 @@ void gfx_start(void)
         return;
     }
 
-    klogi("GFX: Starting device %2x:%2x.%1x - %4x:%4x %s\n",
+    klogi("GFX: Starting device %02x:%02x.%01x - %04x:%04x %s\n",
           dev.bus, dev.device, dev.func, dev.vendor_id,
           dev.device_id, pci_device_id_to_string(&dev));
 
