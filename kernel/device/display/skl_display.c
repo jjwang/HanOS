@@ -95,6 +95,20 @@ static void transcoder_timing(gfx_pci_t * pci, uint8_t tr,
              | (m->vsync_positive ? 0 : (1u << 31)));
 }
 
+/* Enable the transcoder's DDI output (eDP on DDI-A, DP SST, 8bpc, 2 lanes). */
+static void transcoder_ddi_enable(gfx_pci_t * pci, const display_mode_t * m)
+{
+    gfx_outd(pci, TRANS_DDI_FUNC_CTL_A,
+             TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_DDI_A
+             | TRANS_DDI_MODE_DP_SST | TRANS_DDI_BPC_8
+             | TRANS_DDI_PORT_WIDTH_X2);
+    gfx_outd(pci, TRANS_DP_CTL_A,
+             TRANS_DP_OUTPUT_ENABLE | TRANS_DP_BPC_8
+             | (m->vsync_positive ? TRANS_DP_VSYNC_ACTIVE_HIGH : 0)
+             | (m->hsync_positive ? TRANS_DP_HSYNC_ACTIVE_HIGH : 0));
+    (void) gfx_ind(pci, TRANS_DP_CTL_A);
+}
+
 /* Configure pipe A for progressive scan at 8bpc and the given source size. */
 static bool pipe_configure(gfx_pci_t * pci, const display_mode_t * m)
 {
@@ -175,6 +189,7 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     transcoder_timing(pci, 0, mode);
     if (!pipe_configure(pci, mode))
         return false;
+    transcoder_ddi_enable(pci, mode);
     plane_configure(pci, mode, obj.gfx_addr, pitch);
     backlight_on(pci, 0xFFFF);
 
