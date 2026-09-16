@@ -167,7 +167,10 @@ _Noreturn void kupdateui(pid_t pid)
                 term_set_cursor(' ');
             }
 
-            term_refresh();
+    /* The console server owns the framebuffer once it is running; do not let
+     * the kernel blit its own terminal back buffer over it. */
+    if (!console_server_active())
+        term_refresh();
         }
     }
 
