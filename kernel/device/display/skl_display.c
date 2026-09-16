@@ -95,13 +95,15 @@ static void transcoder_timing(gfx_pci_t * pci, uint8_t tr,
              | (m->vsync_positive ? 0 : (1u << 31)));
 }
 
-/* Enable the transcoder's DDI output (eDP on DDI-A, DP SST, 8bpc, 2 lanes). */
+/* Enable the transcoder's DDI output (eDP on DDI-A, DP SST, 8bpc). The port
+ * width is taken from the link the firmware trained. */
 static void transcoder_ddi_enable(gfx_pci_t * pci, const display_mode_t * m)
 {
+    uint32_t width = gfx_ind(pci, DDI_BUF_CTL_A) & DDI_BUF_CTL_PORT_WIDTH_MASK;
+
     gfx_outd(pci, TRANS_DDI_FUNC_CTL_A,
              TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_DDI_A
-             | TRANS_DDI_MODE_DP_SST | TRANS_DDI_BPC_8
-             | TRANS_DDI_PORT_WIDTH_X2);
+             | TRANS_DDI_MODE_DP_SST | TRANS_DDI_BPC_8 | width);
     gfx_outd(pci, TRANS_DP_CTL_A,
              TRANS_DP_OUTPUT_ENABLE | TRANS_DP_BPC_8
              | (m->vsync_positive ? TRANS_DP_VSYNC_ACTIVE_HIGH : 0)
