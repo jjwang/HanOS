@@ -62,6 +62,28 @@ static void klog_puts_buf(klog_info_t * k, const char *s)
         klog_putch(k, (uint8_t) *s);
 }
 
+/* Serial monitors usually do not interpret ANSI escapes, so drop them from
+ * the serial stream and emit plain text instead. The caller keeps the state
+ * across a line so a sequence split over characters is still removed. */
+static bool serial_keep(uint8_t c, int *state)
+{
+    switch (*state) {
+    case 0:
+        if (c == 0x1B) {
+            *state = 1;
+            return false;
+        }
+        return true;
+    case 1:
+        *state = (c == '[') ? 2 : 0;
+        return false;
+    default:
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            *state = 0;
+        return false;
+    }
+}
+
 void klog_vprintf_wrapper(klog_info_t * k, const char *s, ...)
 {
     char buf[512];
@@ -161,6 +183,8 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
 
     spinlock_acquire(&klog_info_lock);
 
+    int esc_state = 0;
+
     for (uint64_t i = logout.start; i < logout.end;) {
         klog_info.buff[klog_info.end] = logout.buff[i];
         klog_info.end++;
@@ -172,7 +196,8 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
         if (klog_info.start >= KLOG_BUFFER_SIZE)
             klog_info.start = 0;
 
-        serial_write(logout.buff[i]);
+        if (serial_keep(logout.buff[i], &esc_state))
+            serial_write(logout.buff[i]);
 
         i++;
         if (i >= KLOG_BUFFER_SIZE)
