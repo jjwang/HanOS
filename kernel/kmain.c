@@ -222,22 +222,22 @@ _Noreturn void kshell(pid_t pid)
     }
 
     {
-        kprintf("\033[36mMemory     \033[0m: %11d MB\n",
+        kprintf("\033[36mMemory     \033[0m: %d MB\n",
                 pmm_get_total_memory());
     }
 
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\033[36mMonitor    \033[0m: %4d x %4d cm\n",
+        kprintf("\033[36mMonitor    \033[0m: %d x %d cm\n",
                 self_info.screen_hor_size, self_info.screen_ver_size);
     }
 
     if (self_info.prefer_res_x > 0 && self_info.prefer_res_y > 0) {
-        kprintf("\033[36mPreferred  \033[0m: %4d x %4d Pixels\n",
+        kprintf("\033[36mPreferred  \033[0m: %d x %d Pixels\n",
                 self_info.prefer_res_x, self_info.prefer_res_y);
     }
 
     if (self_info.actual_res_x > 0 && self_info.actual_res_y > 0) {
-        kprintf("\033[36mActual     \033[0m: %4d x %4d Pixels\n",
+        kprintf("\033[36mActual     \033[0m: %d x %d Pixels\n",
                 self_info.actual_res_x, self_info.actual_res_y);
     }
 
