@@ -63,6 +63,22 @@ static bool panel_power_on(gfx_pci_t * pci)
                      "eDP panel power");
 }
 
+/* Select the transcoder's input clock (normally DPLL0 for eDP). */
+static bool transcoder_clock_select(gfx_pci_t * pci, uint8_t tr, uint32_t sel,
+                                    const char *name)
+{
+    uint32_t reg = TRANS_CLK_SEL_A + (uint32_t) tr * 4;
+    uint32_t v = gfx_ind(pci, reg);
+
+    if ((v & TRANS_CLK_SEL_MASK) == sel) {
+        klogd("GFX: modeset: %s already selected\n", name);
+        return true;
+    }
+
+    gfx_outd(pci, reg, (v & ~TRANS_CLK_SEL_MASK) | sel);
+    return wait_bits(pci, reg, TRANS_CLK_SEL_MASK, sel, name);
+}
+
 static void backlight_on(gfx_pci_t * pci, uint32_t level)
 {
     gfx_outd(pci, BLC_PWM_CTL, level << 16);
@@ -124,7 +140,11 @@ static bool pipe_configure(gfx_pci_t * pci, const display_mode_t * m)
              (m->vactive - 1) << 16 | (m->hactive - 1));
 
     gfx_outd(pci, PIPEACONF, PIPE_ENABLE | PIPE_PROGRESSIVE);
-    return wait_bits(pci, PIPEACONF, PIPE_STATE, PIPE_STATE, "pipe A enable");
+    if (!wait_bits(pci, PIPEACONF, PIPE_STATE, PIPE_STATE, "pipe A enable")) {
+        gfx_outd(pci, PIPEACONF, 0);
+        return false;
+    }
+    return true;
 }
 
 /* Point plane 1 of pipe A at the GTT-mapped framebuffer. */
@@ -187,7 +207,9 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!panel_power_on(pci))
         return false;
 
-    /* Program the output pipe: transcoder timing, pipe and plane. */
+    /* Program the output pipe: transcoder clock, timing, pipe and plane. */
+    if (!transcoder_clock_select(pci, 0, TRANS_CLK_SEL_DPLL0, "trans A clock"))
+        return false;
     transcoder_timing(pci, 0, mode);
     if (!pipe_configure(pci, mode))
         return false;
@@ -216,6 +238,13 @@ void skl_display_dump(gfx_pci_t * pci)
           gfx_ind(pci, DPLL_STATUS));
     klogi("  PIPEACONF 0x%08x PIPEASRC 0x%08x\n", gfx_ind(pci, PIPEACONF),
           gfx_ind(pci, PIPEASRC));
+    klogi("  PIPEBCONF 0x%08x PIPECCONF 0x%08x\n", gfx_ind(pci, 0x71008),
+          gfx_ind(pci, 0x72008));
+    klogi("  TRANS_CLK_SEL A/B/C 0x%08x 0x%08x 0x%08x\n",
+          gfx_ind(pci, TRANS_CLK_SEL_A), gfx_ind(pci, TRANS_CLK_SEL_B),
+          gfx_ind(pci, TRANS_CLK_SEL_C));
+    klogi("  DPLL_CTRL1 0x%08x DPLL_CTRL2 0x%08x\n",
+          gfx_ind(pci, DPLL_CTRL1), gfx_ind(pci, DPLL_CTRL2));
     klogi("  TRANS_DDI 0x%08x PLANE_CTL 0x%08x PLANE_SURF 0x%08x\n",
           gfx_ind(pci, TRANS_DDI_FUNC_CTL_A), gfx_ind(pci, PLANE_CTL_1_A),
           gfx_ind(pci, PLANE_SURF_1_A));
