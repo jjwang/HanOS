@@ -31,6 +31,8 @@
 #include <proc/sched.h>
 #include <device/display/gfx.h>
 #include <device/display/gfx_reg.h>
+#include <device/display/skl_display.h>
+#include <device/display/display_mode.h>
 #include <device/display/term.h>
 #include <base/kmalloc.h>
 
@@ -301,6 +303,17 @@ bool gfx_init(void)
     gfx_init_mem_manager(&gfx_pci, &gfx_gtt, &gfx_mgr);
 
     gfx_test_advanced_features(&gfx_pci);
+
+    /* Take over the display with a real mode set at the boot mode. If the
+     * pipeline cannot be programmed, keep the firmware aperture frame. */
+    const display_mode_t *boot_mode = display_mode_get_boot();
+    skl_display_dump(&gfx_pci);
+    if (boot_mode != NULL
+        && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, boot_mode, &gfx_fb)) {
+        klogi("GFX: mode set took over the display\n");
+        return true;
+    }
+    klogw("GFX: mode set failed, keeping the firmware framebuffer\n");
 
     /* The BIOS GOP already scans the aperture (GMADR) through a trained eDP
      * link, so the aperture is used as the GPU framebuffer. Pass limine's

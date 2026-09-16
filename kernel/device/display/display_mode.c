@@ -8,6 +8,13 @@
 #include <base/klog.h>
 #include <device/display/display_mode.h>
 
+static display_mode_t boot_mode = { 0 };
+
+const display_mode_t *display_mode_get_boot(void)
+{
+    return &boot_mode;
+}
+
 /* Refresh rate in Hz from a pixel clock in kHz and the total H/V counts. */
 static uint32_t display_mode_refresh(uint32_t pixel_clock_khz, uint32_t htotal,
                                      uint32_t vtotal)
@@ -71,6 +78,7 @@ bool display_mode_from_edid(const edid_info_t * edid, display_mode_t * mode)
     mode->pitch = hactive * (DISPLAY_MODE_BPP / 8);
     mode->refresh_hz = display_mode_refresh(mode->pixel_clock_khz,
                                            hactive + hblank, vactive + vblank);
+    boot_mode = *mode;
     return true;
 }
 
@@ -100,6 +108,7 @@ void display_mode_from_fb(display_mode_t * mode, uint32_t width,
 
     mode->pitch = (pitch != 0) ? pitch : width * (DISPLAY_MODE_BPP / 8);
     mode->refresh_hz = 0;
+    boot_mode = *mode;
 }
 
 void display_mode_log(const display_mode_t * mode)

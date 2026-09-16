@@ -50,3 +50,7 @@ void display_mode_from_fb(display_mode_t * mode, uint32_t width,
 
 /* Log a mode's fields. No-op when mode is NULL or invalid. */
 void display_mode_log(const display_mode_t * mode);
+
+/* The mode selected at boot (EDID preferred, else framebuffer geometry). */
+const display_mode_t *display_mode_get_boot(void);
+

@@ -437,3 +437,57 @@
  * is the surface address; DSPxLINOFF (0x04) is not the surface address. */
 #define DSP_SURF(plane)                 (DSPACNTR + (plane) * 0x1000 + 0x1C)
 #define DSP_STRIDE(plane)               (DSPACNTR + (plane) * 0x1000 + 0x08)
+
+/* Skylake Gen9 Display — display core power well */
+#define PWR_WELL_CTL1                   0x45400
+#define PWR_WELL_CTL1_DC_REQ            (1u << 31)
+#define PWR_WELL_CTL1_DC_STATE          (1u << 30)
+
+/* Skylake Gen9 Display — CDCLK control */
+#define CDCLK_CTL                       0x46000
+#define CDCLK_CTL_SEL_MASK              (7 << 0)
+#define CDCLK_CTL_SEL_337_5             0
+#define CDCLK_CTL_SEL_450               1
+#define CDCLK_CTL_SEL_540               2
+#define CDCLK_CTL_SEL_675               3
+#define CDCLK_CTL_PLL_ENABLE            (1u << 27)
+
+/* Skylake Gen9 Display — DPLL status */
+#define DPLL_STATUS                     0x6C060
+#define DPLL0_LOCK                      (1u << 0)
+#define DPLL1_LOCK                      (1u << 1)
+
+/* Skylake Gen9 Display — DDI buffer translation (port A) */
+#define DDI_BUF_TRANS_A                 0x64E00
+#define DDI_BUF_TRANS_SELECT(n)         ((n) << 24)
+
+/* Skylake Gen9 Display — DDI DP transport control */
+#define DP_TP_CTL_A                     0x64040
+#define DP_TP_CTL_ENABLE                (1u << 31)
+#define DP_TP_CTL_MODE_SST              (0 << 27)
+#define DP_TP_CTL_FORCE_ACT             (1u << 25)
+#define DP_TP_STATUS_A                  0x64044
+#define DP_TP_STATUS_IDLE_DONE          (1u << 28)
+
+/* Skylake Gen9 Display — Transcoder DP control (eDP on pipe A) */
+#define TRANS_DP_CTL_A                  0x60480
+#define TRANS_DP_OUTPUT_ENABLE          (1u << 31)
+#define TRANS_DP_PORT_SEL_DDI_A         0
+#define TRANS_DP_PORT_SEL_MASK          (3 << 29)
+#define TRANS_DP_BPC_6                  (0 << 25)
+#define TRANS_DP_BPC_8                  (1 << 25)
+#define TRANS_DP_VSYNC_ACTIVE_HIGH      (1 << 3)
+#define TRANS_DP_HSYNC_ACTIVE_HIGH      (1 << 2)
+#define TRANS_DP_SYNC_MASK              (3 << 2)
+
+/* Skylake universal plane (pipe A, plane 1) extra fields */
+#define PLANE_CTL_FORMAT_MASK           (0xfu << 24)
+#define PLANE_CTL_FORMAT_XRGB8888       (4u << 24)      /* BGRX linear */
+#define PLANE_CTL_PIPE_CSC_ENABLE       (1u << 17)
+#define PLANE_OFFSET_1_A                0x701A4
+
+/* Skylake Gen9 Display — PIPE_MISC (pixel format / bpc) */
+#define PIPE_MISC_A                     0x70030
+#define PIPE_MISC_BPC_MASK              (7 << 5)
+#define PIPE_MISC_BPC_8                 (0 << 5)
+
