@@ -280,8 +280,10 @@ int main(void)
     if (back == NULL)
         return 1;
 
-    /* Keep whatever the kernel already drew. */
-    memcpy(back, fbio, (uint64_t) fb_pitch * fb_h);
+    /* The server owns the display, so start from a clean screen instead of
+     * inheriting whatever the kernel drew (boot log and splash). */
+    memset(back, 0, (uint64_t) fb_pitch * fb_h);
+    memcpy(fbio, back, (uint64_t) fb_pitch * fb_h);
 
     /* Blink the cursor while the queue is idle; keep it solid while output
      * is being drawn. */
