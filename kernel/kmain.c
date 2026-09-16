@@ -345,6 +345,20 @@ void kmain(void)
 
     klogi("Init PCI...\n");
     pci_init();
+
+    /* Build the display timing model before the GPU driver so it can program
+     * the pipeline at the boot resolution (EDID preferred, else the current
+     * framebuffer geometry). */
+    display_mode_t display_mode;
+    if (fb->edid_size == sizeof(edid_info_t)
+        && display_mode_from_edid((edid_info_t *) fb->edid, &display_mode)) {
+        display_mode_log(&display_mode);
+    } else {
+        display_mode_from_fb(&display_mode, (uint32_t) fb->width,
+                             (uint32_t) fb->height, (uint32_t) fb->pitch);
+        display_mode_log(&display_mode);
+    }
+
     gfx_init();
 
     klogi("Init APIC...\n");
@@ -394,18 +408,6 @@ void kmain(void)
 
     self_info.actual_res_x = fb->width;
     self_info.actual_res_y = fb->height;
-
-    /* Build the display timing model. Prefer the EDID preferred detailed
-     * timing; fall back to the framebuffer geometry when EDID is absent. */
-    display_mode_t display_mode;
-    if (fb->edid_size == sizeof(edid_info_t)
-        && display_mode_from_edid((edid_info_t *) fb->edid, &display_mode)) {
-        display_mode_log(&display_mode);
-    } else {
-        display_mode_from_fb(&display_mode, (uint32_t) fb->width,
-                             (uint32_t) fb->height, (uint32_t) fb->pitch);
-        display_mode_log(&display_mode);
-    }
 
     vfs_init();
 
