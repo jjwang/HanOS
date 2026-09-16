@@ -491,3 +491,12 @@
 #define PIPE_MISC_BPC_MASK              (7 << 5)
 #define PIPE_MISC_BPC_8                 (0 << 5)
 
+/* Skylake Gen9 Display — transcoder clock select (pipe/trans A/B/C) */
+#define TRANS_CLK_SEL_A                 0x46140
+#define TRANS_CLK_SEL_B                 0x46144
+#define TRANS_CLK_SEL_C                 0x46148
+#define TRANS_CLK_SEL_MASK              (3u << 0)
+#define TRANS_CLK_SEL_NONE              0
+#define TRANS_CLK_SEL_DPLL0             1
+#define TRANS_CLK_SEL_DPLL1             2
+
