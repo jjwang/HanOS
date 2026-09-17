@@ -207,9 +207,11 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!panel_power_on(pci))
         return false;
 
-    /* Program the output pipe: transcoder clock, timing, pipe and plane. */
+    /* Program the output pipe: transcoder clock, timing, pipe and plane. The
+     * TRANS_CLK_SEL register only exists on Haswell/Broadwell; on Skylake the
+     * clock comes from the DDI/DPLL mapping, so treat it as best-effort. */
     if (!transcoder_clock_select(pci, 0, TRANS_CLK_SEL_DPLL0, "trans A clock"))
-        return false;
+        klogd("GFX: modeset: trans A clock select not available (Skylake?)\n");
     transcoder_timing(pci, 0, mode);
     if (!pipe_configure(pci, mode))
         return false;
@@ -252,4 +254,16 @@ void skl_display_dump(gfx_pci_t * pci)
           gfx_ind(pci, PP_CONTROL));
     klogi("  DDI_BUF_CTL_A 0x%08x DDI_AUX_CTL_A 0x%08x\n",
           gfx_ind(pci, DDI_BUF_CTL_A), gfx_ind(pci, DDI_AUX_CTL_A));
+    klogi("  DDI_BUF A/B/C/D 0x%08x 0x%08x 0x%08x 0x%08x\n",
+          gfx_ind(pci, 0x64000), gfx_ind(pci, 0x64100), gfx_ind(pci, 0x64200),
+          gfx_ind(pci, 0x64300));
+    klogi("  TRANS_DDI A/B/C 0x%08x 0x%08x 0x%08x\n",
+          gfx_ind(pci, 0x60400), gfx_ind(pci, 0x61400), gfx_ind(pci, 0x62400));
+    klogi("  PLANE_CTL A/B/C 0x%08x 0x%08x 0x%08x\n",
+          gfx_ind(pci, 0x70180), gfx_ind(pci, 0x71180), gfx_ind(pci, 0x72180));
+    klogi("  PLANE_SURF A/B/C 0x%08x 0x%08x 0x%08x\n",
+          gfx_ind(pci, 0x7019C), gfx_ind(pci, 0x7119C), gfx_ind(pci, 0x7219C));
+    klogi("  VGA_CONTROL 0x%08x BLC_PWM_CTL2 0x%08x BLC_PWM_CTL 0x%08x\n",
+          gfx_ind(pci, VGA_CONTROL), gfx_ind(pci, BLC_PWM_CTL2),
+          gfx_ind(pci, BLC_PWM_CTL));
 }
