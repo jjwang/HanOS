@@ -92,7 +92,7 @@ static bool pipe_is_running(gfx_pci_t * pci)
 }
 
 /* Wait for the next vblank (frame counter advance), bounded. */
-static void wait_vblank(gfx_pci_t * pci)
+static void __attribute__((unused)) wait_vblank(gfx_pci_t * pci)
 {
     uint32_t a = gfx_ind(pci, 0x70040);
     for (int i = 0; i < 40 && gfx_ind(pci, 0x70040) == a; i++)
@@ -285,28 +285,21 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!panel_power_on(pci))
         goto fail;
 
-    /* The firmware/DMC can keep pipe A scanning while PIPEACONF reads 0, so
-     * detect a live pipe from its frame counter. When it is running, update
-     * the timing and plane in place (they latch at the next vblank) instead
-     * of the disable/enable dance. */
     bool running = pipe_is_running(pci);
-    klogi("GFX: modeset: pipe A %s\n",
-          running ? "running (in-place update)" : "off (full enable)");
+    if (running) {
+        /* The live pipe takes the new timing but the pixel clock (DPLL0 /
+         * port clock) is not reprogrammed, which garbles the panel. Leave the
+         * running pipeline alone until the clock can be set. */
+        klogw("GFX: modeset: pipe A is running; skipping mode set until the "
+              "pixel clock can be reprogrammed\n");
+        goto fail;
+    }
 
     transcoder_timing(pci, 0, mode);
-    if (running) {
-        gfx_outd(pci, PIPE_MISC_A, PIPE_MISC_BPC_8);
-        gfx_outd(pci, PIPEASRC,
-                 (mode->vactive - 1) << 16 | (mode->hactive - 1));
-        wait_vblank(pci);
-        plane_configure(pci, mode, obj.gfx_addr, pitch);
-        wait_vblank(pci);
-    } else {
-        transcoder_ddi_enable(pci, mode);
-        if (!pipe_configure(pci, mode))
-            goto fail;
-        plane_configure(pci, mode, obj.gfx_addr, pitch);
-    }
+    transcoder_ddi_enable(pci, mode);
+    if (!pipe_configure(pci, mode))
+        goto fail;
+    plane_configure(pci, mode, obj.gfx_addr, pitch);
     backlight_on(pci, 0xFFFF);
 
     out_fb->obj = obj;
@@ -322,6 +315,16 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
   fail:
     modeset_restore(pci, &saved);
     return false;
+}
+
+/* Log the non-zero words in a display register range (read-only scan). */
+static void dump_region(gfx_pci_t * pci, uint32_t base, uint32_t bytes)
+{
+    for (uint32_t off = 0; off < bytes; off += 4) {
+        uint32_t v = gfx_ind(pci, base + off);
+        if (v != 0)
+            klogi("    [0x%05x] 0x%08x\n", base + off, v);
+    }
 }
 
 void skl_display_dump(gfx_pci_t * pci)
@@ -375,4 +378,12 @@ void skl_display_dump(gfx_pci_t * pci)
               gfx_ind(pci, 0x70040) - a, gfx_ind(pci, 0x71040) - b,
               gfx_ind(pci, 0x72040) - c);
     }
+    klogi("  clock region 0x46000:\n");
+    dump_region(pci, 0x46000, 0x200);
+    klogi("  DPLL region 0x6C000:\n");
+    dump_region(pci, 0x6C000, 0x80);
+    klogi("  trans A region 0x60000:\n");
+    dump_region(pci, 0x60000, 0x100);
+    klogi("  pipe/plane A region 0x70000:\n");
+    dump_region(pci, 0x70000, 0x100);
 }
