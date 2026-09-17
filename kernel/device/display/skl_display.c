@@ -342,6 +342,20 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
           gfx_ind(pci, PIPE_VTOTAL(0)), gfx_ind(pci, PIPEASRC),
           gfx_ind(pci, PLANE_CTL_1_A));
 
+    /* refresh = pixel_clock / (htotal * vtotal); measuring it reveals the
+     * pixel clock the pipe is actually running at (and thus whether the DP
+     * M/N ratio is being honoured). */
+    {
+        uint32_t htotal = mode->hactive + mode->hblank;
+        uint32_t vtotal = mode->vactive + mode->vblank;
+        uint32_t f0 = gfx_ind(pci, 0x70040);
+
+        pit_wait(200);
+        uint32_t fps = (gfx_ind(pci, 0x70040) - f0) * 5;
+        klogi("GFX: modeset: measured %u fps (pixel clock ~%u kHz)\n", fps,
+              (uint32_t) ((uint64_t) fps * htotal * vtotal / 1000));
+    }
+
     out_fb->obj = obj;
     out_fb->width = mode->hactive;
     out_fb->height = mode->vactive;
@@ -424,6 +438,10 @@ void skl_display_dump(gfx_pci_t * pci)
     dump_region(pci, 0x6C000, 0x80);
     klogi("  trans A region 0x60000:\n");
     dump_region(pci, 0x60000, 0x100);
+    klogi("  trans eDP region 0x6F000:\n");
+    dump_region(pci, 0x6F000, 0x20);
+    klogi("  TRANS_DDI eDP 0x%08x\n",
+          gfx_ind(pci, TRANS_DDI_FUNC_CTL_EDP));
     klogi("  pipe/plane A region 0x70000:\n");
     dump_region(pci, 0x70000, 0x100);
 }

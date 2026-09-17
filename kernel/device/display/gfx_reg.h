@@ -365,6 +365,7 @@
 #define TRANS_DDI_FUNC_CTL_A            0x60400
 #define TRANS_DDI_FUNC_CTL_B            0x61400
 #define TRANS_DDI_FUNC_CTL_C            0x62400
+#define TRANS_DDI_FUNC_CTL_EDP          0x6F400
 #define TRANS_DDI_FUNC_ENABLE           (1u << 31)
 #define TRANS_DDI_SELECT_NONE           (0 << 28)
 #define TRANS_DDI_SELECT_DDI_A          (0 << 28)
