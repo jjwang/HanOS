@@ -63,9 +63,13 @@ static bool panel_power_on(gfx_pci_t * pci)
                      "eDP panel power");
 }
 
-/* Select the transcoder's input clock (normally DPLL0 for eDP). */
-static bool transcoder_clock_select(gfx_pci_t * pci, uint8_t tr, uint32_t sel,
-                                    const char *name)
+/* Select the transcoder's input clock (normally DPLL0 for eDP). Only
+ * Haswell/Broadwell expose TRANS_CLK_SEL; Skylake selects the clock through
+ * the DDI/DPLL mapping, so this is kept for reference. */
+static bool __attribute__((unused)) transcoder_clock_select(gfx_pci_t * pci,
+                                                            uint8_t tr,
+                                                            uint32_t sel,
+                                                            const char *name)
 {
     uint32_t reg = TRANS_CLK_SEL_A + (uint32_t) tr * 4;
     uint32_t v = gfx_ind(pci, reg);
@@ -265,15 +269,12 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!panel_power_on(pci))
         goto fail;
 
-    /* Program the output pipe: transcoder clock, timing, pipe and plane. The
-     * TRANS_CLK_SEL register only exists on Haswell/Broadwell; on Skylake the
-     * clock comes from the DDI/DPLL mapping, so treat it as best-effort. */
-    if (!transcoder_clock_select(pci, 0, TRANS_CLK_SEL_DPLL0, "trans A clock"))
-        klogd("GFX: modeset: trans A clock select not available (Skylake?)\n");
+    /* Program the output pipe: transcoder timing and DDI output first, then
+     * the pipe, then the plane. */
     transcoder_timing(pci, 0, mode);
+    transcoder_ddi_enable(pci, mode);
     if (!pipe_configure(pci, mode))
         goto fail;
-    transcoder_ddi_enable(pci, mode);
     plane_configure(pci, mode, obj.gfx_addr, pitch);
     backlight_on(pci, 0xFFFF);
 
@@ -328,4 +329,15 @@ void skl_display_dump(gfx_pci_t * pci)
     klogi("  VGA_CONTROL 0x%08x BLC_PWM_CTL2 0x%08x BLC_PWM_CTL 0x%08x\n",
           gfx_ind(pci, VGA_CONTROL), gfx_ind(pci, BLC_PWM_CTL2),
           gfx_ind(pci, BLC_PWM_CTL));
+    klogi("  PIPESRC B/C 0x%08x 0x%08x\n", gfx_ind(pci, 0x6101C),
+          gfx_ind(pci, 0x6201C));
+    {
+        uint32_t a = gfx_ind(pci, 0x70040);
+        uint32_t b = gfx_ind(pci, 0x71040);
+        uint32_t c = gfx_ind(pci, 0x72040);
+        pit_wait(40);
+        klogi("  FRMCOUNT delta A/B/C %u %u %u (40 ms)\n",
+              gfx_ind(pci, 0x70040) - a, gfx_ind(pci, 0x71040) - b,
+              gfx_ind(pci, 0x72040) - c);
+    }
 }
