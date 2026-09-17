@@ -147,26 +147,6 @@ static void transcoder_ddi_enable(gfx_pci_t * pci, const display_mode_t * m)
     (void) gfx_ind(pci, TRANS_DP_CTL_A);
 }
 
-/* Configure pipe A for progressive scan at 8bpc and the given source size. */
-static bool pipe_configure(gfx_pci_t * pci, const display_mode_t * m)
-{
-    gfx_outd(pci, PIPEACONF, 0);
-    if (!wait_bits(pci, PIPEACONF, PIPE_STATE, 0, "pipe A disable"))
-        return false;
-
-    gfx_outd(pci, PIPEACONF, PIPE_PROGRESSIVE);
-    gfx_outd(pci, PIPE_MISC_A, PIPE_MISC_BPC_8);
-    gfx_outd(pci, PIPEASRC,
-             (m->vactive - 1) << 16 | (m->hactive - 1));
-
-    gfx_outd(pci, PIPEACONF, PIPE_ENABLE | PIPE_PROGRESSIVE);
-    if (!wait_bits(pci, PIPEACONF, PIPE_STATE, PIPE_STATE, "pipe A enable")) {
-        gfx_outd(pci, PIPEACONF, 0);
-        return false;
-    }
-    return true;
-}
-
 /* Point plane 1 of pipe A at the GTT-mapped framebuffer. */
 static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
                             uint64_t gfx_addr, uint32_t pitch)
@@ -327,46 +307,48 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!panel_power_on(pci))
         goto fail;
 
-    bool running = pipe_is_running(pci);
-    if (running) {
-        /* The firmware keeps pipe A scanning. The pipe regenerates its pixel
-         * clock from the link symbol clock through the DP M/N, so reprogram
-         * M/N, timing, source size and plane in place (latched at vblank). */
-        uint32_t ddi = gfx_ind(pci, DDI_BUF_CTL_A);
-        int nlanes = (int) ((ddi & DDI_BUF_CTL_PORT_WIDTH_MASK) >> 1) + 1;
-        struct link_m_n mn;
+    /* A pixel clock change (the DP M/N) is not a fast set: i915 programs it
+     * in a full mode set with the pipe stopped, so stop the pipe, program the
+     * whole transport, then start it again. */
+    uint32_t ddi = gfx_ind(pci, DDI_BUF_CTL_A);
+    int nlanes = (int) ((ddi & DDI_BUF_CTL_PORT_WIDTH_MASK) >> 1) + 1;
+    struct link_m_n mn;
 
-        link_compute_m_n(24, nlanes, (int) mode->pixel_clock_khz, 270000,
-                         &mn);
-        klogi("GFX: modeset: in-place M/N data %u/%u link %u/%u (lanes %d, "
-              "pixel clock %u kHz)\n", mn.data_m, mn.data_n, mn.link_m,
-              mn.link_n, nlanes, mode->pixel_clock_khz);
+    link_compute_m_n(24, nlanes, (int) mode->pixel_clock_khz, 270000, &mn);
+    klogi("GFX: modeset: M/N data %u/%u link %u/%u (lanes %d, pixel clock "
+          "%u kHz)\n", mn.data_m, mn.data_n, mn.link_m, mn.link_n, nlanes,
+          mode->pixel_clock_khz);
 
-        program_m_n(pci, &mn);
-        transcoder_timing(pci, 0, mode);
-        gfx_outd(pci, PIPEASRC,
-                 (mode->vactive - 1) << 16 | (mode->hactive - 1));
-        wait_vblank(pci);
-        plane_configure(pci, mode, obj.gfx_addr, pitch);
-        wait_vblank(pci);
-        backlight_on(pci, 0xFFFF);
+    gfx_outd(pci, PIPEACONF, 0);
+    pit_wait(20);
 
-        klogi("GFX: modeset: M/N readback D-M1 0x%08x D-N1 0x%08x L-M1 0x%08x "
-              "L-N1 0x%08x\n", gfx_ind(pci, PIPE_DATA_M1_A),
-              gfx_ind(pci, PIPE_DATA_N1_A), gfx_ind(pci, PIPE_LINK_M1_A),
-              gfx_ind(pci, PIPE_LINK_N1_A));
-        klogi("GFX: modeset: readback HTOTAL 0x%08x VTOTAL 0x%08x PIPEASRC "
-              "0x%08x PLANE_CTL 0x%08x\n", gfx_ind(pci, PIPE_HTOTAL(0)),
-              gfx_ind(pci, PIPE_VTOTAL(0)), gfx_ind(pci, PIPEASRC),
-              gfx_ind(pci, PLANE_CTL_1_A));
-    } else {
-        transcoder_timing(pci, 0, mode);
-        transcoder_ddi_enable(pci, mode);
-        if (!pipe_configure(pci, mode))
-            goto fail;
-        plane_configure(pci, mode, obj.gfx_addr, pitch);
-        backlight_on(pci, 0xFFFF);
+    program_m_n(pci, &mn);
+    transcoder_timing(pci, 0, mode);
+    transcoder_ddi_enable(pci, mode);
+    gfx_outd(pci, PIPEASRC,
+             (mode->vactive - 1) << 16 | (mode->hactive - 1));
+    gfx_outd(pci, PIPE_MISC_A, PIPE_MISC_BPC_8);
+
+    gfx_outd(pci, PIPEACONF, PIPE_ENABLE | PIPE_PROGRESSIVE);
+    pit_wait(20);
+
+    if (!pipe_is_running(pci)) {
+        kloge("GFX: modeset: pipe A did not start\n");
+        goto fail;
     }
+
+    plane_configure(pci, mode, obj.gfx_addr, pitch);
+    wait_vblank(pci);
+    backlight_on(pci, 0xFFFF);
+
+    klogi("GFX: modeset: M/N readback D-M1 0x%08x D-N1 0x%08x L-M1 0x%08x "
+          "L-N1 0x%08x\n", gfx_ind(pci, PIPE_DATA_M1_A),
+          gfx_ind(pci, PIPE_DATA_N1_A), gfx_ind(pci, PIPE_LINK_M1_A),
+          gfx_ind(pci, PIPE_LINK_N1_A));
+    klogi("GFX: modeset: readback HTOTAL 0x%08x VTOTAL 0x%08x PIPEASRC "
+          "0x%08x PLANE_CTL 0x%08x\n", gfx_ind(pci, PIPE_HTOTAL(0)),
+          gfx_ind(pci, PIPE_VTOTAL(0)), gfx_ind(pci, PIPEASRC),
+          gfx_ind(pci, PLANE_CTL_1_A));
 
     out_fb->obj = obj;
     out_fb->width = mode->hactive;
