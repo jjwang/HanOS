@@ -367,10 +367,10 @@
 #define TRANS_DDI_FUNC_CTL_C            0x62400
 #define TRANS_DDI_FUNC_ENABLE           (1u << 31)
 #define TRANS_DDI_SELECT_NONE           (0 << 28)
+#define TRANS_DDI_SELECT_DDI_A          (0 << 28)
 #define TRANS_DDI_SELECT_DDI_B          (1 << 28)
 #define TRANS_DDI_SELECT_DDI_C          (2 << 28)
 #define TRANS_DDI_SELECT_DDI_D          (3 << 28)
-#define TRANS_DDI_SELECT_DDI_A          (4 << 28)
 #define TRANS_DDI_SELECT_MASK           (7 << 28)
 #define TRANS_DDI_MODE_HDMI             (0 << 24)
 #define TRANS_DDI_MODE_DVI              (1 << 24)
@@ -381,6 +381,8 @@
 #define TRANS_DDI_BPC_10                (1 << 20)
 #define TRANS_DDI_BPC_6                 (2 << 20)
 #define TRANS_DDI_BPC_12                (3 << 20)
+#define TRANS_DDI_PVSYNC                (1 << 17)
+#define TRANS_DDI_PHSYNC                (1 << 16)
 #define TRANS_DDI_PORT_WIDTH_X1         (0 << 1)
 #define TRANS_DDI_PORT_WIDTH_X2         (1 << 1)
 #define TRANS_DDI_PORT_WIDTH_X4         (3 << 1)
@@ -468,17 +470,6 @@
 #define DP_TP_CTL_FORCE_ACT             (1u << 25)
 #define DP_TP_STATUS_A                  0x64044
 #define DP_TP_STATUS_IDLE_DONE          (1u << 28)
-
-/* Skylake Gen9 Display — Transcoder DP control (eDP on pipe A) */
-#define TRANS_DP_CTL_A                  0x60480
-#define TRANS_DP_OUTPUT_ENABLE          (1u << 31)
-#define TRANS_DP_PORT_SEL_DDI_A         0
-#define TRANS_DP_PORT_SEL_MASK          (3 << 29)
-#define TRANS_DP_BPC_6                  (0 << 25)
-#define TRANS_DP_BPC_8                  (1 << 25)
-#define TRANS_DP_VSYNC_ACTIVE_HIGH      (1 << 3)
-#define TRANS_DP_HSYNC_ACTIVE_HIGH      (1 << 2)
-#define TRANS_DP_SYNC_MASK              (3 << 2)
 
 /* Skylake universal plane (pipe A, plane 1) extra fields */
 #define PLANE_CTL_FORMAT_MASK           (0xfu << 24)

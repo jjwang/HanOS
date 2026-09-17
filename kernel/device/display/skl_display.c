@@ -119,32 +119,26 @@ static void transcoder_timing(gfx_pci_t * pci, uint8_t tr,
     uint32_t vsync_start = m->vactive + m->vsync_offset;
     uint32_t vsync_end = vsync_start + m->vsync_pulse;
 
-    gfx_outd(pci, base + 0x00, (htotal - 1) | ((m->hactive - 1) << 16));
-    gfx_outd(pci, base + 0x04, (htotal - 1) | ((hsync_start - 1) << 16));
+    /* The low 16 bits of each register hold the first edge (active/start) and
+     * the high 16 bits the second (total/end), as in i915. */
+    gfx_outd(pci, base + 0x00, (m->hactive - 1) | ((htotal - 1) << 16));
+    gfx_outd(pci, base + 0x04, (m->hactive - 1) | ((htotal - 1) << 16));
     gfx_outd(pci, base + 0x08,
-             (hsync_end - 1) | ((hsync_start - 1) << 16)
-             | (m->hsync_positive ? 0 : (1u << 31)));
-    gfx_outd(pci, base + 0x0C, (vtotal - 1) | ((m->vactive - 1) << 16));
-    gfx_outd(pci, base + 0x10, (vtotal - 1) | ((vsync_start - 1) << 16));
+             (hsync_start - 1) | ((hsync_end - 1) << 16));
+    gfx_outd(pci, base + 0x0C, (m->vactive - 1) | ((vtotal - 1) << 16));
+    gfx_outd(pci, base + 0x10, (m->vactive - 1) | ((vtotal - 1) << 16));
     gfx_outd(pci, base + 0x14,
-             (vsync_end - 1) | ((vsync_start - 1) << 16)
-             | (m->vsync_positive ? 0 : (1u << 31)));
+             (vsync_start - 1) | ((vsync_end - 1) << 16));
 }
 
-/* Enable the transcoder's DDI output (eDP on DDI-A, DP SST, 8bpc). The port
- * width is taken from the link the firmware trained. */
+/* Enable the transcoder's DDI output for eDP on DDI-A (DP SST, 8bpc). */
 static void transcoder_ddi_enable(gfx_pci_t * pci, const display_mode_t * m)
 {
-    uint32_t width = gfx_ind(pci, DDI_BUF_CTL_A) & DDI_BUF_CTL_PORT_WIDTH_MASK;
-
     gfx_outd(pci, TRANS_DDI_FUNC_CTL_A,
              TRANS_DDI_FUNC_ENABLE | TRANS_DDI_SELECT_DDI_A
-             | TRANS_DDI_MODE_DP_SST | TRANS_DDI_BPC_8 | width);
-    gfx_outd(pci, TRANS_DP_CTL_A,
-             TRANS_DP_OUTPUT_ENABLE | TRANS_DP_BPC_8
-             | (m->vsync_positive ? TRANS_DP_VSYNC_ACTIVE_HIGH : 0)
-             | (m->hsync_positive ? TRANS_DP_HSYNC_ACTIVE_HIGH : 0));
-    (void) gfx_ind(pci, TRANS_DP_CTL_A);
+             | TRANS_DDI_MODE_DP_SST | TRANS_DDI_BPC_8
+             | (m->vsync_positive ? TRANS_DDI_PVSYNC : 0)
+             | (m->hsync_positive ? TRANS_DDI_PHSYNC : 0));
 }
 
 /* Point plane 1 of pipe A at the GTT-mapped framebuffer. */
@@ -211,7 +205,7 @@ static void program_m_n(gfx_pci_t * pci, const struct link_m_n * mn)
 struct modeset_state {
     uint32_t trans[6];
     uint32_t pipeaconf, pipeasrc, pipemisc;
-    uint32_t trans_ddi_a, trans_dp_a;
+    uint32_t trans_ddi_a;
     uint32_t plane_ctl, plane_stride, plane_surf, plane_offset, plane_pos,
         plane_size;
     uint32_t blc_ctl, blc_ctl2;
@@ -225,7 +219,6 @@ static void modeset_save(gfx_pci_t * pci, struct modeset_state * s)
     s->pipeasrc = gfx_ind(pci, PIPEASRC);
     s->pipemisc = gfx_ind(pci, PIPE_MISC_A);
     s->trans_ddi_a = gfx_ind(pci, TRANS_DDI_FUNC_CTL_A);
-    s->trans_dp_a = gfx_ind(pci, TRANS_DP_CTL_A);
     s->plane_ctl = gfx_ind(pci, PLANE_CTL_1_A);
     s->plane_stride = gfx_ind(pci, PLANE_STRIDE_1_A);
     s->plane_surf = gfx_ind(pci, PLANE_SURF_1_A);
@@ -245,7 +238,6 @@ static void modeset_restore(gfx_pci_t * pci, const struct modeset_state * s)
     gfx_outd(pci, PIPEASRC, s->pipeasrc);
     gfx_outd(pci, PIPE_MISC_A, s->pipemisc);
     gfx_outd(pci, TRANS_DDI_FUNC_CTL_A, s->trans_ddi_a);
-    gfx_outd(pci, TRANS_DP_CTL_A, s->trans_dp_a);
     gfx_outd(pci, PLANE_STRIDE_1_A, s->plane_stride);
     gfx_outd(pci, PLANE_OFFSET_1_A, s->plane_offset);
     gfx_outd(pci, PLANE_POS_1_A, s->plane_pos);
