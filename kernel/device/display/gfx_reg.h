@@ -500,3 +500,13 @@
 #define TRANS_CLK_SEL_DPLL0             1
 #define TRANS_CLK_SEL_DPLL1             2
 
+/* Skylake DP pipe/link M/N (transcoder A, stride 0x1000). The pipe regenerates
+ * its pixel clock from the link symbol clock using these values. */
+#define PIPE_DATA_M1_A                  0x60030
+#define PIPE_DATA_N1_A                  0x60034
+#define PIPE_LINK_M1_A                  0x60040
+#define PIPE_LINK_N1_A                  0x60044
+#define TU_SIZE_MASK                    (0x3fu << 25)
+#define TU_SIZE(x)                      (((x) - 1) << 25)
+#define DATA_LINK_M_N_MASK              0xffffffu
+
