@@ -350,6 +350,15 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
         plane_configure(pci, mode, obj.gfx_addr, pitch);
         wait_vblank(pci);
         backlight_on(pci, 0xFFFF);
+
+        klogi("GFX: modeset: M/N readback D-M1 0x%08x D-N1 0x%08x L-M1 0x%08x "
+              "L-N1 0x%08x\n", gfx_ind(pci, PIPE_DATA_M1_A),
+              gfx_ind(pci, PIPE_DATA_N1_A), gfx_ind(pci, PIPE_LINK_M1_A),
+              gfx_ind(pci, PIPE_LINK_N1_A));
+        klogi("GFX: modeset: readback HTOTAL 0x%08x VTOTAL 0x%08x PIPEASRC "
+              "0x%08x PLANE_CTL 0x%08x\n", gfx_ind(pci, PIPE_HTOTAL(0)),
+              gfx_ind(pci, PIPE_VTOTAL(0)), gfx_ind(pci, PIPEASRC),
+              gfx_ind(pci, PLANE_CTL_1_A));
     } else {
         transcoder_timing(pci, 0, mode);
         transcoder_ddi_enable(pci, mode);
