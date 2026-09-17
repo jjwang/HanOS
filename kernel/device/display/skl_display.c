@@ -184,6 +184,48 @@ static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
     (void) gfx_ind(pci, PLANE_SURF_1_A);
 }
 
+/* DP M/N values: the ratio the pipe uses to regenerate its pixel clock from
+ * the link symbol clock, and the data-clock ratio. Mirrors i915's
+ * intel_link_compute_m_n(). */
+struct link_m_n {
+    uint32_t tu;
+    uint32_t data_m, data_n;
+    uint32_t link_m, link_n;
+};
+
+static void compute_m_n(uint32_t * ret_m, uint32_t * ret_n, uint32_t m,
+                        uint32_t n, uint32_t constant_n)
+{
+    *ret_n = constant_n;
+    *ret_m = (uint32_t) (((uint64_t) m * (*ret_n)) / n);
+
+    while (*ret_m > DATA_LINK_M_N_MASK || *ret_n > DATA_LINK_M_N_MASK) {
+        *ret_m >>= 1;
+        *ret_n >>= 1;
+    }
+}
+
+static void link_compute_m_n(uint16_t bpp, int nlanes, int pixel_clock,
+                             int link_clock, struct link_m_n * mn)
+{
+    uint32_t data_clock = (uint32_t) bpp * (uint32_t) pixel_clock;
+
+    mn->tu = 64;
+    compute_m_n(&mn->data_m, &mn->data_n, data_clock,
+                (uint32_t) link_clock * (uint32_t) nlanes * 8, 0x8000000);
+    compute_m_n(&mn->link_m, &mn->link_n, (uint32_t) pixel_clock,
+                (uint32_t) link_clock, 0x80000);
+}
+
+static void program_m_n(gfx_pci_t * pci, const struct link_m_n * mn)
+{
+    gfx_outd(pci, PIPE_DATA_M1_A, TU_SIZE(mn->tu) | mn->data_m);
+    gfx_outd(pci, PIPE_DATA_N1_A, mn->data_n);
+    gfx_outd(pci, PIPE_LINK_M1_A, mn->link_m);
+    /* LINK_N1 arms the double-buffered M/N update, so it is written last. */
+    gfx_outd(pci, PIPE_LINK_N1_A, mn->link_n);
+}
+
 /* Registers the mode set may modify, saved so a failure can restore the
  * firmware's display state instead of leaving a broken signal. */
 struct modeset_state {
@@ -287,20 +329,35 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
 
     bool running = pipe_is_running(pci);
     if (running) {
-        /* The live pipe takes the new timing but the pixel clock (DPLL0 /
-         * port clock) is not reprogrammed, which garbles the panel. Leave the
-         * running pipeline alone until the clock can be set. */
-        klogw("GFX: modeset: pipe A is running; skipping mode set until the "
-              "pixel clock can be reprogrammed\n");
-        goto fail;
-    }
+        /* The firmware keeps pipe A scanning. The pipe regenerates its pixel
+         * clock from the link symbol clock through the DP M/N, so reprogram
+         * M/N, timing, source size and plane in place (latched at vblank). */
+        uint32_t ddi = gfx_ind(pci, DDI_BUF_CTL_A);
+        int nlanes = (int) ((ddi & DDI_BUF_CTL_PORT_WIDTH_MASK) >> 1) + 1;
+        struct link_m_n mn;
 
-    transcoder_timing(pci, 0, mode);
-    transcoder_ddi_enable(pci, mode);
-    if (!pipe_configure(pci, mode))
-        goto fail;
-    plane_configure(pci, mode, obj.gfx_addr, pitch);
-    backlight_on(pci, 0xFFFF);
+        link_compute_m_n(24, nlanes, (int) mode->pixel_clock_khz, 270000,
+                         &mn);
+        klogi("GFX: modeset: in-place M/N data %u/%u link %u/%u (lanes %d, "
+              "pixel clock %u kHz)\n", mn.data_m, mn.data_n, mn.link_m,
+              mn.link_n, nlanes, mode->pixel_clock_khz);
+
+        program_m_n(pci, &mn);
+        transcoder_timing(pci, 0, mode);
+        gfx_outd(pci, PIPEASRC,
+                 (mode->vactive - 1) << 16 | (mode->hactive - 1));
+        wait_vblank(pci);
+        plane_configure(pci, mode, obj.gfx_addr, pitch);
+        wait_vblank(pci);
+        backlight_on(pci, 0xFFFF);
+    } else {
+        transcoder_timing(pci, 0, mode);
+        transcoder_ddi_enable(pci, mode);
+        if (!pipe_configure(pci, mode))
+            goto fail;
+        plane_configure(pci, mode, obj.gfx_addr, pitch);
+        backlight_on(pci, 0xFFFF);
+    }
 
     out_fb->obj = obj;
     out_fb->width = mode->hactive;
