@@ -164,14 +164,72 @@ static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
     (void) gfx_ind(pci, PLANE_SURF_1_A);
 }
 
+/* Registers the mode set may modify, saved so a failure can restore the
+ * firmware's display state instead of leaving a broken signal. */
+struct modeset_state {
+    uint32_t trans[6];
+    uint32_t pipeaconf, pipeasrc, pipemisc;
+    uint32_t trans_ddi_a, trans_dp_a;
+    uint32_t plane_ctl, plane_stride, plane_surf, plane_offset, plane_pos,
+        plane_size;
+    uint32_t blc_ctl, blc_ctl2;
+};
+
+static void modeset_save(gfx_pci_t * pci, struct modeset_state * s)
+{
+    for (uint32_t i = 0; i < 6; i++)
+        s->trans[i] = gfx_ind(pci, 0x60000 + i * 4);
+    s->pipeaconf = gfx_ind(pci, PIPEACONF);
+    s->pipeasrc = gfx_ind(pci, PIPEASRC);
+    s->pipemisc = gfx_ind(pci, PIPE_MISC_A);
+    s->trans_ddi_a = gfx_ind(pci, TRANS_DDI_FUNC_CTL_A);
+    s->trans_dp_a = gfx_ind(pci, TRANS_DP_CTL_A);
+    s->plane_ctl = gfx_ind(pci, PLANE_CTL_1_A);
+    s->plane_stride = gfx_ind(pci, PLANE_STRIDE_1_A);
+    s->plane_surf = gfx_ind(pci, PLANE_SURF_1_A);
+    s->plane_offset = gfx_ind(pci, PLANE_OFFSET_1_A);
+    s->plane_pos = gfx_ind(pci, PLANE_POS_1_A);
+    s->plane_size = gfx_ind(pci, PLANE_SIZE_1_A);
+    s->blc_ctl = gfx_ind(pci, BLC_PWM_CTL);
+    s->blc_ctl2 = gfx_ind(pci, BLC_PWM_CTL2);
+}
+
+static void modeset_restore(gfx_pci_t * pci, const struct modeset_state * s)
+{
+    gfx_outd(pci, PIPEACONF, 0);
+    gfx_outd(pci, PLANE_CTL_1_A, 0);
+    for (uint32_t i = 0; i < 6; i++)
+        gfx_outd(pci, 0x60000 + i * 4, s->trans[i]);
+    gfx_outd(pci, PIPEASRC, s->pipeasrc);
+    gfx_outd(pci, PIPE_MISC_A, s->pipemisc);
+    gfx_outd(pci, TRANS_DDI_FUNC_CTL_A, s->trans_ddi_a);
+    gfx_outd(pci, TRANS_DP_CTL_A, s->trans_dp_a);
+    gfx_outd(pci, PLANE_STRIDE_1_A, s->plane_stride);
+    gfx_outd(pci, PLANE_OFFSET_1_A, s->plane_offset);
+    gfx_outd(pci, PLANE_POS_1_A, s->plane_pos);
+    gfx_outd(pci, PLANE_SIZE_1_A, s->plane_size);
+    gfx_outd(pci, PLANE_SURF_1_A, s->plane_surf);
+    gfx_outd(pci, PLANE_CTL_1_A, s->plane_ctl);
+    gfx_outd(pci, BLC_PWM_CTL, s->blc_ctl);
+    gfx_outd(pci, BLC_PWM_CTL2, s->blc_ctl2);
+    gfx_outd(pci, PIPEACONF, s->pipeaconf);
+    klogi("GFX: modeset: restored firmware display state\n");
+}
+
 bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
                       const display_mode_t * mode, gfx_fb_t * out_fb)
 {
+    struct modeset_state saved;
+
     if (mode == NULL || !mode->valid || mode->hactive == 0
         || mode->vactive == 0) {
         kloge("GFX: modeset: invalid mode\n");
         return false;
     }
+
+    modeset_save(pci, &saved);
+    klogi("GFX: modeset: firmware HTOTAL 0x%08x VTOTAL 0x%08x PIPEACONF 0x%08x\n",
+          saved.trans[0], saved.trans[3], saved.pipeaconf);
 
     uint32_t pitch = (mode->hactive * 4 + 63) & ~63u;
     uint64_t fbsize = (uint64_t) pitch * mode->vactive;
@@ -192,20 +250,20 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     /* Keep the firmware's display core up; only turn it on if it is off. */
     if (!power_well_on(pci, PWR_WELL_CTL1, PWR_WELL_CTL1_DC_REQ,
                        PWR_WELL_CTL1_DC_STATE, "DC"))
-        return false;
+        goto fail;
     if (!power_well_on(pci, PWR_WELL_CTL2, PWR_WELL_DDI_A_REQ,
                        PWR_WELL_DDI_A_STATE, "DDI-A"))
-        return false;
+        goto fail;
 
     /* The GOP trained the eDP link and enabled DPLL0; require that. */
     if (!(gfx_ind(pci, DPLL_STATUS) & DPLL0_LOCK)) {
         kloge("GFX: modeset: DPLL0 not locked (status 0x%08x)\n",
               gfx_ind(pci, DPLL_STATUS));
-        return false;
+        goto fail;
     }
 
     if (!panel_power_on(pci))
-        return false;
+        goto fail;
 
     /* Program the output pipe: transcoder clock, timing, pipe and plane. The
      * TRANS_CLK_SEL register only exists on Haswell/Broadwell; on Skylake the
@@ -214,7 +272,7 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
         klogd("GFX: modeset: trans A clock select not available (Skylake?)\n");
     transcoder_timing(pci, 0, mode);
     if (!pipe_configure(pci, mode))
-        return false;
+        goto fail;
     transcoder_ddi_enable(pci, mode);
     plane_configure(pci, mode, obj.gfx_addr, pitch);
     backlight_on(pci, 0xFFFF);
@@ -228,6 +286,10 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     klogi("GFX: modeset: %ux%u @ %u Hz done\n", mode->hactive, mode->vactive,
           mode->refresh_hz);
     return true;
+
+  fail:
+    modeset_restore(pci, &saved);
+    return false;
 }
 
 void skl_display_dump(gfx_pci_t * pci)
