@@ -302,6 +302,9 @@ bool gfx_init(void)
     gfx_init_gtt(&gfx_pci, &gfx_gtt, dev);
     gfx_init_mem_manager(&gfx_pci, &gfx_gtt, &gfx_mgr);
 
+    klogi("GFX: state before self-test:\n");
+    skl_display_dump(&gfx_pci);
+
     gfx_test_advanced_features(&gfx_pci);
 
     /* Take over the display with a real mode set at the boot mode. If the
