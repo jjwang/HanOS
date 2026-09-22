@@ -85,4 +85,5 @@ bool term_set_bg_image(image_t * img);
 void term_get_winsize(winsize_t * ws);
 bool term_set_winsize(winsize_t * ws);
 fb_info_t *term_get_fb(void);
+void term_update_size(void);
 void term_get_pos(uint32_t *x, uint32_t *y, uint32_t *fg, uint32_t *bg);

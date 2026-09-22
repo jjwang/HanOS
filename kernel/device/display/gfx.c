@@ -99,14 +99,17 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
 
     /* Graphics Memory Address Spaces
      * BAR0: GTTMMADR - The combined Graphics Translation Table Modification
-     * Range and Memory Mapped Range. GTTADR will begin at GTTMMADR 2MB while
-     * the MMIO base address will be the same as GTTMMADR
+     * Range and Memory Mapped Range. GTTADR begins half way into GTTMMADR
+     * while the MMIO base address is the same as GTTMMADR.
      * Ref: https://01.org/sites/default/files/documentation/intel-gfx-prm-
-     *      osrc-hsw-pcie-config-registers.pdf#page=129 */
+     *      osrc-hsw-pcie-config-registers.pdf#page=129
+     *
+     * Gen8+ (Skylake) has a 16 MB GTTMMADR with GTTADR at the 8 MB offset;
+     * Gen6/7 has a 4 MB GTTMMADR with GTTADR at the 2 MB offset. */
     pci_get_bar(&bar, id, 0);
     pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
     pci->gtt_addr =
-        (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
+        (volatile uint64_t *) ((uint8_t *) pci->mmio_bar + 8 * MB);
     klogi("\tGTTMMADR: 0x%lx (%ld MB) on address space 0x%016lx\n",
           (uint64_t) bar.u.address, bar.size / MB, as);
 
@@ -172,9 +175,24 @@ void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
 
     gtt->stolen_mem_base = bdsm & BDSM_ADDR_MASK;
 
-    gtt->num_total_entries = gtt->gtt_mem_size / sizeof(uint32_t);
+    gtt->num_total_entries = gtt->gtt_mem_size / sizeof(uint64_t);
     gtt->num_mappable_entries = pci->aperture_size >> GTT_PAGE_SHIFT;
     gtt->entries = pci->gtt_addr;
+
+    /* The firmware has already mapped its framebuffer at GPU address 0, so
+     * these words reveal the hardware GTT entry layout (and confirm where the
+     * GTT actually lives). */
+    {
+        volatile uint32_t *g8 =
+            (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 8 * MB);
+        volatile uint32_t *g2 =
+            (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
+
+        for (uint32_t i = 0; i < 8; i++)
+            klogi("\tGTT+8MB[%u] 0x%08x\n", i, g8[i]);
+        for (uint32_t i = 0; i < 8; i++)
+            klogi("\tGTT+2MB[%u] 0x%08x\n", i, g2[i]);
+    }
 
     klogi("GTT Config:\n");
     klogi("\tStolen Mem Base:      0x%x\n", gtt->stolen_mem_base);
@@ -191,10 +209,12 @@ void gfx_init_mem_manager(gfx_pci_t * pci, gfx_gtt_t * gtt,
     mgr->vram.current = mgr->vram.base;
     mgr->vram.top = gtt->stolen_mem_size;
 
-    /* GPU address 0 is reserved — start shared range at page 1 minimum */
+    /* The firmware framebuffer sits at GPU address 0 and the CPU keeps
+     * writing it through the aperture, so keep our objects clear of that
+     * region by starting the shared GPU range at 64 MB. */
     uint64_t shared_base = gtt->stolen_mem_size;
-    if (shared_base < 4096)
-        shared_base = 4096;
+    if (shared_base < 64 * MB)
+        shared_base = 64 * MB;
     mgr->shared.base = shared_base;
     mgr->shared.current = shared_base;
     mgr->shared.top = (uint64_t)gtt->num_mappable_entries << GTT_PAGE_SHIFT;
@@ -291,6 +311,40 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev)
     return true;
 }
 
+/* Hand the framebuffer the display engine is scanning to the terminal. The
+ * CPU draws into a private backbuffer that fb_refresh() copies to the scanout
+ * so the engine never samples a partially drawn frame. */
+static void gfx_attach_fb(const gfx_fb_t * gfb)
+{
+    fb_info_t *fb = term_get_fb();
+    uint32_t len = gfb->stride * gfb->height;
+
+    if (fb == NULL)
+        return;
+
+    fb->addr = (uint8_t *) gfb->obj.cpu_addr;
+    fb->width = gfb->width;
+    fb->height = gfb->height;
+    fb->pitch = gfb->stride;
+    fb->backbuffer_len = len;
+
+    uint8_t *bb = kmalloc(len);
+    if (bb != NULL) {
+        memset(bb, 0, len);
+        fb->backbuffer = bb;
+    } else {
+        /* Without a backbuffer the terminal draws straight into the scanout,
+         * which is still visible, just not tear-free. */
+        kloge("GFX: backbuffer allocation (%u bytes) failed\n", len);
+        fb->backbuffer = fb->addr;
+    }
+
+    term_update_size();
+    klogi("GFX: console framebuffer %ux%u pitch %u addr 0x%016lx "
+          "(gpu 0x%016lx)\n", gfb->width, gfb->height, gfb->stride,
+          (uint64_t) fb->addr, gfb->obj.gfx_addr);
+}
+
 bool gfx_init(void)
 {
     pci_device_t dev = { 0 };
@@ -310,9 +364,16 @@ bool gfx_init(void)
     /* Take over the display with a real mode set at the boot mode. If the
      * pipeline cannot be programmed, keep the firmware aperture frame. */
     const display_mode_t *boot_mode = display_mode_get_boot();
+    {
+        fb_info_t *cur = term_get_fb();
+        klogi("GFX: firmware fb 0x%016lx %ux%u pitch %u backbuffer %p\n",
+              (uint64_t) cur->addr, cur->width, cur->height, cur->pitch,
+              cur->backbuffer);
+    }
     skl_display_dump(&gfx_pci);
     if (boot_mode != NULL
         && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, boot_mode, &gfx_fb)) {
+        gfx_attach_fb(&gfx_fb);
         klogi("GFX: mode set took over the display\n");
         return true;
     }
@@ -387,20 +448,14 @@ uint64_t gfx_addr(gfx_mem_manager_t * mgr, void *phy_addr)
  * @param phys  Physical address of the page to map (must be page-aligned)
  *
  * Each GTT entry maps one 4 KB GPU page to a physical page.
- * Entry format (32-bit):
- *   bits 31:12  Physical page address bits 31:12
- *   bits 11:4   Physical address bits 39:32 (for >4 GB RAM)
- *   bit  3      GFX data type
- *   bit  2      LLC cache control
- *   bit  1      L3 cache control
- *   bit  0      Valid
+ * Entry format (64-bit, Gen8+):
+ *   bits 63:12  Physical page address bits 51:12
+ *   bit  0      Present
  */
 void gfx_gtt_write_entry(gfx_gtt_t * gtt, uint32_t index, uint64_t phys)
 {
-    uint32_t entry = (uint32_t)(phys & ~(uint64_t)(GTT_PAGE_SIZE - 1))
-                   | (uint32_t)((phys >> 28) & 0xFF0)
-                   | GTT_ENTRY_LLC_CACHE_CONTROL
-                   | GTT_ENTRY_VALID;
+    uint64_t entry = phys & ~(uint64_t)(GTT_PAGE_SIZE - 1);
+    entry |= GTT_ENTRY_VALID;
     gtt->entries[index] = entry;
 }
 
@@ -494,6 +549,9 @@ bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_gtt_t * gtt, gfx_object_t * obj,
 
     obj->cpu_addr = (volatile uint8_t *)PHYS_TO_VIRT(phys);
     obj->gfx_addr = gpu_addr;
+
+    klogi("GFX: alloc %u pages phys 0x%016lx -> gpu 0x%016lx\n",
+          num_pages, phys, gpu_addr);
 
     return true;
 }

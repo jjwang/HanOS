@@ -231,13 +231,8 @@ _Noreturn void kshell(pid_t pid)
                 self_info.screen_hor_size, self_info.screen_ver_size);
     }
 
-    if (self_info.prefer_res_x > 0 && self_info.prefer_res_y > 0) {
-        kprintf("\033[36mPreferred  \033[0m: %d x %d Pixels\n",
-                self_info.prefer_res_x, self_info.prefer_res_y);
-    }
-
     if (self_info.actual_res_x > 0 && self_info.actual_res_y > 0) {
-        kprintf("\033[36mActual     \033[0m: %d x %d Pixels\n",
+        kprintf("\033[36mResolution \033[0m: %d x %d Pixels\n",
                 self_info.actual_res_x, self_info.actual_res_y);
     }
 
@@ -300,11 +295,10 @@ void kmain(void)
     }
 
     struct limine_framebuffer *fb = fb_request.response->framebuffers[0];
-    if (fb->width > FB_WIDTH || fb->height > FB_HEIGHT) {
-        /* Resolution cannot be supported */
-        done();
-    }
 
+    /* The framebuffer geometry comes from the bootloader (limine.conf), so all
+     * buffers are sized from the reported width/height/pitch rather than a
+     * fixed maximum. */
     term_init(fb);
 
     klogi("Framebuffer address: 0x%016lx, EDID size: %ld\n",
@@ -406,8 +400,11 @@ void kmain(void)
 
     klogi("Framebuffer address 0x%016lx\n", fb->address);
 
-    self_info.actual_res_x = fb->width;
-    self_info.actual_res_y = fb->height;
+    /* Report the geometry the display is actually scanning: the driver may
+     * have switched to the panel's native mode after taking over. */
+    fb_info_t *term_fb = term_get_fb();
+    self_info.actual_res_x = term_fb->width;
+    self_info.actual_res_y = term_fb->height;
 
     vfs_init();
 
