@@ -23,7 +23,7 @@ typedef struct {
 
     volatile void *aperture_bar;
     volatile void *mmio_bar;
-    volatile uint32_t *gtt_addr;
+    volatile uint64_t *gtt_addr;
     uint16_t iobase;
 
     uint32_t aperture_size;
@@ -37,7 +37,7 @@ typedef struct {
     uint32_t num_total_entries; /* How many entries in the GTT */
     uint32_t num_mappable_entries;      /* How many can be mapped at once */
 
-    volatile uint32_t *entries;
+    volatile uint64_t *entries;
 } gfx_gtt_t;
 
 typedef struct {

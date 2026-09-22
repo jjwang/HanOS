@@ -575,6 +575,19 @@ fb_info_t *term_get_fb(void)
     return &term_cli.fb;
 }
 
+/* Recompute the character grid after the framebuffer geometry changes (for
+ * example when the display driver takes over the scanout at a new mode). */
+void term_update_size(void)
+{
+    term_cli.width = term_cli.fb.width / FONT_WIDTH;
+    term_cli.height = term_cli.fb.height / FONT_HEIGHT;
+
+    if (term_cli.cursor_x >= term_cli.width)
+        term_cli.cursor_x = term_cli.width ? term_cli.width - 1 : 0;
+    if (term_cli.cursor_y >= term_cli.height)
+        term_cli.cursor_y = term_cli.height ? term_cli.height - 1 : 0;
+}
+
 void term_get_pos(uint32_t *x, uint32_t *y, uint32_t *fg, uint32_t *bg)
 {
     if (x != NULL)

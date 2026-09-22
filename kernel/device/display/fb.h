@@ -21,10 +21,6 @@
 #include <device/display/font.h>
 #include <base/image.h>
 
-#define FB_WIDTH            2048
-#define FB_HEIGHT           1536
-#define FB_PITCH            (FB_WIDTH * 4)
-
 #define COLOR_BLACK         0x000000
 #define COLOR_RED           0xAA0000
 #define COLOR_GREEN         0x00AA00

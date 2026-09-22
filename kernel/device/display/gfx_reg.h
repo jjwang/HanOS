@@ -327,6 +327,8 @@
 
 /* Skylake Gen9 Display — CDCLK / DPLL */
 #define LCPLL1_CTL                      0x46010
+#define LCPLL_PLL_ENABLE                (1u << 31)
+#define LCPLL_PLL_LOCK                  (1u << 30)
 #define LCPLL1_PLL_ENABLE               (1u << 31)
 #define LCPLL1_PLL_LOCK                 (1u << 30)
 
@@ -338,11 +340,13 @@
 #define DPLL_CTRL1_OVERRIDE(n)          (1 << ((n) * 6))
 
 #define DPLL_CTRL2                      0x6C05C
-#define DPLL_CTRL2_DDI_CLK_OFF(port)    (1 << ((port) * 3 + 15))
-#define DPLL_CTRL2_DDI_SEL_SHIFT(port)  ((port) * 3 + 1)
 #define DPLL_CTRL2_DDI_SEL_DPLL0        0
 #define DPLL_CTRL2_DDI_SEL_DPLL1        1
 #define DPLL_CTRL2_DDI_CLK_OVERRIDE(port) (1 << ((port) * 3))
+#define DPLL_CTRL2_DDI_CLK_OFF(port)    (1 << ((port) + 15))
+#define DPLL_CTRL2_DDI_CLK_SEL_MASK(port) (3 << ((port) * 3 + 1))
+#define DPLL_CTRL2_DDI_CLK_SEL(clk, port) ((clk) << ((port) * 3 + 1))
+#define DPLL_CTRL2_DDI_SEL_OVERRIDE(port) (1 << ((port) * 3))
 
 /* Skylake Gen9 Display — DDI Buffer Control (port A = eDP) */
 #define DDI_BUF_CTL_A                   0x64000
@@ -357,8 +361,13 @@
 #define DDI_AUX_CTL_A                   0x64010
 #define DDI_AUX_CTL_SEND_BUSY           (1u << 31)
 #define DDI_AUX_CTL_DONE                (1 << 30)
-#define DDI_AUX_CTL_TIMEOUT             (1 << 26)
+#define DDI_AUX_CTL_INTERRUPT           (1u << 29)
+#define DDI_AUX_CTL_TIME_OUT_ERROR      (1u << 28)
+#define DDI_AUX_CTL_TIME_OUT_MAX        (3u << 26)
+#define DDI_AUX_CTL_RECEIVE_ERROR       (1u << 25)
 #define DDI_AUX_CTL_MSG_SIZE(n)         ((n) << 20)
+/* Skylake wants the FW sync pulse (32) and sync pulse (32) fields set. */
+#define DDI_AUX_CTL_SKL_SYNC            (((32 - 1) << 5) | (32 - 1))
 #define DDI_AUX_DATA_A0                 0x64014
 
 /* Skylake Gen9 Display — Transcoder DDI Function Control */
@@ -427,6 +436,21 @@
 
 /* Pipe A source size (active area): (width-1)<<16 | (height-1) */
 #define PIPEASRC                        0x6001C
+/* The pipe/transcoder source size stores width in the high half and height in
+ * the low half, unlike PLANE_SIZE. The eDP transcoder keeps a copy in its own
+ * timing block. */
+#define TRANS_EDP_SRC                   0x6F01C
+/* There is no pipe for the eDP transcoder; a few pipe registers are shifted
+ * into it at PIPE_EDP_OFFSET (0x7F000), keeping their pipe-block offsets. So
+ * its enable lives at 0x7F008 (i915 TRANSCONF(TRANSCODER_EDP)) and the source
+ * region it scans at 0x7F01C (the shifted PIPESRC). */
+#define TRANS_EDP_PIPE_CONF             0x7F008
+#define TRANS_EDP_PIPE_SRC              0x7F01C
+/* eDP transcoder DP M/N (the pixel clock is regenerated from the link clock). */
+#define TRANS_EDP_DATA_M1               0x6F030
+#define TRANS_EDP_DATA_N1               0x6F034
+#define TRANS_EDP_LINK_M1               0x6F040
+#define TRANS_EDP_LINK_N1               0x6F044
 
 /* Pipe timing registers (pipe stride is 0x1000) */
 #define PIPE_HTOTAL(pipe)               (0x60000 + (pipe) * 0x1000)
@@ -445,9 +469,15 @@
 #define PWR_WELL_CTL1                   0x45400
 #define PWR_WELL_CTL1_DC_REQ            (1u << 31)
 #define PWR_WELL_CTL1_DC_STATE          (1u << 30)
+/* On Skylake the main display power well (PW_1) is index 14, so its request
+ * and state bits are 29 and 28 (the older DC bits above are index 15/PW_2). */
+#define PWR_WELL_CTL1_PW1_REQ           (1u << 29)
+#define PWR_WELL_CTL1_PW1_STATE         (1u << 28)
 
 /* Skylake Gen9 Display — CDCLK control */
 #define CDCLK_CTL                       0x46000
+#define DC_STATE_EN                     0x45504
+#define DC_STATE_DISABLE                0
 #define CDCLK_CTL_SEL_MASK              (7 << 0)
 #define CDCLK_CTL_SEL_337_5             0
 #define CDCLK_CTL_SEL_450               1
@@ -469,6 +499,13 @@
 #define DP_TP_CTL_ENABLE                (1u << 31)
 #define DP_TP_CTL_MODE_SST              (0 << 27)
 #define DP_TP_CTL_FORCE_ACT             (1u << 25)
+#define DP_TP_CTL_ENHANCED_FRAME_ENABLE (1 << 18)
+#define DP_TP_CTL_LINK_TRAIN_MASK       (7 << 8)
+#define DP_TP_CTL_LINK_TRAIN_PAT1       (0 << 8)
+#define DP_TP_CTL_LINK_TRAIN_PAT2       (1 << 8)
+#define DP_TP_CTL_LINK_TRAIN_PAT3       (4 << 8)
+#define DP_TP_CTL_LINK_TRAIN_IDLE       (2 << 8)
+#define DP_TP_CTL_LINK_TRAIN_NORMAL     (3 << 8)
 #define DP_TP_STATUS_A                  0x64044
 #define DP_TP_STATUS_IDLE_DONE          (1u << 28)
 
@@ -482,6 +519,32 @@
 #define PIPE_MISC_A                     0x70030
 #define PIPE_MISC_BPC_MASK              (7 << 5)
 #define PIPE_MISC_BPC_8                 (0 << 5)
+
+/* Skylake Gen9 Display — pipe A scalers (1A and 2A). The firmware uses one to
+ * scale a smaller boot mode up to the panel; the scaling ratio is held in the
+ * phase registers, so a native 1:1 mode must detach both scalers rather than
+ * leave the firmware's phases in place (i915 skl_scaler_disable()). */
+#define PS_CTRL_1A                      0x68180
+#define PS_WIN_POS_1A                   0x68170
+#define PS_WIN_SZ_1A                    0x68174
+#define PS_VPHASE_1A                    0x68188
+#define PS_HPHASE_1A                    0x68194
+#define PS_CTRL_2A                      0x68280
+#define PS_WIN_POS_2A                   0x68270
+#define PS_WIN_SZ_2A                    0x68274
+#define PS_SCALER_EN                    (1u << 31)
+
+/* Skylake Gen9 Display — plane watermark and display data buffer (pipe A,
+ * plane 1). The firmware sizes them for its small boot plane; a full-size
+ * plane needs a bigger allocation or its fetch is cut short. */
+#define PLANE_WM_1A(level)              (0x70240 + (level) * 4)
+#define PLANE_WM_EN                     (1u << 31)
+#define PLANE_WM_IGNORE_LINES           (1u << 30)
+#define PLANE_WM_BLOCKS(n)              ((n) & 0xfff)
+#define PLANE_WM_TRANS_1A               0x70268
+#define PLANE_BUF_CFG_1A                0x7027C
+#define PLANE_BUF_END(e)                (((e) & 0xfff) << 16)
+#define PLANE_BUF_START(s)              ((s) & 0xfff)
 
 /* Skylake Gen9 Display — transcoder clock select (pipe/trans A/B/C) */
 #define TRANS_CLK_SEL_A                 0x46140
