@@ -94,6 +94,17 @@ bool console_server_start(void)
     if (console_in_ep == NULL)
         return false;
 
+    /* Claim the screen before the userspace server is spawned. From here on
+     * kernel output is forwarded instead of blitted, so the server's first
+     * frame cannot be overwritten by a stale kernel terminal refresh. */
+    console_active = true;
+
+    /* The kernel terminal draws the scan-out through the cacheable direct map
+     * while the server maps it write-combining. Flush the kernel's dirty lines
+     * now, before the server starts drawing, or their later write-back would
+     * corrupt its first frames. */
+    asm volatile ("wbinvd":::"memory");
+
     const char *argv[] = { "console", NULL };
 
     console_spawner = sched_get_pid();
@@ -101,14 +112,15 @@ bool console_server_start(void)
     process_t *tc = sched_execve(DEFAULT_CONSOLE_SVR, argv, NULL, "/");
     sched_set_spawn_hook(NULL);
 
-    if (tc == NULL)
+    if (tc == NULL) {
+        console_active = false;
         return false;
+    }
 
     process_t *tf = sched_new("conflush", console_flush_kthread, false);
     if (tf != NULL)
         sched_add(tf);
 
-    console_active = true;
     klogi("console: server started (fb 0x%016lx, %ldx%ld)\n",
           (uint64_t) fb->addr, fb->width, fb->height);
     return true;

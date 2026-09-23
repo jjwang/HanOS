@@ -22,6 +22,7 @@
 #include <device/keyboard/keyboard.h>
 #include <libc/keycode.h>
 #include <device/display/term.h>
+#include <device/display/gfx.h>
 #include <base/klog.h>
 #include <base/kmalloc.h>
 #include <base/spinlock.h>
@@ -171,10 +172,40 @@ uint8_t mouse_read()
     return ack;
 }
 
+/* PS/2 mouse packets are three bytes: flags, X delta, Y delta. The sign of
+ * each delta lives in the flags byte and the Y axis points up. */
+static uint8_t mouse_flags;
+
 static void mouse_callback()
 {
-    uint8_t x = port_inb(KEYBOARD_PORT_DATA);
-    (void) x;
+    /* The controller status byte flags whether the pending data came from the
+     * keyboard or the auxiliary (mouse) port. */
+    if (!(port_inb(KEYBOARD_PORT_STATUS) & KEYBOARD_STATUS_WHICHBUF))
+        return;
+
+    uint8_t data = port_inb(KEYBOARD_PORT_DATA);
+
+    switch (ps2_kb.mouse_cycle) {
+    case 0:
+        /* Bit 3 is always set in the first byte of a packet. */
+        if (!(data & 0x08))
+            return;
+        mouse_flags = data;
+        ps2_kb.mouse_cycle = 1;
+        break;
+    case 1:
+        ps2_kb.mouse_x_offset =
+            (mouse_flags & 0x10) ? (int32_t) data - 256 : (int32_t) data;
+        ps2_kb.mouse_cycle = 2;
+        break;
+    default:
+        ps2_kb.mouse_y_offset =
+            (mouse_flags & 0x20) ? (int32_t) data - 256 : (int32_t) data;
+        ps2_kb.mouse_cycle = 0;
+        /* PS/2 Y grows upward; screen Y grows downward. */
+        gfx_cursor_move(ps2_kb.mouse_x_offset, -ps2_kb.mouse_y_offset);
+        break;
+    }
 }
 
 void keyboard_init()

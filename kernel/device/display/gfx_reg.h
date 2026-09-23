@@ -317,6 +317,17 @@
 
 #define CURSOR_POS_SIGN_X               (1 << 15)
 #define CURSOR_POS_SIGN_Y               (1 << 31)
+#define CURSOR_POS_X_MASK               0x7fff
+#define CURSOR_POS_Y_MASK               0x7fff
+#define CURSOR_POS_Y_SHIFT              16
+
+/* Cursor A: FBC control (square cursors leave it 0), live surface, watermarks
+ * and display-data-buffer allocation. Writing CURABASE arms the cursor. */
+#define CUR_FBC_CTL_A                   0x700A0
+#define CURASURFLIVE                    0x700AC
+#define CUR_WM_0                        0x70140  /* levels 0..7 at +4 each */
+#define CUR_WM_TRANS                    0x70168
+#define CUR_BUF_CFG                     0x7017C
 
 /* Skylake Gen9 Display — Power Wells */
 #define PWR_WELL_CTL2                   0x45404

@@ -64,7 +64,7 @@ $(HDD_IMAGE): limine initrd kernel
 	#cp -rf sysroot/* initrd
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	rm -f $(HDD_IMAGE)
-	dd if=/dev/zero bs=1M count=0 seek=64 of=$(HDD_IMAGE)
+	dd if=/dev/zero bs=1M count=0 seek=128 of=$(HDD_IMAGE)
 	sgdisk $(HDD_IMAGE) -n 1:2048 -t 1:ef00
 	./limine/limine bios-install $(HDD_IMAGE)
 	mformat -i $(HDD_IMAGE)@@1M
