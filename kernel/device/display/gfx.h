@@ -18,6 +18,11 @@
  */
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <sys/pci.h>
+
 typedef struct {
     uint32_t id;
 
@@ -82,6 +87,9 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev);
 
 bool gfx_init(void);
 void gfx_start(void);
+
+/* Move the hardware cursor by a relative amount. */
+void gfx_cursor_move(int dx, int dy);
 
 /* Testing and diagnostics */
 bool gfx_test_advanced_features(gfx_pci_t * pci);

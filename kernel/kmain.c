@@ -56,6 +56,7 @@
 #include <device/display/edid.h>
 #include <device/display/display_mode.h>
 #include <device/display/gfx.h>
+#include <device/usb/xhci.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -210,7 +211,10 @@ _Noreturn void kshell(pid_t pid)
     }
 #endif
 
-    term_refresh();
+    /* The console server owns the screen now; blitting the kernel terminal's
+     * back buffer here would overwrite its freshly drawn shell. */
+    if (!console_server_active())
+        term_refresh();
 
     kprintf
         ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
@@ -418,6 +422,10 @@ void kmain(void)
 
     klogi("Init SMP...\n");
     smp_init();
+
+    /* Bring the USB pointer up in its own thread: the enumeration has timeouts
+     * and must never block the rest of the boot. */
+    usb_hid_start();
 
     /* Measure pure CPU computation speed by running a simple busy loop of
      * 100 million no-op operations.

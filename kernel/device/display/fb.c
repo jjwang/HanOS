@@ -219,12 +219,33 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer *s)
     fb_refresh(fb);
 }
 
+/* Copy the frame to the scan-out with non-temporal stores. The display engine
+ * samples DRAM, not the CPU cache, so a cached write only becomes visible when
+ * its line evicts. More importantly, the kernel reaches the scan-out through
+ * its cacheable direct map while the userspace console maps the same memory as
+ * write-combining: a line left dirty by the kernel would later write back over
+ * the console's frames. Non-temporal stores never allocate a cache line, so no
+ * stale write-back can survive the hand-off. */
+static void fb_blit_scanout(uint8_t * dst, const uint8_t * src, uint64_t len)
+{
+    uint64_t i = 0;
+
+    for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+        uint64_t v;
+        memcpy(&v, src + i, sizeof(v));
+        asm volatile ("movnti %1, (%0)"::"r"(dst + i), "r"(v):"memory");
+    }
+    for (; i < len; i++)
+        dst[i] = src[i];
+    asm volatile ("sfence":::"memory");
+}
+
 void fb_refresh(fb_info_t * fb)
 {
     if ((uint64_t) fb->addr != (uint64_t) fb->backbuffer) {
         uint64_t len = fb->backbuffer_len;
         if (fb->bgbuffer == NULL) {
-            memcpy(fb->addr, fb->backbuffer, len);
+            fb_blit_scanout(fb->addr, fb->backbuffer, len);
         } else {
             memcpy(fb->swapbuffer, fb->bgbuffer, len);
             uint32_t *src = (uint32_t *) fb->backbuffer;
@@ -234,7 +255,7 @@ void fb_refresh(fb_info_t * fb)
                 if (src[i] != DEFAULT_BGCOLOR)
                     dst[i] = src[i];
             }
-            memcpy(fb->addr, fb->swapbuffer, len);
+            fb_blit_scanout(fb->addr, fb->swapbuffer, len);
         }
     }
 }

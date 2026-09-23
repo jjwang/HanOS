@@ -345,6 +345,12 @@ static void gfx_attach_fb(const gfx_fb_t * gfb)
           (uint64_t) fb->addr, gfb->obj.gfx_addr);
 }
 
+/* Move the hardware cursor by a relative amount (used by the pointer driver). */
+void gfx_cursor_move(int dx, int dy)
+{
+    skl_cursor_move(dx, dy);
+}
+
 bool gfx_init(void)
 {
     pci_device_t dev = { 0 };
@@ -371,9 +377,32 @@ bool gfx_init(void)
               cur->backbuffer);
     }
     skl_display_dump(&gfx_pci);
+
+    /* Blank the frame the display engine is currently scanning before the mode
+     * set. Some panels keep sending the last region they received until the new
+     * pipe covers it, so a cleared frame leaves nothing for the transition to
+     * retain. */
+    {
+        fb_info_t *cur_fb = term_get_fb();
+
+        if (cur_fb != NULL && cur_fb->addr != NULL) {
+            if (cur_fb->backbuffer != NULL
+                && cur_fb->backbuffer != cur_fb->addr) {
+                memset(cur_fb->backbuffer, 0, cur_fb->backbuffer_len);
+                fb_refresh(cur_fb);
+            } else {
+                memset(cur_fb->addr, 0, cur_fb->backbuffer_len);
+            }
+            pit_wait(50);
+        }
+    }
+
     if (boot_mode != NULL
         && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, boot_mode, &gfx_fb)) {
         gfx_attach_fb(&gfx_fb);
+        if (skl_cursor_init(&gfx_pci, &gfx_mgr, &gfx_gtt, gfx_fb.width,
+                            gfx_fb.height))
+            skl_cursor_selftest();
         klogi("GFX: mode set took over the display\n");
         return true;
     }

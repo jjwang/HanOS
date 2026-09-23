@@ -23,3 +23,16 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
 
 /* Log the current display pipeline registers (read-only). */
 void skl_display_dump(gfx_pci_t * pci);
+
+/* Program the 64x64 ARGB hardware cursor after a successful mode set. */
+bool skl_cursor_init(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
+                     uint32_t width, uint32_t height);
+
+/* Move the hardware cursor by a relative amount, clamped to the mode. */
+void skl_cursor_move(int dx, int dy);
+
+/* Place the hardware cursor at an absolute position, clamped to the mode. */
+void skl_cursor_set(int x, int y);
+
+/* Walk the cursor around the screen so it is visible without a pointer driver. */
+void skl_cursor_selftest(void);
