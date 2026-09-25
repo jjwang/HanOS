@@ -35,6 +35,44 @@ image that was stuck at the firmware's 800x600 source region.
 
 ## Implementation
 
+### Principles
+
+- The display path is a chain (`plane -> pipe -> transcoder -> DDI -> PLL`), so
+  it is enabled from the source outward and torn down in reverse. The pipe must
+  be confirmed stopped — its frame counter no longer advancing — before the
+  clock tree is touched, or a still-scanning pipe would be driven by a clock
+  that is changing under it.
+- The resolution and the link training are independent. The resolution sets the
+  pipe/transcoder timings (the pixel clock); link training sets the symbol clock
+  / link rate. Changing only the resolution therefore needs no retrain, the same
+  choice i915 makes for a fastset; a retrain is only required when the link rate
+  or lane count changes.
+- Source size and plane window are double-buffered and only take effect once
+  their state is armed at a vblank, so they must be re-written after the pipe is
+  running.
+- The panel runs at 6bpc, so the firmware's data M/N and colour depth pace the
+  link correctly and must be preserved; recomputing them for 24bpp
+  desynchronises the sink.
+- The engine reads DRAM, so the CPU-side writers must be arranged so no cached
+  copy is left to be written back over the scan-out later.
+
+### Operations
+
+At takeover, once, from the firmware frame:
+
+1. Disable the old pipeline in reverse order: plane, pipe, transcoder, DDI;
+   confirm the pipe stopped before touching any clock.
+2. Configure clocks and link only as far as the change needs: CDCLK, then the
+   PLL for the new link rate, then `DDI_BUF_TRANS`, then AUX training
+   (CR -> CE). A resolution-only mode set needs none of this, so the firmware's
+   CDCLK, PLL and training are kept.
+3. Enable the new pipeline in forward order: `DDI_BUF_CTL`, transcoder, pipe,
+   plane; then re-arm the double-buffered source and plane state at a vblank.
+4. Hand the scanned framebuffer to the console and stop the kernel's own
+   terminal writes to the scan-out.
+
+The subsections below give the register-level detail for each part.
+
 ### Framebuffer allocation and geometry
 
 `skl_edp_set_mode()` sizes the scan-out itself rather than trusting the boot
@@ -65,7 +103,7 @@ aborts the mode set before the clock tree is touched with a live pipe.
 
 ### Enabling the pipeline
 
-The enable sequence follows the order in `command.txt`:
+The enable steps, in order:
 
 1. Source size on the pipe and both eDP copies — `PIPEASRC`, `TRANS_EDP_SRC`
    and `TRANS_EDP_PIPE_SRC` are all written `((hactive-1) << 16) | (vactive-1)`.
