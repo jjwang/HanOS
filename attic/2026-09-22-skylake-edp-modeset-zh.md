@@ -28,6 +28,35 @@
 
 ## 实现细节
 
+### 原理
+
+- 显示通路是一条链（`plane -> pipe -> transcoder -> DDI -> PLL`），因此从源头
+  向外依次使能、逆序拆除。动时钟树之前必须先确认 pipe 真的停了——帧计数器不再
+  前进——否则仍在扫描的 pipe 会被正在变化的时钟驱动。
+- 分辨率与链路训练彼此独立：分辨率决定 pipe/transcoder 时序（pixel clock），
+  链路训练决定 symbol clock / 链路速率。仅改分辨率因此无需重训，这正是 i915
+  的 fastset 选择；只有链路速率或通道数变化时才需要重训。
+- 源尺寸与 plane 窗口是双缓冲的，只有在 vblank 处武装后才生效，因此必须在 pipe
+  运行之后再补写一次。
+- 面板为 6bpc，固件的 data M/N 与色彩深度给链路定速，必须保留；按 24bpp 重算会
+  让 sink 失步。
+- 显示引擎从 DRAM 取数，因此要安排好 CPU 侧的写入者，不能留下缓存副本在稍后
+  回写覆盖 scan-out。
+
+### 操作
+
+接管时（从固件画面起，仅此一次）：
+
+1. 逆序拆旧管线：plane、pipe、transcoder、DDI；动任何时钟前确认 pipe 已停。
+2. 只按本次改动需要配置时钟与链路：CDCLK、再按新链路速率配 PLL、再
+   `DDI_BUF_TRANS`、再 AUX 训练（CR -> CE）。纯换分辨率都不需要，因此保留固件的
+   CDCLK、PLL 与训练。
+3. 正序开新管线：`DDI_BUF_CTL`、transcoder、pipe、plane；再在 vblank 处补写双
+   缓冲的源尺寸与 plane 状态。
+4. 把扫描帧缓冲交给 console，并停止内核终端对 scan-out 的写入。
+
+下面各小节给出每一部分的寄存器级细节。
+
 ### 帧缓冲分配与几何
 
 `skl_edp_set_mode()` 自己计算扫描几何，不复用启动帧缓冲：
@@ -53,7 +82,7 @@ transcoder、DDI、PLL。`wait_pipe_off()` 先等两个 `PIPE_STATE` 位清零�
 
 ### 使能管线
 
-使能顺序遵循 `command.txt`：
+使能步骤，按顺序：
 
 1. pipe 与两份 eDP 源尺寸——`PIPEASRC`、`TRANS_EDP_SRC`、`TRANS_EDP_PIPE_SRC`
    均写 `((hactive-1) << 16) | (vactive-1)`。
