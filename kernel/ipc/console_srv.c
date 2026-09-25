@@ -42,12 +42,17 @@ _Noreturn static void console_flush_kthread(pid_t pid);
 
 static void console_spawn_attach(process_t * tc)
 {
-    if (sched_get_pid() != console_spawner)
+    if (sched_get_pid() != console_spawner) {
+        klogw("console: spawn hook ran for pid %ld, expected %ld\n",
+              (long)sched_get_pid(), (long)console_spawner);
         return;
+    }
 
     fb_info_t *fb = term_get_fb();
-    if (fb == NULL || fb->addr == NULL || console_in_ep == NULL)
+    if (fb == NULL || fb->addr == NULL || console_in_ep == NULL) {
+        klogw("console: spawn hook has no framebuffer or endpoint\n");
         return;
+    }
 
     uint64_t vaddr = (uint64_t) fb->addr;
     uint64_t paddr = VIRT_TO_PHYS(vaddr);
@@ -57,15 +62,19 @@ static void console_spawn_attach(process_t * tc)
 
     handle_t h = handle_alloc(&tc->handles, endpoint_object(console_in_ep),
                               HANDLE_RIGHT_RECV);
-    if (h == HANDLE_INVALID)
+    if (h == HANDLE_INVALID) {
+        klogw("console: spawn hook could not allocate the endpoint handle\n");
         return;
+    }
 
     uint32_t x = 0, y = 0, fg = 0, bg = 0;
     term_get_pos(&x, &y, &fg, &bg);
 
     bootinfo_t *bi = kmalloc(sizeof(bootinfo_t));
-    if (bi == NULL)
+    if (bi == NULL) {
+        klogw("console: spawn hook could not allocate bootinfo\n");
         return;
+    }
 
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
@@ -80,6 +89,9 @@ static void console_spawn_attach(process_t * tc)
     bi->fgcolor = fg;
     bi->bgcolor = bg;
     tc->bootinfo = bi;
+
+    klogi("console: attached fb 0x%016lx %ux%u to pid %ld (fg 0x%06x)\n",
+          vaddr, fb->width, fb->height, (long)tc->pid, fg);
 }
 
 bool console_server_start(void)
@@ -138,12 +150,26 @@ bool console_write_buf(const char *buf, uint64_t len)
 
     spinlock_acquire(&console_ring_lock);
 
+    bool dropped = false;
+
     for (uint64_t i = 0; i < len; i++) {
         uint32_t next = (console_ring_head + 1) % CONSOLE_RING_SIZE;
-        if (next == console_ring_tail)
-            break;              /* ring full: drop the remainder */
+        if (next == console_ring_tail) {
+            dropped = true;     /* ring full: drop the remainder */
+            break;
+        }
         console_ring[console_ring_head] = buf[i];
         console_ring_head = next;
+    }
+
+    if (dropped) {
+        static bool warned = false;
+
+        if (!warned) {
+            warned = true;
+            klogw("console: output ring is full, the server is not draining "
+                  "it\n");
+        }
     }
 
     spinlock_release(&console_ring_lock);
@@ -176,6 +202,22 @@ _Noreturn static void console_flush_kthread(pid_t pid)
                 if (++tries > 1000)
                     break;
                 sched_sleep(0);
+            }
+
+            if (tries > 1000) {
+                static bool warned = false;
+
+                if (!warned) {
+                    warned = true;
+                    klogw("console: server is not receiving frames\n");
+                }
+            } else {
+                static bool first = true;
+
+                if (first) {
+                    first = false;
+                    klogi("console: first frame forwarded to the server\n");
+                }
             }
         }
 

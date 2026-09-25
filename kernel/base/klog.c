@@ -38,6 +38,11 @@ static spinlock_t klog_cli_lock;
 
 static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
 
+/* Mirror kprintf() output (the kernel console and userspace writes such as the
+ * shell) to the serial port. The framebuffer console is not part of the serial
+ * log, so without this a shell that runs after boot leaves no trace there. */
+#define KPRINTF_SERIAL_MIRROR   true
+
 void klog_debug(void)
 {
     klogd("KLOG: clear %ld, refresh %ld times\n", klog_clear_times,
@@ -245,6 +250,20 @@ void kprintf(const char *s, ...)
     }
 
     spinlock_release(&klog_cli_lock);
+
+#if KPRINTF_SERIAL_MIRROR
+    {
+        int esc_state = 0;
+
+        /* Serialise with klogi()'s serial output so the two streams do not
+         * interleave character by character. */
+        spinlock_acquire(&klog_info_lock);
+        for (uint64_t i = 0; buf[i] != '\0'; i++)
+            if (serial_keep((uint8_t) buf[i], &esc_state))
+                serial_write(buf[i]);
+        spinlock_release(&klog_info_lock);
+    }
+#endif
 
     if (!console_write_buf(buf, strlen(buf)))
         term_refresh();
