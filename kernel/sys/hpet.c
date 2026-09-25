@@ -36,6 +36,7 @@
 hpet_t *hpet = NULL;
 
 static uint64_t hpet_period = 0;
+static uint64_t hpet_base = 0;
 static bool debug_info = false;
 
 uint64_t hpet_get_nanos()
@@ -51,7 +52,7 @@ uint64_t hpet_get_nanos()
                 hpet);
     }
 
-    uint64_t tf = hpet->main_counter_value * hpet_period;
+    uint64_t tf = (hpet->main_counter_value - hpet_base) * hpet_period;
 
     return tf;
 }
@@ -105,6 +106,11 @@ void hpet_init()
 
     klogi("HPET: Detected frequency of %ld Hz\n", frequency);
     hpet_period = counter_clk_period / 1000000;
+
+    /* The main counter is free-running from firmware time, so take a baseline
+     * now: hpet_get_nanos() should report time since this point, not the
+     * counter's absolute value (which includes the pre-boot firmware phase). */
+    hpet_base = hpet->main_counter_value;
 
     /* Set ENABLE_CNF bit */
     hpet->general_configuration = hpet->general_configuration | 0x1;
