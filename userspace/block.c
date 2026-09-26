@@ -47,6 +47,9 @@
 
 #define ATA_SECTOR_SIZE     512
 
+/* Where the server maps an incoming request's memory object. */
+#define BLOCK_BUF_VADDR     0x20000000
+
 static uint8_t inb(uint16_t port)
 {
     return (uint8_t) sys_ioport_access(0, port, 1, 0);
@@ -186,10 +189,23 @@ int main(void)
             rep.words[0] = have_disk ? sector_size : 0;
             rep.words[1] = have_disk ? sector_count : 0;
         } else if ((m.tag == BLOCK_READ || m.tag == BLOCK_WRITE)
-                   && have_disk && m.xfer_count >= 1) {
-            /* Bulk I/O through the transferred memory object is the next step;
-             * report it as unsupported for now. */
-            rep.words[0] = (uint64_t) (int64_t) BLOCK_ERR;
+                   && have_disk && m.xfer_count >= 2) {
+            /* xfer[0] = reply endpoint, xfer[1] = memory object with the data. */
+            int64_t memh = (int64_t) m.xfer[1];
+            uint8_t *buf = (uint8_t *) BLOCK_BUF_VADDR;
+            int rc = -1;
+
+            if (sys_mem_map(memh, BLOCK_BUF_VADDR, 3) == 0) {
+                if (m.tag == BLOCK_READ)
+                    rc = ata_read((uint32_t) m.words[0], (uint8_t) m.words[1],
+                                  buf);
+                else
+                    rc = ata_write((uint32_t) m.words[0], (uint8_t) m.words[1],
+                                   buf);
+                sys_mem_unmap(memh, BLOCK_BUF_VADDR);
+            }
+            rep.words[0] = (uint64_t) (int64_t) (rc == 0 ? BLOCK_OK : BLOCK_ERR);
+            sys_handle_close(memh);
         } else {
             rep.words[0] = (uint64_t) (int64_t) BLOCK_ERR;
         }

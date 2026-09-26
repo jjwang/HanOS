@@ -14,6 +14,7 @@
 #include <base/klog.h>
 #include <ipc/block_srv.h>
 #include <ipc/ipc.h>
+#include <mm/memobj.h>
 #include <proc/sched.h>
 
 static endpoint_t *block_in_ep = NULL;
@@ -89,42 +90,71 @@ endpoint_t *block_server_endpoint(void)
     return block_in_ep;
 }
 
-/* Send BLOCK_GET_INFO, moving a reply endpoint to the server, and log the
- * reply. Runs in a kernel task (low-level IPC, no user buffer). */
-void block_server_probe(void)
+/* Send one request, moving a reply endpoint (and optionally a memory object)
+ * to the server, then log the reply. Runs in a kernel task (low-level IPC; a
+ * kernel process has no user buffer to go through k_ipc_send). */
+static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
+                            uint64_t count, memobj_t *mo)
 {
-    endpoint_t *ep = block_in_ep;
     endpoint_t *reply = endpoint_create();
-
-    if (ep == NULL || reply == NULL)
+    if (reply == NULL)
         return;
 
-    handle_t dummy;
+    object_ref(endpoint_object(reply)); /* the reference moved to the server */
 
-    (void) dummy;
+    kernel_object_t *objs[2];
+    uint32_t rights[2];
+    uint8_t n = 0;
+    objs[n] = endpoint_object(reply);
+    rights[n++] = HANDLE_RIGHT_SEND;
+
+    if (mo != NULL) {
+        object_ref(memobj_object(mo));
+        objs[n] = memobj_object(mo);
+        rights[n++] = HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+            | HANDLE_RIGHT_MAP;
+    }
 
     ipc_msg_t m;
     memset(&m, 0, sizeof(m));
-    m.tag = BLOCK_GET_INFO;
+    m.tag = tag;
+    m.words[0] = lba;
+    m.words[1] = count;
 
-    /* Keep our own reference while the server also receives one. */
-    object_ref(endpoint_object(reply));
-    kernel_object_t *objs[1] = { endpoint_object(reply) };
-    uint32_t rights[1] = { HANDLE_RIGHT_SEND };
-
-    if (ipc_send_objs(ep, &m, objs, rights, 1) != 0) {
+    if (ipc_send_objs(ep, &m, objs, rights, n) != 0) {
+        /* Nothing was queued: drop the references we took to move. */
         object_unref(endpoint_object(reply));
-        object_unref(endpoint_object(reply));
-        return;
-    }
-
-    ipc_msg_t rep;
-    if (ipc_recv_timeout(reply, &rep, 2000) == 0) {
-        klogi("block: GET_INFO sector_size %lu count %lu\n",
-              rep.words[0], rep.words[1]);
+        if (mo != NULL)
+            object_unref(memobj_object(mo));
     } else {
-        klogw("block: GET_INFO timed out\n");
+        ipc_msg_t rep;
+        if (ipc_recv_timeout(reply, &rep, 3000) != 0) {
+            klogw("block: tag 0x%lx timed out\n", (unsigned long)tag);
+        } else if (tag == BLOCK_GET_INFO) {
+            klogi("block: GET_INFO sector_size %lu count %lu\n",
+                  rep.words[0], rep.words[1]);
+        } else if (tag == BLOCK_READ && mo != NULL) {
+            uint8_t *b = (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, 0));
+            klogi("block: READ lba %lu status %ld sig %02x%02x\n", lba,
+                  (int64_t) rep.words[0], b[510], b[511]);
+        }
     }
 
-    object_unref(endpoint_object(reply));
+    object_unref(endpoint_object(reply));       /* our own ref */
+}
+
+void block_server_probe(void)
+{
+    endpoint_t *ep = block_in_ep;
+    if (ep == NULL)
+        return;
+
+    block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL);
+
+    /* Read sector 0 (the MBR) through a memory object and check its signature. */
+    memobj_t *mo = memobj_create(512);
+    if (mo != NULL) {
+        block_probe_rpc(ep, BLOCK_READ, 0, 1, mo);
+        memobj_unref(mo);
+    }
 }
