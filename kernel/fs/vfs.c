@@ -25,9 +25,18 @@
  **-----------------------------------------------------------------------------
  */
 #include <libc/string.h>
-
+#include <libc/protocol.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
+#include <base/kmalloc.h>
+#include <mm/memobj.h>
+#include <mm/mm.h>
+#include <ipc/object.h>
+#include <service/service.h>
+#include <proc/sched.h>
+
+/* Maximum one VFS request reads/writes. */
+#define VFS_SERVER_IO_MAX   4096
 #include <fs/fat32.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
@@ -269,12 +278,151 @@ uint64_t vfs_tell(vfs_handle_t handle)
 }
 
 /* Read specified number of bytes from a file */
+/* Move a memory object's contents to/from a kernel buffer. */
+static void memobj_copy_out(memobj_t * mo, void *dst, uint64_t len)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t chunk = PAGE_SIZE - (done & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) dst + done,
+               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, done / PAGE_SIZE))
+               + (done & (PAGE_SIZE - 1)), chunk);
+        done += chunk;
+    }
+}
+
+static void memobj_copy_in(memobj_t * mo, const void *src, uint64_t len)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t chunk = PAGE_SIZE - (done & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, done / PAGE_SIZE))
+               + (done & (PAGE_SIZE - 1)), (const uint8_t *) src + done,
+               chunk);
+        done += chunk;
+    }
+}
+
+/* Allocate a memory object of len bytes with a transferable handle in the
+ * current process. The caller keeps the creation reference for its own use. */
+static memobj_t *server_memobj(uint64_t len, handle_t * out)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || len == 0)
+        return NULL;
+
+    memobj_t *mo = memobj_create(len);
+    if (mo == NULL)
+        return NULL;
+
+    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
+                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
+    if (h == HANDLE_INVALID) {
+        memobj_unref(mo);
+        return NULL;
+    }
+
+    *out = h;
+    return mo;                  /* creation ref kept by the caller */
+}
+
+static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
+{
+    if (len > VFS_SERVER_IO_MAX)
+        len = VFS_SERVER_IO_MAX;
+
+    handle_t mh;
+    memobj_t *mo = server_memobj(len, &mh);
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_READ;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = len;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    uint64_t n = rep.words[1];
+    if (n > len)
+        n = len;
+    memobj_copy_out(mo, buff, n);
+    memobj_unref(mo);
+    return (int64_t) n;
+}
+
+static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
+{
+    if (len > VFS_SERVER_IO_MAX)
+        len = VFS_SERVER_IO_MAX;
+
+    handle_t mh;
+    memobj_t *mo = server_memobj(len, &mh);
+    if (mo == NULL)
+        return -1;
+
+    memobj_copy_in(mo, buff, len);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_WRITE;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = len;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_unref(mo);
+    return (int64_t) rep.words[1];
+}
+
+static int64_t vfs_server_close(int64_t sfd)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_CLOSE;
+    req.words[0] = (uint64_t) sfd;
+
+    if (!service_forward(SVC_FS, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
 {
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd) {
         return 0;
     }
+
+    if (fd->server)
+        return vfs_server_read(fd->server_fd, len, buff);
 
     spinlock_acquire(&vfs_lock);
 
@@ -352,6 +500,9 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return 0;
+
+    if (fd->server)
+        return vfs_server_write(fd->server_fd, len, buff);
 
     /* Cannot write to read-only files */
     if (fd->mode == VFS_MODE_READ) {
@@ -572,8 +723,47 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     return VFS_INVALID_HANDLE;
 }
 
+vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
+                             vfs_openmode_t mode)
+{
+    spinlock_acquire(&vfs_lock);
+
+    vfs_node_desc_t *fd =
+        (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
+    if (fd == NULL) {
+        spinlock_release(&vfs_lock);
+        return VFS_INVALID_HANDLE;
+    }
+
+    memset(fd, 0, sizeof(vfs_node_desc_t));
+    strncpy(fd->path, path, VFS_MAX_PATH_LEN - 1);
+    fd->mode = mode;
+    fd->server = true;
+    fd->server_fd = server_fd;
+
+    vfs_handle_t fh = vfs_next_handle++;
+
+    process_t *t = sched_get_current_process();
+    if (t != NULL)
+        ht_insert(&(t->open_files_table), fh, fd);
+
+    spinlock_release(&vfs_lock);
+    return fh;
+}
+
 int64_t vfs_close(vfs_handle_t handle)
 {
+    vfs_node_desc_t *sdesc = vfs_handle_to_fd(handle, __func__);
+    if (sdesc != NULL && sdesc->server) {
+        int64_t r = vfs_server_close(sdesc->server_fd);
+        process_t *t = sched_get_current_process();
+
+        if (t != NULL)
+            ht_delete(&t->open_files_table, handle);
+        kmfree(sdesc);
+        return r;
+    }
+
     bool istty = false;
 
     spinlock_acquire(&vfs_lock);

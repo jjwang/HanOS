@@ -16,6 +16,7 @@
 #include <ipc/ipc.h>
 #include <mm/ipc_buf.h>
 #include <service/service.h>
+#include <fs/vfs.h>
 #include <proc/sched.h>
 
 static endpoint_t *vfs_ep = NULL;
@@ -111,6 +112,40 @@ void vfs_server_probe(void)
             req.xfer_count = 1;
             if (service_forward(SVC_FS, &req, &rep))
                 klogi("vfs: FACCESSAT long -> %ld\n", (int64_t) rep.words[0]);
+        }
+    }
+
+    /* Open/read/close through the kernel's server-backed fd path. */
+    {
+        const char *path = "synthetic";
+        handle_t ph;
+
+        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
+            ipc_msg_t or;
+
+            memset(&req, 0, sizeof(req));
+            req.tag = VFS_OPENAT;
+            req.words[0] = 2;   /* O_RDONLY */
+            req.xfer[0] = ph;
+            req.xfer_count = 1;
+
+            if (service_forward(SVC_FS, &req, &or)
+                && (int64_t) or.words[0] == 0) {
+                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
+                                                  VFS_MODE_READ);
+                char buf[64] = { 0 };
+                int64_t n = (fh != VFS_INVALID_HANDLE)
+                    ? vfs_read(fh, sizeof(buf) - 1, buf) : -1;
+
+                if (n > 0)
+                    klogi("vfs: read %ld bytes: %s", n, buf);
+                else
+                    klogw("vfs: read failed (%ld)\n", n);
+                if (fh != VFS_INVALID_HANDLE)
+                    vfs_close(fh);
+            } else {
+                klogw("vfs: OPENAT failed\n");
+            }
         }
     }
 }

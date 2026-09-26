@@ -418,6 +418,46 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         klogv("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
+    } else if (service_lookup(SVC_FS) != NULL) {
+        /* Route to the userspace VFS server: it returns a server fd. */
+        handle_t ph;
+
+        if (ipc_buf_from_kernel(full_path, strlen(full_path) + 1, &ph) != 0) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+
+        ipc_msg_t req;
+        ipc_msg_t rep;
+
+        memset(&req, 0, sizeof(req));
+        req.tag = VFS_OPENAT;
+        req.words[0] = (uint64_t) flags;
+        req.xfer[0] = ph;
+        req.xfer_count = 1;
+
+        if (!service_forward(SVC_FS, &req, &rep)
+            || (int64_t) rep.words[0] < 0) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+
+        vfs_openmode_t smode = VFS_MODE_READWRITE;
+
+        if ((flags & 0x7) == O_RDONLY)
+            smode = VFS_MODE_READ;
+        else if ((flags & 0x7) == O_WRONLY)
+            smode = VFS_MODE_WRITE;
+
+        vfs_handle_t sfh =
+            vfs_open_server((int64_t) rep.words[1], full_path, smode);
+        if (sfh == VFS_INVALID_HANDLE) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+
+        cpu_set_errno(0);
+        return sfh;
     } else {
         /* Check whether folder exists or not, e.g. filename is "1/txt" */
         uint64_t len = strlen(full_path);

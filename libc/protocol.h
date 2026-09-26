@@ -27,14 +27,19 @@
 #define BLOCK_OK            0
 #define BLOCK_ERR           (-1)
 
-/* VFS server */
-#define VFS_PING            0x30        /* reply: words[0] = VFS_PONG */
-#define VFS_PONG            0x504f4e47ULL       /* "PONG" */
-#define VFS_FACCESSAT       0x39        /* words[0]=mode, words[1..]="path\0";
-                                           reply words[0]=0 or -errno */
+/* VFS server. A request that carries a path (or a data buffer) puts it in a
+ * memory object in xfer[1]; the reply endpoint is always xfer[0]. Replies put
+ * 0 or -errno in words[0] (and e.g. the server fd in words[1]). */
+#define VFS_OPENAT          0x30        /* words[0]=flags; in: path; out: fd */
+#define VFS_READ            0x31        /* words[0]=fd, words[1]=len;
+                                           out: words[1]=bytes, xfer[1]=data */
+#define VFS_WRITE           0x32        /* words[0]=fd, words[1]=len;
+                                           in: xfer[1]=data */
+#define VFS_CLOSE           0x33        /* words[0]=fd */
+#define VFS_FACCESSAT       0x39        /* words[0]=mode; in: path */
 
-/* Longest path that fits inline in words[1..5]. */
-#define VFS_INLINE_PATH     39
+#define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
+#define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

@@ -231,6 +231,10 @@ typedef struct {
     uint64_t seek_pos;
     vfs_tnode_t *curr_dir_ent;
     uint64_t curr_dir_idx;
+    /* When set, this fd is owned by the userspace VFS server and is forwarded
+     * there; server_fd is the descriptor the server returned. */
+    bool server;
+    int64_t server_fd;
 } vfs_node_desc_t;
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
@@ -241,6 +245,10 @@ vfs_fsinfo_t *vfs_get_fs(char *name);
 void vfs_debug();
 
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
+
+/* Register a descriptor owned by the userspace VFS server. */
+vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
+                             vfs_openmode_t mode);
 int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
 uint64_t vfs_tell(vfs_handle_t handle);
