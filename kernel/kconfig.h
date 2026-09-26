@@ -31,6 +31,9 @@
 /* Spawn the userspace console server and forward terminal output to it. */
 #define ENABLE_CONSOLE_SERVER   true
 
+/* Spawn the userspace ATA block server (block server). */
+#define ENABLE_BLOCK_SERVER     false
+
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
@@ -42,6 +45,7 @@
 
 #define DEFAULT_INPUT_SVR       "/bin/input"
 #define DEFAULT_CONSOLE_SVR     "/bin/console"
+#define DEFAULT_BLOCK_SVR       "/bin/block"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 
