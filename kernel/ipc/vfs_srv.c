@@ -14,6 +14,7 @@
 #include <base/klog.h>
 #include <ipc/vfs_srv.h>
 #include <ipc/ipc.h>
+#include <mm/ipc_buf.h>
 #include <service/service.h>
 #include <proc/sched.h>
 
@@ -96,4 +97,20 @@ void vfs_server_probe(void)
     memcpy(&req.words[1], "/nope", 6);
     if (service_forward(SVC_FS, &req, &rep))
         klogi("vfs: FACCESSAT /nope -> %ld\n", (int64_t) rep.words[0]);
+
+    /* A long path travels in a memory object. */
+    {
+        const char *longp =
+            "/some/very/long/path/that/exceeds/the/inline/limit/entirely";
+        handle_t ph;
+
+        if (ipc_buf_from_kernel(longp, strlen(longp) + 1, &ph) == 0) {
+            memset(&req, 0, sizeof(req));
+            req.tag = VFS_FACCESSAT;
+            req.xfer[0] = ph;
+            req.xfer_count = 1;
+            if (service_forward(SVC_FS, &req, &rep))
+                klogi("vfs: FACCESSAT long -> %ld\n", (int64_t) rep.words[0]);
+        }
+    }
 }

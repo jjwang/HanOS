@@ -21,6 +21,10 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
+/* Where the server maps an incoming path memory object. */
+#define VFS_BUF_VADDR       0x20000000
+#define VFS_PATH_MAX        128
+
 int main(void)
 {
     bootinfo_t bi;
@@ -42,8 +46,30 @@ int main(void)
         if (m.tag == VFS_PING) {
             rep.words[0] = VFS_PONG;
         } else if (m.tag == VFS_FACCESSAT) {
-            /* Minimal namespace for the router round trip. */
-            const char *path = (const char *) &m.words[1];
+            /* The path travels in a memory object (xfer[1]); fall back to the
+             * inline words when the caller did not send one. */
+            char kpath[VFS_PATH_MAX];
+            const char *path;
+
+            if (m.xfer_count >= 2) {
+                int64_t memh = (int64_t) m.xfer[1];
+                uint8_t *buf = (uint8_t *) VFS_BUF_VADDR;
+                int i = 0;
+
+                if (sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
+                    while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
+                        kpath[i] = (char) buf[i];
+                        i++;
+                    }
+                    sys_mem_unmap(memh, VFS_BUF_VADDR);
+                }
+                kpath[i] = '\0';
+                sys_handle_close(memh);
+                path = kpath;
+            } else {
+                path = (const char *) &m.words[1];
+            }
+
             int ok =
                 (path[0] == '/' && (path[1] == '\0'
                                     || strncmp(path, "/bin/", 5) == 0

@@ -54,13 +54,40 @@ bool service_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep)
 
     object_ref(endpoint_object(reply)); /* reference moved to the server */
 
-    ipc_msg_t m = *req;
-    kernel_object_t *objs[1] = { endpoint_object(reply) };
-    uint32_t rights[1] = { HANDLE_RIGHT_SEND };
-    m.xfer_count = 0;           /* xfer[0] is the reply endpoint */
+    kernel_object_t *objs[3];
+    uint32_t rights[3];
+    uint8_t n = 0;
+    objs[n] = endpoint_object(reply);   /* xfer[0] */
+    rights[n++] = HANDLE_RIGHT_SEND;
 
-    if (ipc_send_objs(ep, &m, objs, rights, 1) != 0) {
-        object_unref(endpoint_object(reply));
+    /* Move the request's own handles (a path memory object, ...) after the
+     * reply endpoint, so the server receives them in xfer[1..]. */
+    uint8_t xn = req->xfer_count > 2 ? 2 : req->xfer_count;
+    for (uint8_t i = 0; i < xn; i++) {
+        kernel_object_t *o =
+            handle_get(&cur->handles, req->xfer[i], HANDLE_RIGHT_TRANSFER);
+
+        if (o == NULL) {
+            for (uint8_t k = 0; k < n; k++)
+                object_unref(objs[k]);
+            object_unref(endpoint_object(reply));
+            return false;
+        }
+        object_ref(o);
+        handle_close(&cur->handles, req->xfer[i]);
+        objs[n] = o;
+        rights[n] = (o->type == OBJ_MEMORY)
+            ? (HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE | HANDLE_RIGHT_MAP)
+            : (HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV);
+        n++;
+    }
+
+    ipc_msg_t m = *req;
+    m.xfer_count = 0;
+
+    if (ipc_send_objs(ep, &m, objs, rights, n) != 0) {
+        for (uint8_t k = 0; k < n; k++)
+            object_unref(objs[k]);
         object_unref(endpoint_object(reply));
         return false;
     }

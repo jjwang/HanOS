@@ -32,6 +32,7 @@
 #include <base/kmalloc.h>
 #include <mm/uaccess.h>
 #include <mm/memobj.h>
+#include <mm/ipc_buf.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <service/service.h>
@@ -936,12 +937,13 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
     klogi("k_faccessat: open \"%s\" at mode 0x%016lx and flags 0x%016lx\n",
           full_path, mode, flags);
 
-    /* Route to the userspace VFS server when one is registered. */
+    /* Route to the userspace VFS server when one is registered. The path
+     * travels in a memory object (xfer[0]); service_forward moves it. */
     if (service_lookup(SVC_FS) != NULL) {
-        uint64_t plen = strlen(full_path);
+        handle_t ph;
 
-        if (plen > VFS_INLINE_PATH) {
-            cpu_set_errno(ENAMETOOLONG);
+        if (ipc_buf_from_kernel(full_path, strlen(full_path) + 1, &ph) != 0) {
+            cpu_set_errno(ENOMEM);
             return -1;
         }
 
@@ -951,7 +953,8 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
         memset(&req, 0, sizeof(req));
         req.tag = VFS_FACCESSAT;
         req.words[0] = mode;
-        memcpy(&req.words[1], full_path, plen + 1);
+        req.xfer[0] = ph;
+        req.xfer_count = 1;
 
         if (!service_forward(SVC_FS, &req, &rep)) {
             cpu_set_errno(EIO);
@@ -2019,7 +2022,7 @@ int64_t k_mem_alloc(int64_t size)
 
     handle_t h = handle_alloc(&t->handles, memobj_object(m),
                               HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP);
+                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
     object_unref(memobj_object(m));
 
     if (h == HANDLE_INVALID) {

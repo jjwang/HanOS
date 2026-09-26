@@ -83,7 +83,7 @@ static handle_t publish(memobj_t * m)
 
     return handle_alloc(&cur->handles, memobj_object(m),
                         HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                        | HANDLE_RIGHT_MAP);
+                        | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
 }
 
 int ipc_buf_from_user(process_t * t, const void *uptr, uint64_t len,
