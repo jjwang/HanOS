@@ -58,6 +58,7 @@
 #include <device/display/gfx.h>
 #include <device/usb/xhci.h>
 #include <ipc/block_srv.h>
+#include <ipc/vfs_srv.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -251,6 +252,12 @@ _Noreturn void kshell(pid_t pid)
         klogw("block: server failed to start, using in-kernel ATA\n");
     else
         block_server_probe();
+#endif
+#if ENABLE_VFS_SERVER
+    if (!vfs_server_start())
+        klogw("vfs: server failed to start, using in-kernel FS\n");
+    else
+        vfs_server_probe();
 #endif
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };

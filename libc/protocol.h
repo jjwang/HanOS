@@ -26,3 +26,10 @@
 /* Reply status carried in words[0] of a BLOCK_READ/WRITE reply. */
 #define BLOCK_OK            0
 #define BLOCK_ERR           (-1)
+
+/* VFS server */
+#define VFS_PING            0x30        /* reply: words[0] = VFS_PONG */
+#define VFS_PONG            0x504f4e47ULL       /* "PONG" */
+
+/* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
+ * kernel's service_forward); the server replies on it and closes it. */
