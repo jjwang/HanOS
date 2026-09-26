@@ -83,4 +83,17 @@ void vfs_server_probe(void)
               rep.words[0] == VFS_PONG ? "OK" : "BAD");
     else
         klogw("vfs: PING failed\n");
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FACCESSAT;
+    req.words[0] = 0;           /* F_OK */
+    memcpy(&req.words[1], "/", 2);
+    if (service_forward(SVC_FS, &req, &rep))
+        klogi("vfs: FACCESSAT / -> %ld\n", (int64_t) rep.words[0]);
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FACCESSAT;
+    memcpy(&req.words[1], "/nope", 6);
+    if (service_forward(SVC_FS, &req, &rep))
+        klogi("vfs: FACCESSAT /nope -> %ld\n", (int64_t) rep.words[0]);
 }

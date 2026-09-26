@@ -39,10 +39,19 @@ int main(void)
         memset(&rep, 0, sizeof(rep));
         rep.tag = m.tag;
 
-        if (m.tag == VFS_PING)
+        if (m.tag == VFS_PING) {
             rep.words[0] = VFS_PONG;
-        else
-            rep.words[0] = (uint64_t) (int64_t) -1;
+        } else if (m.tag == VFS_FACCESSAT) {
+            /* Minimal namespace for the router round trip. */
+            const char *path = (const char *) &m.words[1];
+            int ok =
+                (path[0] == '/' && (path[1] == '\0'
+                                    || strncmp(path, "/bin/", 5) == 0
+                                    || strcmp(path, "/dev/tty") == 0));
+            rep.words[0] = ok ? 0 : (uint64_t) (int64_t) -2;    /* -ENOENT */
+        } else {
+            rep.words[0] = (uint64_t) (int64_t) -38;    /* -ENOSYS */
+        }
 
         int64_t reply = (int64_t) m.xfer[0];
         if (reply != 0) {

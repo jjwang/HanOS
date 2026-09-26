@@ -34,6 +34,8 @@
 #include <mm/memobj.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
+#include <service/service.h>
+#include <libc/protocol.h>
 #include <proc/process.h>
 #include <proc/sched.h>
 #include <proc/wait.h>
@@ -933,6 +935,37 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
 
     klogi("k_faccessat: open \"%s\" at mode 0x%016lx and flags 0x%016lx\n",
           full_path, mode, flags);
+
+    /* Route to the userspace VFS server when one is registered. */
+    if (service_lookup(SVC_FS) != NULL) {
+        uint64_t plen = strlen(full_path);
+
+        if (plen > VFS_INLINE_PATH) {
+            cpu_set_errno(ENAMETOOLONG);
+            return -1;
+        }
+
+        ipc_msg_t req;
+        ipc_msg_t rep;
+
+        memset(&req, 0, sizeof(req));
+        req.tag = VFS_FACCESSAT;
+        req.words[0] = mode;
+        memcpy(&req.words[1], full_path, plen + 1);
+
+        if (!service_forward(SVC_FS, &req, &rep)) {
+            cpu_set_errno(EIO);
+            return -1;
+        }
+
+        if ((int64_t) rep.words[0] < 0) {
+            cpu_set_errno((int) (int64_t) - rep.words[0]);
+            return -1;
+        }
+
+        cpu_set_errno(0);
+        return 0;
+    }
 
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
