@@ -168,7 +168,13 @@ static int ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
             outw(ATA_IO_BASE + ATA_REG_DATA, src[i]);
         io_wait();
     }
-    outb(ATA_IO_BASE + ATA_REG_COMMAND, 0xE7);  /* cache flush */
+    /* Cache flush; wait until it finishes so an immediate read sees the data. */
+    outb(ATA_IO_BASE + ATA_REG_COMMAND, 0xE7);
+    for (int t = 0; t < ATA_POLL_LIMIT; t++) {
+        uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
+        if (st == 0x00 || st == 0xFF || !(st & ATA_SR_BSY))
+            break;
+    }
     return 0;
 }
 

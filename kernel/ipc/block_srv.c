@@ -137,6 +137,9 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
             uint8_t *b = (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, 0));
             klogi("block: READ lba %lu status %ld sig %02x%02x\n", lba,
                   (int64_t) rep.words[0], b[510], b[511]);
+        } else if (tag == BLOCK_WRITE) {
+            klogi("block: WRITE lba %lu status %ld\n", lba,
+                  (int64_t) rep.words[0]);
         }
     }
 
@@ -156,5 +159,25 @@ void block_server_probe(void)
     if (mo != NULL) {
         block_probe_rpc(ep, BLOCK_READ, 0, 1, mo);
         memobj_unref(mo);
+    }
+
+    /* Write a pattern to a scratch sector and read it back. */
+    memobj_t *wo = memobj_create(512);
+    if (wo != NULL) {
+        uint8_t *w = (uint8_t *) PHYS_TO_VIRT(memobj_page(wo, 0));
+
+        memset(w, 0, 512);
+        memcpy(w, "HANOS-BLOCK", 11);
+        block_probe_rpc(ep, BLOCK_WRITE, 8, 1, wo);
+        memobj_unref(wo);
+
+        memobj_t *ro = memobj_create(512);
+        if (ro != NULL) {
+            block_probe_rpc(ep, BLOCK_READ, 8, 1, ro);
+            uint8_t *r = (uint8_t *) PHYS_TO_VIRT(memobj_page(ro, 0));
+            klogi("block: WRITE/READ lba8 %s\n",
+                  memcmp(r, "HANOS-BLOCK", 11) == 0 ? "OK" : "FAIL");
+            memobj_unref(ro);
+        }
     }
 }
