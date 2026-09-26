@@ -77,10 +77,17 @@ static void io_wait(void)
         inb(ATA_IO_BASE + ATA_REG_CONTROL);
 }
 
+/* Bounded poll so a missing or wedged device fails fast. Each port read is an
+ * IOPORT_ACCESS syscall, so the limit is small on purpose. */
+#define ATA_POLL_LIMIT      0x1000
+
 static int wait_not_busy(void)
 {
-    for (int t = 0; t < 0x100000; t++) {
+    for (int t = 0; t < ATA_POLL_LIMIT; t++) {
         uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
+
+        if (st == 0x00 || st == 0xFF)
+            return -1;          /* no device / floating bus */
         if (st & ATA_SR_ERR)
             return -1;
         if (!(st & ATA_SR_BSY) && (st & ATA_SR_DRQ))
@@ -101,8 +108,9 @@ static int ata_init(uint64_t *sector_size, uint64_t *sector_count)
     outb(ATA_IO_BASE + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
     io_wait();
 
-    if (inb(ATA_IO_BASE + ATA_REG_STATUS) == 0)
-        return -1;              /* no device */
+    uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
+    if (st == 0x00 || st == 0xFF)
+        return -1;              /* no device / floating bus */
 
     if (wait_not_busy() != 0)
         return -1;
