@@ -66,6 +66,8 @@
 #define SYSCALL_IPC_RECV    52
 #define SYSCALL_IPC_CALL    53
 #define SYSCALL_IPC_REPLY   54
+#define SYSCALL_MEM_ALLOC   55
+#define SYSCALL_MEM_MAP     56
 #define SYSCALL_IRQ_BIND    57
 #define SYSCALL_IRQ_ACK     58
 #define SYSCALL_HANDLE_CLOSE 60
@@ -73,6 +75,7 @@
 #define SYSCALL_BOOTINFO    63
 #define SYSCALL_IPC_RECV_NB 64
 #define SYSCALL_IPC_RECV_TIMEOUT 65
+#define SYSCALL_MEM_UNMAP   66
 
 /* Standard I/O devices */
 #define STDIN               0

@@ -15,12 +15,51 @@
  */
 #include <libc/string.h>
 
+#include <base/kmalloc.h>
 #include <base/klog.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <ipc/selftest.h>
+#include <mm/memobj.h>
+#include <mm/mm.h>
 #include <proc/sched.h>
 #include <proc/process.h>
+#include <proc/syscall.h>
+
+/* A minimal address space (PML4 only) used to check memory-object mapping
+ * without disturbing the kernel address space. The page tables created while
+ * mapping are tracked in mem_list and released again by the free helper. */
+static addrspace_t *test_addrspace(void)
+{
+    addrspace_t *as = kmalloc(sizeof(addrspace_t));
+
+    if (as == NULL)
+        return NULL;
+
+    memset(as, 0, sizeof(*as));
+    as->PML4 = kmalloc_chunk(PAGE_SIZE * 8, __func__, __LINE__);
+    if (as->PML4 == NULL) {
+        kmfree(as);
+        return NULL;
+    }
+
+    memset(as->PML4, 0, PAGE_SIZE * 8);
+    spinlock_init(&as->lock);
+    as->initialized = true;
+    return as;
+}
+
+static void test_addrspace_free(addrspace_t * as)
+{
+    uint64_t n = vec_length(&as->mem_list);
+
+    for (uint64_t i = 0; i < n; i++)
+        pmm_free(vec_at(&as->mem_list, i), 8, __func__, __LINE__);
+    vec_erase_all(&as->mem_list);
+
+    kmfree_chunk((void *) as->PML4, __func__, __LINE__);
+    kmfree(as);
+}
 
 _Noreturn void mk_selftest_process(pid_t pid)
 {
@@ -87,6 +126,53 @@ _Noreturn void mk_selftest_process(pid_t pid)
             object_unref(endpoint_object(iep));
             object_unref(irq_object(io));
         }
+    }
+
+    /* Memory objects: one object mapped into two address spaces, sharing the
+     * same physical pages. */
+    if (ok) {
+        const uint64_t va = 0x40000000;
+        const uint64_t bytes = 2 * PAGE_SIZE;
+        memobj_t *m = memobj_create(bytes);
+        addrspace_t *a = test_addrspace();
+        addrspace_t *b = test_addrspace();
+
+        if (m == NULL || a == NULL || b == NULL) {
+            ok = false;
+        } else {
+            uint64_t p0 = memobj_page(m, 0);
+            uint64_t p1 = memobj_page(m, 1);
+
+            if (p0 == 0 || p1 == 0 || p0 == p1)
+                ok = false;
+
+            if (memobj_map(m, a, va, PROT_READ | PROT_WRITE) != 0
+                || memobj_map(m, b, va, PROT_READ | PROT_WRITE) != 0)
+                ok = false;
+
+            if (vmm_get_paddr(a, va) != p0
+                || vmm_get_paddr(a, va + PAGE_SIZE) != p1
+                || vmm_get_paddr(b, va) != p0
+                || vmm_get_paddr(b, va + PAGE_SIZE) != p1)
+                ok = false;
+
+            /* Exchange data: write through one mapping, read the other. */
+            *(uint64_t *) PHYS_TO_VIRT(vmm_get_paddr(a, va)) =
+                0x1122334455667788ULL;
+            if (*(uint64_t *) PHYS_TO_VIRT(vmm_get_paddr(b, va))
+                != 0x1122334455667788ULL)
+                ok = false;
+
+            memobj_unmap(m, a, va);
+            memobj_unmap(m, b, va);
+        }
+
+        if (a != NULL)
+            test_addrspace_free(a);
+        if (b != NULL)
+            test_addrspace_free(b);
+        if (m != NULL)
+            memobj_unref(m);
     }
 
     klogi("MK: selftest %s\n", ok ? "PASS" : "FAIL");

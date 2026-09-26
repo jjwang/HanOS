@@ -112,7 +112,9 @@
 #define SYSCALL_IPC_SEND     51
 #define SYSCALL_IPC_RECV     52
 #define SYSCALL_IPC_CALL     53
-#define SYSCALL_IPC_REPLY    54
+#define SYSCALL_IPC_REPLY     54
+#define SYSCALL_MEM_ALLOC    55
+#define SYSCALL_MEM_MAP      56
 #define SYSCALL_IRQ_BIND     57
 #define SYSCALL_IRQ_ACK      58
 #define SYSCALL_HANDLE_CLOSE 60
@@ -120,6 +122,7 @@
 #define SYSCALL_BOOTINFO     63
 #define SYSCALL_IPC_RECV_NB  64
 #define SYSCALL_IPC_RECV_TIMEOUT 65
+#define SYSCALL_MEM_UNMAP    66
 
 void sys_libc_log(const char *message)
 {
@@ -343,6 +346,27 @@ int sys_ipc_reply(int64_t handle, const sys_ipc_msg_t * msg)
 {
     int64_t ret, errno;
     SYSCALL2(SYSCALL_IPC_REPLY, handle, msg);
+    return (int) ret;
+}
+
+int64_t sys_mem_alloc(uint64_t size)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_MEM_ALLOC, size);
+    return ret;
+}
+
+int sys_mem_map(int64_t handle, uint64_t vaddr, int prot)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_MEM_MAP, handle, vaddr, prot);
+    return (int) ret;
+}
+
+int sys_mem_unmap(int64_t handle, uint64_t vaddr)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_MEM_UNMAP, handle, vaddr);
     return (int) ret;
 }
 

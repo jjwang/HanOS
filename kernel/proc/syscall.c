@@ -31,6 +31,7 @@
 #include <base/vector.h>
 #include <base/kmalloc.h>
 #include <mm/uaccess.h>
+#include <mm/memobj.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <proc/process.h>
@@ -1914,6 +1915,86 @@ int64_t k_bootinfo(void *ubi)
     return 0;
 }
 
+int64_t k_mem_alloc(int64_t size)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || size <= 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    memobj_t *m = memobj_create((uint64_t) size);
+    if (m == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    handle_t h = handle_alloc(&t->handles, memobj_object(m),
+                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+                              | HANDLE_RIGHT_MAP);
+    object_unref(memobj_object(m));
+
+    if (h == HANDLE_INVALID) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return (int64_t) h;
+}
+
+static memobj_t *k_mem_resolve(int64_t handle, uint32_t rights)
+{
+    process_t *t = sched_get_current_process();
+    if (t == NULL)
+        return NULL;
+
+    kernel_object_t *o = handle_get(&t->handles, (handle_t) handle, rights);
+    if (o == NULL || o->type != OBJ_MEMORY)
+        return NULL;
+
+    return (memobj_t *) o->impl;
+}
+
+int64_t k_mem_map(int64_t handle, uint64_t vaddr, int64_t prot)
+{
+    process_t *t = sched_get_current_process();
+    memobj_t *m = k_mem_resolve(handle, HANDLE_RIGHT_MAP);
+
+    if (t == NULL || m == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (memobj_map(m, t->addrspace, vaddr, (uint32_t) prot) != 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_mem_unmap(int64_t handle, uint64_t vaddr)
+{
+    process_t *t = sched_get_current_process();
+    memobj_t *m = k_mem_resolve(handle, HANDLE_RIGHT_MAP);
+
+    if (t == NULL || m == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (memobj_unmap(m, t->addrspace, vaddr) != 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -1966,13 +2047,16 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_IPC_RECV] = (syscall_ptr_t) k_ipc_recv,
     [SYSCALL_IPC_CALL] = (syscall_ptr_t) k_ipc_call,
     [SYSCALL_IPC_REPLY] = (syscall_ptr_t) k_ipc_reply,
+    [SYSCALL_MEM_ALLOC] = (syscall_ptr_t) k_mem_alloc,   /* 55 */
+    [SYSCALL_MEM_MAP] = (syscall_ptr_t) k_mem_map,       /* 56 */
     [SYSCALL_IRQ_BIND] = (syscall_ptr_t) k_irq_bind,
     [SYSCALL_IRQ_ACK] = (syscall_ptr_t) k_irq_ack,
     [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close,     /* 60 */
     [SYSCALL_IOPORT_ACCESS] = (syscall_ptr_t) k_ioport_access,
     [SYSCALL_BOOTINFO] = (syscall_ptr_t) k_bootinfo,              /* 63 */
     [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb,
-    [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout
+    [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout,
+    [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap       /* 66 */
 };
 
 void syscall_init(void)
