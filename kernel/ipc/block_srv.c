@@ -176,7 +176,7 @@ void block_server_probe(void)
             block_probe_rpc(ep, BLOCK_READ, 8, 1, ro);
             uint8_t *r = (uint8_t *) PHYS_TO_VIRT(memobj_page(ro, 0));
             klogi("block: WRITE/READ lba8 %s\n",
-                  memcmp(r, "HANOS-BLOCK", 11) ? "OK" : "FAIL");
+                  memcmp(r, "HANOS-BLOCK", 11) == 0 ? "OK" : "FAIL");
             memobj_unref(ro);
         }
     }

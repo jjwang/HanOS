@@ -68,7 +68,7 @@ bool bmp_load_from_file(image_t * image, char *fn)
 
     bmp_header_t header;
     memcpy(&header, bmp_buff, sizeof(bmp_header_t));
-    if (!memcmp(&header.bf_signature, "BM", 2))
+    if (memcmp(&header.bf_signature, "BM", 2) != 0)
         return false;
 
     /* Don't support bpp lower than 8 */

@@ -99,7 +99,7 @@ void ramfs_init(void *address, uint64_t size)
 
     unsigned char *ptr = (unsigned char *) address;
 
-    while (memcmp(ptr + 257, "ustar", 5)) {
+    while (memcmp(ptr + 257, "ustar", 5) == 0) {
         int filesize = oct2bin(ptr + 0x7c, 11);
         ustar_file_t *file = (ustar_file_t *) ptr;
         if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FOLDER) {

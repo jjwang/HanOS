@@ -38,7 +38,7 @@ acpi_sdt_t *acpi_get_sdt(const char *sign)
                                                          : ((uint32_t *)
                                                             sdt->data)
                                                          [i]));
-        if (memcmp(table->hdr.sign, sign, strlen(sign))) {
+        if (memcmp(table->hdr.sign, sign, strlen(sign)) == 0) {
             klogi("ACPI: found SDT \"%s\" 0x%016lx\n", sign, table);
             return table;
         }

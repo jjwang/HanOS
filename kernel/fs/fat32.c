@@ -463,7 +463,7 @@ int fat32_compare_entry_and_path(fat32_entry_t * ent, const char *path)
     for (uint64_t i = 0; i < 11; i++)
         name[i] = toupper(name[i]);
 
-    return memcmp(ent->name, name, 11);
+    return memcmp(ent->name, name, 11) == 0;
 }
 
 void fat32_dump_entry(fat32_entry_t fe)

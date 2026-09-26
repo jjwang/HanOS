@@ -60,16 +60,16 @@ void memset(void *addr, uint8_t val, uint64_t len)
         a[i] = val;
 }
 
-bool memcmp(const void *s1, const void *s2, uint64_t len)
+int memcmp(const void *s1, const void *s2, uint64_t len)
 {
-    for (uint64_t i = 0; i < len; i++) {
-        uint8_t a = ((uint8_t *) s1)[i];
-        uint8_t b = ((uint8_t *) s2)[i];
+    const uint8_t *a = (const uint8_t *) s1;
+    const uint8_t *b = (const uint8_t *) s2;
 
-        if (a != b)
-            return false;
+    for (uint64_t i = 0; i < len; i++) {
+        if (a[i] != b[i])
+            return (int) a[i] - (int) b[i];
     }
-    return true;
+    return 0;
 }
 
 int64_t strlen(const char *s)
