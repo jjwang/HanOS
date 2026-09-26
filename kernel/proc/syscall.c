@@ -1655,10 +1655,28 @@ static endpoint_t *k_ipc_resolve(int64_t handle, uint32_t rights)
     return (endpoint_t *) o->impl;
 }
 
+/* Rights a receiver gets for a handle the sender transfers. The sender's own
+ * rights are not intersected yet (there is no per-handle read of them). */
+static uint32_t k_transfer_rights(obj_type_t type)
+{
+    switch (type) {
+    case OBJ_MEMORY:
+        return HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE | HANDLE_RIGHT_MAP;
+    case OBJ_ENDPOINT:
+        return HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV;
+    case OBJ_IRQ:
+        return HANDLE_RIGHT_READ;
+    default:
+        return HANDLE_RIGHT_READ;
+    }
+}
+
 int64_t k_ipc_send(int64_t handle, void *umsg)
 {
     endpoint_t *ep = k_ipc_resolve(handle, HANDLE_RIGHT_SEND);
-    if (ep == NULL) {
+    process_t *t = sched_get_current_process();
+
+    if (ep == NULL || t == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -1669,8 +1687,80 @@ int64_t k_ipc_send(int64_t handle, void *umsg)
         return -1;
     }
 
-    if (ipc_send(ep, &m) != 0) {
+    if (m.xfer_count > 2)
+        m.xfer_count = 2;
+
+    /* Move each transferred handle out of the sender's table to the queued
+     * message. Move semantics: the sender's handle is closed. */
+    kernel_object_t *objs[2];
+    uint32_t rights[2];
+    uint8_t n = 0;
+
+    for (uint8_t i = 0; i < m.xfer_count; i++) {
+        kernel_object_t *o =
+            handle_get(&t->handles, m.xfer[i], HANDLE_RIGHT_TRANSFER);
+        if (o == NULL) {
+            for (uint8_t k = 0; k < n; k++)
+                object_unref(objs[k]);
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        object_ref(o);          /* the reference carried by the message */
+        handle_close(&t->handles, m.xfer[i]);
+        objs[n] = o;
+        rights[n] = k_transfer_rights(o->type);
+        m.xfer[i] = 0;
+        n++;
+    }
+
+    if (ipc_send_objs(ep, &m, objs, rights, n) != 0) {
+        for (uint8_t k = 0; k < n; k++)
+            object_unref(objs[k]);
         cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return 0;
+}
+
+/* Common receive path: install any handles the sender moved onto this message
+ * into the receiver's table, then return the (rewritten) message to user space.
+ * mode 0 = blocking, 1 = timeout, 2 = non-blocking. */
+static int64_t k_ipc_recv_common(endpoint_t *ep, void *umsg, int mode,
+                                 time_t timeout)
+{
+    process_t *t = sched_get_current_process();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    ipc_msg_t m;
+    kernel_object_t *objs[2];
+    uint32_t rights[2];
+    uint8_t n = 0;
+    int r;
+
+    if (mode == 0)
+        r = ipc_recv_objs(ep, &m, objs, rights, &n);
+    else
+        r = ipc_recv_timeout_objs(ep, &m, objs, rights, &n, timeout);
+
+    if (r != 0) {
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    m.xfer_count = n;
+    for (uint8_t i = 0; i < n; i++) {
+        handle_t h = handle_alloc(&t->handles, objs[i], rights[i]);
+        object_unref(objs[i]);  /* the handle owns the object now */
+        m.xfer[i] = (h == HANDLE_INVALID) ? 0 : h;
+    }
+
+    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
+        cpu_set_errno(EFAULT);
         return -1;
     }
 
@@ -1686,19 +1776,7 @@ int64_t k_ipc_recv(int64_t handle, void *umsg)
         return -1;
     }
 
-    ipc_msg_t m;
-    if (ipc_recv(ep, &m) != 0) {
-        cpu_set_errno(EAGAIN);
-        return -1;
-    }
-
-    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-
-    cpu_set_errno(0);
-    return 0;
+    return k_ipc_recv_common(ep, umsg, 0, 0);
 }
 
 int64_t k_ipc_call(int64_t handle, void *ureq, void *urep)
@@ -1859,19 +1937,7 @@ int64_t k_ipc_recv_nb(int64_t handle, void *umsg)
         return -1;
     }
 
-    ipc_msg_t m;
-    if (ipc_recv_timeout(ep, &m, 0) != 0) {
-        cpu_set_errno(EAGAIN);
-        return -1;
-    }
-
-    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-
-    cpu_set_errno(0);
-    return 0;
+    return k_ipc_recv_common(ep, umsg, 2, 0);
 }
 
 int64_t k_ipc_recv_timeout(int64_t handle, void *umsg, int64_t timeout)
@@ -1882,19 +1948,7 @@ int64_t k_ipc_recv_timeout(int64_t handle, void *umsg, int64_t timeout)
         return -1;
     }
 
-    ipc_msg_t m;
-    if (ipc_recv_timeout(ep, &m, (time_t) timeout) != 0) {
-        cpu_set_errno(EAGAIN);
-        return -1;
-    }
-
-    if (copy_to_user(umsg, &m, sizeof(m)) != 0) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-
-    cpu_set_errno(0);
-    return 0;
+    return k_ipc_recv_common(ep, umsg, 1, (time_t) timeout);
 }
 
 int64_t k_bootinfo(void *ubi)

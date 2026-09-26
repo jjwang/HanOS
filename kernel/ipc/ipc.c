@@ -35,7 +35,11 @@ kernel_object_t *endpoint_object(endpoint_t *ep)
     return &ep->obj;
 }
 
-static int ipc_try_recv(endpoint_t *ep, ipc_msg_t *msg)
+/* Pop one entry. When objs != NULL the caller takes ownership of the staged
+ * object references; otherwise they are discarded here. */
+static int ipc_try_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
+                             kernel_object_t **objs, uint32_t *rights,
+                             uint8_t *count)
 {
     spinlock_acquire(&ep->lock);
 
@@ -44,7 +48,23 @@ static int ipc_try_recv(endpoint_t *ep, ipc_msg_t *msg)
         return -1;
     }
 
-    *msg = ep->msgs[ep->head];
+    ipc_queue_entry_t *e = &ep->msgs[ep->head];
+    *msg = e->msg;
+
+    uint8_t n = e->xfer_count;
+    for (uint8_t i = 0; i < n; i++) {
+        if (objs != NULL) {
+            objs[i] = e->xfer_obj[i];
+            if (rights != NULL)
+                rights[i] = e->xfer_rights[i];
+        } else {
+            object_unref(e->xfer_obj[i]);
+        }
+    }
+    if (count != NULL)
+        *count = (objs != NULL) ? n : 0;
+    e->xfer_count = 0;
+
     ep->head = (ep->head + 1) % IPC_QUEUE_LEN;
     ep->count--;
 
@@ -52,10 +72,14 @@ static int ipc_try_recv(endpoint_t *ep, ipc_msg_t *msg)
     return 0;
 }
 
-int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
+int ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
+                  kernel_object_t **objs, uint32_t *rights, uint8_t count)
 {
     if (ep == NULL || msg == NULL)
         return -1;
+
+    if (count > 2)
+        count = 2;
 
     spinlock_acquire(&ep->lock);
 
@@ -64,7 +88,14 @@ int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
         return -1;              /* queue full */
     }
 
-    ep->msgs[ep->tail] = *msg;
+    ipc_queue_entry_t *e = &ep->msgs[ep->tail];
+    e->msg = *msg;
+    e->xfer_count = count;
+    for (uint8_t i = 0; i < count; i++) {
+        e->xfer_obj[i] = objs[i];
+        e->xfer_rights[i] = (rights != NULL) ? rights[i] : 0;
+    }
+
     ep->tail = (ep->tail + 1) % IPC_QUEUE_LEN;
     ep->count++;
 
@@ -76,30 +107,43 @@ int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
     return 0;
 }
 
-int ipc_recv(endpoint_t *ep, ipc_msg_t *msg)
+int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
+{
+    return ipc_send_objs(ep, msg, NULL, NULL, 0);
+}
+
+int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
+                  kernel_object_t **objs, uint32_t *rights, uint8_t *count)
 {
     if (ep == NULL || msg == NULL)
         return -1;
 
     for (;;) {
-        if (ipc_try_recv(ep, msg) == 0)
+        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0)
             return 0;
         sched_wait_key(ep, 250);
     }
 }
 
-int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms)
+int ipc_recv(endpoint_t *ep, ipc_msg_t *msg)
+{
+    return ipc_recv_objs(ep, msg, NULL, NULL, NULL);
+}
+
+int ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
+                          kernel_object_t **objs, uint32_t *rights,
+                          uint8_t *count, time_t timeout_ms)
 {
     if (ep == NULL || msg == NULL)
         return -1;
 
     if (timeout_ms == 0)
-        return ipc_try_recv(ep, msg);
+        return ipc_try_recv_objs(ep, msg, objs, rights, count);
 
     uint64_t deadline = hpet_get_nanos() + MILLIS_TO_NANOS(timeout_ms);
 
     for (;;) {
-        if (ipc_try_recv(ep, msg) == 0)
+        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0)
             return 0;
 
         uint64_t now = hpet_get_nanos();
@@ -108,6 +152,11 @@ int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms)
 
         sched_wait_key(ep, (time_t) ((deadline - now) / 1000000ULL) + 1);
     }
+}
+
+int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms)
+{
+    return ipc_recv_timeout_objs(ep, msg, NULL, NULL, NULL, timeout_ms);
 }
 
 int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep)

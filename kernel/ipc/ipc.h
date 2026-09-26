@@ -36,10 +36,20 @@ typedef struct {
     uint8_t xfer_count;
 } ipc_msg_t;
 
+/* One queued message plus any kernel objects whose handles the sender moved
+ * to the receiver (ipc_msg_t.xfer). The references are owned by this entry
+ * until a receiver takes them. */
+typedef struct {
+    ipc_msg_t msg;
+    kernel_object_t *xfer_obj[2];
+    uint32_t xfer_rights[2];
+    uint8_t xfer_count;
+} ipc_queue_entry_t;
+
 typedef struct endpoint {
     kernel_object_t obj;        /* must stay first */
     spinlock_t lock;
-    ipc_msg_t msgs[IPC_QUEUE_LEN];
+    ipc_queue_entry_t msgs[IPC_QUEUE_LEN];
     uint32_t head;
     uint32_t tail;
     uint32_t count;
@@ -53,6 +63,18 @@ int ipc_recv(endpoint_t *ep, ipc_msg_t *msg);
 int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms);
 int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep);
 int ipc_reply(endpoint_t *ep, const ipc_msg_t *rep);
+
+/* Variants that move the objects staged on a message out to the caller (or, for
+ * the receive side, hand them over). The caller owns the returned references;
+ * the non-objs receive variants discard them. Used by the syscall layer to
+ * implement handle transfer. */
+int ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
+                  kernel_object_t **objs, uint32_t *rights, uint8_t count);
+int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
+                  kernel_object_t **objs, uint32_t *rights, uint8_t *count);
+int ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
+                          kernel_object_t **objs, uint32_t *rights,
+                          uint8_t *count, time_t timeout_ms);
 
 /* The reply endpoint pointer of a call is carried in the last inline word. */
 static inline endpoint_t *ipc_reply_ep(const ipc_msg_t *msg)

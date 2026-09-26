@@ -175,6 +175,44 @@ _Noreturn void mk_selftest_process(pid_t pid)
             memobj_unref(m);
     }
 
+    /* Handle transfer: an object staged on a message is handed to the
+     * receiver with the same identity. */
+    if (ok) {
+        endpoint_t *tep = endpoint_create();
+        memobj_t *mo = memobj_create(PAGE_SIZE);
+
+        if (tep == NULL || mo == NULL) {
+            ok = false;
+        } else {
+            kernel_object_t *send_obj = memobj_object(mo);
+            uint32_t sright = HANDLE_RIGHT_READ | HANDLE_RIGHT_MAP;
+            ipc_msg_t m;
+
+            object_ref(send_obj);       /* the reference being moved */
+            memset(&m, 0, sizeof(m));
+            m.tag = 0xBEEF;
+
+            if (ipc_send_objs(tep, &m, &send_obj, &sright, 1) != 0)
+                ok = false;
+
+            ipc_msg_t r;
+            kernel_object_t *got[2];
+            uint32_t gright[2] = { 0, 0 };
+            uint8_t gn = 0;
+
+            if (ipc_recv_timeout_objs(tep, &r, got, gright, &gn, 100) != 0
+                || gn != 1 || got[0] != send_obj || gright[0] != sright
+                || r.tag != 0xBEEF)
+                ok = false;
+            if (gn == 1)
+                object_unref(got[0]);   /* the receiver's reference */
+
+            object_unref(endpoint_object(tep));
+        }
+        if (mo != NULL)
+            object_unref(memobj_object(mo));
+    }
+
     klogi("MK: selftest %s\n", ok ? "PASS" : "FAIL");
 
     for (;;)
