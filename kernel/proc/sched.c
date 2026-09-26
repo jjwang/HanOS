@@ -87,13 +87,18 @@ static uint16_t sched_pick_cpu(void)
     uint16_t n = 0;
 
     if (info != NULL) {
-        for (uint16_t i = 0; i < info->num_cpus && i < CPU_MAX; i++)
-            ids[n++] = info->cpus[i].cpu_id;
+        for (uint16_t i = 0; i < info->num_cpus && i < CPU_MAX; i++) {
+            uint16_t id = info->cpus[i].cpu_id;
+
+            /* Only dispatch to a core whose scheduler has created its idle
+             * task. Before that, an IPI would reach enter_context_switch with
+             * running_process[] and idle_process[] still NULL. */
+            if (idle_process[id] != NULL)
+                ids[n++] = id;
+        }
     }
-    if (n == 0) {
-        ids[0] = smp_get_current_cpu_id();
-        n = 1;
-    }
+    if (n == 0)
+        ids[n++] = smp_get_current_cpu_id();
 
     static uint32_t rr_index;
     uint16_t idx =
