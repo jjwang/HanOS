@@ -508,10 +508,55 @@ void sched_wait_child(time_t millis)
     force_context_switch();
 }
 
-/* Block the current process until sched_wake_key(key) is called or the timeout
- * expires. Used by the IPC receive path. */
-void sched_wait_key(void *key, time_t millis)
+/* Arm the current process to be woken by sched_wake_key(key). This must run
+ * before the caller checks whether it has anything to wait for, so that a wake
+ * delivered in that window can be observed by sched_wait_key_commit(). */
+void sched_wait_key_begin(void *key)
 {
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL)
+        return;
+
+    uint16_t cpu_id = cpu->cpu_id;
+    spinlock_acquire(&run_queue_lock[cpu_id]);
+
+    process_t *curr = running_process[cpu_id];
+    if (curr != NULL) {
+        curr->wakeup_event.type = EVENT_IPC;
+        curr->wakeup_event.para = 0;
+        curr->wakeup_key = key;
+    }
+
+    spinlock_release(&run_queue_lock[cpu_id]);
+}
+
+/* Stop waiting on the armed key and drop any wake that arrived meanwhile. */
+void sched_wait_key_cancel(void)
+{
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL)
+        return;
+
+    uint16_t cpu_id = cpu->cpu_id;
+    spinlock_acquire(&run_queue_lock[cpu_id]);
+
+    process_t *curr = running_process[cpu_id];
+    if (curr != NULL) {
+        curr->wakeup_key = NULL;
+        curr->wakeup_pending = false;
+    }
+
+    spinlock_release(&run_queue_lock[cpu_id]);
+}
+
+/* Block the current process until sched_wake_key(key) is called or the timeout
+ * expires. Used by the IPC receive path. If a wake already arrived after
+ * sched_wait_key_begin(), consume it and return immediately so the caller can
+ * re-check its queue; otherwise park. */
+void sched_wait_key_commit(time_t millis)
+{
+    uint64_t deadline = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
+
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
         hpet_sleep(millis);
@@ -519,17 +564,42 @@ void sched_wait_key(void *key, time_t millis)
     }
 
     uint16_t cpu_id = cpu->cpu_id;
-    process_t *curr = running_process[cpu_id];
-    if (curr == NULL)
-        return;
+    spinlock_acquire(&run_queue_lock[cpu_id]);
 
-    curr->wakeup_event.type = EVENT_IPC;
-    curr->wakeup_event.para = 0;
-    curr->wakeup_key = key;
-    curr->wakeup_time = hpet_get_nanos() + MILLIS_TO_NANOS(millis);
+    process_t *curr = running_process[cpu_id];
+    if (curr == NULL) {
+        spinlock_release(&run_queue_lock[cpu_id]);
+        return;
+    }
+
+    if (curr->wakeup_pending) {
+        curr->wakeup_pending = false;
+        spinlock_release(&run_queue_lock[cpu_id]);
+        return;
+    }
+
+    curr->wakeup_time = deadline;
     curr->status = PROC_SLEEPING;
 
+    spinlock_release(&run_queue_lock[cpu_id]);
+
     force_context_switch();
+}
+
+/* Wake a process that is armed on the given key. A process that has not parked
+ * yet is marked pending instead, so it observes the wake before it sleeps. */
+static void sched_wake_one(process_t *t, void *key)
+{
+    if (t == NULL || t->wakeup_event.type != EVENT_IPC
+        || t->wakeup_key != key)
+        return;
+
+    if (t->status == PROC_SLEEPING) {
+        t->wakeup_time = 0;
+        t->status = PROC_READY;
+    } else {
+        t->wakeup_pending = true;
+    }
 }
 
 /* Wake every process sleeping on the given key, on any core. */
@@ -541,15 +611,9 @@ void sched_wake_key(void *key)
 
         spinlock_acquire(&run_queue_lock[c]);
 
-        for (uint64_t i = 0; i < vec_length(&run_queues[c]); i++) {
-            process_t *t = vec_at(&run_queues[c], i);
-            if (t != NULL && t->status == PROC_SLEEPING
-                && t->wakeup_event.type == EVENT_IPC
-                && t->wakeup_key == key) {
-                t->wakeup_time = 0;
-                t->status = PROC_READY;
-            }
-        }
+        sched_wake_one(running_process[c], key);
+        for (uint64_t i = 0; i < vec_length(&run_queues[c]); i++)
+            sched_wake_one(vec_at(&run_queues[c], i), key);
 
         spinlock_release(&run_queue_lock[c]);
     }

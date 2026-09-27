@@ -230,6 +230,7 @@ typedef struct process {
     uint64_t wakeup_time;
     event_t wakeup_event;
     void *wakeup_key;               /* opaque wake key for EVENT_IPC */
+    bool wakeup_pending;            /* a wake arrived before the process slept */
     process_status_t status;
     process_mode_t mode;
     bool forked;

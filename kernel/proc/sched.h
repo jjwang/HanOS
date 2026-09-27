@@ -36,7 +36,12 @@ void sched_sleep_impl(time_t ms, bool advanced);
 pid_t sched_fork(void);
 void sched_exit(int64_t status);
 void sched_wait_child(time_t ms);
-void sched_wait_key(void *key, time_t ms);
+/* IPC receive waits are split so a message queued between the queue check and
+ * the sleep cannot be lost: arm before checking, cancel on success, commit to
+ * block. sched_wake_key() delivers to the armed process. */
+void sched_wait_key_begin(void *key);
+void sched_wait_key_commit(time_t ms);
+void sched_wait_key_cancel(void);
 void sched_wake_key(void *key);
 process_t *sched_get_current_process(void);
 uint16_t sched_get_cpu_num(void);

@@ -119,9 +119,12 @@ int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
         return -1;
 
     for (;;) {
-        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0)
+        sched_wait_key_begin(ep);
+        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0) {
+            sched_wait_key_cancel();
             return 0;
-        sched_wait_key(ep, 250);
+        }
+        sched_wait_key_commit(250);
     }
 }
 
@@ -143,14 +146,19 @@ int ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
     uint64_t deadline = hpet_get_nanos() + MILLIS_TO_NANOS(timeout_ms);
 
     for (;;) {
-        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0)
+        sched_wait_key_begin(ep);
+        if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0) {
+            sched_wait_key_cancel();
             return 0;
+        }
 
         uint64_t now = hpet_get_nanos();
-        if (now >= deadline)
+        if (now >= deadline) {
+            sched_wait_key_cancel();
             return -1;
+        }
 
-        sched_wait_key(ep, (time_t) ((deadline - now) / 1000000ULL) + 1);
+        sched_wait_key_commit((time_t) ((deadline - now) / 1000000ULL) + 1);
     }
 }
 
