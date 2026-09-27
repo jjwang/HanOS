@@ -309,15 +309,15 @@ process_t *process_fork(process_t * tp)
              * either process can run, so a concurrent close cannot free the fd
              * first. ipc_notify() does not wake the receiver, which would take
              * the same run-queue lock. */
-            endpoint_t *fs = service_lookup(SVC_FS);
+            endpoint_t *svc = service_lookup((service_id_t) fd->svc);
 
-            if (fs != NULL) {
+            if (svc != NULL) {
                 ipc_msg_t m;
 
                 memset(&m, 0, sizeof(m));
                 m.tag = VFS_FD_FORK;
                 m.words[0] = (uint64_t) fd->server_fd;
-                ipc_notify(fs, &m);
+                ipc_notify(svc, &m);
             }
         } else {
             fd->inode->refcount++;

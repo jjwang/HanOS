@@ -39,6 +39,9 @@
 
 /* Maximum one VFS request reads/writes. */
 #define VFS_SERVER_IO_MAX   4096
+
+/* Internal sentinel: the pipe server would block; the caller retries. */
+#define VFS_IO_AGAIN        (-2)
 #include <fs/fat32.h>
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
@@ -407,18 +410,78 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
     return (int64_t) rep.words[1];
 }
 
-static int64_t vfs_server_close(int64_t sfd)
+static int64_t vfs_server_close(int svc, int64_t sfd)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
 
     memset(&req, 0, sizeof(req));
-    req.tag = VFS_CLOSE;
+    req.tag = (svc == SVC_PIPE) ? PIPE_CLOSE : VFS_CLOSE;
     req.words[0] = (uint64_t) sfd;
 
-    if (!service_forward(SVC_FS, &req, &rep))
+    if (!service_forward(svc, &req, &rep))
         return -1;
     return (int64_t) rep.words[0];
+}
+
+/* One bounded read/write against the pipe server. Returns the byte count, 0 at
+ * EOF (read only), VFS_IO_AGAIN when it would block, or -1 on error. */
+static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
+                             void *buff)
+{
+    handle_t mh;
+
+    if (len > VFS_SERVER_IO_MAX)
+        len = VFS_SERVER_IO_MAX;
+
+    memobj_t *mo = server_memobj(len ? len : 1, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    if (tag == PIPE_WRITE)
+        memobj_copy_in(mo, buff, len, 0);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = tag;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = len;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_PIPE, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    if ((int64_t) rep.words[0] < 0) {
+        int64_t rc = (int64_t) rep.words[0];
+
+        memobj_unref(mo);
+        return (rc == PIPE_EAGAIN) ? VFS_IO_AGAIN : -1;
+    }
+
+    int64_t n = (int64_t) rep.words[1];
+
+    if (tag == PIPE_READ && n > 0)
+        memobj_copy_out(mo, buff, n, 0);
+    memobj_unref(mo);
+    return n;
+}
+
+/* Blocking pipe read/write built on vfs_pipe_xfer(). */
+static int64_t vfs_pipe_rw(int64_t sfd, uint64_t tag, uint64_t len, void *buff)
+{
+    for (;;) {
+        int64_t n = vfs_pipe_xfer(sfd, tag, len, buff);
+
+        if (n != VFS_IO_AGAIN)
+            return n;
+        sched_sleep(1);
+    }
 }
 
 /* Ask the server for the stat of a path. The path and the result share one
@@ -538,9 +601,9 @@ int64_t vfs_server_unlink(const char *path)
 }
 
 /* Add a reference to a server fd's open file description (used by fork). */
-void vfs_server_ref_fd(int64_t sfd)
+void vfs_server_ref_fd(int svc, int64_t sfd)
 {
-    if (service_lookup(SVC_FS) == NULL)
+    if (service_lookup(svc) == NULL)
         return;
 
     ipc_msg_t req;
@@ -549,7 +612,7 @@ void vfs_server_ref_fd(int64_t sfd)
     memset(&req, 0, sizeof(req));
     req.tag = VFS_FD_FORK;
     req.words[0] = (uint64_t) sfd;
-    service_forward(SVC_FS, &req, &rep);
+    service_forward(svc, &req, &rep);
 }
 
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
@@ -560,6 +623,9 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
     }
 
     if (fd->server) {
+        if (fd->svc == SVC_PIPE)
+            return vfs_pipe_rw(fd->server_fd, PIPE_READ, len, buff);
+
         /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a
          * caller asking for the whole file (e.g. the ELF loader) gets it. */
         uint64_t done = 0;
@@ -652,8 +718,11 @@ int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
     if (!fd)
         return 0;
 
-    if (fd->server)
+    if (fd->server) {
+        if (fd->svc == SVC_PIPE)
+            return vfs_pipe_rw(fd->server_fd, PIPE_WRITE, len, (void *) buff);
         return vfs_server_write(fd->server_fd, len, buff);
+    }
 
     /* Cannot write to read-only files */
     if (fd->mode == VFS_MODE_READ) {
@@ -695,8 +764,11 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
     if (!fd)
         return -1;
 
-    if (fd->server)
+    if (fd->server) {
+        if (fd->svc == SVC_PIPE)
+            return -1;          /* pipes are not seekable */
         return vfs_server_seek(fd->server_fd, pos, whence);
+    }
 
     spinlock_acquire(&vfs_lock);
 
@@ -877,8 +949,8 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
     return VFS_INVALID_HANDLE;
 }
 
-vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
-                             vfs_openmode_t mode, uint64_t size)
+vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
+                                 vfs_openmode_t mode, uint64_t size, int svc)
 {
     spinlock_acquire(&vfs_lock);
 
@@ -895,6 +967,7 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
     fd->server = true;
     fd->server_fd = server_fd;
     fd->server_size = size;
+    fd->svc = svc;
 
     vfs_handle_t fh = vfs_next_handle++;
 
@@ -904,6 +977,12 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
 
     spinlock_release(&vfs_lock);
     return fh;
+}
+
+vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
+                             vfs_openmode_t mode, uint64_t size)
+{
+    return vfs_open_server_svc(server_fd, path, mode, size, SVC_FS);
 }
 
 /* Open a path through the userspace server when it is registered. The server
@@ -942,7 +1021,7 @@ int64_t vfs_close(vfs_handle_t handle)
 {
     vfs_node_desc_t *sdesc = vfs_handle_to_fd(handle, __func__);
     if (sdesc != NULL && sdesc->server) {
-        int64_t r = vfs_server_close(sdesc->server_fd);
+        int64_t r = vfs_server_close(sdesc->svc, sdesc->server_fd);
         process_t *t = sched_get_current_process();
 
         if (t != NULL)

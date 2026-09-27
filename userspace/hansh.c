@@ -137,10 +137,12 @@ void runcmd(cmd_t * cmd)
             /* Never run below code */
             sys_exit(0);
         }
-        sys_wait(-1);
-        sys_wait(-1);
+        /* Close the parent's copies before waiting, or the reader never sees
+         * the write end close and both block forever. */
         sys_close(p[0]);
         sys_close(p[1]);
+        sys_wait(-1);
+        sys_wait(-1);
         break;
 
     case LIST:

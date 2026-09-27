@@ -759,7 +759,7 @@ process_t *sched_execve(const char *path, const char *argv[],
                 /* Server fds are refcounted in the server; the parent is about
                  * to exit and close its copy, so take a reference for the
                  * child here. */
-                vfs_server_ref_fd(fd->server_fd);
+                vfs_server_ref_fd(fd->svc, fd->server_fd);
             } else {
                 fd->inode->refcount++;
                 if (fd->mode == VFS_MODE_READ) {

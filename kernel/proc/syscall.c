@@ -1287,6 +1287,43 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
         goto err_exit;
     }
 
+    if (service_lookup(SVC_PIPE) != NULL) {
+        ipc_msg_t req;
+        ipc_msg_t rep;
+
+        memset(&req, 0, sizeof(req));
+        req.tag = PIPE_CREATE;
+
+        if (!service_forward(SVC_PIPE, &req, &rep)
+            || (int64_t) rep.words[0] < 0) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+
+        vfs_handle_t rfh = vfs_open_server_svc((int64_t) rep.words[1],
+                                               "/dev/pipe", VFS_MODE_READ, 0,
+                                               SVC_PIPE);
+        vfs_handle_t wfh = vfs_open_server_svc((int64_t) rep.words[2],
+                                               "/dev/pipe", VFS_MODE_WRITE, 0,
+                                               SVC_PIPE);
+
+        if (rfh == VFS_INVALID_HANDLE || wfh == VFS_INVALID_HANDLE) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+
+        int32_t kfh[2] = { (int32_t) rfh, (int32_t) wfh };
+
+        if (fh == NULL || copy_to_user(fh, kfh, sizeof(kfh)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+
+        klogi("k_pipe: server pipe read %ld write %ld\n", (long) rfh,
+              (long) wfh);
+        return 0;
+    }
+
     char path[VFS_MAX_PATH_LEN] = { 0 };
     strcpy(path, "/dev/pipe/");
 

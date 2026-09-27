@@ -54,5 +54,15 @@
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 
+/* Pipe server. Data travels in a memory object in xfer[1]. A read or write
+ * that cannot make progress returns PIPE_EAGAIN in words[0]. */
+#define PIPE_CREATE         0x43        /* out: words[1]=read fd, words[2]=write fd */
+#define PIPE_READ           0x40        /* words[0]=fd, words[1]=len; xfer[1]=buf;
+                                           out: words[1]=bytes, or 0 at EOF */
+#define PIPE_WRITE          0x41        /* words[0]=fd, words[1]=len; xfer[1]=buf;
+                                           out: words[1]=bytes */
+#define PIPE_CLOSE          0x42        /* words[0]=fd */
+#define PIPE_EAGAIN         (-11)
+
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

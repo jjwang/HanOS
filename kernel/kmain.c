@@ -59,6 +59,7 @@
 #include <device/usb/xhci.h>
 #include <ipc/block_srv.h>
 #include <ipc/vfs_srv.h>
+#include <ipc/pipe_srv.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -258,6 +259,10 @@ _Noreturn void kshell(pid_t pid)
         klogw("vfs: server failed to start, using in-kernel FS\n");
     else
         vfs_server_probe();
+#endif
+#if ENABLE_PIPE_SERVER
+    if (!pipe_server_start())
+        klogw("pipe: server failed to start, using in-kernel pipefs\n");
 #endif
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };

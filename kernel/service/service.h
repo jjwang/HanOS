@@ -31,6 +31,7 @@ typedef enum {
     SVC_PROC,
     SVC_NET,
     SVC_MISC,
+    SVC_PIPE,
     SVC_COUNT
 } service_id_t;
 

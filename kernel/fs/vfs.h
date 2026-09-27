@@ -236,6 +236,7 @@ typedef struct {
     bool server;
     int64_t server_fd;
     uint64_t server_size;       /* file size reported by the server on open */
+    int svc;                    /* service that owns server_fd */
 } vfs_node_desc_t;
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
@@ -250,6 +251,9 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
                              vfs_openmode_t mode, uint64_t size);
+/* Same, but for any service (e.g. the pipe server). */
+vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
+                                 vfs_openmode_t mode, uint64_t size, int svc);
 
 /* Open a path, through the userspace server when it is registered and through
  * the in-kernel VFS otherwise. */
@@ -262,7 +266,7 @@ int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
 int64_t vfs_server_unlink(const char *path);
 /* Take a reference on a server fd, so a description inherited across fork or
  * execve stays open. */
-void vfs_server_ref_fd(int64_t sfd);
+void vfs_server_ref_fd(int svc, int64_t sfd);
 int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
 uint64_t vfs_tell(vfs_handle_t handle);
