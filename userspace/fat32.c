@@ -62,6 +62,21 @@ typedef struct[[gnu::packed]] {
     uint32_t size;
 } fat_dirent_t;
 
+/* A long-file-name entry: 13 UTF-16 characters in three pieces. */
+typedef struct[[gnu::packed]] {
+    uint8_t seq;                /* 1..N; bit 0x40 set on the first physical */
+    uint16_t name1[5];
+    uint8_t attr;               /* 0x0F */
+    uint8_t type;
+    uint8_t checksum;
+    uint16_t name2[6];
+    uint16_t first_cluster;
+    uint16_t name3[2];
+} fat_lfn_t;
+
+#define LFN_CHARS_PER_ENTRY 13
+#define LFN_MAX_ENTRIES     20
+
 static bootinfo_t bi;
 static uint16_t bps;
 static uint8_t spc;
@@ -155,63 +170,144 @@ static uint32_t fat_next(uint32_t cluster)
     return (v >= 0x0FFFFFF8) ? 0 : v;
 }
 
-/* Normalise a path component into an 8.3 directory name (space padded). */
-static void to_83(const char *comp, int len, uint8_t out[11])
+static int strcasecmp_ascii(const char *a, const char *b)
 {
-    memset(out, ' ', 11);
+    for (;;) {
+        unsigned char ca = (unsigned char) *a++;
+        unsigned char cb = (unsigned char) *b++;
 
-    int i = 0, o = 0;
-    for (; i < len && comp[i] != '.' && o < 8; i++) {
-        char c = comp[i];
-        out[o++] = (c >= 'a' && c <= 'z') ? (uint8_t) (c - 32) : (uint8_t) c;
-    }
-    while (i < len && comp[i] != '.')
-        i++;
-    if (i < len && comp[i] == '.') {
-        i++;
-        o = 8;
-        for (; i < len && o < 11; i++) {
-            char c = comp[i];
-            out[o++] = (c >= 'a' && c <= 'z') ? (uint8_t) (c - 32) : (uint8_t) c;
-        }
+        if (ca >= 'a' && ca <= 'z')
+            ca -= 32;
+        if (cb >= 'a' && cb <= 'z')
+            cb -= 32;
+        if (ca != cb)
+            return (int) ca - (int) cb;
+        if (ca == 0)
+            return 0;
     }
 }
 
-/* Look up one 8.3 name in a directory (following its cluster chain). */
-static int dir_lookup(uint32_t dir_cluster, const uint8_t name83[11],
-                      fat_dirent_t *out)
+static void fmt_83(const uint8_t name[11], char *out)
 {
-    uint8_t *buf = cluster_buf;
+    int o = 0;
+
+    for (int i = 0; i < 8 && name[i] != ' '; i++)
+        out[o++] = (char) name[i];
+    if (name[8] != ' ') {
+        out[o++] = '.';
+        for (int i = 8; i < 11 && name[i] != ' '; i++)
+            out[o++] = (char) name[i];
+    }
+    out[o] = '\0';
+}
+
+/* Scan a directory (following its cluster chain). With `want` non-NULL, match
+ * the effective name (the long name if present, else the 8.3 name); otherwise
+ * return the `index`-th live entry. Fills out/out_name and returns 0, or -1. */
+static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
+                    fat_dirent_t *out, char *out_name)
+{
+    uint16_t lfn[LFN_MAX_ENTRIES * LFN_CHARS_PER_ENTRY];
+    int lfn_len = 0;
     uint32_t cluster = dir_cluster;
-    int found = -1;
+    uint64_t seen = 0;
 
     while (cluster >= 2) {
-        if (blk_read(cluster_lba(cluster), spc, buf) != 0)
-            break;
+        if (blk_read(cluster_lba(cluster), spc, cluster_buf) != 0)
+            return -1;
 
         int entries = (int) spc * SEC / 32;
         for (int i = 0; i < entries; i++) {
-            fat_dirent_t *e = (fat_dirent_t *) (buf + i * 32);
+            fat_dirent_t *e = (fat_dirent_t *) (cluster_buf + i * 32);
 
-            if (e->name[0] == 0x00) {
-                cluster = 0;
-                break;
-            }
-            if (e->name[0] == 0xE5 || e->attr == 0x0F)
+            if (e->name[0] == 0x00)
+                return -1;      /* end of directory */
+            if (e->name[0] == 0xE5) {
+                lfn_len = 0;    /* deleted: drop a pending long name */
                 continue;
-            if (memcmp(e->name, name83, 11) == 0) {
-                memcpy(out, e, sizeof(*out));
-                found = 0;
-                cluster = 0;
-                break;
+            }
+            if (e->attr == 0x0F) {
+                fat_lfn_t *l = (fat_lfn_t *) e;
+                int base = ((l->seq & 0x1F) - 1) * LFN_CHARS_PER_ENTRY;
+                uint16_t chars[LFN_CHARS_PER_ENTRY];
+
+                if (base < 0
+                    || base + LFN_CHARS_PER_ENTRY >
+                    (int) (sizeof(lfn) / sizeof(lfn[0])))
+                    continue;
+
+                memcpy(chars + 0, l->name1, 10);
+                memcpy(chars + 5, l->name2, 12);
+                memcpy(chars + 11, l->name3, 4);
+                for (int c = 0; c < LFN_CHARS_PER_ENTRY; c++)
+                    lfn[base + c] = chars[c];
+                if (base + LFN_CHARS_PER_ENTRY > lfn_len)
+                    lfn_len = base + LFN_CHARS_PER_ENTRY;
+                continue;
+            }
+            if (e->attr & 0x08) {
+                lfn_len = 0;    /* volume label */
+                continue;
+            }
+            if (e->name[0] == '.') {
+                lfn_len = 0;    /* . and .. */
+                continue;
+            }
+
+            char nm[256];
+
+            if (lfn_len > 0) {
+                int o = 0;
+
+                for (int k = 0; k < lfn_len && o < 255; k++) {
+                    uint16_t u = lfn[k];
+
+                    if (u == 0)
+                        break;
+                    nm[o++] = (u < 0x80) ? (char) u : '?';
+                }
+                nm[o] = '\0';
+                if (o == 0)
+                    fmt_83(e->name, nm);
+            } else {
+                fmt_83(e->name, nm);
+            }
+            lfn_len = 0;
+
+            if (want != NULL) {
+                if (strcasecmp_ascii(nm, want) == 0) {
+                    memcpy(out, e, sizeof(*out));
+                    if (out_name != NULL) {
+                        memcpy(out_name, nm, strlen(nm) + 1);
+                    }
+                    return 0;
+                }
+            } else {
+                if (seen == index) {
+                    memcpy(out, e, sizeof(*out));
+                    if (out_name != NULL)
+                        memcpy(out_name, nm, strlen(nm) + 1);
+                    return 0;
+                }
+                seen++;
             }
         }
-        if (cluster == 0)
-            break;
         cluster = fat_next(cluster);
     }
 
-    return found;
+    return -1;
+}
+
+static int dir_lookup(uint32_t dir_cluster, const char *want,
+                      fat_dirent_t *out)
+{
+    return dir_scan(dir_cluster, want, 0, out, NULL);
+}
+
+static int dir_index(uint32_t dir_cluster, uint64_t index, fat_dirent_t *out,
+                     char *out_name)
+{
+    return dir_scan(dir_cluster, NULL, index, out, out_name);
 }
 
 /* Walk an absolute path; returns 0 and fills cluster/size/is_dir. */
@@ -239,11 +335,13 @@ static int find_path(const char *path, uint32_t *out_cluster,
         while (*p == '/')
             p++;
 
-        uint8_t name83[11];
         fat_dirent_t e;
+        char comp[256];
+        int cl = (len < 255) ? len : 255;
 
-        to_83(start, len, name83);
-        if (dir_lookup(cluster, name83, &e) != 0)
+        memcpy(comp, start, (uint64_t) cl);
+        comp[cl] = '\0';
+        if (dir_lookup(cluster, comp, &e) != 0)
             return -1;
 
         cluster = (uint32_t) e.cluster_lo | ((uint32_t) e.cluster_hi << 16);
@@ -300,51 +398,6 @@ static uint64_t read_from(uint32_t cluster, uint64_t off, uint64_t len,
     }
 
     return done;
-}
-
-/* Look up the index-th real entry of a directory (0-based). */
-static int dir_index(uint32_t dir_cluster, uint64_t index, fat_dirent_t *out)
-{
-    uint32_t cluster = dir_cluster;
-    uint64_t seen = 0;
-
-    while (cluster >= 2) {
-        if (blk_read(cluster_lba(cluster), spc, cluster_buf) != 0)
-            break;
-
-        int entries = (int) spc * SEC / 32;
-        for (int i = 0; i < entries; i++) {
-            fat_dirent_t *e = (fat_dirent_t *) (cluster_buf + i * 32);
-
-            if (e->name[0] == 0x00)
-                return -1;
-            if (e->name[0] == 0xE5 || e->attr == 0x0F || e->name[0] == '.')
-                continue;
-            if (e->attr & 0x08)
-                continue;       /* volume label */
-            if (seen == index) {
-                memcpy(out, e, sizeof(*out));
-                return 0;
-            }
-            seen++;
-        }
-        cluster = fat_next(cluster);
-    }
-    return -1;
-}
-
-static void fmt_83(const uint8_t name[11], char *out)
-{
-    int o = 0;
-
-    for (int i = 0; i < 8 && name[i] != ' '; i++)
-        out[o++] = (char) name[i];
-    if (name[8] != ' ') {
-        out[o++] = '.';
-        for (int i = 8; i < 11 && name[i] != ' '; i++)
-            out[o++] = (char) name[i];
-    }
-    out[o] = '\0';
 }
 
 static int mount(void)
@@ -429,13 +482,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[2] = is_dir ? 1 : 0;
     } else if (m->tag == FAT_READDIR) {
         fat_dirent_t e;
+        char nm[256];
 
         if (!is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -2;
-        } else if (dir_index(cluster, m->words[0], &e) != 0) {
+        } else if (dir_index(cluster, m->words[0], &e, nm) != 0) {
             rep->words[0] = (uint64_t) (int64_t) -1;    /* end of directory */
         } else {
-            fmt_83(e.name, (char *) (buf + FAT_DATA_OFF));
+            memcpy(buf + FAT_DATA_OFF, nm, strlen(nm) + 1);
             rep->words[0] = 0;
             rep->words[1] = e.size;
             rep->words[2] = (e.attr & 0x10) ? 1 : 0;
