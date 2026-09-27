@@ -245,7 +245,9 @@ _Noreturn void kshell(pid_t pid)
                 self_info.actual_res_x, self_info.actual_res_y);
     }
 
-    /* Start all programs */
+    /* Start all programs. Boot order: console -> input -> tty -> block ->
+     * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
+     * console endpoint, fat32 on the block server) is up first. */
 #if ENABLE_INPUT_SERVER
     if (!input_server_start())
         klogw("input: server failed to start, using in-kernel keyboard\n");
