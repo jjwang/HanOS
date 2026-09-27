@@ -74,5 +74,10 @@
 #define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
 #define TTY_EAGAIN          (-11)
 
+/* FAT32 server (a read-only block-server client). A FAT_READ carries the path
+ * at offset 0 of a buffer memory object in xfer[1]; the file data is written
+ * at VFS_IO_DATA_OFF and the reply has words[1]=bytes and words[2]=file size. */
+#define FAT_READ            0x70
+
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

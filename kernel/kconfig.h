@@ -43,6 +43,9 @@
 /* Spawn the userspace tty server and route /dev/tty to it. */
 #define ENABLE_TTY_SERVER       false
 
+/* Spawn the userspace FAT32 server (needs the block server). */
+#define ENABLE_FAT32_SERVER     false
+
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
@@ -58,6 +61,7 @@
 #define DEFAULT_VFS_SVR         "/bin/vfs"
 #define DEFAULT_PIPE_SVR        "/bin/pipe"
 #define DEFAULT_TTY_SVR         "/bin/tty"
+#define DEFAULT_FAT32_SVR       "/bin/fat32"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

@@ -61,6 +61,7 @@
 #include <ipc/vfs_srv.h>
 #include <ipc/pipe_srv.h>
 #include <ipc/tty_srv.h>
+#include <ipc/fat32_srv.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -258,6 +259,14 @@ _Noreturn void kshell(pid_t pid)
         klogw("block: server failed to start, using in-kernel ATA\n");
     else
         block_server_probe();
+#endif
+#if ENABLE_FAT32_SERVER
+    if (!block_server_active())
+        klogw("fat32: no block server, skipping\n");
+    else if (!fat32_server_start())
+        klogw("fat32: server failed to start\n");
+    else
+        fat32_server_probe();
 #endif
 #if ENABLE_VFS_SERVER
     if (!vfs_server_start())

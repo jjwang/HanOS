@@ -44,6 +44,7 @@ typedef struct {
     uint64_t key_ep;            /* endpoint handle: decoded keys out */
     uint64_t console_ep;        /* endpoint handle: console bytes out */
     uint64_t service_ep;        /* endpoint handle: this server's requests in */
+    uint64_t block_ep;          /* endpoint handle: block server requests out */
     uint64_t irq_num;
     io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint64_t io_port_count;
