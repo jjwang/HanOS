@@ -90,18 +90,37 @@ bool pmm_alloc(uint64_t addr, uint64_t numpages)
     return true;
 }
 
+/* Start of the next allocation search. Scanning from 0 every time makes each
+ * allocation walk past all the low memory already in use. */
+static uint64_t pmm_hint = 0;
+
 uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
                  const char *func, int64_t line)
 {
-    for (uint64_t i = baseaddr; i < kmem_info.phys_limit; i += PAGE_SIZE) {
-        if (pmm_alloc(i, numpages)) {
-            if (numpages > 8 && debug_info) {
-                klogi
-                    ("pmm_get: %s(%ld) gets 0x%lx with %ld pages from memory "
-                     "%ld bytes\n", func, line, i, numpages,
-                     kmem_info.free_size);
+    uint64_t limit = kmem_info.phys_limit;
+    uint64_t span = numpages * PAGE_SIZE;
+    uint64_t hint = pmm_hint;
+
+    if (hint < baseaddr || hint + span > limit)
+        hint = baseaddr;
+
+    /* Search from the last allocation, then wrap around once so pages freed
+     * below the hint are still found. */
+    for (int pass = 0; pass < 2; pass++) {
+        uint64_t from = (pass == 0) ? hint : baseaddr;
+        uint64_t to = (pass == 0) ? limit : hint;
+
+        for (uint64_t i = from; i + span <= to; i += PAGE_SIZE) {
+            if (pmm_alloc(i, numpages)) {
+                pmm_hint = i + span;
+                if (numpages > 8 && debug_info) {
+                    klogi
+                        ("pmm_get: %s(%ld) gets 0x%lx with %ld pages from "
+                         "memory %ld bytes\n", func, line, i, numpages,
+                         kmem_info.free_size);
+                }
+                return i;
             }
-            return i;
         }
     }
 
