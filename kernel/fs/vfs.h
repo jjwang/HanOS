@@ -255,6 +255,10 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
 int64_t vfs_server_stat_path(const char *path, void *out);
 int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
 int64_t vfs_server_unlink(const char *path);
+/* Take a reference on a server fd / on every server fd of the current
+ * process, so descriptions inherited across fork stay open. */
+void vfs_server_ref_fd(int64_t sfd);
+void vfs_server_ref_fds(void);
 int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
 uint64_t vfs_tell(vfs_handle_t handle);

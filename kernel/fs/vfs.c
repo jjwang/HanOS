@@ -28,6 +28,7 @@
 #include <libc/protocol.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
+#include <base/hash.h>
 #include <base/kmalloc.h>
 #include <mm/memobj.h>
 #include <mm/mm.h>
@@ -531,6 +532,44 @@ int64_t vfs_server_unlink(const char *path)
 
     memobj_unref(mo);
     return 0;
+}
+
+/* Add a reference to a server fd's open file description (used by fork). */
+void vfs_server_ref_fd(int64_t sfd)
+{
+    if (service_lookup(SVC_FS) == NULL)
+        return;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FD_FORK;
+    req.words[0] = (uint64_t) sfd;
+    service_forward(SVC_FS, &req, &rep);
+}
+
+/* Take a reference on every server-backed fd the current process holds. The
+ * fork child calls this so descriptions shared with the parent stay open when
+ * either side closes. */
+void vfs_server_ref_fds(void)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL)
+        return;
+
+    for (uint64_t i = 0; i < t->open_files_table.size; i++) {
+        ht_item_t *n = &t->open_files_table.array[i];
+
+        if (n->key == -1 || n->data == NULL)
+            continue;
+
+        vfs_node_desc_t *fd = (vfs_node_desc_t *) n->data;
+
+        if (fd->server)
+            vfs_server_ref_fd(fd->server_fd);
+    }
 }
 
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)

@@ -61,6 +61,7 @@ static struct {
     uint64_t off;               /* read offset for files */
     uint64_t dir_idx;           /* readdir cursor for directories */
     char dir[VFS_PATH_MAX];     /* normalized directory path */
+    uint32_t refs;              /* number of forks sharing this description */
 } fds[VFS_MAX_FDS];
 
 static bootinfo_t bi;
@@ -218,6 +219,7 @@ static int fd_alloc(void)
         if (!fds[i].in_use) {
             memset(&fds[i], 0, sizeof(fds[i]));
             fds[i].in_use = true;
+            fds[i].refs = 1;
             return i + 1;
         }
     }
@@ -455,7 +457,22 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int fd = (int) m->words[0];
 
         if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
-            fds[fd - 1].in_use = false;
+            if (fds[fd - 1].refs > 0)
+                fds[fd - 1].refs--;
+            if (fds[fd - 1].refs == 0)
+                fds[fd - 1].in_use = false;
+            rep->words[0] = 0;
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+        }
+        return;
+    }
+
+    if (m->tag == VFS_FD_FORK) {
+        int fd = (int) m->words[0];
+
+        if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
+            fds[fd - 1].refs++;
             rep->words[0] = 0;
         } else {
             rep->words[0] = (uint64_t) (int64_t) -9;

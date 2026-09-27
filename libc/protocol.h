@@ -44,6 +44,7 @@
 #define VFS_FSTATAT         0x38        /* words[0]=flags; in: path in xfer[1];
                                            out: stat at VFS_IO_DATA_OFF */
 #define VFS_FACCESSAT       0x39        /* words[0]=mode; in: path */
+#define VFS_FD_FORK         0x3C        /* words[0]=fd; add a reference (fork) */
 
 /* Buffer size and where a stat/dirent result is written inside the shared
  * buffer memory object. Inputs (such as a path) go at offset 0. */

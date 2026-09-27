@@ -327,7 +327,15 @@ pid_t sched_fork(void)
     if (running_process[cpu_id] && running_process[cpu_id]->pid < 1)
         kpanic("SCHED: %s meets corrupted pid\n", __func__);
     fork_context_switch();
-    return running_process[cpu_id]->fork_retval;
+
+    pid_t ret = running_process[cpu_id]->fork_retval;
+
+    /* In the child, take a reference on the server fds inherited from the
+     * parent so they survive either side closing. */
+    if (ret == 0)
+        vfs_server_ref_fds();
+
+    return ret;
 }
 
 void sched_sleep_impl(time_t millis, bool advanced)
@@ -755,14 +763,21 @@ process_t *sched_execve(const char *path, const char *argv[],
                    sizeof(vfs_node_desc_t));
             tc->open_files_table.array[i] = tp->open_files_table.array[i];
             tc->open_files_table.array[i].data = fd;
-            fd->inode->refcount++;
-            if (fd->mode == VFS_MODE_READ) {
-                fd->inode->readcount++;
-            } else if (fd->mode == VFS_MODE_WRITE) {
-                fd->inode->writecount++;
+            if (fd->server) {
+                /* Server fds are refcounted in the server; the parent is about
+                 * to exit and close its copy, so take a reference for the
+                 * child here. */
+                vfs_server_ref_fd(fd->server_fd);
             } else {
-                fd->inode->readcount++;
-                fd->inode->writecount++;
+                fd->inode->refcount++;
+                if (fd->mode == VFS_MODE_READ) {
+                    fd->inode->readcount++;
+                } else if (fd->mode == VFS_MODE_WRITE) {
+                    fd->inode->writecount++;
+                } else {
+                    fd->inode->readcount++;
+                    fd->inode->writecount++;
+                }
             }
             klogd("SCHED: copy fd %ld from pid %ld to pid %ld\n",
                   tc->open_files_table.array[i].key, tp->pid, tc->pid);

@@ -299,14 +299,16 @@ process_t *process_fork(process_t * tp)
         tc->open_files_table.array[i].key =
             tp->open_files_table.array[i].key;
         tc->open_files_table.array[i].data = fd;
-        fd->inode->refcount++;
-        if (fd->mode == VFS_MODE_READ) {
-            fd->inode->readcount++;
-        } else if (fd->mode == VFS_MODE_WRITE) {
-            fd->inode->writecount++;
-        } else {
-            fd->inode->readcount++;
-            fd->inode->writecount++;
+        if (!fd->server) {
+            fd->inode->refcount++;
+            if (fd->mode == VFS_MODE_READ) {
+                fd->inode->readcount++;
+            } else if (fd->mode == VFS_MODE_WRITE) {
+                fd->inode->writecount++;
+            } else {
+                fd->inode->readcount++;
+                fd->inode->writecount++;
+            }
         }
         klogd("PROC: copy fd %ld from pid %ld to pid %ld\n",
               tc->open_files_table.array[i].key, tp->pid, tc->pid);
