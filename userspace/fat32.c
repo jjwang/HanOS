@@ -214,14 +214,22 @@ static int dir_lookup(uint32_t dir_cluster, const uint8_t name83[11],
     return found;
 }
 
-/* Walk an absolute path to a file; returns 0 and fills cluster/size. */
-static int find_file(const char *path, uint32_t *out_cluster, uint32_t *out_size)
+/* Walk an absolute path; returns 0 and fills cluster/size/is_dir. */
+static int find_path(const char *path, uint32_t *out_cluster,
+                     uint32_t *out_size, bool *out_is_dir)
 {
     uint32_t cluster = root_cluster;
     const char *p = path;
 
     while (*p == '/')
         p++;
+
+    if (*p == '\0') {
+        *out_cluster = root_cluster;
+        *out_size = 0;
+        *out_is_dir = true;
+        return 0;
+    }
 
     while (*p != '\0') {
         const char *start = p;
@@ -240,16 +248,58 @@ static int find_file(const char *path, uint32_t *out_cluster, uint32_t *out_size
 
         cluster = (uint32_t) e.cluster_lo | ((uint32_t) e.cluster_hi << 16);
         if (*p == '\0') {
-            if (e.attr & 0x10)
-                return -1;      /* a directory, not a file */
             *out_cluster = cluster;
             *out_size = e.size;
+            *out_is_dir = (e.attr & 0x10) != 0;
             return 0;
         }
         if (!(e.attr & 0x10))
             return -1;
     }
     return -1;
+}
+
+/* Copy [off, off+len) of a file (first cluster, size) into dst. */
+static uint64_t read_from(uint32_t cluster, uint64_t off, uint64_t len,
+                          uint64_t size, uint8_t *dst)
+{
+    if (off >= size)
+        return 0;
+    if (off + len > size)
+        len = size - off;
+
+    uint64_t skipped = 0;
+
+    /* Skip whole clusters before the requested offset. */
+    while (cluster >= 2 && off - skipped >= (uint64_t) spc * SEC) {
+        skipped += (uint64_t) spc * SEC;
+        cluster = fat_next(cluster);
+    }
+
+    uint64_t skip_in = off - skipped;
+    uint64_t done = 0;
+
+    while (done < len && cluster >= 2) {
+        uint8_t *cb = cluster_buf;
+
+        if (blk_read(cluster_lba(cluster), spc, cb) != 0)
+            break;
+
+        uint64_t avail = (uint64_t) spc * SEC - skip_in;
+        uint64_t want = len - done;
+
+        if (want > avail)
+            want = avail;
+        if (want == 0)
+            break;
+
+        memcpy(dst + done, cb + skip_in, want);
+        done += want;
+        skip_in = 0;
+        cluster = fat_next(cluster);
+    }
+
+    return done;
 }
 
 static int mount(void)
@@ -287,7 +337,7 @@ static int mount(void)
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
-    if (m->tag != FAT_READ) {
+    if (m->tag != FAT_READ && m->tag != FAT_STAT) {
         rep->words[0] = (uint64_t) (int64_t) -38;
         return;
     }
@@ -319,36 +369,36 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     path[i] = '\0';
 
     uint32_t cluster = 0, size = 0;
+    bool is_dir = false;
 
-    if (find_file(path, &cluster, &size) != 0) {
+    if (find_path(path, &cluster, &size, &is_dir) != 0) {
         sys_mem_unmap(memh, FAT_REQ_ADDR);
         sys_handle_close(memh);
         rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
         return;
     }
 
-    uint64_t n = (size < FAT_DATA_MAX) ? size : FAT_DATA_MAX;
-    uint8_t *dst = buf + FAT_DATA_OFF;
-    uint64_t done = 0;
+    if (m->tag == FAT_STAT) {
+        rep->words[0] = 0;
+        rep->words[1] = size;
+        rep->words[2] = is_dir ? 1 : 0;
+    } else if (is_dir) {
+        rep->words[0] = (uint64_t) (int64_t) -2;
+    } else {
+        uint64_t off = m->words[0];
+        uint64_t len = m->words[1];
 
-    while (done < n && cluster >= 2) {
-        uint8_t *cb = cluster_buf;
+        if (len > FAT_DATA_MAX)
+            len = FAT_DATA_MAX;
+        uint64_t n = read_from(cluster, off, len, size, buf + FAT_DATA_OFF);
 
-        if (blk_read(cluster_lba(cluster), spc, cb) != 0)
-            break;
-        uint64_t chunk = (uint64_t) spc * SEC;
-        if (chunk > n - done)
-            chunk = n - done;
-        memcpy(dst + done, cb, chunk);
-        done += chunk;
-        cluster = fat_next(cluster);
+        rep->words[0] = 0;
+        rep->words[1] = n;
+        rep->words[2] = size;
     }
 
     sys_mem_unmap(memh, FAT_REQ_ADDR);
     sys_handle_close(memh);
-    rep->words[0] = 0;
-    rep->words[1] = done;
-    rep->words[2] = size;
 }
 
 int main(void)

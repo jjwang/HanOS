@@ -89,6 +89,115 @@ bool fat32_server_active(void)
     return fat32_active;
 }
 
+static memobj_t *fat_memobj(uint64_t len, handle_t * out)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || len == 0)
+        return NULL;
+
+    memobj_t *mo = memobj_create(len);
+    if (mo == NULL)
+        return NULL;
+
+    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
+                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
+    if (h == HANDLE_INVALID) {
+        memobj_unref(mo);
+        return NULL;
+    }
+
+    *out = h;
+    return mo;
+}
+
+static void fat_copy_out(memobj_t * mo, void *dst, uint64_t len, uint64_t off)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) dst + done,
+               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), chunk);
+        done += chunk;
+    }
+}
+
+int64_t fat32_stat_path(const char *path, uint64_t *size, bool *is_dir)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_STAT;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (service_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        if (size != NULL)
+            *size = rep.words[1];
+        if (is_dir != NULL)
+            *is_dir = rep.words[2] != 0;
+        rc = 0;
+    }
+
+    memobj_unref(mo);
+    return rc;
+}
+
+int64_t fat32_read_path(const char *path, uint64_t off, uint64_t len,
+                        void *buf)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_READ;
+    req.words[0] = off;
+    req.words[1] = len;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t n = -1;
+    if (service_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        n = (int64_t) rep.words[1];
+        if (n > (int64_t) len)
+            n = (int64_t) len;
+        if (n > 0)
+            fat_copy_out(mo, buf, (uint64_t) n, VFS_IO_DATA_OFF);
+    }
+
+    memobj_unref(mo);
+    return n;
+}
+
 /* Read a file through the server by moving a buffer memory object to it. */
 static void fat32_probe_read(const char *path)
 {
@@ -115,6 +224,8 @@ static void fat32_probe_read(const char *path)
 
     memset(&req, 0, sizeof(req));
     req.tag = FAT_READ;
+    req.words[0] = 0;
+    req.words[1] = 4096;
     req.xfer[0] = h;
     req.xfer_count = 1;
 

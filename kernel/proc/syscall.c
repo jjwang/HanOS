@@ -36,6 +36,7 @@
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <ipc/tty_srv.h>
+#include <ipc/fat32_srv.h>
 #include <service/service.h>
 #include <libc/protocol.h>
 #include <proc/process.h>
@@ -419,6 +420,25 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         klogv("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
+    } else if (strncmp(full_path, "/fat/", 5) == 0 && fat32_server_active()) {
+        /* /fat is served by the FAT32 server (path relative to the mount). */
+        const char *fpath = full_path + 4;
+        uint64_t size = 0;
+        bool is_dir = false;
+
+        if (fat32_stat_path(fpath, &size, &is_dir) < 0 || is_dir) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+
+        vfs_handle_t sfh = vfs_open_server_svc(0, fpath, VFS_MODE_READ, size,
+                                               SVC_FAT);
+        if (sfh == VFS_INVALID_HANDLE) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+        cpu_set_errno(0);
+        return sfh;
     } else if (service_lookup(SVC_FS) != NULL) {
         /* Route to the userspace VFS server: it returns a server fd. */
         handle_t ph;

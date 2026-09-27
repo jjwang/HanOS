@@ -34,6 +34,7 @@
 #include <mm/ipc_buf.h>
 #include <mm/mm.h>
 #include <ipc/object.h>
+#include <ipc/fat32_srv.h>
 #include <service/service.h>
 #include <proc/sched.h>
 
@@ -643,6 +644,13 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
     if (fd->server) {
         if (fd->svc == SVC_PIPE)
             return vfs_pipe_rw(fd->server_fd, PIPE_READ, len, buff);
+        if (fd->svc == SVC_FAT) {
+            int64_t n = fat32_read_path(fd->path, fd->seek_pos, len, buff);
+
+            if (n > 0)
+                fd->seek_pos += (uint64_t) n;
+            return n;
+        }
 
         /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a
          * caller asking for the whole file (e.g. the ELF loader) gets it. */
@@ -1039,7 +1047,10 @@ int64_t vfs_close(vfs_handle_t handle)
 {
     vfs_node_desc_t *sdesc = vfs_handle_to_fd(handle, __func__);
     if (sdesc != NULL && sdesc->server) {
-        int64_t r = vfs_server_close(sdesc->svc, sdesc->server_fd);
+        /* The FAT32 server is stateless (fds are keyed by path), so there is
+         * nothing to close there. */
+        int64_t r = (sdesc->svc == SVC_FAT)
+            ? 0 : vfs_server_close(sdesc->svc, sdesc->server_fd);
         process_t *t = sched_get_current_process();
 
         if (t != NULL)
