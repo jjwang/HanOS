@@ -210,4 +210,33 @@ void vfs_server_probe(void)
             }
         }
     }
+
+    /* Seek to offset 1 of /bin/hansh and read the tail of the ELF magic. */
+    {
+        const char *path = "/bin/hansh";
+        handle_t ph;
+
+        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
+            ipc_msg_t or;
+
+            memset(&req, 0, sizeof(req));
+            req.tag = VFS_OPENAT;
+            req.words[0] = 2;
+            req.xfer[0] = ph;
+            req.xfer_count = 1;
+
+            if (service_forward(SVC_FS, &req, &or)
+                && (int64_t) or.words[0] == 0) {
+                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
+                                                  VFS_MODE_READ);
+                unsigned char b[4] = { 0 };
+
+                vfs_seek(fh, 1, SEEK_SET);
+                int64_t n = vfs_read(fh, 3, b);
+                klogi("vfs: SEEK to 1 read %ld: %02x %02x %02x\n", n, b[0],
+                      b[1], b[2]);
+                vfs_close(fh);
+            }
+        }
+    }
 }

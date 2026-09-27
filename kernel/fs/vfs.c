@@ -485,6 +485,54 @@ int64_t vfs_server_readdir(vfs_handle_t handle, void *out)
     return 0;
 }
 
+/* Move a server-backed file descriptor's read offset. */
+static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_SEEK;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = pos;
+    req.words[2] = (uint64_t) whence;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+    return (int64_t) rep.words[1];
+}
+
+/* Ask the server to remove a path. */
+int64_t vfs_server_unlink(const char *path)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    uint64_t plen = strlen(path) + 1;
+    if (plen > VFS_IO_DATA_OFF)
+        plen = VFS_IO_DATA_OFF;
+    memobj_copy_in(mo, path, plen, 0);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_UNLINK;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_unref(mo);
+    return 0;
+}
+
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
 {
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
@@ -614,6 +662,9 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     if (!fd)
         return -1;
+
+    if (fd->server)
+        return vfs_server_seek(fd->server_fd, pos, whence);
 
     spinlock_acquire(&vfs_lock);
 

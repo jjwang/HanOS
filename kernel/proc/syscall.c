@@ -617,6 +617,15 @@ int64_t k_unlink(char *path)
         }
     }
 
+    if (service_lookup(SVC_FS) != NULL) {
+        if (vfs_server_unlink(full_path) < 0) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+        cpu_set_errno(0);
+        return 0;
+    }
+
     vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
     if (tnode == NULL) {
         cpu_set_errno(ENOENT);

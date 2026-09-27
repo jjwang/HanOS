@@ -36,8 +36,11 @@
 #define VFS_WRITE           0x32        /* words[0]=fd, words[1]=len;
                                            in: xfer[1]=data */
 #define VFS_CLOSE           0x33        /* words[0]=fd */
+#define VFS_SEEK            0x34        /* words[0]=fd, words[1]=pos, words[2]=whence;
+                                           out: words[1]=new position */
 #define VFS_READDIR         0x35        /* words[0]=fd; out: words[0]=0 or -1 (end);
                                            xfer[1]=buffer, dirent at VFS_IO_DATA_OFF */
+#define VFS_UNLINK          0x36        /* in: path */
 #define VFS_FSTATAT         0x38        /* words[0]=flags; in: path in xfer[1];
                                            out: stat at VFS_IO_DATA_OFF */
 #define VFS_FACCESSAT       0x39        /* words[0]=mode; in: path */

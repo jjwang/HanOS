@@ -38,11 +38,17 @@
 #define USTAR_MAGIC_OFF     257
 #define USTAR_BLOCK         512
 
+/* whence values, matching kernel/fs/vfs.h. */
+#define VFS_SEEK_CUR        1
+#define VFS_SEEK_END        2
+#define VFS_SEEK_SET        3
+
 typedef struct {
     char name[VFS_NAME_MAX + 1];
     uint64_t off;               /* data offset inside the initrd */
     uint64_t size;
     bool is_dir;
+    bool deleted;               /* removed at runtime (initrd is read-only) */
 } vfs_ent_t;
 
 static vfs_ent_t ents[VFS_MAX_ENTS];
@@ -161,6 +167,8 @@ static int resolve(const char *path)
         return ent_count;
 
     for (int i = 0; i < ent_count; i++) {
+        if (ents[i].deleted)
+            continue;
         if (strcmp(ents[i].name, path) == 0)
             return i;
     }
@@ -381,6 +389,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int found = -1;
 
         for (int i = 0; i < ent_count; i++) {
+            if (ents[i].deleted)
+                continue;
             if (is_child(ents[i].name, fds[fd - 1].dir)) {
                 if (seen == wanted) {
                     found = i;
@@ -449,6 +459,59 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = 0;
         } else {
             rep->words[0] = (uint64_t) (int64_t) -9;
+        }
+        return;
+    }
+
+    if (m->tag == VFS_SEEK) {
+        int fd = (int) m->words[0];
+        int64_t pos = (int64_t) m->words[1];
+        int64_t whence = (int64_t) m->words[2];
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+            || fds[fd - 1].is_dir) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+
+        const vfs_ent_t *e = &ents[fds[fd - 1].ent];
+        int64_t offset = -1;
+
+        switch (whence) {
+        case VFS_SEEK_SET:
+            offset = pos;
+            break;
+        case VFS_SEEK_CUR:
+            offset = (int64_t) fds[fd - 1].off + pos;
+            break;
+        case VFS_SEEK_END:
+            offset = (int64_t) e->size - pos;
+            break;
+        }
+
+        if (offset < 0 || offset > (int64_t) e->size) {
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            return;
+        }
+
+        fds[fd - 1].off = (uint64_t) offset;
+        rep->words[0] = 0;
+        rep->words[1] = (uint64_t) offset;
+        return;
+    }
+
+    if (m->tag == VFS_UNLINK) {
+        char path[VFS_PATH_MAX];
+        int e;
+
+        read_path(m, path);
+        e = resolve(path);
+
+        if (e < 0 || e == ent_count || ents[e].is_dir) {
+            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+        } else {
+            ents[e].deleted = true;
+            rep->words[0] = 0;
         }
         return;
     }
