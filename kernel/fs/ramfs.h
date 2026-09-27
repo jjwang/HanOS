@@ -68,3 +68,5 @@ int64_t ramfs_sync(vfs_inode_t * this);
 int64_t ramfs_refresh(vfs_inode_t * this);
 
 void ramfs_init(void *address, uint64_t size);
+/* Address and length of the boot initrd the kernel was started with. */
+void ramfs_get_initrd(void **address, uint64_t *size);

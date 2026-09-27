@@ -15,9 +15,14 @@
 #include <ipc/vfs_srv.h>
 #include <ipc/ipc.h>
 #include <mm/ipc_buf.h>
+#include <mm/mm.h>
 #include <service/service.h>
 #include <fs/vfs.h>
+#include <fs/ramfs.h>
 #include <proc/sched.h>
+
+/* Where the boot initrd is mapped in the VFS server's address space. */
+#define VFS_INITRD_VADDR    0x30000000
 
 static endpoint_t *vfs_ep = NULL;
 static pid_t vfs_spawner = PID_MAX;
@@ -40,9 +45,25 @@ static void vfs_spawn_attach(process_t * tc)
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
     bi->service_ep = h;
+
+    /* Hand the server the initrd read-only so it can serve the namespace. */
+    void *iaddr = NULL;
+    uint64_t isize = 0;
+
+    ramfs_get_initrd(&iaddr, &isize);
+    if (iaddr != NULL && isize != 0) {
+        vmm_map(tc->addrspace, VFS_INITRD_VADDR, VIRT_TO_PHYS((uint64_t) iaddr),
+                NUM_PAGES(isize), VMM_FLAG_PRESENT | VMM_FLAG_USER);
+        bi->initrd_vaddr = VFS_INITRD_VADDR;
+        bi->initrd_size = isize;
+        klogi("vfs: mapped initrd 0x%lx (%ld bytes) for pid %ld\n",
+              (unsigned long) VFS_INITRD_VADDR, (unsigned long) isize,
+              (long) tc->pid);
+    }
+
     tc->bootinfo = bi;
 
-    klogi("vfs: attached service endpoint to pid %ld\n", (long)tc->pid);
+    klogi("vfs: attached service endpoint to pid %ld\n", (long) tc->pid);
 }
 
 bool vfs_server_start(void)
@@ -117,7 +138,7 @@ void vfs_server_probe(void)
 
     /* Open/read/close through the kernel's server-backed fd path. */
     {
-        const char *path = "synthetic";
+        const char *path = "/bin/hansh";
         handle_t ph;
 
         if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
@@ -133,18 +154,20 @@ void vfs_server_probe(void)
                 && (int64_t) or.words[0] == 0) {
                 vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
                                                   VFS_MODE_READ);
-                char buf[64] = { 0 };
+                unsigned char buf[64] = { 0 };
                 int64_t n = (fh != VFS_INVALID_HANDLE)
-                    ? vfs_read(fh, sizeof(buf) - 1, buf) : -1;
+                    ? vfs_read(fh, sizeof(buf), buf) : -1;
 
                 if (n > 0)
-                    klogi("vfs: read %ld bytes: %s", n, buf);
+                    klogi("vfs: read %s %ld bytes, magic %02x %02x %02x %02x "
+                          "(size %ld)\n", path, n, buf[0], buf[1], buf[2],
+                          buf[3], (int64_t) or.words[2]);
                 else
-                    klogw("vfs: read failed (%ld)\n", n);
+                    klogw("vfs: read %s failed (%ld)\n", path, n);
                 if (fh != VFS_INVALID_HANDLE)
                     vfs_close(fh);
             } else {
-                klogw("vfs: OPENAT failed\n");
+                klogw("vfs: OPENAT %s failed\n", path);
             }
         }
     }

@@ -58,4 +58,8 @@ typedef struct {
     uint64_t cursor_y;
     uint64_t fgcolor;
     uint64_t bgcolor;
+
+    /* Initrd (ustar archive) granted to the VFS server, mapped read-only. */
+    uint64_t initrd_vaddr;
+    uint64_t initrd_size;
 } bootinfo_t;

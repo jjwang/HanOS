@@ -30,6 +30,19 @@
 
 static bool debug_info = false;
 
+/* Boot initrd (ustar archive) as mapped by the bootloader. Kept so the VFS
+ * server can be handed the same archive. */
+static void *ramfs_initrd_address = NULL;
+static uint64_t ramfs_initrd_size = 0;
+
+void ramfs_get_initrd(void **address, uint64_t *size)
+{
+    if (address != NULL)
+        *address = ramfs_initrd_address;
+    if (size != NULL)
+        *size = ramfs_initrd_size;
+}
+
 /* Filesystem information */
 vfs_fsinfo_t ramfs = {
     .name = "ramfs",
@@ -94,6 +107,9 @@ static uint8_t ustar_type_to_vfs_type(uint8_t type)
 void ramfs_init(void *address, uint64_t size)
 {
     klogi("RAMFS: init from 0x%016lx with len %ld\n", address, size);
+
+    ramfs_initrd_address = address;
+    ramfs_initrd_size = size;
 
     spinlock_acquire(&vfs_lock);
 
