@@ -120,6 +120,15 @@ void vfs_server_probe(void)
     if (service_forward(SVC_FS, &req, &rep))
         klogi("vfs: FACCESSAT /nope -> %ld\n", (int64_t) rep.words[0]);
 
+    /* A late entry in the archive (the tar lists root last): the server must
+     * index the whole archive, not just its first entries. */
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FACCESSAT;
+    memcpy(&req.words[1], "/root/churchill.txt", 20);
+    if (service_forward(SVC_FS, &req, &rep))
+        klogi("vfs: FACCESSAT /root/churchill.txt -> %ld\n",
+              (int64_t) rep.words[0]);
+
     /* A long path travels in a memory object. */
     {
         const char *longp =
