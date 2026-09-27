@@ -23,7 +23,7 @@
 #define ENABLE_BASH             false   /* default: false */
 
 /* Microkernel self-test: IPC endpoints and handles at boot. */
-#define ENABLE_MICROKERNEL_SELFTEST false
+#define ENABLE_MICROKERNEL_SELFTEST true
 
 /* Spawn the userspace input server instead of the in-kernel keyboard path. */
 #define ENABLE_INPUT_SERVER     true
@@ -32,11 +32,11 @@
 #define ENABLE_CONSOLE_SERVER   true
 
 /* Spawn the userspace ATA block server (block server). */
-#define ENABLE_BLOCK_SERVER     false
+#define ENABLE_BLOCK_SERVER     true
 
 /* Master switch for the userspace file servers (VFS, pipe, tty and FAT32).
  * When off, the in-kernel VFS, ttyfs and pipefs implementations are used. */
-#define ENABLE_FS_SERVERS       false
+#define ENABLE_FS_SERVERS       true
 
 #define ENABLE_VFS_SERVER       (ENABLE_FS_SERVERS)
 #define ENABLE_PIPE_SERVER      (ENABLE_FS_SERVERS)
