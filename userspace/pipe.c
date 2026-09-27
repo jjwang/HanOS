@@ -158,11 +158,15 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == PIPE_READ || m->tag == PIPE_WRITE) {
         int fd = (int) m->words[0];
         uint64_t len = m->words[1];
-        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         bool is_write = (m->tag == PIPE_WRITE);
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        bool inline_data = (memh == 0);
+        uint8_t tmp[PIPE_INLINE_MAX];
+        uint8_t *buf = NULL;
 
         if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used
-            || ends[fd - 1].is_write != is_write) {
+            || ends[fd - 1].is_write != is_write
+            || (inline_data && len > PIPE_INLINE_MAX)) {
             if (memh != 0)
                 sys_handle_close(memh);
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
@@ -170,17 +174,19 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
 
         pipe_t *p = &pipes[ends[fd - 1].pipe];
-        uint8_t *buf = NULL;
 
-        if (memh != 0
-            && sys_mem_map(memh, PIPE_BUF_ADDR, is_write ? 1 : 3) == 0)
-            buf = (uint8_t *) (uint64_t) PIPE_BUF_ADDR;
-
-        if (buf == NULL) {
-            if (memh != 0)
+        if (inline_data) {
+            buf = tmp;
+            if (is_write && len > 0)
+                memcpy(tmp, &m->words[2], len);
+        } else {
+            if (sys_mem_map(memh, PIPE_BUF_ADDR, is_write ? 1 : 3) == 0)
+                buf = (uint8_t *) (uint64_t) PIPE_BUF_ADDR;
+            if (buf == NULL) {
                 sys_handle_close(memh);
-            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
-            return;
+                rep->words[0] = (uint64_t) (int64_t) -5;        /* -EIO */
+                return;
+            }
         }
 
         if (!is_write) {
@@ -197,6 +203,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     p->tail = (p->tail + 1) % PIPE_BUF_SIZE;
                 }
                 p->count -= (uint32_t) n;
+                if (inline_data)
+                    memcpy(&rep->words[2], tmp, n);
                 rep->words[0] = 0;
                 rep->words[1] = n;
             }
@@ -222,8 +230,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             }
         }
 
-        sys_mem_unmap(memh, PIPE_BUF_ADDR);
-        sys_handle_close(memh);
+        if (!inline_data) {
+            sys_mem_unmap(memh, PIPE_BUF_ADDR);
+            sys_handle_close(memh);
+        }
         return;
     }
 

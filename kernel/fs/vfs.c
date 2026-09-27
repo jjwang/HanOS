@@ -425,22 +425,26 @@ static int64_t vfs_server_close(int svc, int64_t sfd)
 }
 
 /* One bounded read/write against the pipe server. Returns the byte count, 0 at
- * EOF (read only), VFS_IO_AGAIN when it would block, or -1 on error. */
+ * EOF (read only), VFS_IO_AGAIN when it would block, or -1 on error. Small
+ * transfers travel inline in the message words to avoid a memory object (and a
+ * page allocation) per byte. */
 static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
                              void *buff)
 {
-    handle_t mh;
-
     if (len > VFS_SERVER_IO_MAX)
         len = VFS_SERVER_IO_MAX;
 
-    memobj_t *mo = server_memobj(len ? len : 1, &mh);
+    bool inline_data = (len <= PIPE_INLINE_MAX);
+    handle_t mh = 0;
+    memobj_t *mo = NULL;
 
-    if (mo == NULL)
-        return -1;
-
-    if (tag == PIPE_WRITE)
-        memobj_copy_in(mo, buff, len, 0);
+    if (!inline_data) {
+        mo = server_memobj(len ? len : 1, &mh);
+        if (mo == NULL)
+            return -1;
+        if (tag == PIPE_WRITE)
+            memobj_copy_in(mo, buff, len, 0);
+    }
 
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -449,26 +453,40 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
     req.tag = tag;
     req.words[0] = (uint64_t) sfd;
     req.words[1] = len;
-    req.xfer[0] = mh;
-    req.xfer_count = 1;
+
+    if (inline_data) {
+        if (tag == PIPE_WRITE && len > 0)
+            memcpy(&req.words[2], buff, len);
+    } else {
+        req.xfer[0] = mh;
+        req.xfer_count = 1;
+    }
 
     if (!service_forward(SVC_PIPE, &req, &rep)) {
-        memobj_unref(mo);
+        if (mo != NULL)
+            memobj_unref(mo);
         return -1;
     }
 
     if ((int64_t) rep.words[0] < 0) {
         int64_t rc = (int64_t) rep.words[0];
 
-        memobj_unref(mo);
+        if (mo != NULL)
+            memobj_unref(mo);
         return (rc == PIPE_EAGAIN) ? VFS_IO_AGAIN : -1;
     }
 
     int64_t n = (int64_t) rep.words[1];
 
-    if (tag == PIPE_READ && n > 0)
-        memobj_copy_out(mo, buff, n, 0);
-    memobj_unref(mo);
+    if (tag == PIPE_READ && n > 0) {
+        if (inline_data)
+            memcpy(buff, &rep.words[2], n);
+        else
+            memobj_copy_out(mo, buff, n, 0);
+    }
+
+    if (mo != NULL)
+        memobj_unref(mo);
     return n;
 }
 
