@@ -501,8 +501,14 @@ void kmain(void)
 
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu != NULL) {
+        /* The boot thread is not a schedulable process, so an interrupt that
+         * reaches do_context_switch before this core's timer is running would
+         * park it in the idle loop forever. Keep interrupts off until the
+         * timer can schedule the core. */
+        asm volatile ("cli" ::: "memory");
         sched_init("idle", cpu->cpu_id);
         apic_timer_start();
+        asm volatile ("sti" ::: "memory");
     } else {
         kpanic("Can not get CPU info in shell process\n");
     }

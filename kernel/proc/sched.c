@@ -649,7 +649,11 @@ void sched_init(const char *name, uint16_t cpu_id)
     klogi("SCHED: create idle process 0x%016lx with pid %ld for CPU %ld\n",
         idle_process[cpu_id], idle_process[cpu_id]->pid, cpu_id);
 
-    vec_push_back(&run_queues[cpu_id], idle_process[cpu_id]);
+    /* The idle process is deliberately kept out of the run queue: it is the
+     * scheduler's fallback (see schedule_next) and must never be selected as a
+     * preemption target. Queuing it here would let an IPI arriving before this
+     * core's APIC timer is started park the boot thread in the idle loop, which
+     * could then never be woken because its timer was never armed. */
 
     apic_timer_init(cpu_id);
     apic_timer_set_period(TIMESLICE_DEFAULT);
