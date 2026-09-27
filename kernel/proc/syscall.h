@@ -76,6 +76,7 @@
 #define SYSCALL_IPC_RECV_NB 64
 #define SYSCALL_IPC_RECV_TIMEOUT 65
 #define SYSCALL_MEM_UNMAP   66
+#define SYSCALL_HANDLE_DUP  67
 
 /* Standard I/O devices */
 #define STDIN               0

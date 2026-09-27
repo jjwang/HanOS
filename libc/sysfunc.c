@@ -123,6 +123,7 @@
 #define SYSCALL_IPC_RECV_NB  64
 #define SYSCALL_IPC_RECV_TIMEOUT 65
 #define SYSCALL_MEM_UNMAP    66
+#define SYSCALL_HANDLE_DUP   67
 
 void sys_libc_log(const char *message)
 {
@@ -389,6 +390,13 @@ int sys_handle_close(int64_t handle)
     int64_t ret, errno;
     SYSCALL1(SYSCALL_HANDLE_CLOSE, handle);
     return (int) ret;
+}
+
+int64_t sys_handle_dup(int64_t handle)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_HANDLE_DUP, handle);
+    return ret;
 }
 
 int64_t sys_ioport_access(int op, int port, int width, int value)

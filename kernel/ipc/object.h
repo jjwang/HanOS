@@ -70,5 +70,8 @@ void handle_table_destroy(handle_table_t *ht);
 
 handle_t handle_alloc(handle_table_t *ht, kernel_object_t *o,
                       uint32_t rights);
+/* Duplicate a handle (same object and rights), so a server can keep a reply
+ * endpoint after moving another handle to it into a different server. */
+handle_t handle_dup(handle_table_t *ht, handle_t h);
 kernel_object_t *handle_get(handle_table_t *ht, handle_t h, uint32_t rights);
 int handle_close(handle_table_t *ht, handle_t h);

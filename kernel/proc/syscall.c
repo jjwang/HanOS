@@ -1800,7 +1800,8 @@ int64_t k_ep_create(void)
     }
 
     handle_t h = handle_alloc(&t->handles, endpoint_object(ep),
-                              HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV);
+                              HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV
+                              | HANDLE_RIGHT_TRANSFER);
     /* The creation reference is dropped; the handle owns the object now. */
     object_unref(endpoint_object(ep));
 
@@ -2205,7 +2206,6 @@ int64_t k_mem_unmap(int64_t handle, uint64_t vaddr)
 {
     process_t *t = sched_get_current_process();
     memobj_t *m = k_mem_resolve(handle, HANDLE_RIGHT_MAP);
-
     if (t == NULL || m == NULL) {
         cpu_set_errno(EINVAL);
         return -1;
@@ -2218,6 +2218,24 @@ int64_t k_mem_unmap(int64_t handle, uint64_t vaddr)
 
     cpu_set_errno(0);
     return 0;
+}
+
+int64_t k_handle_dup(int64_t handle)
+{
+    process_t *t = sched_get_current_process();
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    handle_t h = handle_dup(&t->handles, (handle_t) handle);
+    if (h == HANDLE_INVALID) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return (int64_t) h;
 }
 
 syscall_ptr_t syscall_funcs[] = {
@@ -2281,7 +2299,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_BOOTINFO] = (syscall_ptr_t) k_bootinfo,              /* 63 */
     [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb,
     [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout,
-    [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap       /* 66 */
+    [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap,      /* 66 */
+    [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup     /* 67 */
 };
 
 void syscall_init(void)

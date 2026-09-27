@@ -76,6 +76,7 @@ int sys_mem_unmap(int64_t handle, uint64_t vaddr);
 int sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
 int sys_irq_ack(int64_t irq_handle);
 int sys_handle_close(int64_t handle);
+int64_t sys_handle_dup(int64_t handle);
 int64_t sys_ioport_access(int op, int port, int width, int value);
 int sys_bootinfo(bootinfo_t *bi);
 

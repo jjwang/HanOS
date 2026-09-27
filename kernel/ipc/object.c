@@ -119,6 +119,32 @@ handle_t handle_alloc(handle_table_t *ht, kernel_object_t *o, uint32_t rights)
     return h;
 }
 
+handle_t handle_dup(handle_table_t *ht, handle_t h)
+{
+    if (ht == NULL || h == HANDLE_INVALID)
+        return HANDLE_INVALID;
+
+    uint32_t idx = (uint32_t) (h & HANDLE_INDEX_MASK);
+    uint16_t gen = (uint16_t) (h >> HANDLE_INDEX_BITS);
+    kernel_object_t *o;
+    uint32_t rights;
+
+    spinlock_acquire(&ht->lock);
+
+    if (idx >= ht->count || ht->slots[idx].obj == NULL
+        || ht->slots[idx].generation != gen) {
+        spinlock_release(&ht->lock);
+        return HANDLE_INVALID;
+    }
+
+    o = ht->slots[idx].obj;
+    rights = ht->slots[idx].rights;
+
+    spinlock_release(&ht->lock);
+
+    return handle_alloc(ht, o, rights);
+}
+
 kernel_object_t *handle_get(handle_table_t *ht, handle_t h, uint32_t rights)
 {
     if (ht == NULL || h == HANDLE_INVALID)
