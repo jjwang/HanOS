@@ -17,28 +17,28 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/errno.h>
-#include <libc/numeric.h>
+#include <string.h>
+#include <errno.h>
+#include <numeric.h>
 
-#include <sys/cpu.h>
-#include <sys/idt.h>
-#include <sys/apic.h>
-#include <sys/panic.h>
-#include <sys/pci.h>
-#include <sys/isr_base.h>
-#include <base/klog.h>
-#include <base/vector.h>
-#include <base/kmalloc.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/idt.h>
+#include <arch/x64/apic.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/pci.h>
+#include <arch/x64/isr_base.h>
+#include <lib/klog.h>
+#include <lib/vector.h>
+#include <lib/kmalloc.h>
 #include <mm/uaccess.h>
 #include <mm/memobj.h>
 #include <mm/ipc_buf.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
-#include <ipc/tty_srv.h>
-#include <ipc/fat32_srv.h>
-#include <service/service.h>
-#include <libc/protocol.h>
+#include <srv/tty_srv.h>
+#include <srv/fat32_srv.h>
+#include <router/router.h>
+#include <protocol.h>
 #include <proc/process.h>
 #include <proc/sched.h>
 #include <proc/wait.h>
@@ -441,7 +441,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         }
         cpu_set_errno(0);
         return sfh;
-    } else if (service_lookup(SVC_FS) != NULL) {
+    } else if (router_lookup(SVC_FS) != NULL) {
         /* Route to the userspace VFS server: it returns a server fd. */
         handle_t ph;
 
@@ -459,7 +459,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         req.xfer[0] = ph;
         req.xfer_count = 1;
 
-        if (!service_forward(SVC_FS, &req, &rep)
+        if (!router_forward(SVC_FS, &req, &rep)
             || (int64_t) rep.words[0] < 0) {
             cpu_set_errno(ENOENT);
             return -1;
@@ -640,7 +640,7 @@ int64_t k_unlink(char *path)
         }
     }
 
-    if (service_lookup(SVC_FS) != NULL) {
+    if (router_lookup(SVC_FS) != NULL) {
         if (vfs_server_unlink(full_path) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
@@ -958,7 +958,7 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
         return 0;
     }
 
-    if (service_lookup(SVC_FS) != NULL) {
+    if (router_lookup(SVC_FS) != NULL) {
         vfs_stat_t st;
 
         if (vfs_server_stat_path(full_path, &st) < 0) {
@@ -1081,8 +1081,8 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
           full_path, mode, flags);
 
     /* Route to the userspace VFS server when one is registered. The path
-     * travels in a memory object (xfer[0]); service_forward moves it. */
-    if (service_lookup(SVC_FS) != NULL) {
+     * travels in a memory object (xfer[0]); router_forward moves it. */
+    if (router_lookup(SVC_FS) != NULL) {
         handle_t ph;
 
         if (ipc_buf_from_kernel(full_path, strlen(full_path) + 1, &ph) != 0) {
@@ -1099,7 +1099,7 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
         req.xfer[0] = ph;
         req.xfer_count = 1;
 
-        if (!service_forward(SVC_FS, &req, &rep)) {
+        if (!router_forward(SVC_FS, &req, &rep)) {
             cpu_set_errno(EIO);
             return -1;
         }
@@ -1369,14 +1369,14 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
         goto err_exit;
     }
 
-    if (service_lookup(SVC_PIPE) != NULL) {
+    if (router_lookup(SVC_PIPE) != NULL) {
         ipc_msg_t req;
         ipc_msg_t rep;
 
         memset(&req, 0, sizeof(req));
         req.tag = PIPE_CREATE;
 
-        if (!service_forward(SVC_PIPE, &req, &rep)
+        if (!router_forward(SVC_PIPE, &req, &rep)
             || (int64_t) rep.words[0] < 0) {
             cpu_set_errno(ENOMEM);
             return -1;

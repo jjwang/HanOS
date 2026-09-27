@@ -11,7 +11,7 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
 void *memcpy(void *dest, const void *src, uint64_t len)
 {

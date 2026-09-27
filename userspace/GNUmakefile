@@ -10,7 +10,7 @@ INDENT   := indent -kr -i4 -nut
 
 LC_FLAGS :=                 \
 	-std=gnu11              \
-	-I. -I..                \
+	-I. -I.. -I../libc/include                \
 	-ffreestanding          \
 	-flto                   \
 	-fno-pic                \
@@ -28,7 +28,7 @@ LD_FLAGS :=                 \
 	-nostdlib               \
 	-Tlinker.ld             \
 	-z max-page-size=0x2000 \
-	-I. -I..                \
+	-I. -I.. -I../libc/include                \
 	-O2 -mcmodel=large
 
 LIB_FILES :=
@@ -45,7 +45,7 @@ LIBC_DEPS := $(patsubst %.c, %.u.d, ${LIBC_FILES})
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
-CELF      := init hansh echo cat wc ls pwd help rm input console block vfs fdtest crtest pipe tty fat32
+CELF      := servers/block servers/console servers/fat32 servers/input servers/pipe servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest
 
 .PHONY: clean all
 
@@ -68,13 +68,13 @@ $(C_OBJS): %.o: %.c
 	@./genhelp
 	$(CC) $(LC_FLAGS) -c _help.c -o _help.o
 	@echo Compiling $^ ...
-	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
+	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 -include $(LIBC_DEPS)
 $(LIBC_OBJS): %.u.o: %.c 
 	@echo Compiling $^ ...
-	$(CC) -MM -I. -MT $@ -MF $(patsubst %.u.o, %.u.d, $@) $<
+	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.u.o, %.u.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(ASM_OBJS): %.o: %.asm

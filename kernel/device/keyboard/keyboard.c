@@ -16,20 +16,20 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/stdio.h>
+#include <string.h>
+#include <stdio.h>
 
 #include <device/keyboard/keyboard.h>
-#include <libc/keycode.h>
+#include <keycode.h>
 #include <device/display/term.h>
 #include <device/display/gfx.h>
-#include <base/klog.h>
-#include <base/kmalloc.h>
-#include <base/spinlock.h>
-#include <base/time.h>
-#include <sys/isr_base.h>
-#include <sys/cpu.h>
-#include <sys/idt.h>
+#include <lib/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/spinlock.h>
+#include <lib/time.h>
+#include <arch/x64/isr_base.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/idt.h>
 #include <proc/notify.h>
 
 #define KB_BUFFER_SIZE    128

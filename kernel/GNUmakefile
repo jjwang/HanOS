@@ -6,7 +6,7 @@ NASM         := nasm
 INDENT       := indent -kr -i4 -nut
 
 LC_FLAGS     :=             \
-    -I. -I.. -Wall -Wextra  \
+    -I. -I.. -I../libc/include -Wall -Wextra  \
     -DKERNEL_BUILD          \
     -mcmodel=kernel         \
     -std=gnu11              \
@@ -59,8 +59,8 @@ OBJS         := $(C_OBJS) $(LIBC_OBJS) $(AS_OBJS) $(ASM_OBJS)
 SYMBOLFILE     := _symbols.gen
 SYMBOLOBJ      := _symbols.o
 
-TRAMPOLINEFILE := sys/trampoline.nasm
-TRAMPOLINEBLOB := sys/trampoline.bin
+TRAMPOLINEFILE := arch/x64/trampoline.nasm
+TRAMPOLINEBLOB := arch/x64/trampoline.bin
 
 .PHONY: all clean
 
@@ -115,14 +115,14 @@ $(BOOT_DIR)/limine.h:
 
 $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -MT $@ -MF $(patsubst %.o, %.d, $@) $<
+	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 -include $(LIBC_DEPS)
 
 $(LIBC_OBJS): %.k.o: %.c
 	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -MT $@ -MF $(patsubst %.k.o, %.k.d, $@) $<
+	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.k.o, %.k.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(AS_OBJS): %.o: %.s

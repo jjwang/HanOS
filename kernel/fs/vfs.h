@@ -28,8 +28,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <base/vector.h>
-#include <base/time.h>
+#include <lib/vector.h>
+#include <lib/time.h>
 
 /* Some limits */
 #define VFS_MAX_PATH_LEN    4096

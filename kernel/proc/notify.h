@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <base/spinlock.h>
+#include <lib/spinlock.h>
 #include <ipc/ipc.h>
 #include <proc/process.h>
 

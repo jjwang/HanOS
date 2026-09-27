@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <libc/sysfunc.h>
+#include <sysfunc.h>
 
 #define SYSCALL0(NUM) ({                     \
     asm volatile ("syscall"                  \

@@ -15,16 +15,16 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/errno.h>
-#include <libc/stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
 
 #include <fs/pipefs.h>
 #include <fs/filebase.h>
-#include <base/kmalloc.h>
-#include <base/klog.h>
-#include <base/klib.h>
-#include <sys/panic.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
+#include <arch/x64/panic.h>
 #include <mm/mm.h>
 
 #define PIPE_BUFFER_SIZE    64000

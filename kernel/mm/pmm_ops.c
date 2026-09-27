@@ -13,7 +13,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <mm/pmm_ops.h>
-#include <sys/panic.h>
+#include <arch/x64/panic.h>
 
 static const allocator_ops_t *current_allocator = NULL;
 

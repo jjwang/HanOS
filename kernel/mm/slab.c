@@ -16,13 +16,13 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <base/klib.h>
-#include <base/spinlock.h>
-#include <base/klog.h>
+#include <lib/klib.h>
+#include <lib/spinlock.h>
+#include <lib/klog.h>
 #include <mm/slab.h>
 #include <mm/mm.h>
-#include <sys/panic.h>
-#include <libc/string.h>
+#include <arch/x64/panic.h>
+#include <string.h>
 
 #define SLAB_INDIRECT_CUTOFF    256
 #define SLAB_INDIRECT_COUNT     8

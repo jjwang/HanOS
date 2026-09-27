@@ -5,9 +5,9 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <base/klog.h>
+#include <lib/klog.h>
 #include <mm/ipc_buf.h>
 #include <mm/memobj.h>
 #include <mm/uaccess.h>

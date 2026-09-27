@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <sys/pci.h>
+#include <arch/x64/pci.h>
 
 typedef struct {
     uint32_t id;

@@ -16,17 +16,17 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <sys/pci.h>
-#include <sys/cpu.h>
-#include <sys/isr_base.h>
-#include <sys/panic.h>
-#include <sys/pit.h>
+#include <arch/x64/pci.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/isr_base.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/pit.h>
 #include <device/storage/ata.h>
-#include <base/spinlock.h>
-#include <base/klog.h>
-#include <base/kmalloc.h>
+#include <lib/spinlock.h>
+#include <lib/klog.h>
+#include <lib/kmalloc.h>
 #include <proc/sched.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>

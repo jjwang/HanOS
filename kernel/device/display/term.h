@@ -18,8 +18,8 @@
 #include <stdint.h>
 
 #include <device/display/fb.h>
-#include <base/image.h>
-#include <base/spinlock.h>
+#include <lib/image.h>
+#include <lib/spinlock.h>
 
 void kdisplay(char *s, uint64_t len); /* Implemented in entry file */
 

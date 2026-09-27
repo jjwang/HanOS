@@ -5,7 +5,7 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
 #include <ipc/ipc.h>
 #include <proc/notify.h>

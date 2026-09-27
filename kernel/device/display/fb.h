@@ -19,7 +19,7 @@
 
 #include <3rd-party/boot/limine.h>
 #include <device/display/font.h>
-#include <base/image.h>
+#include <lib/image.h>
 
 #define COLOR_BLACK         0x000000
 #define COLOR_RED           0xAA0000

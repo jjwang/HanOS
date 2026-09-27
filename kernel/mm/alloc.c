@@ -19,9 +19,9 @@
 #include <mm/mm.h>
 #include <mm/alloc.h>
 #include <mm/slab.h>
-#include <base/klib.h>
-#include <base/klog.h>
-#include <libc/string.h>
+#include <lib/klib.h>
+#include <lib/klog.h>
+#include <string.h>
 
 /* each allocation has the following structure:
  * ptr: data capacity (allocsizes size)

@@ -14,16 +14,16 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
 #include <fs/ramfs.h>
 #include <fs/filebase.h>
-#include <base/kmalloc.h>
-#include <base/klog.h>
-#include <base/klib.h>
-#include <sys/panic.h>
-#include <sys/hpet.h>
-#include <sys/cmos.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/hpet.h>
+#include <arch/x64/cmos.h>
 #include <mm/mm.h>
 
 #include <kconfig.h>

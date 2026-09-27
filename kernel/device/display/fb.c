@@ -23,15 +23,15 @@
 #include <stddef.h>
 #include <version.h>
 
-#include <libc/string.h>
+#include <string.h>
 
 #include <mm/mm.h>
-#include <sys/hpet.h>
+#include <arch/x64/hpet.h>
 #include <device/display/fb.h>
-#include <base/kmalloc.h>
-#include <base/spinlock.h>
-#include <base/klog.h>
-#include <base/klib.h>
+#include <lib/kmalloc.h>
+#include <lib/spinlock.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
 
 #define LOGO_SCALE      6
 

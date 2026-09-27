@@ -14,6 +14,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <libc/sysfunc.h>
+#include <sysfunc.h>
 
 extern const command_help_t _shell_helptab[];

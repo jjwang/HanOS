@@ -15,7 +15,7 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <base/klog.h>
+#include <lib/klog.h>
 #include <proc/signal.h>
 #include <proc/process.h>
 

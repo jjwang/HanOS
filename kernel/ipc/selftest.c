@@ -13,10 +13,10 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <base/kmalloc.h>
-#include <base/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <ipc/selftest.h>

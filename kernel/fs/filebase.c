@@ -13,14 +13,14 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/errno.h>
+#include <string.h>
+#include <errno.h>
 
 #include <fs/filebase.h>
-#include <base/kmalloc.h>
-#include <base/hash.h>
-#include <sys/hpet.h>
-#include <sys/cmos.h>
+#include <lib/kmalloc.h>
+#include <lib/hash.h>
+#include <arch/x64/hpet.h>
+#include <arch/x64/cmos.h>
 
 #include <fs/vfs.h>
 #include <proc/syscall.h>

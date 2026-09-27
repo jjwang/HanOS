@@ -14,13 +14,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libc/string.h>
-#include <base/klog.h>
-#include <base/vector.h>
-#include <base/kmalloc.h>
+#include <string.h>
+#include <lib/klog.h>
+#include <lib/vector.h>
+#include <lib/kmalloc.h>
 #include <mm/mm.h>
-#include <sys/pci.h>
-#include <sys/pit.h>
+#include <arch/x64/pci.h>
+#include <arch/x64/pit.h>
 #include <proc/sched.h>
 #include <device/display/gfx.h>
 #include <device/usb/xhci.h>

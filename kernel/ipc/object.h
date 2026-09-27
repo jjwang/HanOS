@@ -20,7 +20,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <base/spinlock.h>
+#include <lib/spinlock.h>
 
 typedef enum {
     OBJ_ENDPOINT,

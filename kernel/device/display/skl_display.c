@@ -12,11 +12,11 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <base/klog.h>
-#include <libc/string.h>
-#include <sys/cpu.h>
-#include <sys/pci.h>
-#include <sys/pit.h>
+#include <lib/klog.h>
+#include <string.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/pci.h>
+#include <arch/x64/pit.h>
 #include <device/display/gfx_reg.h>
 #include <device/display/skl_display.h>
 

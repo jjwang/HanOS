@@ -18,15 +18,15 @@
  */
 #include <3rd-party/boot/limine.h>
 #include <stdint.h>
-#include <libc/string.h>
-#include <sys/cpu.h>
-#include <sys/pci.h>
-#include <sys/pit.h>
-#include <sys/serial.h>
+#include <string.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/pci.h>
+#include <arch/x64/pit.h>
+#include <arch/x64/serial.h>
 #include <mm/mm.h>
-#include <base/vector.h>
-#include <base/klog.h>
-#include <base/time.h>
+#include <lib/vector.h>
+#include <lib/klog.h>
+#include <lib/time.h>
 #include <proc/process.h>
 #include <proc/sched.h>
 #include <device/display/gfx.h>
@@ -34,7 +34,7 @@
 #include <device/display/skl_display.h>
 #include <device/display/display_mode.h>
 #include <device/display/term.h>
-#include <base/kmalloc.h>
+#include <lib/kmalloc.h>
 
 #define DEVICE_HD520                0x1916  /* Skylake GT2 integrated graphics */
 #define DEVICE_SUNRISE_POINT        0x9D00  /* Skylake PCH (LPC), matched by high byte */

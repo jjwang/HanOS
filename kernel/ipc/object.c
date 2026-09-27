@@ -5,11 +5,11 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <base/kmalloc.h>
-#include <base/spinlock.h>
-#include <base/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/spinlock.h>
+#include <lib/klog.h>
 #include <ipc/object.h>
 
 #define HANDLE_INDEX_BITS   16

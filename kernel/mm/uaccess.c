@@ -15,7 +15,7 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
 #include <mm/mm.h>
 #include <mm/uaccess.h>

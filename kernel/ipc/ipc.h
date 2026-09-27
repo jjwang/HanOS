@@ -22,8 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <base/spinlock.h>
-#include <base/time.h>
+#include <lib/spinlock.h>
+#include <lib/time.h>
 #include <ipc/object.h>
 
 #define IPC_WORDS       6

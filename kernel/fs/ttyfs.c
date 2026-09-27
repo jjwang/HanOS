@@ -14,22 +14,22 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/errno.h>
-#include <libc/stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
 
 #include <fs/ttyfs.h>
 #include <fs/filebase.h>
-#include <base/kmalloc.h>
-#include <base/klog.h>
-#include <base/klib.h>
-#include <sys/panic.h>
-#include <sys/hpet.h>
-#include <sys/cmos.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/hpet.h>
+#include <arch/x64/cmos.h>
 #include <mm/mm.h>
 #include <proc/notify.h>
-#include <ipc/input_srv.h>
-#include <ipc/console_srv.h>
+#include <srv/input_srv.h>
+#include <srv/console_srv.h>
 #include <device/display/term.h>
 
 /* This is a linux extension */

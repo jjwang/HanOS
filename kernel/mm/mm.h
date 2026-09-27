@@ -21,8 +21,8 @@
 #include <stdbool.h>
 
 #include <3rd-party/boot/limine.h>
-#include <base/spinlock.h>
-#include <base/vector.h>
+#include <lib/spinlock.h>
+#include <lib/vector.h>
 
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8

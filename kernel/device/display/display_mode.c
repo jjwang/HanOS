@@ -5,7 +5,7 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <base/klog.h>
+#include <lib/klog.h>
 #include <device/display/display_mode.h>
 
 static display_mode_t boot_mode = { 0 };

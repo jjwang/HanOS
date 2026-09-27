@@ -16,7 +16,7 @@
 #pragma once
 
 #include <proc/process.h>
-#include <base/time.h>
+#include <lib/time.h>
 
 #define SCHED_SWITCH_TIME_CYCLE         0
 #define SCHED_SWITCH_SLEEP              1

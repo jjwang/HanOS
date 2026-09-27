@@ -5,10 +5,10 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <base/kmalloc.h>
-#include <base/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
 #include <ipc/irq.h>
 
 static irq_obj_t *irq_table[IRQ_TABLE_SIZE];

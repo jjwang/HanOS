@@ -16,21 +16,21 @@
  */
 #include <stddef.h>
 
-#include <libc/string.h>
+#include <string.h>
 
 #include <proc/process.h>
 #include <proc/sched.h>
 #include <fs/vfs.h>
-#include <service/service.h>
+#include <router/router.h>
 #include <ipc/ipc.h>
-#include <libc/protocol.h>
-#include <base/kmalloc.h>
-#include <base/klog.h>
-#include <base/spinlock.h>
-#include <sys/cpu.h>
-#include <sys/hpet.h>
-#include <sys/apic.h>
-#include <sys/panic.h>
+#include <protocol.h>
+#include <lib/kmalloc.h>
+#include <lib/klog.h>
+#include <lib/spinlock.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/hpet.h>
+#include <arch/x64/apic.h>
+#include <arch/x64/panic.h>
 
 static pid_t curr_pid = 1;
 
@@ -309,7 +309,7 @@ process_t *process_fork(process_t * tp)
              * either process can run, so a concurrent close cannot free the fd
              * first. ipc_notify() does not wake the receiver, which would take
              * the same run-queue lock. */
-            endpoint_t *svc = service_lookup((service_id_t) fd->svc);
+            endpoint_t *svc = router_lookup((service_id_t) fd->svc);
 
             if (svc != NULL) {
                 ipc_msg_t m;

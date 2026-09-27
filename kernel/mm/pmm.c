@@ -22,16 +22,16 @@
 
 #include <kconfig.h>
 
-#include <libc/string.h>
+#include <string.h>
 
-#include <sys/cpu.h>
-#include <sys/panic.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/panic.h>
 #include <mm/mm.h>
 #include <mm/pmm_ops.h>
-#include <base/klog.h>
-#include <base/kmalloc.h>
-#include <base/klib.h>
-#include <base/vector.h>
+#include <lib/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/klib.h>
+#include <lib/vector.h>
 
 mem_info_t kmem_info = { 0 };
 

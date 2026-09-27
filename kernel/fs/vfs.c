@@ -24,18 +24,18 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
-#include <libc/protocol.h>
+#include <string.h>
+#include <protocol.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
-#include <base/hash.h>
-#include <base/kmalloc.h>
+#include <lib/hash.h>
+#include <lib/kmalloc.h>
 #include <mm/memobj.h>
 #include <mm/ipc_buf.h>
 #include <mm/mm.h>
 #include <ipc/object.h>
-#include <ipc/fat32_srv.h>
-#include <service/service.h>
+#include <srv/fat32_srv.h>
+#include <router/router.h>
 #include <proc/sched.h>
 
 /* Maximum one VFS request reads/writes. */
@@ -47,14 +47,14 @@
 #include <fs/ramfs.h>
 #include <fs/ttyfs.h>
 #include <fs/pipefs.h>
-#include <base/klog.h>
-#include <base/klib.h>
-#include <base/kmalloc.h>
-#include <base/spinlock.h>
-#include <base/vector.h>
-#include <base/hash.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
+#include <lib/kmalloc.h>
+#include <lib/spinlock.h>
+#include <lib/vector.h>
+#include <lib/hash.h>
 
-#include <sys/atomic_ops.h>
+#include <arch/x64/atomic_ops.h>
 
 static bool vfs_initialized = false;
 
@@ -367,7 +367,7 @@ static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
     }
@@ -402,7 +402,7 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
     }
@@ -420,7 +420,7 @@ static int64_t vfs_server_close(int svc, int64_t sfd)
     req.tag = (svc == SVC_PIPE) ? PIPE_CLOSE : VFS_CLOSE;
     req.words[0] = (uint64_t) sfd;
 
-    if (!service_forward(svc, &req, &rep))
+    if (!router_forward(svc, &req, &rep))
         return -1;
     return (int64_t) rep.words[0];
 }
@@ -463,7 +463,7 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
         req.xfer_count = 1;
     }
 
-    if (!service_forward(SVC_PIPE, &req, &rep)) {
+    if (!router_forward(SVC_PIPE, &req, &rep)) {
         if (mo != NULL)
             memobj_unref(mo);
         return -1;
@@ -527,7 +527,7 @@ int64_t vfs_server_stat_path(const char *path, void *out)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
     }
@@ -561,7 +561,7 @@ int64_t vfs_server_readdir(vfs_handle_t handle, void *out)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
     }
@@ -583,7 +583,7 @@ static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
     req.words[1] = pos;
     req.words[2] = (uint64_t) whence;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
         return -1;
     return (int64_t) rep.words[1];
 }
@@ -610,7 +610,7 @@ int64_t vfs_server_unlink(const char *path)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
     }
@@ -622,7 +622,7 @@ int64_t vfs_server_unlink(const char *path)
 /* Add a reference to a server fd's open file description (used by fork). */
 void vfs_server_ref_fd(int svc, int64_t sfd)
 {
-    if (service_lookup(svc) == NULL)
+    if (router_lookup(svc) == NULL)
         return;
 
     ipc_msg_t req;
@@ -631,7 +631,7 @@ void vfs_server_ref_fd(int svc, int64_t sfd)
     memset(&req, 0, sizeof(req));
     req.tag = VFS_FD_FORK;
     req.words[0] = (uint64_t) sfd;
-    service_forward(svc, &req, &rep);
+    router_forward(svc, &req, &rep);
 }
 
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
@@ -1029,7 +1029,7 @@ static vfs_handle_t vfs_open_via_server(const char *path, vfs_openmode_t mode)
     req.xfer[0] = ph;
     req.xfer_count = 1;
 
-    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
         return VFS_INVALID_HANDLE;
 
     return vfs_open_server((int64_t) rep.words[1], path, mode, rep.words[2]);
@@ -1037,7 +1037,7 @@ static vfs_handle_t vfs_open_via_server(const char *path, vfs_openmode_t mode)
 
 vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode)
 {
-    if (service_lookup(SVC_FS) != NULL)
+    if (router_lookup(SVC_FS) != NULL)
         return vfs_open_via_server(path, mode);
 
     return vfs_open((char *) path, mode);

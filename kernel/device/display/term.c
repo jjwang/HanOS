@@ -17,13 +17,13 @@
 #include <stddef.h>
 #include <kconfig.h>
 
-#include <libc/string.h>
+#include <string.h>
 
 #include <device/display/term.h>
-#include <base/klib.h>
-#include <base/klog.h>
-#include <sys/panic.h>
-#include <sys/serial.h>
+#include <lib/klib.h>
+#include <lib/klog.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/serial.h>
 #include <3rd-party/boot/limine.h>
 
 static const uint32_t font_colors[9] = {

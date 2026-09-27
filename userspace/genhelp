@@ -15,7 +15,7 @@ cat <<EOF >_help.c
 const command_help_t _shell_helptab[] = {
 EOF
 
-grep \<help\> *.c | sort -t: -k2 | sed 's/^\w*.c://g' >> _help.c
+find . -name '*.c' ! -name '_help.c' | xargs grep '<help>' | sort -t: -k2 | sed 's|^[^:]*:||' >> _help.c
 
 cat <<EOF >> _help.c
     {"", ""}

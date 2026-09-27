@@ -917,8 +917,8 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
 }
 
 // Below are HanOS specific functions
-#include <libc/string.h>
-#include <libc/sysfunc.h>
+#include <string.h>
+#include <sysfunc.h>
 
 void _putchar(char character)
 {

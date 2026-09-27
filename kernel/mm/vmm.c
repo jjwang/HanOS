@@ -21,16 +21,16 @@
 #include <stdint.h>
 
 #include <kconfig.h>
-#include <libc/string.h>
-#include <sys/cpu.h>
-#include <sys/panic.h>
-#include <sys/mtrr.h>
+#include <string.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/mtrr.h>
 #include <mm/mm.h>
-#include <base/klog.h>
-#include <base/kmalloc.h>
-#include <base/klib.h>
-#include <base/vector.h>
-#include <base/spinlock.h>
+#include <lib/klog.h>
+#include <lib/kmalloc.h>
+#include <lib/klib.h>
+#include <lib/vector.h>
+#include <lib/spinlock.h>
 
 #define MAKE_TABLE_ENTRY(address, flags)    ((address & ~(0xfff)) | flags)
 

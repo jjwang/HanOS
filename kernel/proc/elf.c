@@ -14,15 +14,15 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
 #include <proc/elf.h>
 #include <proc/process.h>
-#include <base/klib.h>
-#include <base/klog.h>
+#include <lib/klib.h>
+#include <lib/klog.h>
 #include <fs/vfs.h>
 #include <mm/mm.h>
-#include <sys/panic.h>
+#include <arch/x64/panic.h>
 
 #define RTDL_ADDR       0x40000000
 

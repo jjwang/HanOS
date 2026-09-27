@@ -35,15 +35,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <base/time.h>
-#include <base/vector.h>
-#include <base/hash.h>
-#include <sys/smp.h>
+#include <lib/time.h>
+#include <lib/vector.h>
+#include <lib/hash.h>
+#include <arch/x64/smp.h>
 #include <mm/mm.h>
 #include <fs/vfs.h>
 #include <proc/signal.h>
 #include <ipc/object.h>
-#include <libc/bootinfo.h>
+#include <bootinfo.h>
 
 #define DEFAULT_KMODE_CODE      0b00101000      /* 0x28 */
 #define DEFAULT_KMODE_DATA      0b00110000      /* 0x30 */

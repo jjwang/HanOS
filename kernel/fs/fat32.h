@@ -19,11 +19,11 @@
  */
 #pragma once
 
-#include <libc/string.h>
+#include <string.h>
 
 #include <fs/vfs.h>
-#include <base/spinlock.h>
-#include <base/time.h>
+#include <lib/spinlock.h>
+#include <lib/time.h>
 #include <device/block_device.h>
 
 #define FAT32_ATTR_READ_ONLY            0x01

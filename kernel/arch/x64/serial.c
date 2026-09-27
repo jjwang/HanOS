@@ -1,0 +1,64 @@
+/**-----------------------------------------------------------------------------
+
+ @file    serial.c
+ @brief   Implementation of serial port communication functions
+ @details
+ @verbatim
+
+  This file contains the implementation of functions to initialize and use the
+  serial port for communication in the HanOS kernel. It sets up the serial port
+  with the specified baud rate and configuration, and provides functions to
+  write individual characters and strings to the serial port. The initialization
+  function ensures the serial port is properly configured before any data is
+sent.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
+#include <arch/x64/cpu.h>
+#include <arch/x64/serial.h>
+#include <string.h>
+
+#define BAUD_RATE       115200
+
+static bool serial_initialized = false;
+
+void serial_init()
+{
+    port_outb(SERIAL_PORT + 3, 0x00);
+    port_outb(SERIAL_PORT + 1, 0x00);   /* Disable all interrupts */
+    port_outb(SERIAL_PORT + 3, 0x80);   /* Enable DLAB (set baud rate divisor) */
+
+    uint16_t divisor = (uint16_t) (115200 / BAUD_RATE);
+    port_outb(SERIAL_PORT + 0, divisor & 0xFF);          /* Divisor 3(lo byte) */
+    port_outb(SERIAL_PORT + 1, (divisor >> 8) & 0xff);   /*          (hi byte) */
+
+    port_outb(SERIAL_PORT + 1, 0x00);
+    port_outb(SERIAL_PORT + 3, 0x03);   /* 8 bits, no parity, one stop bit */
+    port_outb(SERIAL_PORT + 2, 0xC7);   /* Enable FIFO, clear them, with 14-byte
+                                         * threshold
+                                         */
+    port_outb(SERIAL_PORT + 4, 0x0B);   /* IRQs enabled, RTS/DSR set */
+
+    serial_initialized = true;
+}
+
+void serial_write(char a)
+{
+    if (!serial_initialized) {
+        serial_init();
+    }
+
+    while ((port_inb(SERIAL_PORT + 5) & 0x20) == 0);
+
+    port_outb(SERIAL_PORT, a);
+}
+
+void serial_puts(char *s)
+{
+    uint64_t len = strlen(s);
+    for (uint64_t i = 0; i < len; i++) {
+        serial_write(s[i]);
+    }
+}

@@ -20,7 +20,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <base/spinlock.h>
+#include <lib/spinlock.h>
 
 typedef struct slab_t {
     struct slab_t *next;

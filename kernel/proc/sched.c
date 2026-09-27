@@ -20,27 +20,27 @@
 
  **-----------------------------------------------------------------------------
  */
-#include <libc/string.h>
+#include <string.h>
 
-#include <base/klog.h>
-#include <base/klib.h>
-#include <base/time.h>
-#include <base/kmalloc.h>
-#include <base/vector.h>
-#include <base/hash.h>
+#include <lib/klog.h>
+#include <lib/klib.h>
+#include <lib/time.h>
+#include <lib/kmalloc.h>
+#include <lib/vector.h>
+#include <lib/hash.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
-#include <sys/smp.h>
-#include <sys/timer.h>
-#include <sys/apic.h>
-#include <sys/hpet.h>
-#include <sys/pit.h>
-#include <sys/isr_base.h>
-#include <sys/idt.h>
-#include <sys/panic.h>
-#include <sys/cpu.h>
-#include <sys/serial.h>
-#include <libc/printf.h>
+#include <arch/x64/smp.h>
+#include <arch/x64/timer.h>
+#include <arch/x64/apic.h>
+#include <arch/x64/hpet.h>
+#include <arch/x64/pit.h>
+#include <arch/x64/isr_base.h>
+#include <arch/x64/idt.h>
+#include <arch/x64/panic.h>
+#include <arch/x64/cpu.h>
+#include <arch/x64/serial.h>
+#include <printf.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
 

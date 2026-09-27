@@ -15,7 +15,7 @@
 
 #include <stdint.h>
 
-#include <sys/cpu.h>
+#include <arch/x64/cpu.h>
 #include <device/char_device.h>
 
 #define KEY_COUNT                           128
