@@ -51,7 +51,7 @@ void ls(char *path)
 {
     /* TODO: We should check buffer length later */
     char fmtbuf[DIRSIZE + 1] = { 0 };
-    char buf[DIRSIZE + 1];
+    char buf[DIRSIZE + 1] = { 0 };
     char *p;
     int fd, num;
     dirent_t de;
@@ -62,6 +62,9 @@ void ls(char *path)
             fprintf(STDERR, "ls: getcwd failed\n");
             sys_exit(0);
         }
+    } else {
+        strncpy(buf, path, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
     }
     printf("Files in \"%s\" folder:\n", buf);
 
