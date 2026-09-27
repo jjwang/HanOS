@@ -171,4 +171,43 @@ void vfs_server_probe(void)
             }
         }
     }
+
+    /* Stat and directory listing through the server. */
+    {
+        vfs_stat_t st;
+
+        if (vfs_server_stat_path("/bin", &st) == 0)
+            klogi("vfs: STAT /bin mode 0x%x size %ld\n", st.st_mode,
+                  (long) st.st_size);
+        else
+            klogw("vfs: STAT /bin failed\n");
+
+        const char *path = "/bin";
+        handle_t ph;
+
+        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
+            ipc_msg_t or;
+
+            memset(&req, 0, sizeof(req));
+            req.tag = VFS_OPENAT;
+            req.words[0] = 2;
+            req.xfer[0] = ph;
+            req.xfer_count = 1;
+
+            if (service_forward(SVC_FS, &req, &or)
+                && (int64_t) or.words[0] == 0) {
+                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
+                                                  VFS_MODE_READ);
+                dirent_t de;
+                int cnt = 0;
+
+                while (cnt < 64 && vfs_server_readdir(fh, &de) == 0)
+                    cnt++;
+                klogi("vfs: READDIR /bin -> %d entries\n", cnt);
+                vfs_close(fh);
+            } else {
+                klogw("vfs: OPENAT /bin failed\n");
+            }
+        }
+    }
 }

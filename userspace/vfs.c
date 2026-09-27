@@ -8,9 +8,10 @@
 
    The kernel forwards FS syscalls here through the service router. The server
    parses the ustar initrd it is handed in bootinfo and serves the paths it
-   contains: open/read/close and access checks. The data for a read travels in
-   a memory object the kernel created and moved to the server in xfer[1]; the
-   server maps it, fills it and unmaps it.
+   contains: access checks, open, read, directory listing and stat. Bulk data
+   (a path in, or a read buffer, stat or dirent out) travels in a memory object
+   the kernel moved to the server in xfer[1]; the server maps it, fills or
+   reads it, and unmaps it.
 
  @endverbatim
 
@@ -49,8 +50,11 @@ static int ent_count;
 
 static struct {
     bool in_use;
-    int ent;
-    uint64_t off;
+    bool is_dir;
+    int ent;                    /* index in ents[] for files */
+    uint64_t off;               /* read offset for files */
+    uint64_t dir_idx;           /* readdir cursor for directories */
+    char dir[VFS_PATH_MAX];     /* normalized directory path */
 } fds[VFS_MAX_FDS];
 
 static bootinfo_t bi;
@@ -65,6 +69,34 @@ static uint64_t oct2bin(const uint8_t *p, int n)
         v = v * 8 + (uint64_t) (p[i] - '0');
     }
     return v;
+}
+
+static bool has_slash(const char *s)
+{
+    while (*s != '\0') {
+        if (*s == '/')
+            return true;
+        s++;
+    }
+    return false;
+}
+
+/* Copy a path without its leading and trailing slashes ('' for the root). */
+static void norm_dir(const char *path, char *out, uint64_t outsz)
+{
+    uint64_t n;
+
+    while (*path == '/')
+        path++;
+
+    n = strlen(path);
+    while (n > 0 && path[n - 1] == '/')
+        n--;
+
+    if (n >= outsz)
+        n = outsz - 1;
+    memcpy(out, path, n);
+    out[n] = '\0';
 }
 
 /* Record one archive entry, stripping a trailing '/' from directories. */
@@ -118,14 +150,15 @@ static void parse_initrd(void)
     }
 }
 
-/* Resolve an absolute path to an index in ents[], or -1. */
+/* Resolve an absolute path to an ents[] index, or ent_count for the root,
+ * or -1 when it does not exist. */
 static int resolve(const char *path)
 {
     while (*path == '/')
         path++;
 
     if (*path == '\0')
-        return ent_count;       /* the root always exists */
+        return ent_count;
 
     for (int i = 0; i < ent_count; i++) {
         if (strcmp(ents[i].name, path) == 0)
@@ -134,48 +167,84 @@ static int resolve(const char *path)
     return -1;
 }
 
-static int fd_alloc(int ent)
+/* Fill a stat for an ents[] index (ent_count means the root directory). */
+static void fill_stat(int e, void *out)
+{
+    stat_t *st = (stat_t *) out;
+
+    memset(st, 0, sizeof(*st));
+    st->st_nlink = 1;
+
+    if (e == ent_count || ents[e].is_dir) {
+        st->st_mode = S_IFDIR | 0755;
+        st->st_ino = (uint64_t) e + 1;
+    } else {
+        st->st_mode = S_IFREG | 0644;
+        st->st_ino = (uint64_t) e + 1;
+        st->st_size = (int64_t) ents[e].size;
+    }
+}
+
+/* Is `name` a direct child of directory `dir`? */
+static bool is_child(const char *name, const char *dir)
+{
+    uint64_t dl = strlen(dir);
+
+    if (dl == 0)
+        return !has_slash(name);
+    if (strncmp(name, dir, dl) != 0 || name[dl] != '/')
+        return false;
+    return !has_slash(name + dl + 1);
+}
+
+static uint8_t *map_buf(int64_t memh)
+{
+    if (sys_mem_map(memh, VFS_BUF_VADDR, 3) != 0)
+        return NULL;
+    return (uint8_t *) VFS_BUF_VADDR;
+}
+
+static int fd_alloc(void)
 {
     for (int i = 0; i < VFS_MAX_FDS; i++) {
         if (!fds[i].in_use) {
+            memset(&fds[i], 0, sizeof(fds[i]));
             fds[i].in_use = true;
-            fds[i].ent = ent;
-            fds[i].off = 0;
             return i + 1;
         }
     }
     return -1;
 }
 
-static bool read_path(const sys_ipc_msg_t *m, char *path)
+/* Read the request's path from the buffer in xfer[1]. */
+static void read_path(const sys_ipc_msg_t *m, char *path)
 {
+    int i = 0;
+
+    path[0] = '\0';
+
     if (m->xfer_count >= 2) {
         int64_t memh = (int64_t) m->xfer[1];
-        uint8_t *buf = (uint8_t *) VFS_BUF_VADDR;
-        int i = 0;
+        uint8_t *buf = map_buf(memh);
 
-        path[0] = '\0';
-        if (sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
+        if (buf != NULL) {
             while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
                 path[i] = (char) buf[i];
                 i++;
             }
             sys_mem_unmap(memh, VFS_BUF_VADDR);
         }
-        path[i] = '\0';
         sys_handle_close(memh);
-        return true;
+    } else {
+        const char *p = (const char *) &m->words[1];
+
+        while (i < VFS_PATH_MAX - 1 && p[i] != '\0') {
+            path[i] = p[i];
+            i++;
+        }
     }
 
-    const char *p = (const char *) &m->words[1];
-    int i = 0;
-
-    while (i < VFS_PATH_MAX - 1 && p[i] != '\0') {
-        path[i] = p[i];
-        i++;
-    }
     path[i] = '\0';
-    return true;
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
@@ -193,6 +262,39 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_FSTATAT) {
+        char path[VFS_PATH_MAX];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        int e;
+        int i = 0;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
+            return;
+        }
+
+        while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
+            path[i] = (char) buf[i];
+            i++;
+        }
+        path[i] = '\0';
+
+        e = resolve(path);
+        if (e < 0) {
+            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+        } else {
+            fill_stat(e, buf + VFS_IO_DATA_OFF);
+            rep->words[0] = 0;
+        }
+
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
     if (m->tag == VFS_OPENAT) {
         char path[VFS_PATH_MAX];
         int e;
@@ -200,20 +302,27 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         read_path(m, path);
         e = resolve(path);
 
-        if (e < 0 || e == ent_count || ents[e].is_dir) {
+        if (e < 0) {
             rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
             return;
         }
 
-        int fd = fd_alloc(e);
+        int fd = fd_alloc();
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
             return;
         }
 
+        if (e == ent_count || ents[e].is_dir) {
+            fds[fd - 1].is_dir = true;
+            norm_dir(path, fds[fd - 1].dir, sizeof(fds[fd - 1].dir));
+        } else {
+            fds[fd - 1].ent = e;
+        }
+
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) fd;
-        rep->words[2] = ents[e].size;
+        rep->words[2] = (e == ent_count || ents[e].is_dir) ? 0 : ents[e].size;
         return;
     }
 
@@ -252,6 +361,70 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         if (memh != 0)
             sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_READDIR) {
+        int fd = (int) m->words[0];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+            || !fds[fd - 1].is_dir) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+
+        uint64_t wanted = fds[fd - 1].dir_idx;
+        uint64_t seen = 0;
+        int found = -1;
+
+        for (int i = 0; i < ent_count; i++) {
+            if (is_child(ents[i].name, fds[fd - 1].dir)) {
+                if (seen == wanted) {
+                    found = i;
+                    break;
+                }
+                seen++;
+            }
+        }
+
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        if (found < 0) {
+            rep->words[0] = (uint64_t) (int64_t) -1;    /* end of directory */
+        } else {
+            dirent_t *de = (dirent_t *) (buf + VFS_IO_DATA_OFF);
+            const char *name = ents[found].name;
+            const char *base = name;
+            uint64_t dl = strlen(fds[fd - 1].dir);
+
+            if (dl > 0)
+                base = name + dl + 1;
+
+            memset(de, 0, sizeof(*de));
+            de->d_ino = (uint64_t) found + 1;
+            de->d_type = ents[found].is_dir ? DT_DIR : DT_REG;
+            int k = 0;
+            while (base[k] != '\0' && k < (int) sizeof(de->d_name) - 1) {
+                de->d_name[k] = base[k];
+                k++;
+            }
+            de->d_name[k] = '\0';
+
+            fds[fd - 1].dir_idx++;
+            rep->words[0] = 0;
+        }
+
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
         return;
     }
 

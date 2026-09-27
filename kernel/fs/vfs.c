@@ -277,35 +277,38 @@ uint64_t vfs_tell(vfs_handle_t handle)
     }
 }
 
-/* Read specified number of bytes from a file */
 /* Move a memory object's contents to/from a kernel buffer. */
-static void memobj_copy_out(memobj_t * mo, void *dst, uint64_t len)
+static void memobj_copy_out(memobj_t * mo, void *dst, uint64_t len,
+                            uint64_t off)
 {
     uint64_t done = 0;
 
     while (done < len) {
-        uint64_t chunk = PAGE_SIZE - (done & (PAGE_SIZE - 1));
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
 
         if (chunk > len - done)
             chunk = len - done;
         memcpy((uint8_t *) dst + done,
-               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, done / PAGE_SIZE))
-               + (done & (PAGE_SIZE - 1)), chunk);
+               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), chunk);
         done += chunk;
     }
 }
 
-static void memobj_copy_in(memobj_t * mo, const void *src, uint64_t len)
+static void memobj_copy_in(memobj_t * mo, const void *src, uint64_t len,
+                           uint64_t off)
 {
     uint64_t done = 0;
 
     while (done < len) {
-        uint64_t chunk = PAGE_SIZE - (done & (PAGE_SIZE - 1));
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
 
         if (chunk > len - done)
             chunk = len - done;
-        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, done / PAGE_SIZE))
-               + (done & (PAGE_SIZE - 1)), (const uint8_t *) src + done,
+        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done,
                chunk);
         done += chunk;
     }
@@ -364,7 +367,7 @@ static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
     uint64_t n = rep.words[1];
     if (n > len)
         n = len;
-    memobj_copy_out(mo, buff, n);
+    memobj_copy_out(mo, buff, n, 0);
     memobj_unref(mo);
     return (int64_t) n;
 }
@@ -379,7 +382,7 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
     if (mo == NULL)
         return -1;
 
-    memobj_copy_in(mo, buff, len);
+    memobj_copy_in(mo, buff, len, 0);
 
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -412,6 +415,74 @@ static int64_t vfs_server_close(int64_t sfd)
     if (!service_forward(SVC_FS, &req, &rep))
         return -1;
     return (int64_t) rep.words[0];
+}
+
+/* Ask the server for the stat of a path. The path and the result share one
+ * buffer memory object: the path at offset 0, the stat at VFS_IO_DATA_OFF.
+ * out must be a kernel buffer of at least sizeof(vfs_stat_t). */
+int64_t vfs_server_stat_path(const char *path, void *out)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    uint64_t plen = strlen(path) + 1;
+    if (plen > VFS_IO_DATA_OFF)
+        plen = VFS_IO_DATA_OFF;
+    memobj_copy_in(mo, path, plen, 0);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FSTATAT;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_copy_out(mo, out, sizeof(vfs_stat_t), VFS_IO_DATA_OFF);
+    memobj_unref(mo);
+    return 0;
+}
+
+/* Read the next directory entry of a server-backed directory fd. out must be a
+ * kernel buffer of at least sizeof(dirent_t). */
+int64_t vfs_server_readdir(vfs_handle_t handle, void *out)
+{
+    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
+
+    if (fd == NULL || !fd->server)
+        return -1;
+
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_READDIR;
+    req.words[0] = (uint64_t) fd->server_fd;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_copy_out(mo, out, sizeof(dirent_t), VFS_IO_DATA_OFF);
+    memobj_unref(mo);
+    return 0;
 }
 
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)

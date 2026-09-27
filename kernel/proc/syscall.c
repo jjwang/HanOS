@@ -898,6 +898,21 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
         return -1;
     }
 
+    if (service_lookup(SVC_FS) != NULL) {
+        vfs_stat_t st;
+
+        if (vfs_server_stat_path(full_path, &st) < 0) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+        if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        cpu_set_errno(0);
+        return 0;
+    }
+
     vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
 
     if (node != NULL && node->st.st_nlink > 0) {
@@ -936,6 +951,20 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
 
     vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
     cpu_set_errno(0);
+
+    if (fd != NULL && fd->server) {
+        vfs_stat_t st;
+
+        if (vfs_server_stat_path(fd->path, &st) < 0) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+        if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        return 0;
+    }
 
     if (fd != NULL) {
         if (copy_to_user((void *) statbuf, &(fd->tnode->st),
@@ -1151,6 +1180,21 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
     if (fd == NULL) {
         errno = EINVAL;
         goto err_exit;
+    }
+
+    if (fd->server) {
+        dirent_t de;
+
+        if (vfs_server_readdir(handle, &de) < 0) {
+            /* End of directory or a server error. */
+            cpu_set_errno(0);
+            return -1;
+        }
+        if (copy_to_user((void *) buff, &de, sizeof(de)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        return 0;
     }
 
     if (!(fd->inode->type == VFS_NODE_FOLDER

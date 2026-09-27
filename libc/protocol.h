@@ -36,7 +36,16 @@
 #define VFS_WRITE           0x32        /* words[0]=fd, words[1]=len;
                                            in: xfer[1]=data */
 #define VFS_CLOSE           0x33        /* words[0]=fd */
+#define VFS_READDIR         0x35        /* words[0]=fd; out: words[0]=0 or -1 (end);
+                                           xfer[1]=buffer, dirent at VFS_IO_DATA_OFF */
+#define VFS_FSTATAT         0x38        /* words[0]=flags; in: path in xfer[1];
+                                           out: stat at VFS_IO_DATA_OFF */
 #define VFS_FACCESSAT       0x39        /* words[0]=mode; in: path */
+
+/* Buffer size and where a stat/dirent result is written inside the shared
+ * buffer memory object. Inputs (such as a path) go at offset 0. */
+#define VFS_IO_BUF_SIZE     8192
+#define VFS_IO_DATA_OFF     4096
 
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
