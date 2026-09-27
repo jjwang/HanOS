@@ -21,6 +21,7 @@
 #include <base/klog.h>
 #include <ipc/input_srv.h>
 #include <ipc/ipc.h>
+#include <ipc/tty_srv.h>
 #include <ipc/irq.h>
 #include <proc/sched.h>
 #include <proc/notify.h>
@@ -76,9 +77,13 @@ _Noreturn static void input_kthread(pid_t pid)
 
     for (;;) {
         ipc_msg_t m;
-        if (ipc_recv(input_key_ep, &m) == 0 && m.tag == INPUT_KEY_TAG)
-            notify_publish(&notify_system, EVENT_KEY_PRESSED,
-                           (event_para_t) m.words[0]);
+        if (ipc_recv(input_key_ep, &m) == 0 && m.tag == INPUT_KEY_TAG) {
+            /* The tty server owns /dev/tty when it is running; otherwise the
+             * key goes onto the kernel event bus for the in-kernel tty. */
+            if (!tty_server_deliver_key((uint8_t) m.words[0]))
+                notify_publish(&notify_system, EVENT_KEY_PRESSED,
+                               (event_para_t) m.words[0]);
+        }
     }
 }
 

@@ -143,6 +143,11 @@ bool console_server_active(void)
     return console_active;
 }
 
+endpoint_t *console_srv_endpoint(void)
+{
+    return console_in_ep;
+}
+
 bool console_write_buf(const char *buf, uint64_t len)
 {
     if (!console_active || console_in_ep == NULL)

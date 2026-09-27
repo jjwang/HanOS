@@ -60,6 +60,7 @@
 #include <ipc/block_srv.h>
 #include <ipc/vfs_srv.h>
 #include <ipc/pipe_srv.h>
+#include <ipc/tty_srv.h>
 #include <device/keyboard/keyboard.h>
 #include <device/storage/ata.h>
 #include <proc/sched.h>
@@ -247,6 +248,10 @@ _Noreturn void kshell(pid_t pid)
 #if ENABLE_INPUT_SERVER
     if (!input_server_start())
         klogw("input: server failed to start, using in-kernel keyboard\n");
+#endif
+#if ENABLE_TTY_SERVER
+    if (!tty_server_start())
+        klogw("tty: server failed to start, using in-kernel tty\n");
 #endif
 #if ENABLE_BLOCK_SERVER
     if (!block_server_start())

@@ -65,5 +65,14 @@
 #define PIPE_CLOSE          0x42        /* words[0]=fd */
 #define PIPE_EAGAIN         (-11)
 
+/* TTY server. There is a single tty, so reads and writes carry no fd. Data up
+ * to TTY_INLINE_MAX bytes travels inline in words[2..], larger data in a
+ * memory object in xfer[1]; a read with no pending key returns TTY_EAGAIN. */
+#define TTY_INLINE_MAX      32
+#define TTY_READ            0x60        /* words[0]=len; out: words[1]=n */
+#define TTY_WRITE           0x61        /* words[0]=len; out: words[1]=n */
+#define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
+#define TTY_EAGAIN          (-11)
+
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

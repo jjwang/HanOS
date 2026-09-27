@@ -35,6 +35,7 @@
 #include <mm/ipc_buf.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
+#include <ipc/tty_srv.h>
 #include <service/service.h>
 #include <libc/protocol.h>
 #include <proc/process.h>
@@ -755,6 +756,8 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
                   " and return %ld bytes\n", oldfh, fh, ret);
             return ret;
         } else {
+            if (tty_server_active())
+                return tty_server_read(buf, count);
             vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
             if (ttyfh != VFS_INVALID_HANDLE) {
                 int64_t len = vfs_read(ttyfh, count, buf);
@@ -816,6 +819,8 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
             int64_t ret = vfs_write(oldfh, count, buf);
             return ret;
         } else {
+            if (tty_server_active())
+                return tty_server_write(buf, count);
             if (debug_info) {
                 for (uint64_t i = 0; i < count; i++) {
                     char c = ((char *) buf)[i];
