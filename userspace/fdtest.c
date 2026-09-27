@@ -6,10 +6,11 @@
  @details
  @verbatim
 
-   Opens a file through the VFS server, forks, and reads from both the child
-   and the parent. The two processes share one open file description, so the
-   parent's read continues where the child's stopped; both reads must succeed
-   and neither close may invalidate the other's fd.
+   Opens a file through the VFS server and forks several times. Parent and
+   child share one open file description, so each read advances the same
+   offset; every read must succeed. A failure means the server-side
+   reference was taken too late (or not at all) and the fd was freed under
+   one of the readers.
 
  @endverbatim
 
@@ -22,9 +23,11 @@
 #include <libc/string.h>
 #include <libc/sysfunc.h>
 
+#define FD_FORKS    4
+
 /* *INDENT-OFF* */
 static command_help_t help_msg[] = {
-    {"<help> fdtest",   "Read a server fd from a forked child and the parent."},
+    {"<help> fdtest",   "Read a server fd from forked children and the parent."},
 };
 /* *INDENT-ON* */
 
@@ -39,28 +42,30 @@ int main(int argc, char *argv[])
         sys_exit(1);
     }
 
-    int pid = sys_fork();
+    for (int i = 0; i < FD_FORKS; i++) {
+        int pid = sys_fork();
 
-    if (pid == 0) {
-        unsigned char b[4] = { 0 };
-        int n = sys_read(fd, b, sizeof(b));
+        if (pid == 0) {
+            unsigned char b = 0;
+            int n = sys_read(fd, &b, 1);
 
-        printf("fdtest child read %d: %02x %02x %02x %02x\n", n, b[0], b[1],
-               b[2], b[3]);
-        sys_exit(0);
-    }
+            printf("fdtest[%d] child  %s %02x\n", i, (n == 1) ? "ok" : "FAIL",
+                   b);
+            sys_exit(0);
+        }
 
-    if (pid > 0) {
-        unsigned char b[4] = { 0 };
-        int n;
+        if (pid < 0) {
+            fprintf(STDERR, "fdtest: fork failed\n");
+            sys_exit(1);
+        }
 
         sys_wait(pid);
-        n = sys_read(fd, b, sizeof(b));
-        printf("fdtest parent read %d: %02x %02x %02x %02x\n", n, b[0], b[1],
-               b[2], b[3]);
-        sys_exit(0);
+
+        unsigned char b = 0;
+        int n = sys_read(fd, &b, 1);
+
+        printf("fdtest[%d] parent %s %02x\n", i, (n == 1) ? "ok" : "FAIL", b);
     }
 
-    fprintf(STDERR, "fdtest: fork failed\n");
-    sys_exit(1);
+    sys_exit(0);
 }

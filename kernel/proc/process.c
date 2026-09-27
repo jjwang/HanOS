@@ -20,6 +20,10 @@
 
 #include <proc/process.h>
 #include <proc/sched.h>
+#include <fs/vfs.h>
+#include <service/service.h>
+#include <ipc/ipc.h>
+#include <libc/protocol.h>
 #include <base/kmalloc.h>
 #include <base/klog.h>
 #include <base/spinlock.h>
@@ -299,7 +303,23 @@ process_t *process_fork(process_t * tp)
         tc->open_files_table.array[i].key =
             tp->open_files_table.array[i].key;
         tc->open_files_table.array[i].data = fd;
-        if (!fd->server) {
+        if (fd->server) {
+            /* The child inherits a reference to the parent's open file
+             * description. Queue it here, under the run-queue lock and before
+             * either process can run, so a concurrent close cannot free the fd
+             * first. ipc_notify() does not wake the receiver, which would take
+             * the same run-queue lock. */
+            endpoint_t *fs = service_lookup(SVC_FS);
+
+            if (fs != NULL) {
+                ipc_msg_t m;
+
+                memset(&m, 0, sizeof(m));
+                m.tag = VFS_FD_FORK;
+                m.words[0] = (uint64_t) fd->server_fd;
+                ipc_notify(fs, &m);
+            }
+        } else {
             fd->inode->refcount++;
             if (fd->mode == VFS_MODE_READ) {
                 fd->inode->readcount++;

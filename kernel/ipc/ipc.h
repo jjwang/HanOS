@@ -64,6 +64,11 @@ int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms);
 int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep);
 int ipc_reply(endpoint_t *ep, const ipc_msg_t *rep);
 
+/* Enqueue a message without waking the receiver. Used from contexts that hold
+ * the run-queue lock and so cannot call sched_wake_key(); the receiver picks
+ * the message up on its next receive, preserving FIFO order. */
+int ipc_notify(endpoint_t *ep, const ipc_msg_t *msg);
+
 /* Variants that move the objects staged on a message out to the caller (or, for
  * the receive side, hand them over). The caller owns the returned references;
  * the non-objs receive variants discard them. Used by the syscall layer to

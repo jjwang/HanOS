@@ -112,6 +112,29 @@ int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
     return ipc_send_objs(ep, msg, NULL, NULL, 0);
 }
 
+int ipc_notify(endpoint_t *ep, const ipc_msg_t *msg)
+{
+    if (ep == NULL || msg == NULL)
+        return -1;
+
+    spinlock_acquire(&ep->lock);
+
+    if (ep->count == IPC_QUEUE_LEN) {
+        spinlock_release(&ep->lock);
+        return -1;
+    }
+
+    ipc_queue_entry_t *e = &ep->msgs[ep->tail];
+    e->msg = *msg;
+    e->xfer_count = 0;
+
+    ep->tail = (ep->tail + 1) % IPC_QUEUE_LEN;
+    ep->count++;
+
+    spinlock_release(&ep->lock);
+    return 0;
+}
+
 int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
                   kernel_object_t **objs, uint32_t *rights, uint8_t *count)
 {

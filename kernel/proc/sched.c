@@ -327,15 +327,7 @@ pid_t sched_fork(void)
     if (running_process[cpu_id] && running_process[cpu_id]->pid < 1)
         kpanic("SCHED: %s meets corrupted pid\n", __func__);
     fork_context_switch();
-
-    pid_t ret = running_process[cpu_id]->fork_retval;
-
-    /* In the child, take a reference on the server fds inherited from the
-     * parent so they survive either side closing. */
-    if (ret == 0)
-        vfs_server_ref_fds();
-
-    return ret;
+    return running_process[cpu_id]->fork_retval;
 }
 
 void sched_sleep_impl(time_t millis, bool advanced)
