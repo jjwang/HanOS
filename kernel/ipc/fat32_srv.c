@@ -198,6 +198,57 @@ int64_t fat32_read_path(const char *path, uint64_t off, uint64_t len,
     return n;
 }
 
+/* Read one directory entry (0-based) through the server. Returns 0 on success,
+ * -2 at the end of the directory, -1 on error. */
+int64_t fat32_readdir_path(const char *path, uint64_t index, char *name,
+                           uint64_t namesz, uint64_t *size, bool *is_dir)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_READDIR;
+    req.words[0] = index;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (service_forward(SVC_FAT, &req, &rep)) {
+        if ((int64_t) rep.words[0] == 0) {
+            const char *src = (const char *)
+                (PHYS_TO_VIRT(memobj_page(mo, VFS_IO_DATA_OFF / PAGE_SIZE))
+                 + (VFS_IO_DATA_OFF % PAGE_SIZE));
+            uint64_t i = 0;
+
+            while (i + 1 < namesz && src[i] != '\0') {
+                name[i] = src[i];
+                i++;
+            }
+            name[i] = '\0';
+            if (size != NULL)
+                *size = rep.words[1];
+            if (is_dir != NULL)
+                *is_dir = rep.words[2] != 0;
+            rc = 0;
+        } else if ((int64_t) rep.words[0] == -1) {
+            rc = -2;
+        }
+    }
+
+    memobj_unref(mo);
+    return rc;
+}
+
 /* Read a file through the server by moving a buffer memory object to it. */
 static void fat32_probe_read(const char *path)
 {

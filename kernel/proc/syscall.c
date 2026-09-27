@@ -420,13 +420,15 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         klogv("k_openat: cannot get full path for \"%s\"\n", path);
         cpu_set_errno(EINVAL);
         return -1;
-    } else if (strncmp(full_path, "/fat/", 5) == 0 && fat32_server_active()) {
+    } else if ((strcmp(full_path, "/fat") == 0
+                || strncmp(full_path, "/fat/", 5) == 0)
+               && fat32_server_active()) {
         /* /fat is served by the FAT32 server (path relative to the mount). */
-        const char *fpath = full_path + 4;
+        const char *fpath = (full_path[4] == '\0') ? "/" : full_path + 4;
         uint64_t size = 0;
         bool is_dir = false;
 
-        if (fat32_stat_path(fpath, &size, &is_dir) < 0 || is_dir) {
+        if (fat32_stat_path(fpath, &size, &is_dir) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
         }
@@ -932,6 +934,30 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
         return -1;
     }
 
+    if ((strcmp(full_path, "/fat") == 0 || strncmp(full_path, "/fat/", 5) == 0)
+        && fat32_server_active()) {
+        const char *fpath = (full_path[4] == '\0') ? "/" : full_path + 4;
+        vfs_stat_t st;
+        uint64_t size = 0;
+        bool is_dir = false;
+
+        memset(&st, 0, sizeof(st));
+        if (fat32_stat_path(fpath, &size, &is_dir) < 0) {
+            cpu_set_errno(ENOENT);
+            return -1;
+        }
+        st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
+        st.st_nlink = 1;
+        st.st_size = size;
+
+        if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        cpu_set_errno(0);
+        return 0;
+    }
+
     if (service_lookup(SVC_FS) != NULL) {
         vfs_stat_t st;
 
@@ -989,10 +1015,24 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     if (fd != NULL && fd->server) {
         vfs_stat_t st;
 
-        if (vfs_server_stat_path(fd->path, &st) < 0) {
+        memset(&st, 0, sizeof(st));
+
+        if (fd->svc == SVC_FAT) {
+            uint64_t size = 0;
+            bool is_dir = false;
+
+            if (fat32_stat_path(fd->path, &size, &is_dir) < 0) {
+                cpu_set_errno(ENOENT);
+                return -1;
+            }
+            st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
+            st.st_nlink = 1;
+            st.st_size = size;
+        } else if (vfs_server_stat_path(fd->path, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
         }
+
         if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
             cpu_set_errno(EFAULT);
             return -1;
@@ -1219,11 +1259,28 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
     if (fd->server) {
         dirent_t de;
 
-        if (vfs_server_readdir(handle, &de) < 0) {
+        memset(&de, 0, sizeof(de));
+
+        if (fd->svc == SVC_FAT) {
+            char name[256];
+            uint64_t size = 0;
+            bool is_dir = false;
+
+            if (fat32_readdir_path(fd->path, fd->curr_dir_idx, name,
+                                   sizeof(name), &size, &is_dir) != 0) {
+                cpu_set_errno(0);
+                return -1;
+            }
+            de.d_ino = fd->curr_dir_idx + 1;
+            de.d_type = is_dir ? DT_DIR : DT_REG;
+            strncpy(de.d_name, name, sizeof(de.d_name) - 1);
+            fd->curr_dir_idx++;
+        } else if (vfs_server_readdir(handle, &de) < 0) {
             /* End of directory or a server error. */
             cpu_set_errno(0);
             return -1;
         }
+
         if (copy_to_user((void *) buff, &de, sizeof(de)) != 0) {
             cpu_set_errno(EFAULT);
             return -1;

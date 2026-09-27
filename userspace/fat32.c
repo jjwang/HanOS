@@ -302,6 +302,51 @@ static uint64_t read_from(uint32_t cluster, uint64_t off, uint64_t len,
     return done;
 }
 
+/* Look up the index-th real entry of a directory (0-based). */
+static int dir_index(uint32_t dir_cluster, uint64_t index, fat_dirent_t *out)
+{
+    uint32_t cluster = dir_cluster;
+    uint64_t seen = 0;
+
+    while (cluster >= 2) {
+        if (blk_read(cluster_lba(cluster), spc, cluster_buf) != 0)
+            break;
+
+        int entries = (int) spc * SEC / 32;
+        for (int i = 0; i < entries; i++) {
+            fat_dirent_t *e = (fat_dirent_t *) (cluster_buf + i * 32);
+
+            if (e->name[0] == 0x00)
+                return -1;
+            if (e->name[0] == 0xE5 || e->attr == 0x0F || e->name[0] == '.')
+                continue;
+            if (e->attr & 0x08)
+                continue;       /* volume label */
+            if (seen == index) {
+                memcpy(out, e, sizeof(*out));
+                return 0;
+            }
+            seen++;
+        }
+        cluster = fat_next(cluster);
+    }
+    return -1;
+}
+
+static void fmt_83(const uint8_t name[11], char *out)
+{
+    int o = 0;
+
+    for (int i = 0; i < 8 && name[i] != ' '; i++)
+        out[o++] = (char) name[i];
+    if (name[8] != ' ') {
+        out[o++] = '.';
+        for (int i = 8; i < 11 && name[i] != ' '; i++)
+            out[o++] = (char) name[i];
+    }
+    out[o] = '\0';
+}
+
 static int mount(void)
 {
     uint8_t sec[SEC];
@@ -337,7 +382,7 @@ static int mount(void)
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
-    if (m->tag != FAT_READ && m->tag != FAT_STAT) {
+    if (m->tag != FAT_READ && m->tag != FAT_STAT && m->tag != FAT_READDIR) {
         rep->words[0] = (uint64_t) (int64_t) -38;
         return;
     }
@@ -382,6 +427,19 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[0] = 0;
         rep->words[1] = size;
         rep->words[2] = is_dir ? 1 : 0;
+    } else if (m->tag == FAT_READDIR) {
+        fat_dirent_t e;
+
+        if (!is_dir) {
+            rep->words[0] = (uint64_t) (int64_t) -2;
+        } else if (dir_index(cluster, m->words[0], &e) != 0) {
+            rep->words[0] = (uint64_t) (int64_t) -1;    /* end of directory */
+        } else {
+            fmt_83(e.name, (char *) (buf + FAT_DATA_OFF));
+            rep->words[0] = 0;
+            rep->words[1] = e.size;
+            rep->words[2] = (e.attr & 0x10) ? 1 : 0;
+        }
     } else if (is_dir) {
         rep->words[0] = (uint64_t) (int64_t) -2;
     } else {

@@ -79,6 +79,9 @@
  * file to VFS_IO_DATA_OFF and replies words[1]=bytes, words[2]=file size. */
 #define FAT_READ            0x70        /* words[0]=offset, words[1]=len */
 #define FAT_STAT            0x71        /* out: words[1]=size, words[2]=is_dir */
+#define FAT_READDIR         0x72        /* words[0]=index; out: -1 at end, else
+                                           words[1]=size, words[2]=is_dir and
+                                           the name at VFS_IO_DATA_OFF */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */
