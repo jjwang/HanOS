@@ -31,6 +31,7 @@
 #include <base/hash.h>
 #include <base/kmalloc.h>
 #include <mm/memobj.h>
+#include <mm/ipc_buf.h>
 #include <mm/mm.h>
 #include <ipc/object.h>
 #include <service/service.h>
@@ -272,6 +273,8 @@ uint64_t vfs_tell(vfs_handle_t handle)
     if (!fd) {
         kloge("VFS: cannot get fd for file %ld\n", handle);
         return 0;
+    } else if (fd->server) {
+        return fd->server_size;
     } else {
         vfs_inode_t *inode = fd->inode;
         return inode->size;
@@ -556,8 +559,21 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
         return 0;
     }
 
-    if (fd->server)
-        return vfs_server_read(fd->server_fd, len, buff);
+    if (fd->server) {
+        /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a
+         * caller asking for the whole file (e.g. the ELF loader) gets it. */
+        uint64_t done = 0;
+
+        while (done < len) {
+            int64_t n = vfs_server_read(fd->server_fd, len - done,
+                                        (uint8_t *) buff + done);
+
+            if (n <= 0)
+                break;
+            done += (uint64_t) n;
+        }
+        return (int64_t) done;
+    }
 
     spinlock_acquire(&vfs_lock);
 
@@ -862,7 +878,7 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 }
 
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
-                             vfs_openmode_t mode)
+                             vfs_openmode_t mode, uint64_t size)
 {
     spinlock_acquire(&vfs_lock);
 
@@ -878,6 +894,7 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
     fd->mode = mode;
     fd->server = true;
     fd->server_fd = server_fd;
+    fd->server_size = size;
 
     vfs_handle_t fh = vfs_next_handle++;
 
@@ -887,6 +904,38 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
 
     spinlock_release(&vfs_lock);
     return fh;
+}
+
+/* Open a path through the userspace server when it is registered. The server
+ * returns the size in words[2] so vfs_tell() works without a stat. */
+static vfs_handle_t vfs_open_via_server(const char *path, vfs_openmode_t mode)
+{
+    handle_t ph;
+
+    if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) != 0)
+        return VFS_INVALID_HANDLE;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_OPENAT;
+    req.words[0] = (uint64_t) ((mode == VFS_MODE_READ) ? 2 : 1);
+    req.xfer[0] = ph;
+    req.xfer_count = 1;
+
+    if (!service_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return VFS_INVALID_HANDLE;
+
+    return vfs_open_server((int64_t) rep.words[1], path, mode, rep.words[2]);
+}
+
+vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode)
+{
+    if (service_lookup(SVC_FS) != NULL)
+        return vfs_open_via_server(path, mode);
+
+    return vfs_open((char *) path, mode);
 }
 
 int64_t vfs_close(vfs_handle_t handle)

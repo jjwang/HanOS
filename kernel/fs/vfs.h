@@ -235,6 +235,7 @@ typedef struct {
      * there; server_fd is the descriptor the server returned. */
     bool server;
     int64_t server_fd;
+    uint64_t server_size;       /* file size reported by the server on open */
 } vfs_node_desc_t;
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
@@ -248,7 +249,11 @@ vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
 
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
-                             vfs_openmode_t mode);
+                             vfs_openmode_t mode, uint64_t size);
+
+/* Open a path, through the userspace server when it is registered and through
+ * the in-kernel VFS otherwise. */
+vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode);
 
 /* Server-backed stat/readdir, used by the syscall layer. `out` is a kernel
  * buffer (vfs_stat_t or dirent_t). */

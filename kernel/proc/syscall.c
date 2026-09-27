@@ -450,7 +450,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
             smode = VFS_MODE_WRITE;
 
         vfs_handle_t sfh =
-            vfs_open_server((int64_t) rep.words[1], full_path, smode);
+            vfs_open_server((int64_t) rep.words[1], full_path, smode, rep.words[2]);
         if (sfh == VFS_INVALID_HANDLE) {
             cpu_set_errno(ENOMEM);
             return -1;

@@ -77,7 +77,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
 
     const char *fn = path_name;
     /* TODO: Need to review const description */
-    vfs_handle_t f = vfs_open((char *) fn, VFS_MODE_READ);
+    vfs_handle_t f = vfs_open_routed(fn, VFS_MODE_READ);
     if (f != VFS_INVALID_HANDLE) {
         elf_len = vfs_tell(f);
         elf_buff = (uint8_t *) kmalloc_chunk(elf_len, __func__, __LINE__);

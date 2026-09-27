@@ -162,7 +162,7 @@ void vfs_server_probe(void)
             if (service_forward(SVC_FS, &req, &or)
                 && (int64_t) or.words[0] == 0) {
                 vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ);
+                                                  VFS_MODE_READ, or.words[2]);
                 unsigned char buf[64] = { 0 };
                 int64_t n = (fh != VFS_INVALID_HANDLE)
                     ? vfs_read(fh, sizeof(buf), buf) : -1;
@@ -206,7 +206,7 @@ void vfs_server_probe(void)
             if (service_forward(SVC_FS, &req, &or)
                 && (int64_t) or.words[0] == 0) {
                 vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ);
+                                                  VFS_MODE_READ, or.words[2]);
                 dirent_t de;
                 int cnt = 0;
 
@@ -237,7 +237,7 @@ void vfs_server_probe(void)
             if (service_forward(SVC_FS, &req, &or)
                 && (int64_t) or.words[0] == 0) {
                 vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ);
+                                                  VFS_MODE_READ, or.words[2]);
                 unsigned char b[4] = { 0 };
 
                 vfs_seek(fh, 1, SEEK_SET);
