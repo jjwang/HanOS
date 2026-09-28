@@ -117,7 +117,7 @@ static process_t *sched_find_process(pid_t pid)
 
 _Noreturn void process_idle(pid_t pid)
 {
-    /* TODO: need to check why there will be #PF exception without sleeping. */
+    /* TODO: Need to find out why a #PF occurs without sleeping. */
     //hpet_sleep(100);
 
     /* Need to determine the root cause why we need sleep here on SMP.

@@ -9,10 +9,9 @@
   HanOS kernel. It includes declarations for initializing the log system, 
   printing log messages at various levels, and managing log buffers.
 
-  TODO: Need to separate kprintf() from klog module since it will cause dead
-        lock when multiple lockers work at the same time.
-
  @endverbatim
+ @todo    Separate kprintf() from klog; keeping them together can deadlock
+          when several lockers log at the same time.
 
  **-----------------------------------------------------------------------------
  */

@@ -322,7 +322,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     uint64_t ptr = (uint64_t) hint;
     uint64_t np = NUM_PAGES(length);
 
-    /* TODO: How to handle the first information page???  */
+    /* TODO: How to handle the first information page? */
 
     /* Unmap before mapping to a new malloc-ed memory block */
     if (ptr != (uint64_t) NULL)
@@ -911,7 +911,7 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 
     /* This can return error code for bash's error message: cannot set
      * terminal process group
-     * TODO: Need to consider how to support this?
+     * TODO: Need to consider how to support this.
      */
     cpu_set_errno(EINVAL);
     return -1;
@@ -1056,7 +1056,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
     }
 }
 
-/* TODO: Currently skip the parameter - flags */
+/* TODO: Currently ignoring the flags parameter. */
 int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
                     uint64_t flags)
 {
@@ -1166,7 +1166,7 @@ int64_t k_chdir(char *dir)
     }
     dir = kdir;
 
-    /* TODO: Need to add bound check */
+    /* TODO: Need to add a bounds check. */
     while (*dir == ' ') {
         dir++;
     }
@@ -1823,7 +1823,7 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
     return 0;
 }
 
-/* TODO: need to add futex implementation */
+/* TODO: Need to add a futex implementation. */
 int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
 {
     int64_t val = 0;

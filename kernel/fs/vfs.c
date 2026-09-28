@@ -1067,9 +1067,7 @@ int64_t vfs_close(vfs_handle_t handle)
     if (!fd)
         goto fail;
 
-    /* TODO: We should use the corresponding implemention in each driver
-     * to replace this urgly code block.
-     */
+    /* TODO: Use each driver's own implementation instead of this ugly block. */
     if (strcmp(fd->path, "/dev/tty") == 0)
         istty = true;
     if (strncmp(fd->path, "/dev/pipe", 9) == 0) {

@@ -188,8 +188,8 @@ _Noreturn void kshell(pid_t pid)
     (void) pid;
 
     /* If we want to trigger an exception, uncomment below code */
-    /* TODO: note that below codes cannot print exception messages. We need to
-     * find out the reason.
+    /* TODO: Note that the code below cannot print exception messages; find
+     * out why.
      */
     if (false) {
         int y = 0, x = 128, z;

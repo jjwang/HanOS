@@ -332,7 +332,7 @@ void vmm_init(struct limine_memmap_response *map,
      * But we also open this memory region map to resolve #PF exception when
      * booting from UEFI mode.
      *
-     * TODO: need to locate the root cause of UEFI booting issue.
+     * TODO: Need to locate the root cause of the UEFI booting issue.
      *
      */
     uint64_t np = NUM_PAGES(kmem_info.phys_limit);

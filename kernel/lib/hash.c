@@ -80,7 +80,7 @@ bool ht_insert_core(ht_t * ht, int64_t key, void *data, bool allow_realloc)
 
         /* At most loop the table twice */
         if (++loop_count >= ht->size * 2) {
-            /* TODO: we should increase the hash table size here */
+            /* TODO: Increase the hash table size here. */
             if (allow_realloc) {
             }
             kpanic("hash: current size %d is not enough\n", ht->size);

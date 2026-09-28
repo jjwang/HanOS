@@ -151,7 +151,7 @@ void ramfs_init(void *address, uint64_t size)
             if (debug_info) {
                 klogi("RAMFS: folder \"%s\"\n", file->name);
             }
-            /* TODO: modify folder's datetime related attribute */
+            /* TODO: Modify the folder's datetime-related attributes. */
         } else if (ustar_type_to_vfs_type(file->type) == VFS_NODE_FILE
                    || ustar_type_to_vfs_type(file->type) ==
                    VFS_NODE_SYMLINK) {

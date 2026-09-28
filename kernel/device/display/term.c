@@ -500,8 +500,8 @@ void term_putch(uint8_t c)
 
     if ((c & 0x80) && term_act->skip_left == 0
         && term_act->state == STATE_IDLE) {
-        /* TODO: currently we do not display utf-8 string. But in the future
-         * we should support utf-8 string.
+        /* TODO: Currently we do not display UTF-8 strings; add support in the
+         * future.
          */
         if (c & 0xF0) {
             term_act->skip_left = 2;

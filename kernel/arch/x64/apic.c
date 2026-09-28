@@ -45,7 +45,7 @@ volatile void *lapic_base = NULL;
  *
  * @param offset The offset of the register to read.
  *
- * @returns The value of the register.
+ * @return The value of the register.
  */
 uint32_t apic_read_reg(uint16_t offset)
 {
@@ -59,7 +59,7 @@ uint32_t apic_read_reg(uint16_t offset)
  * @param offset The offset of the register.
  * @param val The value to write to the register.
  *
- * @returns None
+ * @return None
  */
 void apic_write_reg(uint16_t offset, uint32_t val)
 {
@@ -70,7 +70,7 @@ void apic_write_reg(uint16_t offset, uint32_t val)
  * Sends an End of Interrupt (EOI) signal to the Advanced Programmable Interrupt
  * Controller (APIC).
  *
- * @returns None
+ * @return None
  */
 void apic_send_eoi()
 {
@@ -84,7 +84,7 @@ void apic_send_eoi()
  * @param vector The interrupt vector number.
  * @param mtype The message type for the IPI.
  *
- * @returns None
+ * @return None
  */
 void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
 {
@@ -100,7 +100,7 @@ void apic_send_ipi(uint8_t dest, uint8_t vector, uint32_t mtype)
  * of the APIC, enabling it and setting the interrupt vector number to the
  * APIC_SPURIOUS_VECTOR_NUM constant.
  *
- * @returns None
+ * @return None
  */
 void apic_enable()
 {
@@ -113,7 +113,7 @@ void apic_enable()
  * This function checks if the CPU supports APIC, maps the local APIC base
  * address, enables the APIC, and logs the APIC version.
  *
- * @returns None
+ * @return None
  */
 void apic_init()
 {
