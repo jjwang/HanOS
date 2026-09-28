@@ -46,7 +46,6 @@
 #include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
-#include <fs/ttyfs.h>
 #include <device/keyboard/keyboard.h>
 #include <device/display/term.h>
 #include <device/display/gfx.h>
@@ -777,18 +776,8 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
             klogd("k_read: read from handle %ld instead of %ld"
                   " and return %ld bytes\n", oldfh, fh, ret);
             return ret;
-        } else {
-            if (tty_server_active())
-                return tty_server_read(buf, count);
-            vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
-            if (ttyfh != VFS_INVALID_HANDLE) {
-                int64_t len = vfs_read(ttyfh, count, buf);
-                vfs_close(ttyfh);
-                return len;
-            }
         }
-        cpu_set_errno(EINVAL);
-        return -1;
+        return tty_server_read(buf, count);
     } else if (fh >= VFS_MIN_HANDLE) {
         int64_t len = vfs_read(fh, count, buf);
         klogd
@@ -800,9 +789,6 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
         return -1;
     }
 }
-
-static pid_t last_write_pid = 0;
-static uint64_t last_write_nanos = 0;
 
 int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 {
@@ -840,41 +826,8 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
                   count, oldfh, fh);
             int64_t ret = vfs_write(oldfh, count, buf);
             return ret;
-        } else {
-            if (tty_server_active())
-                return tty_server_write(buf, count);
-            if (debug_info) {
-                for (uint64_t i = 0; i < count; i++) {
-                    char c = ((char *) buf)[i];
-                    if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')
-                        || (c >= 'A' && c <= 'Z') || c == '[') {
-                        klogd("k_write: write [%c]\n", c);
-                    } else {
-                        klogd("k_write: write [0x%02x]\n", c);
-                    }
-                }
-            }
-
-            if (last_write_pid != t->pid && last_write_nanos != 0) {
-                while (hpet_get_nanos() - last_write_nanos
-                       <= MILLIS_TO_NANOS(250)) {
-                    sched_sleep(100);
-                }
-            }
-
-            spinlock_acquire(&vfs_lock);
-            last_write_pid = t->pid;
-            last_write_nanos = hpet_get_nanos();
-            spinlock_release(&vfs_lock);
-
-            vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
-            if (ttyfh != VFS_INVALID_HANDLE) {
-                int64_t len = vfs_write(ttyfh, count, buf);
-                vfs_close(ttyfh);
-                return len;
-            }
-            return 0;
         }
+        return tty_server_write(buf, count);
     }
 
     if (fh < 3) {
@@ -898,21 +851,11 @@ void k_set_fs_base(uint64_t val)
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
-    cpu_set_errno(0);
+    (void) fd;
+    (void) request;
+    (void) arg;
 
-    if (fd == STDIN || fd == STDOUT || fd == STDERR) {
-        vfs_handle_t ttyfh = vfs_open("/dev/tty", VFS_MODE_READWRITE);
-        if (ttyfh != VFS_INVALID_HANDLE) {
-            int64_t ret = vfs_ioctl(ttyfh, request, arg);
-            vfs_close(ttyfh);
-            return ret;
-        }
-    }
-
-    /* This can return error code for bash's error message: cannot set
-     * terminal process group
-     * TODO: Need to consider how to support this.
-     */
+    /* The userspace tty server does not implement terminal ioctls yet. */
     cpu_set_errno(EINVAL);
     return -1;
 }
@@ -1406,29 +1349,8 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
         return 0;
     }
 
-    char path[VFS_MAX_PATH_LEN] = { 0 };
-    strcpy(path, "/dev/pipe/");
-
-    uint64_t len = strlen(path);
-    itoa(rand(sched_get_ticks() % 1000, 1, 1000),
-         &path[len], VFS_MAX_PATH_LEN - len - 1, 10);
-
-    vfs_create(path, VFS_NODE_CHAR_DEVICE);
-
-    /* fh[0] is the reading port, fh[1] is the writing port */
-    int32_t kfh[2];
-    kfh[0] = vfs_open(path, VFS_MODE_READ);
-    kfh[1] = vfs_open(path, VFS_MODE_WRITE);
-
-    if (fh == NULL || copy_to_user(fh, kfh, sizeof(kfh)) != 0) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-
-    klogi("k_pipe: return reading port %ld and writing port %ld\n", kfh[0],
-          kfh[1]);
-
-    return 0;
+    /* Pipes are only served from userspace. */
+    cpu_set_errno(ENOSYS);
 
   err_exit:
     return -1;

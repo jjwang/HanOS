@@ -43,10 +43,7 @@
 
 /* Internal sentinel: the pipe server would block; the caller retries. */
 #define VFS_IO_AGAIN        (-2)
-#include <fs/fat32.h>
 #include <fs/ramfs.h>
-#include <fs/ttyfs.h>
-#include <fs/pipefs.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
 #include <lib/kmalloc.h>
@@ -136,11 +133,9 @@ void vfs_init()
     vfs_root.st.st_mode |= S_IFDIR;
     vfs_root.st.st_nlink = 1;
 
-    /* Register all file systems which will be used */
-    vfs_register_fs(&fat32);
+    /* Only ramfs (the initrd) stays in the kernel, to bootstrap the userspace
+     * servers. FAT32, pipes and the tty are served from user space. */
     vfs_register_fs(&ramfs);
-    vfs_register_fs(&ttyfs);
-    vfs_register_fs(&pipefs);
 
     /* Mount RAMFS without device name (NULL) */
     vfs_mount(NULL, "/", "ramfs");
@@ -148,14 +143,6 @@ void vfs_init()
     /* Create directory for mounting devices in the future */
     vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
     vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
-
-    /* Mount TTYFS with device name "/dev/tty" */
-    vfs_path_to_node("/dev/tty", CREATE, VFS_NODE_FOLDER);
-    vfs_mount("tty", "/dev/tty", "ttyfs");
-
-    /* Mount PIPEFS with device name "/dev/pipe" */
-    vfs_path_to_node("/dev/pipe", CREATE, VFS_NODE_FOLDER);
-    vfs_mount("pipe", "/dev/pipe", "pipefs");
 
     klogi("VFS initialization finished\n");
 }
@@ -671,13 +658,8 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
 
     vfs_inode_t *inode = fd->inode;
 
-    /*
-     * 1. Truncate if asking for more data than available
-     * 2. Return directly if remaining length is zero except tty device
-     */
-    if (fd->seek_pos + len > inode->size
-        && strcmp(fd->inode->fs->name, "ttyfs") != 0
-        && strcmp(fd->inode->fs->name, "pipefs") != 0) {
+    /* Truncate if asking for more data than available. */
+    if (fd->seek_pos + len > inode->size) {
         len = inode->size - fd->seek_pos;
         if (len == 0)
             goto end;

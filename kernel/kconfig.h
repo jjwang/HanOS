@@ -31,17 +31,8 @@
 /* Spawn the userspace console server and forward terminal output to it. */
 #define ENABLE_CONSOLE_SERVER   true
 
-/* Spawn the userspace ATA block server (block server). */
-#define ENABLE_BLOCK_SERVER     true
-
-/* Master switch for the userspace file servers (VFS, pipe, tty and FAT32).
- * When off, the in-kernel VFS, ttyfs and pipefs implementations are used. */
-#define ENABLE_FS_SERVERS       true
-
-#define ENABLE_VFS_SERVER       (ENABLE_FS_SERVERS)
-#define ENABLE_PIPE_SERVER      (ENABLE_FS_SERVERS)
-#define ENABLE_TTY_SERVER       (ENABLE_FS_SERVERS)
-#define ENABLE_FAT32_SERVER     (ENABLE_FS_SERVERS)
+/* The block and file servers (block, VFS, pipe, tty, FAT32) always run in
+ * userspace; there is no in-kernel fallback any more. */
 
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */

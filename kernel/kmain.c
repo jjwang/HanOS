@@ -63,7 +63,6 @@
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
 #include <device/keyboard/keyboard.h>
-#include <device/storage/ata.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <proc/notify.h>
@@ -73,8 +72,6 @@
 #include <fs/vfs.h>
 #include <fs/filebase.h>
 #include <fs/ramfs.h>
-#include <fs/ttyfs.h>
-#include <fs/pipefs.h>
 #include <proc/elf.h>
 
 LIMINE_BASE_REVISION(1)
@@ -197,15 +194,10 @@ _Noreturn void kshell(pid_t pid)
         klogi("kshell: 128 / 0 = %ld\n", z);
     }
 
-    ttyfs_init();
-    pipefs_init();
-
 #if ENABLE_CONSOLE_SERVER
     if (!console_server_start())
         klogw("console: server failed to start, using in-kernel terminal\n");
 #endif
-
-    ata_init();
 
 #if 0                           /* Do not show desktop bitmap to speed up */
     image_t image;
@@ -248,38 +240,26 @@ _Noreturn void kshell(pid_t pid)
     /* Start all programs. Boot order: console -> input -> tty -> block ->
      * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
      * console endpoint, fat32 on the block server) is up first. */
-#if ENABLE_INPUT_SERVER
     if (!input_server_start())
         klogw("input: server failed to start, using in-kernel keyboard\n");
-#endif
-#if ENABLE_TTY_SERVER
     if (!tty_server_start())
-        klogw("tty: server failed to start, using in-kernel tty\n");
-#endif
-#if ENABLE_BLOCK_SERVER
+        klogw("tty: server failed to start\n");
     if (!block_server_start())
-        klogw("block: server failed to start, using in-kernel ATA\n");
+        klogw("block: server failed to start\n");
     else
         block_server_probe();
-#endif
-#if ENABLE_FAT32_SERVER
     if (!block_server_active())
         klogw("fat32: no block server, skipping\n");
     else if (!fat32_server_start())
         klogw("fat32: server failed to start\n");
     else
         fat32_server_probe();
-#endif
-#if ENABLE_VFS_SERVER
     if (!vfs_server_start())
-        klogw("vfs: server failed to start, using in-kernel FS\n");
+        klogw("vfs: server failed to start\n");
     else
         vfs_server_probe();
-#endif
-#if ENABLE_PIPE_SERVER
     if (!pipe_server_start())
-        klogw("pipe: server failed to start, using in-kernel pipefs\n");
-#endif
+        klogw("pipe: server failed to start\n");
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {
