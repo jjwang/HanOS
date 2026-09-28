@@ -231,30 +231,26 @@ void do_context_switch(void *stack, int64_t mode)
     process_t *next = NULL;
     int64_t queue_len = vec_length(&run_queues[cpu_id]);
 
-    /* Prefer runnable processes and only fall back to a process whose sleep has
-     * expired when no ready process exists. Otherwise a process that performs
-     * sched_sleep(0) as a yield can starve ready processes queued behind it
-     * (e.g. a process dispatched to this core by another core).
-     */
+    /* Promote sleepers whose timer has expired to ready, so they compete for
+     * the core like any other runnable process. Picking an expired sleeper only
+     * when nothing else is ready lets a perpetually runnable process (a server
+     * polling loop, the UI thread) starve timed sleepers indefinitely. */
+    for (int64_t i = 0; i < queue_len; i++) {
+        process_t *t = vec_at(&run_queues[cpu_id], i);
+        if (t->status == PROC_SLEEPING
+            && t->wakeup_time > 0
+            && hpet_get_nanos() >= t->wakeup_time) {
+            t->status = PROC_READY;
+            t->wakeup_time = 0;
+        }
+    }
+
     for (int64_t i = 0; i < queue_len; i++) {
         process_t *t = vec_at(&run_queues[cpu_id], i);
         if (t->status == PROC_READY) {
             next = t;
             vec_erase(&run_queues[cpu_id], i);
             break;
-        }
-    }
-
-    if (next == NULL) {
-        for (int64_t i = 0; i < queue_len; i++) {
-            process_t *t = vec_at(&run_queues[cpu_id], i);
-            if (t->status == PROC_SLEEPING
-                && t->wakeup_time > 0
-                && hpet_get_nanos() >= t->wakeup_time) {
-                next = t;
-                vec_erase(&run_queues[cpu_id], i);
-                break;
-            }
         }
     }
 
