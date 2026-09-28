@@ -7,3 +7,7 @@ cdrom.iso
 initrd.tar
 kernel/_symbols.*
 release/hdd.img
+
+# Doxygen output
+html/
+latex/
