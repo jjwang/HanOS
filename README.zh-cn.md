@@ -7,37 +7,38 @@
 [![Codacy
 Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-## 设计思想
+HanOS 是一个用 C 从零写起的 x86-64 操作系统。它是个个人项目，最初是个经典的单体内核，现在正一步步往混合微内核方向改：文件系统、管道、终端、块设备驱动都已经跑在用户态的服务进程里，靠一个自己写的小 IPC 层互相通信。
 
-- Bootloader：Limine用于使内核尽快运行，HanOS选择了Limine启动协议
-- CPU模式：HanOS支持x86-64长模式，HanOS没有计划支持其他x86模式
-- GUI：GUI不是HanOS的首要任务，但HanOS将来会移植一些GUI库
+目前已经能用的东西：
 
-## 当前进展
-- [x] 基于帧缓冲的终端和内核日志系统
-- [x] 初始化GDT和IDT以处理异常
-- [x] 物理内存分配器和虚拟内存管理器
-- [x] 解析ACPI表并初始化MADT
-- [x] 启动所有CPU
-- [x] 设置APIC（高级可编程中断控制器）中断控制器
-- [x] 从CMOS读取RTC时间并配置HPET计时器
-- [x] 由APIC计时器驱动调度
-- [x] 键盘/鼠标驱动程序和命令行界面
-- [x] VFS、FAT32和RAMFS文件系统，RAMFS用于从ELF文件加载和执行程序
-- [x] 内核和用户空间的任务
-- [x] 用于命令行界面的背景图像显示
-- [x] 为bash和其他系统工具实现系统调用
-- [x] 从xv6移植的简单的用户空间shell应用程序
+- 用 Limine 引导进入长模式，支持 SMP、APIC 定时器调度、HPET 和 RTC。
+- 帧缓冲终端（由用户态的 console 服务绘制）和内核日志。
+- 虚拟内存（buddy/slab/bitmap 分配器）和可共享的内存对象。
+- PS/2 键盘、鼠标，以及 USB HID 指针（用来画硬件光标）。
+- VFS，带一个 initrd 支撑的 ramfs 和一个只读 FAT32 驱动（FAT32 服务通过用户态的块服务读盘）。
+- 用户态 shell，带 ls、cat、wc、pwd、rm、echo 这些常用小命令。
 
-## 字体选用
-- 使用bdf2psf将来自https://font.gohu.org/的14px字体转换为psf1：
+## 构建
 
-`bdf2psf gohufont-14.bdf /usr/share/bdf2psf/standard.equivalents /usr/share/bdf2psf/ascii.set 256 gohufont-14.psf`
+需要 `x86_64-elf` 交叉工具链、`nasm` 和 `xorriso`。先拉一下 Limine，再构建和运行：
 
-- 在根目录下运行"doxygen Doxygen"，然后在latex目录运行"make"生成项目PDF文档
+```
+make limine
+make            # 生成 cdrom.iso
+make run        # 用 QEMU 启动
+make run-uefi   # UEFI 方式启动（会先下载 OVMF）
+```
 
-## 如何运行
-- 发布文件夹中的磁盘映像文件 - "hdd.img" 可用于测试：
+`make run-hdd` 会生成一张 FAT 格式的磁盘镜像并从它启动（需要 `mtools` 和 `sgdisk`）。
 
-`qemu-system-x86_64 -enable-kvm -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
+## 目录结构
 
+```
+kernel/     内核本身（arch/x64、mm、proc、fs、ipc、router、srv）
+userspace/  用户态程序：servers/、bin/、test/
+libc/       一个内核和用户态共用的小 C 库
+```
+
+## 文档
+
+`doxygen Doxyfile` 生成 HTML 文档，推送时会由 GitHub Action 自动发布到 GitHub Pages。

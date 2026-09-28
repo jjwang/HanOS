@@ -7,37 +7,45 @@
 [![Codacy
 Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-## Design as below
+HanOS is an operating system for x86-64, written from scratch in C. It's a
+hobby project that started as a classic monolith and is gradually turning into
+a hybrid microkernel: the filesystem, pipes, terminal and block driver already
+run as userspace servers and talk to each other over a small IPC layer.
 
-- Bootloader: Limine is used to get the kernel running as quickly possible. Limine boot protocol is chosed by HanOS.
-- CPU mode: x86-64 Long Mode is supported in HanOS. HanOS does not has plan to support other x86 modes. 
-- GUI: GUI will not be the 1st priority for HanOS. But HanOS will port some GUI libraries in the future.
+So far it has:
 
-## Progress update
-- [x] Framebuffer based terminal and kernel log system
-- [x] Initialize GDT and IDT to handle exceptions
-- [x] Physical memory allocator and virtual memory manager
-- [x] Parse ACPI tables and initialize MADT
-- [x] Start up all CPUs
-- [x] Set up APIC(Advanced Programmable Interrupt Controller) interrupt controller
-- [x] Read RTC time from CMOS and configure HPET timer
-- [x] Scheduling driven by APIC timer
-- [x] Keyboard/mouse driver and command line interface
-- [x] VFS, FAT32 and RAMFS file system. RAMFS is for loading and executing program from ELF file
-- [x] Tasks of kernel and user space
-- [x] Background image display for command line interface
-- [x] Implement syscalls for bash and other system tools
-- [x] Simple userspace shell apps ported from xv6
+- Limine boot into long mode, SMP, an APIC-timer scheduler, HPET and RTC.
+- A framebuffer terminal (drawn by a userspace console server) and a kernel log.
+- Virtual memory (buddy/slab/bitmap allocators) and shareable memory objects.
+- PS/2 keyboard and mouse, plus USB HID pointer support for the hardware cursor.
+- A VFS with an initrd-backed ramfs and a read-only FAT32 driver (the FAT32
+  server reads the disk through a userspace block server).
+- A userspace shell with the usual small commands: ls, cat, wc, pwd, rm, echo.
 
-## Fonts
-- Adopted 14px fonts from https://font.gohu.org/ and convert to psf1 using bdf2psf.
+## Building
 
-`bdf2psf gohufont-14.bdf /usr/share/bdf2psf/standard.equivalents /usr/share/bdf2psf/ascii.set 256 gohufont-14.psf`
+You'll need an `x86_64-elf` cross toolchain, `nasm` and `xorriso`. Clone Limine
+first, then build and run:
 
-## How to run
-- The disk image file - "hdd.img" in release folder can be used for test.
+```
+make limine
+make            # builds cdrom.iso
+make run        # boots it in QEMU
+make run-uefi   # boots under UEFI (downloads OVMF first)
+```
 
-`qemu-system-x86_64 -enable-kvm -serial stdio -M q35 -m 1G -smp 2 -no-reboot -rtc base=localtime -drive id=handisk,if=ide,format=raw,bus=0,unit=0,file=hdd.img`
+`make run-hdd` builds a FAT-formatted disk image and boots from it instead
+(needs `mtools` and `sgdisk`).
 
-- Execute "doxygen Doxygen" in root folder and "make" in "latex" folder to generate manual.pdf. 
+## Layout
 
+```
+kernel/     the kernel itself (arch/x64, mm, proc, fs, ipc, router, srv)
+userspace/  the programs: servers/, bin/, test/
+libc/       a small C library shared by the kernel and userspace
+```
+
+## Documentation
+
+`doxygen Doxyfile` generates the HTML docs, and a GitHub Action publishes them
+to GitHub Pages on every push to `mainline`.
