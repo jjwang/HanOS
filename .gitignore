@@ -1,0 +1,9 @@
+# Build artifacts (never committed)
+*.o
+*.d
+kernel/hanos.elf
+kernel/hanos.sym
+cdrom.iso
+initrd.tar
+kernel/_symbols.*
+release/hdd.img
