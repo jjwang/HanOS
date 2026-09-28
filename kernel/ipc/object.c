@@ -2,6 +2,14 @@
 
  @file    object.c
  @brief   Implementation of the kernel object and handle model
+ @details
+ @verbatim
+
+  Kernel objects (endpoints, memory objects) are refcounted units exposed to
+  user space through per-process handle tables. Handles carry access rights
+  and a generation, so a recycled slot cannot alias a stale handle.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

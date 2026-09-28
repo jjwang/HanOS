@@ -2,6 +2,13 @@
 
  @file    ipc_buf.c
  @brief   Implementation of bulk-transfer helpers
+ @details
+ @verbatim
+
+  Moves a path or a chunk of data between the kernel and a server inside a
+  memory object, so a server never dereferences a client's pointers.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

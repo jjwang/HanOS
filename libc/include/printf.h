@@ -4,6 +4,13 @@
 
  @file    printf.h
  @brief   printf, sprintf and snprintf declarations (third-party)
+ @details
+ @verbatim
+
+  Declarations for the tiny third-party printf family (Marco Paland); see the
+  license header below.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

@@ -2,6 +2,12 @@
 
  @file    pipe_srv.h
  @brief   Spawn the userspace pipe server
+ @details
+ @verbatim
+
+  Declares the pipe server spawn/status helpers.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

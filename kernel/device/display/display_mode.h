@@ -2,6 +2,13 @@
 
  @file    display_mode.h
  @brief   Display timing model derived from EDID or the current framebuffer
+ @details
+ @verbatim
+
+  Defines the display mode structure and the accessor for the mode the
+  firmware booted with.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

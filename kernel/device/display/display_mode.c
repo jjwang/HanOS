@@ -2,6 +2,13 @@
 
  @file    display_mode.c
  @brief   Display timing model derived from EDID or the current framebuffer
+ @details
+ @verbatim
+
+  Keeps a copy of the mode the firmware booted with so other code can query
+  the panel timing without re-parsing EDID.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

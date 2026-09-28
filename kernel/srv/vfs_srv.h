@@ -2,6 +2,12 @@
 
  @file    vfs_srv.h
  @brief   Spawn the userspace VFS server and register it with the router
+ @details
+ @verbatim
+
+  Declares the VFS server spawn/status helpers.
+
+ @endverbatim
  **-----------------------------------------------------------------------------
  */
 #pragma once

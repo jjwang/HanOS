@@ -2,6 +2,13 @@
 
  @file    tty_srv.h
  @brief   Spawn the userspace tty server
+ @details
+ @verbatim
+
+  Declares the tty server spawn/status helpers and the kernel-side
+  read/write/deliver-key clients used to route /dev/tty traffic.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

@@ -2,6 +2,14 @@
 
  @file    irq.c
  @brief   Implementation of IRQ objects and delivery
+ @details
+ @verbatim
+
+  An IRQ object binds an interrupt line to an endpoint; when the line fires,
+  the handler sends a notification message to that endpoint so a userspace
+  driver can service the interrupt.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

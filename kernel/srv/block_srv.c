@@ -2,6 +2,14 @@
 
  @file    block_srv.c
  @brief   Spawn the userspace block server
+ @details
+ @verbatim
+
+  Creates the service endpoint, grants the ATA I/O ports and spawns
+  /bin/block; the probe does a boot-time BLOCK_GET_INFO/READ/WRITE round
+  trip.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

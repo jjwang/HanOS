@@ -2,6 +2,13 @@
 
  @file    fat32_srv.h
  @brief   Spawn the userspace FAT32 server
+ @details
+ @verbatim
+
+  Declares the FAT32 server spawn/status helpers and the kernel-side
+  stat/read/readdir clients used by the /fat path routing.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

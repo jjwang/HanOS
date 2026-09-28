@@ -2,6 +2,13 @@
 
  @file    vfs_srv.c
  @brief   Spawn the userspace VFS server
+ @details
+ @verbatim
+
+  Creates the service endpoint, maps the initrd into the server, spawns
+  /bin/vfs, registers it with the router as SVC_FS and runs the boot probe.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

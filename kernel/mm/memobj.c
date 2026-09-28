@@ -2,6 +2,14 @@
 
  @file    memobj.c
  @brief   Implementation of shareable memory objects
+ @details
+ @verbatim
+
+  A memory object is a page-backed, refcounted unit shared between processes;
+  it backs IPC bulk transfers and user mmap, and is destroyed when its last
+  reference goes away.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

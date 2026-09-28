@@ -2,6 +2,14 @@
 
  @file    notify.c
  @brief   Implementation of the generic notification primitive
+ @details
+ @verbatim
+
+  A publish/subscribe key: a process subscribes to an event and blocks, and a
+  publisher wakes every subscriber on that key (for example the IPC receive
+  path and the keyboard event bus).
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

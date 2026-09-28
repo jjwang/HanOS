@@ -2,6 +2,13 @@
 
  @file    console_srv.c
  @brief   Spawn the userspace console server and forward output to it
+ @details
+ @verbatim
+
+  Creates the output endpoint and framebuffer grant, spawns /bin/console and
+  starts a kernel flush thread that forwards buffered kprintf output to it.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

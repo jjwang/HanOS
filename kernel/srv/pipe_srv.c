@@ -2,6 +2,13 @@
 
  @file    pipe_srv.c
  @brief   Spawn the userspace pipe server
+ @details
+ @verbatim
+
+  Creates the service endpoint, spawns /bin/pipe and registers it with the
+  router as SVC_PIPE.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

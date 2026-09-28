@@ -2,6 +2,8 @@
 
  @file    skl_display.c
  @brief   Skylake Gen9 display modeset for the primary eDP port (DDI-A)
+ @details
+ @verbatim
 
    The firmware boots the panel through the eDP transcoder and already
    programmed it for the native mode; DPLL0 and the eDP link are likewise
@@ -9,6 +11,8 @@
    points pipe A's plane at a GTT-mapped framebuffer, so no part of the live
    transport is disturbed. Steps that wait on hardware have a timeout so a
    failure can fall back to the firmware frame.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

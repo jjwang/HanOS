@@ -2,12 +2,16 @@
 
  @file    xhci.c
  @brief   Minimal xHCI host controller and USB HID pointer support
+ @details
+ @verbatim
 
    Bring up the first xHCI controller, enumerate a HID boot pointer and feed
    its reports to the hardware cursor. Only what a pointer needs is
    implemented: one controller, control transfers on EP0 and a single
    interrupt IN endpoint, polled from a kernel thread. xHCI DMA is
    cache-coherent, so no explicit cache maintenance is needed.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

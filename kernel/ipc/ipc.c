@@ -2,6 +2,15 @@
 
  @file    ipc.c
  @brief   Implementation of synchronous IPC endpoints
+ @details
+ @verbatim
+
+  An endpoint is a kernel object holding a small message queue. Senders
+  enqueue a message and wake a blocked receiver; ipc_call()/ipc_reply() build
+  a request/reply protocol on top. The _objs variants stage kernel objects
+  on a message so handles can be moved between processes.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

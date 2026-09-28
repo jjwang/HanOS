@@ -2,6 +2,13 @@
 
  @file    console_srv.h
  @brief   Spawn the userspace console server and forward output to it
+ @details
+ @verbatim
+
+  Declares the console server spawn/status helpers and the endpoint accessor
+  used to hand the output endpoint to the tty server.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

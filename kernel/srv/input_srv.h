@@ -2,6 +2,12 @@
 
  @file    input_srv.h
  @brief   Spawn and drive the userspace input server
+ @details
+ @verbatim
+
+  Declares the input server spawn/status helpers.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

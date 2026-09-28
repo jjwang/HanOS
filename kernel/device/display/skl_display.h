@@ -2,6 +2,13 @@
 
  @file    skl_display.h
  @brief   Skylake Gen9 display modeset for the primary eDP port (DDI-A)
+ @details
+ @verbatim
+
+  Declares the entry point that sets a GTT-mapped framebuffer as pipe A's
+  plane and enables the primary eDP port.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

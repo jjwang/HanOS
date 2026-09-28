@@ -2,6 +2,14 @@
 
  @file    router.c
  @brief   Implementation of the kernel-side service router
+ @details
+ @verbatim
+
+  Implements router_register(), router_lookup() and router_forward(): a
+  service id maps to a server endpoint, and a request is moved through it
+  together with a reply endpoint.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */

@@ -2,6 +2,12 @@
 
  @file    xhci.h
  @brief   Minimal xHCI host controller and USB HID pointer support
+ @details
+ @verbatim
+
+  Declares the xHCI HID bring-up entry point.
+
+ @endverbatim
 
  **-----------------------------------------------------------------------------
  */
