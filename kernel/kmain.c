@@ -7,7 +7,7 @@
 
   This function initializes various components of the operating system, such as
   the CPU, serial communication, logging, memory management, interrupt handling,
-  ACPI, HPET, CMOS, APIC, PIT, keyboard, VFS, SMP, syscall, INITRD, and terminal.
+  ACPI, HPET, CMOS, APIC, PIT, input, VFS, SMP, syscall, INITRD, and terminal.
 
   It also sets up the background image, prints system information, and starts
   the kupdateui process.
@@ -62,7 +62,6 @@
 #include <srv/pipe_srv.h>
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
-#include <device/keyboard/keyboard.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <proc/notify.h>
@@ -194,10 +193,8 @@ _Noreturn void kshell(pid_t pid)
         klogi("kshell: 128 / 0 = %ld\n", z);
     }
 
-#if ENABLE_CONSOLE_SERVER
     if (!console_server_start())
-        klogw("console: server failed to start, using in-kernel terminal\n");
-#endif
+        klogw("console: server failed to start\n");
 
 #if 0                           /* Do not show desktop bitmap to speed up */
     image_t image;
@@ -207,11 +204,6 @@ _Noreturn void kshell(pid_t pid)
         term_set_bg_image(&image);
     }
 #endif
-
-    /* The console server owns the screen now; blitting the kernel terminal's
-     * back buffer here would overwrite its freshly drawn shell. */
-    if (!console_server_active())
-        term_refresh();
 
     kprintf
         ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
@@ -241,7 +233,7 @@ _Noreturn void kshell(pid_t pid)
      * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
      * console endpoint, fat32 on the block server) is up first. */
     if (!input_server_start())
-        klogw("input: server failed to start, using in-kernel keyboard\n");
+        klogw("input: server failed to start\n");
     if (!tty_server_start())
         klogw("tty: server failed to start\n");
     if (!block_server_start())
@@ -347,9 +339,6 @@ void kmain(void)
     klogi("Init PIT...\n");
     pit_init();
 
-    klogi("Init keyboard...\n");
-    keyboard_init();
-
     klogi("Init ACPI...\n");
     acpi_init(rsdp_request.response);
 
@@ -426,14 +415,6 @@ void kmain(void)
     self_info.actual_res_y = term_fb->height;
 
     vfs_init();
-
-    /* Register keyboard as /dev/kbd char device */
-    vfs_tnode_t *kbd_tnode =
-        vfs_path_to_node("/dev/kbd", CREATE, VFS_NODE_CHAR_DEVICE);
-    vfs_inode_t *kbd_inode =
-        vfs_alloc_inode(VFS_NODE_CHAR_DEVICE, 0600, 0, NULL, kbd_tnode);
-    kbd_tnode->inode = kbd_inode;
-    kbd_inode->ident = (void *) keyboard_get_char_device_ops();
 
     klogi("Init SMP...\n");
     smp_init();

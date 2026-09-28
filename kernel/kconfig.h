@@ -25,14 +25,8 @@
 /* Microkernel self-test: IPC endpoints and handles at boot. */
 #define ENABLE_MICROKERNEL_SELFTEST true
 
-/* Spawn the userspace input server instead of the in-kernel keyboard path. */
-#define ENABLE_INPUT_SERVER     true
-
-/* Spawn the userspace console server and forward terminal output to it. */
-#define ENABLE_CONSOLE_SERVER   true
-
-/* The block and file servers (block, VFS, pipe, tty, FAT32) always run in
- * userspace; there is no in-kernel fallback any more. */
+/* The input, console, block and file servers (block, VFS, pipe, tty, FAT32)
+ * always run in userspace; there is no in-kernel fallback any more. */
 
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */

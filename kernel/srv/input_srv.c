@@ -24,7 +24,8 @@
 #include <srv/tty_srv.h>
 #include <ipc/irq.h>
 #include <proc/sched.h>
-#include <proc/notify.h>
+#include <device/display/gfx.h>
+#include <arch/x64/idt.h>
 #include <bootinfo.h>
 
 static endpoint_t *input_irq_ep = NULL;
@@ -77,12 +78,15 @@ _Noreturn static void input_kthread(pid_t pid)
 
     for (;;) {
         ipc_msg_t m;
-        if (ipc_recv(input_key_ep, &m) == 0 && m.tag == INPUT_KEY_TAG) {
-            /* The tty server owns /dev/tty when it is running; otherwise the
-             * key goes onto the kernel event bus for the in-kernel tty. */
-            if (!tty_server_deliver_key((uint8_t) m.words[0]))
-                notify_publish(&notify_system, EVENT_KEY_PRESSED,
-                               (event_para_t) m.words[0]);
+        if (ipc_recv(input_key_ep, &m) != 0)
+            continue;
+
+        if (m.tag == INPUT_MOUSE_TAG) {
+            gfx_cursor_move((int) (int64_t) m.words[0],
+                            (int) (int64_t) m.words[1]);
+        } else if (m.tag == INPUT_KEY_TAG) {
+            /* The tty server owns /dev/tty. */
+            tty_server_deliver_key((uint8_t) m.words[0]);
         }
     }
 }
@@ -108,9 +112,17 @@ bool input_server_start(void)
         return false;
 
     irq_obj_t *io = irq_create(1);
-    if (io == NULL)
+    irq_obj_t *io12 = irq_create(12);
+    if (io == NULL || io12 == NULL)
         return false;
     irq_bind(io, input_irq_ep);
+    irq_bind(io12, input_irq_ep);
+
+    /* Unmask the keyboard and mouse lines on the PIC (IRQ2 cascades the slave
+     * PIC that carries IRQ12). */
+    irq_clear_mask(1);
+    irq_clear_mask(2);
+    irq_clear_mask(12);
 
     const char *argv[] = { "input", NULL };
 

@@ -46,7 +46,6 @@
 #include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
-#include <device/keyboard/keyboard.h>
 #include <device/display/term.h>
 #include <device/display/gfx.h>
 
