@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    atomic_ops.h
+ @brief   Lock-free atomic helpers
+
+ @details
+ @verbatim
+
+   Small inline wrappers around the x86 LOCK XADD instruction for atomic
+   64-bit increments and additions, used where a full spinlock is not needed.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

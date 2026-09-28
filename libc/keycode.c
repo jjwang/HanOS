@@ -1,12 +1,12 @@
 /**-----------------------------------------------------------------------------
 
- @file    ascii.c
- @brief   Definition of keyboard's ascii code
+ @file    keycode.c
+ @brief   Keyboard ASCII key code lookup table
  @details
  @verbatim
 
-  Because this file will not be modified very often, it is separated into one
-  C file.
+  Maps PS/2 scan code sets to their ASCII characters (and shifted variants).
+  Because this table changes rarely, it lives in its own file.
 
  @endverbatim
   Ref: https://wiki.osdev.org/PS2_Keyboard

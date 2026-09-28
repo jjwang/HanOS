@@ -3,7 +3,7 @@
 /**-----------------------------------------------------------------------------
 
  @file    printf.h
- @brief   printf, sprintf and snprintf implementation for HanOS standard library
+ @brief   printf, sprintf and snprintf declarations (third-party)
 
  **-----------------------------------------------------------------------------
  */

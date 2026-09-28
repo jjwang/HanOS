@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------------
 
- @file    service.h
+ @file    router.h
  @brief   Kernel-side service router
  @details
  @verbatim
@@ -10,8 +10,8 @@
    syscall wrapper calls router_lookup() and either runs the in-kernel
    implementation (NULL) or forwards an IPC request to the server endpoint.
 
-   No service is registered yet, so the router is dormant and all syscalls
-   take the in-kernel path.
+   A service that has not registered yet returns NULL from router_lookup(),
+   so the caller falls back to the in-kernel implementation.
 
  @endverbatim
 

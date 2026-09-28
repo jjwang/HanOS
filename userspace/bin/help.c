@@ -1,8 +1,19 @@
-/* 
- * This file is a placeholder
- * DO NOT EDIT
- */
+/**-----------------------------------------------------------------------------
 
+ @file    help.c
+ @brief   Implementation of the 'help' command
+
+ @details
+ @verbatim
+
+   Prints the shell's command help table. The table itself is generated into
+   _help.c; this file provides a weak default table so the binary links even
+   before the table is generated.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #include <string.h>
 #include <userspace/help.h>
 

@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------------
 
- @file    panic.h
+ @file    panic.c
  @brief   Implementation of panic related functions
  @details
  @verbatim

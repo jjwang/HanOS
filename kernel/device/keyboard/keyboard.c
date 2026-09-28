@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------------
 
- @file    keyboard.h
- @brief   Definition of keyboard related macros and data structures
+ @file    keyboard.c
+ @brief   Implementation of the PS/2 keyboard and mouse driver
  @details
  @verbatim
 
