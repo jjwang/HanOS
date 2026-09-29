@@ -21,7 +21,7 @@
 #include <srv/console_srv.h>
 #include <ipc/ipc.h>
 #include <proc/sched.h>
-#include <device/display/term.h>
+#include <device/display/fb.h>
 #include <mm/mm.h>
 #include <bootinfo.h>
 
@@ -55,8 +55,8 @@ static void console_spawn_attach(process_t * tc)
         return;
     }
 
-    fb_info_t *fb = term_get_fb();
-    if (fb == NULL || fb->addr == NULL || console_in_ep == NULL) {
+    fb_info_t *fb = fb_get();
+    if (fb->addr == NULL || console_in_ep == NULL) {
         klogw("console: spawn hook has no framebuffer or endpoint\n");
         return;
     }
@@ -74,8 +74,8 @@ static void console_spawn_attach(process_t * tc)
         return;
     }
 
-    uint32_t x = 0, y = 0, fg = 0, bg = 0;
-    term_get_pos(&x, &y, &fg, &bg);
+    uint32_t x = 0, y = 0;
+    uint32_t fg = DEFAULT_FGCOLOR, bg = DEFAULT_BGCOLOR;
 
     bootinfo_t *bi = kmalloc(sizeof(bootinfo_t));
     if (bi == NULL) {
@@ -103,8 +103,8 @@ static void console_spawn_attach(process_t * tc)
 
 bool console_server_start(void)
 {
-    fb_info_t *fb = term_get_fb();
-    if (fb == NULL || fb->addr == NULL)
+    fb_info_t *fb = fb_get();
+    if (fb->addr == NULL)
         return false;
 
     console_fb_size = (uint64_t) fb->pitch * fb->height;
@@ -113,12 +113,11 @@ bool console_server_start(void)
     if (console_in_ep == NULL)
         return false;
 
-    /* Claim the screen before the userspace server is spawned. From here on
-     * kernel output is forwarded instead of blitted, so the server's first
-     * frame cannot be overwritten by a stale kernel terminal refresh. */
+    /* Claim the screen before the userspace server is spawned so that kernel
+     * output is forwarded to it instead of being drawn by the kernel. */
     console_active = true;
 
-    /* The kernel terminal draws the scan-out through the cacheable direct map
+    /* The kernel may have written the scan-out through the cacheable direct map
      * while the server maps it write-combining. Flush the kernel's dirty lines
      * now, before the server starts drawing, or their later write-back would
      * corrupt its first frames. */

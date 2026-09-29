@@ -22,7 +22,6 @@
 #include <arch/x64/smp.h>
 #include <arch/x64/serial.h>
 #include <lib/klog.h>
-#include <device/display/term.h>
 
 #include <printf.h>
 

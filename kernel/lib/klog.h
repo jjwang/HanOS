@@ -21,7 +21,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <device/display/term.h>
 #include <lib/spinlock.h>
 
 #define KLOG_BUFFER_SIZE       (4096 * 4)
@@ -38,12 +37,10 @@ typedef enum {
 typedef struct {
     uint8_t buff[KLOG_BUFFER_SIZE];
     uint64_t start, end;
-    term_info_t *term;
 } klog_info_t;
 
 void klog_init(void);
 void klog_vprintf(klog_level_t level, const char *, ...);
-void klog_debug(void);
 void klog_lock(void);
 void klog_unlock(void);
 void kprintf(const char *, ...);

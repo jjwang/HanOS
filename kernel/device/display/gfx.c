@@ -33,7 +33,7 @@
 #include <device/display/gfx_reg.h>
 #include <device/display/skl_display.h>
 #include <device/display/display_mode.h>
-#include <device/display/term.h>
+#include <device/display/fb.h>
 #include <lib/kmalloc.h>
 
 #define DEVICE_HD520                0x1916  /* Skylake GT2 integrated graphics */
@@ -311,16 +311,13 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev)
     return true;
 }
 
-/* Hand the framebuffer the display engine is scanning to the terminal. The
- * CPU draws into a private backbuffer that fb_refresh() copies to the scanout
+/* Hand the framebuffer the display engine is scanning to the console. The
+ * kernel keeps a private backbuffer that fb_refresh() copies to the scanout
  * so the engine never samples a partially drawn frame. */
 static void gfx_attach_fb(const gfx_fb_t * gfb)
 {
-    fb_info_t *fb = term_get_fb();
+    fb_info_t *fb = fb_get();
     uint32_t len = gfb->stride * gfb->height;
-
-    if (fb == NULL)
-        return;
 
     fb->addr = (uint8_t *) gfb->obj.cpu_addr;
     fb->width = gfb->width;
@@ -333,13 +330,12 @@ static void gfx_attach_fb(const gfx_fb_t * gfb)
         memset(bb, 0, len);
         fb->backbuffer = bb;
     } else {
-        /* Without a backbuffer the terminal draws straight into the scanout,
+        /* Without a backbuffer the console draws straight into the scanout,
          * which is still visible, just not tear-free. */
         kloge("GFX: backbuffer allocation (%u bytes) failed\n", len);
         fb->backbuffer = fb->addr;
     }
 
-    term_update_size();
     klogi("GFX: console framebuffer %ux%u pitch %u addr 0x%016lx "
           "(gpu 0x%016lx)\n", gfb->width, gfb->height, gfb->stride,
           (uint64_t) fb->addr, gfb->obj.gfx_addr);
@@ -371,7 +367,7 @@ bool gfx_init(void)
      * pipeline cannot be programmed, keep the firmware aperture frame. */
     const display_mode_t *boot_mode = display_mode_get_boot();
     {
-        fb_info_t *cur = term_get_fb();
+        fb_info_t *cur = fb_get();
         klogi("GFX: firmware fb 0x%016lx %ux%u pitch %u backbuffer %p\n",
               (uint64_t) cur->addr, cur->width, cur->height, cur->pitch,
               cur->backbuffer);
@@ -383,7 +379,7 @@ bool gfx_init(void)
      * pipe covers it, so a cleared frame leaves nothing for the transition to
      * retain. */
     {
-        fb_info_t *cur_fb = term_get_fb();
+        fb_info_t *cur_fb = fb_get();
 
         if (cur_fb != NULL && cur_fb->addr != NULL) {
             if (cur_fb->backbuffer != NULL
@@ -411,7 +407,7 @@ bool gfx_init(void)
     /* The BIOS GOP already scans the aperture (GMADR) through a trained eDP
      * link, so the aperture is used as the GPU framebuffer. Pass limine's
      * pitch so the display engine's stride matches what the CPU writes. */
-    fb_info_t *limine_fb = term_get_fb();
+    fb_info_t *limine_fb = fb_get();
     if (limine_fb && gfx_modeset(&gfx_pci, &gfx_mgr, &gfx_gtt,
                                  limine_fb->width, limine_fb->height,
                                  limine_fb->pitch, DISPPLANE_BGRX888,

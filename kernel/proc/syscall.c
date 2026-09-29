@@ -46,7 +46,6 @@
 #include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
-#include <device/display/term.h>
 #include <device/display/gfx.h>
 
 #define MMAP_ANON_BASE      0x80000000000

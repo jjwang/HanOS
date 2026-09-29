@@ -7,10 +7,9 @@
 
   This function initializes various components of the operating system, such as
   the CPU, serial communication, logging, memory management, interrupt handling,
-  ACPI, HPET, CMOS, APIC, PIT, input, VFS, SMP, syscall, INITRD, and terminal.
+  ACPI, HPET, CMOS, APIC, PIT, input, VFS, SMP, syscall, and INITRD.
 
-  It also sets up the background image, prints system information, and starts
-  the kupdateui process.
+  It also prints system information and starts the userspace servers.
 
   Finally, it executes the default shell application.
 
@@ -33,7 +32,6 @@
 #include <version.h>
 #include <3rd-party/boot/limine.h>
 #include <lib/time.h>
-#include <lib/image.h>
 #include <lib/klog.h>
 #include <mm/mm.h>
 #include <mm/alloc.h>
@@ -52,7 +50,6 @@
 #include <arch/x64/pit.h>
 #include <arch/x64/timer.h>
 #include <device/display/fb.h>
-#include <device/display/term.h>
 #include <device/display/edid.h>
 #include <device/display/display_mode.h>
 #include <device/display/gfx.h>
@@ -115,70 +112,6 @@ void done(void)
     }
 }
 
-vec_new_static(char *, messages_info);
-static spinlock_t messages_info_lock;
-
-void kdisplay(char *s, uint64_t len)
-{
-    (void)len;
-
-    /* Here we just store the string into the temporary buffer */
-    spinlock_acquire(&messages_info_lock);
-    vec_push_back(&messages_info, s);
-    spinlock_release(&messages_info_lock);
-}
-
-_Noreturn void kupdateui(pid_t pid)
-{
-    uint64_t last_ms = (hpet_get_nanos() / 1000000) % 1000;
-
-    while (true) {
-        uint64_t now_ms = (hpet_get_nanos() / 1000000) % 1000;
-
-        if (now_ms - last_ms <= 500) {
-            if (vec_length(&messages_info) > 0) {
-                spinlock_acquire(&messages_info_lock);
-                char *s = vec_at(&messages_info, 0);
-                vec_erase(&messages_info, 0);
-                spinlock_release(&messages_info_lock);
-
-                for (uint64_t i = 0; ; i++) {
-                    if (s[i] == '\0') break;
-                    serial_write(s[i]);
-                }
-
-                kmfree(s);
-            }
-
-            sched_sleep(0);
-
-            continue;
-        }
-
-        last_ms = now_ms;
-
-        /* The console server owns the framebuffer and blinks its own cursor. */
-        if (!console_server_active()) {
-            if (cursor_visible == CURSOR_INVISIBLE) {
-                term_set_cursor('_');
-                cursor_visible = CURSOR_VISIBLE;
-            } else if (cursor_visible == CURSOR_VISIBLE) {
-                term_set_cursor(' ');
-                cursor_visible = CURSOR_INVISIBLE;
-            } else {
-                term_set_cursor(' ');
-            }
-
-    /* The console server owns the framebuffer once it is running; do not let
-     * the kernel blit its own terminal back buffer over it. */
-    if (!console_server_active())
-        term_refresh();
-        }
-    }
-
-    (void) pid;
-}
-
 _Noreturn void kshell(pid_t pid)
 {
     (void) pid;
@@ -195,15 +128,6 @@ _Noreturn void kshell(pid_t pid)
 
     if (!console_server_start())
         klogw("console: server failed to start\n");
-
-#if 0                           /* Do not show desktop bitmap to speed up */
-    image_t image;
-    if (bmp_load_from_file(&image, "/assets/desktop.bmp")) {
-        klogi("Background image: %ld*%ld with bpp %ld, size %ld\n",
-              image.img_width, image.img_height, image.bpp, image.size);
-        term_set_bg_image(&image);
-    }
-#endif
 
     kprintf
         ("General Purpose OS based on HNK kernel version %s. Copyleft (2024) HNK.\n",
@@ -310,7 +234,12 @@ void kmain(void)
     /* The framebuffer geometry comes from the bootloader (limine.conf), so all
      * buffers are sized from the reported width/height/pitch rather than a
      * fixed maximum. */
-    term_init(fb);
+    fb_init(fb_get(), fb);
+
+    /* Cover the screen as early as possible: the bootloader blanks the
+     * framebuffer when it hands over, and the userspace console server cannot
+     * run until the scheduler and the initrd are ready. */
+    fb_splash(fb_get());
 
     klogi("Framebuffer address: 0x%016lx, EDID size: %ld\n",
           fb->address, fb->edid_size);
@@ -333,8 +262,6 @@ void kmain(void)
     notify_system_init();
 
     vmm_init(mm_request.response, kernel_addr_request.response);
-
-    term_start();
 
     klogi("Init PIT...\n");
     pit_init();
@@ -362,6 +289,10 @@ void kmain(void)
     }
 
     gfx_init();
+
+    /* Redraw the splash in case the display driver blanked the screen with its
+     * mode set, then fill the progress bar as the remaining boot steps run. */
+    fb_splash(fb_get());
 
     klogi("Init APIC...\n");
     apic_init();
@@ -410,14 +341,16 @@ void kmain(void)
 
     /* Report the geometry the display is actually scanning: the driver may
      * have switched to the panel's native mode after taking over. */
-    fb_info_t *term_fb = term_get_fb();
-    self_info.actual_res_x = term_fb->width;
-    self_info.actual_res_y = term_fb->height;
+    fb_info_t *fb_info = fb_get();
+    self_info.actual_res_x = fb_info->width;
+    self_info.actual_res_y = fb_info->height;
 
     vfs_init();
 
     klogi("Init SMP...\n");
+    fb_splash_progress(fb_get(), 20);
     smp_init();
+    fb_splash_progress(fb_get(), 55);
 
     /* Bring the USB pointer up in its own thread: the enumeration has timeouts
      * and must never block the rest of the boot. */
@@ -443,6 +376,7 @@ void kmain(void)
      * hardware, so 100M writes take ~7.6s and stall the scheduler. */
 
     klogi("Init INITRD...\n");
+    fb_splash_progress(fb_get(), 75);
     struct limine_module_response *module_response =
         module_request.response;
     if (module_response != NULL) {
@@ -465,13 +399,7 @@ void kmain(void)
     } else {
         kpanic("Cannot find INITRD module\n");
     }
-
-    klog_debug();
-
-    process_t *tupdateui = sched_new("kupdateui", kupdateui, false);
-    sched_add(tupdateui);
-
-    term_clear();
+    fb_splash_progress(fb_get(), 100);
 
     process_t *tshell = sched_new("kshell", kshell, false);
     sched_add(tshell);

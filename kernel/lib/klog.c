@@ -18,7 +18,6 @@
 
 #include <lib/klog.h>
 #include <lib/time.h>
-#include <device/display/term.h>
 #include <arch/x64/hpet.h>
 #include <arch/x64/cmos.h>
 #include <arch/x64/smp.h>
@@ -30,24 +29,13 @@
 #include <printf.h>
 
 static klog_info_t klog_info = { 0 };
-static klog_info_t klog_cli = { 0 };
 
 spinlock_t klog_info_lock;
-
-static spinlock_t klog_cli_lock;
-
-static uint64_t klog_clear_times = 0, klog_refresh_times = 0;
 
 /* Mirror kprintf() output (the kernel console and userspace writes such as the
  * shell) to the serial port. The framebuffer console is not part of the serial
  * log, so without this a shell that runs after boot leaves no trace there. */
 #define KPRINTF_SERIAL_MIRROR   true
-
-void klog_debug(void)
-{
-    klogd("KLOG: clear %ld, refresh %ld times\n", klog_clear_times,
-          klog_refresh_times);
-}
 
 static void klog_putch(klog_info_t * k, uint8_t i)
 {
@@ -107,13 +95,6 @@ void klog_init()
     klog_info.end = 0;
 
     spinlock_release(&klog_info_lock);
-
-    spinlock_acquire(&klog_cli_lock);
-
-    klog_cli.start = 0;
-    klog_cli.end = 0;
-
-    spinlock_release(&klog_cli_lock);
 }
 
 void klog_vprintf(klog_level_t level, const char *s, ...)
@@ -121,7 +102,6 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     klog_info_t logout;         /* Fake output to speed up */
     logout.start = 0;
     logout.end = 0;
-    logout.term = NULL;
 
 #if !ENABLE_KLOG_DEBUG
     if (level <= KLOG_LEVEL_DEBUG)
@@ -210,46 +190,15 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     }
 
     spinlock_release(&klog_info_lock);
-
-    klog_refresh_times++;
 }
 
 void kprintf(const char *s, ...)
 {
-    klog_info_t logout;         /* Fake output to speed up */
-    logout.start = 0;
-    logout.end = 0;
-    logout.term = NULL;
-
     char buf[512];
     va_list args;
     va_start(args, s);
     vsnprintf(buf, sizeof(buf), s, args);
     va_end(args);
-    klog_puts_buf(&logout, buf);
-
-    spinlock_acquire(&klog_cli_lock);
-
-    for (uint64_t i = logout.start; i < logout.end;) {
-        klog_cli.buff[klog_info.end] = logout.buff[i];
-        klog_cli.end++;
-
-        if (klog_cli.end >= KLOG_BUFFER_SIZE)
-            klog_cli.end = 0;
-        if (klog_cli.end == klog_cli.start)
-            klog_cli.start++;
-        if (klog_cli.start >= KLOG_BUFFER_SIZE)
-            klog_cli.start = 0;
-
-        if (!console_server_active())
-            term_putch(logout.buff[i]);
-
-        i++;
-        if (i >= KLOG_BUFFER_SIZE)
-            i = 0;
-    }
-
-    spinlock_release(&klog_cli_lock);
 
 #if KPRINTF_SERIAL_MIRROR
     {
@@ -265,7 +214,5 @@ void kprintf(const char *s, ...)
     }
 #endif
 
-    if (!console_write_buf(buf, strlen(buf)))
-        term_refresh();
-    klog_refresh_times++;
+    console_write_buf(buf, strlen(buf));
 }

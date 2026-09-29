@@ -9,184 +9,25 @@
   in memory that represents the screen. The address of framebuffer was got
   from Limine bootloader.
 
-  History:
-  Mar 27, 2022 - Rewrite fb_refresh() by memcpy() significantly improve the
-                 frame rate. In the future, we should rewrite memcpy() by SSE
-                 enhancements.
-  Nov 25, 2022 - Background picture could be set by a bitmap file.
+  The kernel keeps the framebuffer geometry and, once a private buffer is
+  needed, a back buffer. Text rendering lives in the userspace console server.
 
  @endverbatim
- @todo    Improve memcpy() by SSE enhancements.
 
  **-----------------------------------------------------------------------------
  */
 #include <stddef.h>
-#include <version.h>
 
 #include <string.h>
 
-#include <mm/mm.h>
-#include <arch/x64/hpet.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
-#include <lib/spinlock.h>
-#include <lib/klog.h>
-#include <lib/klib.h>
 
-#define LOGO_SCALE      6
+static fb_info_t fb_global;
 
-extern font_psf1_t term_font_norm, term_font_bold;
-
-bool fb_set_bg_image(fb_info_t * fb, image_t * img)
+fb_info_t *fb_get(void)
 {
-    if (img->bpp != 24) {
-        return false;
-    }
-
-    memcpy(&(fb->img_bg), img, sizeof(image_t));
-    if (fb->bgbuffer == NULL) {
-        fb->bgbuffer = (uint8_t *) kmalloc(fb->width * fb->height * 4);
-    }
-    if (fb->swapbuffer == NULL) {
-        fb->swapbuffer = (uint8_t *) kmalloc(fb->width * fb->height * 4);
-    }
-
-    for (uint64_t y = 0; y < fb->height; y++) {
-        for (uint64_t x = 0; x < fb->width; x++) {
-            uint64_t x2, y2;
-
-            /* Determine the best-fit point's (x, y) in original bitmap */
-            if (img->img_width == fb->width
-                && img->img_height == fb->height) {
-                x2 = x;
-                y2 = y;
-            } else {
-                uint64_t x_new, y_new, x_rb, y_rb;
-                x_new = x * 100 * img->img_width / fb->width;
-                y_new = y * 100 * img->img_height / fb->height;
-                x2 = MAX(MIN(DIV_ROUNDUP(x_new, 100), img->img_width), 1);
-                y2 = MAX(MIN(DIV_ROUNDUP(y_new, 100), img->img_height), 1);
-
-                uint64_t max_dist = (100 ^ 4), cur_dist;
-                for (uint64_t k = 0; k < 2; k++) {
-                    for (uint64_t m = 0; m < 2; m++) {
-                        cur_dist = ((x_new - (x_rb - k) * 100) ^ 2)
-                            + ((y_new - (y_rb - m) * 100) ^ 2);
-                        if (cur_dist < max_dist) {
-                            x2 = x_rb - k;
-                            y2 = y_rb - m;
-                            max_dist = cur_dist;
-                        }
-                    }
-                }
-            }
-
-            uint64_t off = img->pitch * (img->img_height - 1 - y2);
-            uint8_t *img_pixel =
-                (uint8_t *) img->img + off + x2 * img->bpp / 8;
-            uint8_t r, g, b;
-            uint8_t shift = 2;
-
-            b = img_pixel[0] >> shift;
-            g = img_pixel[1] >> shift;
-            r = img_pixel[2] >> shift;
-
-            uint32_t color;
-            color =
-                (uint32_t) b + ((uint32_t) g << 8) + ((uint32_t) r << 16);
-            ((uint32_t *) (fb->bgbuffer + (fb->pitch * y)))[x] = color;
-        }
-    }
-
-    return true;
-}
-
-void fb_putch(fb_info_t * fb, uint32_t x, uint32_t y,
-              uint32_t fgcolor, uint32_t bgcolor, uint8_t ch, bool bold)
-{
-    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
-        return;
-
-    font_psf1_t *term_font = bold ? &term_font_bold : &term_font_norm;
-    uint32_t offset = ((uint32_t) ch) * term_font->charsize;
-    static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-    for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
-        for (uint64_t k = 0; k < FONT_WIDTH; k++) {
-            if (i < term_font->charsize
-                && (term_font->data[offset + i] & masks[k])) {
-                fb_putpixel(fb, x + k, y + i, fgcolor);
-            } else {
-                fb_putpixel(fb, x + k, y + i, bgcolor);
-            }
-        }
-    }
-}
-
-void fb_putlogo(fb_info_t * fb, uint32_t fgcolor, uint32_t bgcolor)
-{
-    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
-        return;
-
-    char *logo = "HNK";
-    uint64_t len = strlen(logo);
-    uint32_t x = (fb->width - len * 8 * LOGO_SCALE) / 2;
-    uint32_t y = (fb->height - 16 * LOGO_SCALE) / 2;
-    for (uint64_t idx = 0; idx < len; idx++) {
-        uint32_t offset = ((uint32_t) logo[idx]) * term_font_bold.charsize;
-        static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
-        for (uint64_t i = 0; i < term_font_bold.charsize; i++) {
-            for (uint64_t k = 0; k < 8; k++) {
-                for (uint64_t m = 1; m < LOGO_SCALE; m++) {
-                    for (uint64_t n = 1; n < LOGO_SCALE; n++) {
-                        uint32_t bg_img_color = bgcolor;
-                        if (fb->bgbuffer != NULL) {
-                            bg_img_color =
-                                ((uint32_t *) (fb->bgbuffer +
-                                               fb->pitch * y + x * 4))[0];
-                        }
-                        uint32_t color =
-                            (term_font_bold.data[offset + i] & masks[k])
-                            ? fgcolor : bg_img_color;
-                        fb_putpixel(fb, x + (idx * 8 + k) * LOGO_SCALE + m,
-                                    y + i * LOGO_SCALE + n, color);
-                    }
-                }
-            }
-        }                       /* End every character */
-    }
-
-    char desc_str[64] =
-        "- Microkernel-based General Purpose OS Kernel for x86-64 v";
-    strncat(desc_str, VERSION, sizeof(desc_str));
-    strncat(desc_str, " -", sizeof(desc_str));
-    uint64_t desc_len = strlen(desc_str);
-    x = (fb->width - 8 * desc_len) / 2;
-    for (uint64_t desc_idx = 0; desc_idx < desc_len; desc_idx++) {
-        fb_putch(fb, x + 8 * desc_idx, (fb->height + 16 * LOGO_SCALE) / 2,
-                 COLOR_GREY, bgcolor, desc_str[desc_idx], false);
-    }
-}
-
-void fb_putpixel(fb_info_t * fb, uint32_t x, uint32_t y, uint32_t color)
-{
-    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
-        return;
-
-    if (fb->pitch * y + x * 4 < fb->backbuffer_len) {
-        ((uint32_t *) (fb->backbuffer + (fb->pitch * y)))[x] = color;
-    }
-}
-
-uint32_t fb_getpixel(fb_info_t * fb, uint32_t x, uint32_t y)
-{
-    if ((uint64_t) fb->addr == (uint64_t) fb->backbuffer)
-        return 0;
-
-    if (fb->pitch * y + x * 4 < fb->backbuffer_len) {
-        return ((uint32_t *) (fb->backbuffer + (fb->pitch * y)))[x];
-    } else {
-        return 0;
-    }
+    return &fb_global;
 }
 
 void fb_init(fb_info_t *fb, struct limine_framebuffer *s)
@@ -200,23 +41,12 @@ void fb_init(fb_info_t *fb, struct limine_framebuffer *s)
     }
 
     fb->addr = (uint8_t *) s->address;
-    fb->bgbuffer = NULL;
-    fb->swapbuffer = NULL;
     fb->width = s->width;
     fb->height = s->height;
     fb->pitch = s->pitch;
 
     fb->backbuffer_len = fb->height * fb->pitch;
     fb->backbuffer = fb->addr;
-
-    memset(&(fb->img_bg), 0, sizeof(image_t));
-
-    for (uint32_t x = 0; x < fb->width; x++) {
-        for (uint32_t y = 0; y < fb->height; y++) {
-            fb_putpixel(fb, x, y, DEFAULT_BGCOLOR);
-        }
-    }
-    fb_refresh(fb);
 }
 
 /* Copy the frame to the scan-out with non-temporal stores. The display engine
@@ -242,20 +72,108 @@ static void fb_blit_scanout(uint8_t * dst, const uint8_t * src, uint64_t len)
 
 void fb_refresh(fb_info_t * fb)
 {
-    if ((uint64_t) fb->addr != (uint64_t) fb->backbuffer) {
-        uint64_t len = fb->backbuffer_len;
-        if (fb->bgbuffer == NULL) {
-            fb_blit_scanout(fb->addr, fb->backbuffer, len);
-        } else {
-            memcpy(fb->swapbuffer, fb->bgbuffer, len);
-            uint32_t *src = (uint32_t *) fb->backbuffer;
-            uint32_t *dst = (uint32_t *) fb->swapbuffer;
-            uint64_t pt_num = len / 4;
-            for (uint64_t i = 0; i < pt_num; i++) {
-                if (src[i] != DEFAULT_BGCOLOR)
-                    dst[i] = src[i];
-            }
-            fb_blit_scanout(fb->addr, fb->swapbuffer, len);
-        }
+    if ((uint64_t) fb->addr != (uint64_t) fb->backbuffer)
+        fb_blit_scanout(fb->addr, fb->backbuffer, fb->backbuffer_len);
+}
+
+/* --- Boot splash --------------------------------------------------------- */
+
+#define SPLASH_BG       0x0E1A24
+#define SPLASH_FG       0x4FC7D6
+#define SPLASH_TRACK    0x1C2E3A
+
+static int splash_track_x, splash_track_y, splash_track_w, splash_track_h;
+
+static void splash_rect(fb_info_t * fb, int x, int y, int w, int h,
+                        uint32_t color)
+{
+    if (x < 0) {
+        w += x;
+        x = 0;
     }
+    if (y < 0) {
+        h += y;
+        y = 0;
+    }
+    if (x + w > (int) fb->width)
+        w = (int) fb->width - x;
+    if (y + h > (int) fb->height)
+        h = (int) fb->height - y;
+    if (w <= 0 || h <= 0)
+        return;
+
+    for (int j = 0; j < h; j++) {
+        uint32_t *row =
+            (uint32_t *) (fb->backbuffer + (uint64_t) fb->pitch * (y + j));
+        for (int i = 0; i < w; i++)
+            row[x + i] = color;
+    }
+}
+
+/* Thick line drawn as overlapping t-by-t squares. */
+static void splash_line(fb_info_t * fb, int x0, int y0, int x1, int y1, int t,
+                        uint32_t color)
+{
+    int dx = x1 - x0, dy = y1 - y0;
+    int steps = (dx < 0 ? -dx : dx);
+    if ((dy < 0 ? -dy : dy) > steps)
+        steps = (dy < 0 ? -dy : dy);
+    if (steps == 0)
+        steps = 1;
+
+    for (int s = 0; s <= steps; s++)
+        splash_rect(fb, x0 + dx * s / steps - t / 2,
+                    y0 + dy * s / steps - t / 2, t, t, color);
+}
+
+void fb_splash(fb_info_t * fb)
+{
+    splash_rect(fb, 0, 0, (int) fb->width, (int) fb->height, SPLASH_BG);
+
+    int H = (int) fb->height / 4;
+    int W = H * 3 / 5;
+    int gap = W / 3;
+    int t = W / 4;
+    int total = W * 3 + gap * 2;
+    int ox = ((int) fb->width - total) / 2;
+    int oy = ((int) fb->height - H) / 2 - (int) fb->height / 12;
+
+    /* H */
+    splash_rect(fb, ox, oy, t, H, SPLASH_FG);
+    splash_rect(fb, ox + W - t, oy, t, H, SPLASH_FG);
+    splash_rect(fb, ox, oy + (H - t) / 2, W, t, SPLASH_FG);
+
+    /* N */
+    int nx = ox + W + gap;
+    splash_rect(fb, nx, oy, t, H, SPLASH_FG);
+    splash_rect(fb, nx + W - t, oy, t, H, SPLASH_FG);
+    splash_line(fb, nx + t, oy, nx + W - t, oy + H, t, SPLASH_FG);
+
+    /* K */
+    int kx = nx + W + gap;
+    splash_rect(fb, kx, oy, t, H, SPLASH_FG);
+    splash_line(fb, kx + t, oy + H / 2, kx + W, oy, t, SPLASH_FG);
+    splash_line(fb, kx + t, oy + H / 2, kx + W, oy + H, t, SPLASH_FG);
+
+    splash_track_w = (int) fb->width / 3;
+    splash_track_h = (int) fb->height / 100;
+    if (splash_track_h < 4)
+        splash_track_h = 4;
+    splash_track_x = ((int) fb->width - splash_track_w) / 2;
+    splash_track_y = (int) fb->height * 3 / 4;
+    splash_rect(fb, splash_track_x, splash_track_y, splash_track_w,
+                splash_track_h, SPLASH_TRACK);
+
+    fb_refresh(fb);
+}
+
+void fb_splash_progress(fb_info_t * fb, uint32_t percent)
+{
+    if (percent > 100)
+        percent = 100;
+
+    splash_rect(fb, splash_track_x, splash_track_y,
+                splash_track_w * (int) percent / 100, splash_track_h,
+                SPLASH_FG);
+    fb_refresh(fb);
 }
