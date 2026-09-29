@@ -8,9 +8,9 @@
 
    Owns /dev/tty. The kernel relays decoded keys from the input server to this
    server; reads return buffered keys (TTY_EAGAIN when none are pending) and
-   writes are forwarded to the console server as CONSOLE_WRITE_TAG messages.
-   Data up to TTY_INLINE_MAX travels inline in the message words, larger data
-   in a memory object in xfer[1].
+   writes are forwarded to the console server as CONSOLE_WRITE_TAG messages and
+   mirrored to COM1 for a serial terminal. Data up to TTY_INLINE_MAX travels
+   inline in the message words, larger data in a memory object in xfer[1].
 
  @endverbatim
 
@@ -35,6 +35,9 @@ static uint32_t kcount;
 
 static bootinfo_t bi;
 
+/* COM1, used to mirror the console to a serial terminal. */
+static uint16_t serial_base;
+
 static void key_push(uint8_t k)
 {
     if (kcount >= TTY_KEY_MAX)
@@ -44,9 +47,26 @@ static void key_push(uint8_t k)
     kcount++;
 }
 
+static void serial_putc(uint8_t c)
+{
+    if (serial_base == 0)
+        return;
+
+    for (;;) {
+        int64_t lsr = sys_ioport_access(0, serial_base + 5, 1, 0);
+        if (lsr < 0 || (lsr & 0x20))
+            break;
+    }
+    sys_ioport_access(1, serial_base, 1, c);
+}
+
 static void console_write(const uint8_t * p, uint64_t len)
 {
     uint64_t sent = 0;
+
+    /* Mirror the shell's output to the serial console as well. */
+    for (uint64_t i = 0; i < len; i++)
+        serial_putc(p[i]);
 
     while (sent < len) {
         sys_ipc_msg_t wm;
@@ -162,6 +182,9 @@ int main(void)
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */
     }
+
+    if (bi.io_port_count > 0)
+        serial_base = (uint16_t) bi.io_ports[0].first;
 
     for (;;) {
         sys_ipc_msg_t m;

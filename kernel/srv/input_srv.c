@@ -5,10 +5,11 @@
  @details
  @verbatim
 
-   The input server owns the PS/2 keyboard interrupt and the data/status ports.
-   The kernel hands it two endpoints (IRQ notifications in, decoded keys out),
-   the I/O-port range and the interrupt line. A small kernel process relays the
-   decoded keys onto the event bus so the existing tty path is unchanged.
+   The input server owns the PS/2 keyboard and mouse interrupts with their
+   data/status ports, plus COM1 for a serial console. The kernel hands it the
+   endpoints (IRQ notifications in, decoded keys out), the I/O-port ranges and
+   the interrupt lines. A small kernel process relays the decoded keys to the
+   tty server.
 
  @endverbatim
 
@@ -48,9 +49,12 @@ static void input_spawn_attach(process_t * tc)
     handle_t h_con = handle_alloc(&tc->handles, endpoint_object(console_ep),
                                   HANDLE_RIGHT_SEND);
 
+    /* PS/2 data/status ports, then COM1 for the serial console. */
     tc->io_ports[0].first = 0x60;
     tc->io_ports[0].last = 0x64;
-    tc->io_port_count = 1;
+    tc->io_ports[1].first = 0x3F8;
+    tc->io_ports[1].last = 0x3FF;
+    tc->io_port_count = 2;
 
     if (h_irq == HANDLE_INVALID || h_key == HANDLE_INVALID
         || h_con == HANDLE_INVALID)
@@ -68,7 +72,9 @@ static void input_spawn_attach(process_t * tc)
     bi->irq_num = 1;
     bi->io_ports[0].first = 0x60;
     bi->io_ports[0].last = 0x64;
-    bi->io_port_count = 1;
+    bi->io_ports[1].first = 0x3F8;
+    bi->io_ports[1].last = 0x3FF;
+    bi->io_port_count = 2;
     tc->bootinfo = bi;
 }
 
@@ -113,15 +119,18 @@ bool input_server_start(void)
 
     irq_obj_t *io = irq_create(1);
     irq_obj_t *io12 = irq_create(12);
-    if (io == NULL || io12 == NULL)
+    irq_obj_t *io4 = irq_create(4);
+    if (io == NULL || io12 == NULL || io4 == NULL)
         return false;
     irq_bind(io, input_irq_ep);
     irq_bind(io12, input_irq_ep);
+    irq_bind(io4, input_irq_ep);
 
-    /* Unmask the keyboard and mouse lines on the PIC (IRQ2 cascades the slave
-     * PIC that carries IRQ12). */
+    /* Unmask the keyboard, mouse and serial lines on the PIC (IRQ2 cascades
+     * the slave PIC that carries IRQ12). */
     irq_clear_mask(1);
     irq_clear_mask(2);
+    irq_clear_mask(4);
     irq_clear_mask(12);
 
     const char *argv[] = { "input", NULL };

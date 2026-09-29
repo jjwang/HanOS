@@ -1,16 +1,17 @@
 /**-----------------------------------------------------------------------------
 
  @file    input.c
- @brief   Userspace PS/2 keyboard and mouse input server
+ @brief   Userspace PS/2 keyboard, mouse and serial input server
 
  @details
  @verbatim
 
-   The kernel grants this server the keyboard and mouse interrupt lines and the
-   PS/2 data/status ports. On each interrupt notification it drains the
-   controller, decodes scancodes into ASCII and the mouse's three-byte packets
-   into deltas, then sends them back to the kernel. The controller status byte
-   says whether the pending byte came from the keyboard or the mouse.
+   The kernel grants this server the PS/2 keyboard/mouse interrupts and their
+   data/status ports, plus COM1 for a serial console. On each interrupt
+   notification it drains the PS/2 controller, decodes scancodes into ASCII and
+   the mouse's three-byte packets into deltas, and also drains any bytes that
+   arrived on COM1, then sends them back to the kernel. The controller status
+   byte says whether the pending byte came from the keyboard or the mouse.
 
  @endverbatim
 
@@ -25,6 +26,12 @@
 
 #define PORT_DATA   0x60
 #define PORT_CMD    0x64
+
+/* COM1 register offsets from the base address. */
+#define UART_IER    1
+#define UART_LSR    5
+
+static uint16_t serial_base;
 
 static inline uint8_t inb(uint16_t port)
 {
@@ -139,6 +146,104 @@ static void mouse_byte(uint64_t key_ep, uint8_t data)
     }
 }
 
+static bool shift;
+static bool caps;
+static bool ctrl;
+static int line_len;
+
+/* Hand one character to the kernel and echo it on the console. */
+static void emit_key(uint64_t key_ep, uint64_t console_ep, uint8_t ch)
+{
+    if (ch == 0x04) {           /* Ctrl-D: end of file */
+        send_console(console_ep, '\n');
+        send_key(key_ep, INPUT_KEY_EOF);
+        line_len = 0;
+    } else if (ch == '\b' || ch == 0x7f) {
+        /* Erase only when there is something on the line. */
+        if (line_len > 0) {
+            send_console(console_ep, '\b');
+            send_key(key_ep, '\b');
+            line_len--;
+        }
+    } else if (ch == '\n' || ch == '\r') {
+        send_console(console_ep, '\n');
+        send_key(key_ep, '\n');
+        line_len = 0;
+    } else if (ch >= 0x20 && ch < 0x7f) {
+        send_console(console_ep, ch);
+        send_key(key_ep, ch);
+        line_len++;
+    }
+}
+
+static void ps2_drain(uint64_t key_ep, uint64_t console_ep)
+{
+    for (;;) {
+        int64_t status = sys_ioport_access(0, PORT_CMD, 1, 0);
+        if (status < 0 || !(status & 0x01))
+            break;
+
+        int64_t code = sys_ioport_access(0, PORT_DATA, 1, 0);
+        if (code < 0)
+            break;
+
+        if ((uint8_t) status & 0x20) {
+            /* Auxiliary (mouse) data. */
+            mouse_byte(key_ep, (uint8_t) code);
+            continue;
+        }
+
+        uint8_t sc = (uint8_t) code & 0x7f;
+        bool pressed = !((uint8_t) code & 0x80);
+
+        if (sc == KB_LSHIFT || sc == KB_RSHIFT) {
+            shift = pressed;
+        } else if (sc == KB_CAPS_LOCK) {
+            if (pressed)
+                caps = !caps;
+        } else if (sc == KB_LCTRL) {
+            ctrl = pressed;
+        } else if (pressed) {
+            char ch = keyboard_get_ascii(sc, shift, caps);
+            if (ctrl && (ch == 'd' || ch == 'D'))
+                emit_key(key_ep, console_ep, 0x04);
+            else if (ch != 0)
+                emit_key(key_ep, console_ep, (uint8_t) ch);
+        }
+    }
+}
+
+/* Drain the serial console. Bytes already arrive as ASCII, so they go straight
+ * onto the key path. */
+static void serial_drain(uint64_t key_ep, uint64_t console_ep)
+{
+    if (serial_base == 0)
+        return;
+
+    for (;;) {
+        int64_t lsr = sys_ioport_access(0, serial_base + UART_LSR, 1, 0);
+        if (lsr < 0 || !(lsr & 0x01))
+            break;
+
+        int64_t data = sys_ioport_access(0, serial_base, 1, 0);
+        if (data < 0)
+            break;
+
+        emit_key(key_ep, console_ep, (uint8_t) data);
+    }
+}
+
+static void serial_init_rx(void)
+{
+    if (serial_base == 0)
+        return;
+
+    /* The kernel leaves the UART with all interrupts off; enable only the
+     * received-data interrupt. */
+    uint8_t ier = inb(serial_base + UART_IER);
+    outb(serial_base + UART_IER, ier | 0x01);
+}
+
 int main(void)
 {
     bootinfo_t bi;
@@ -150,10 +255,9 @@ int main(void)
 
     mouse_init();
 
-    bool shift = false;
-    bool caps = false;
-    bool ctrl = false;
-    int line_len = 0;
+    if (bi.io_port_count > 1)
+        serial_base = (uint16_t) bi.io_ports[1].first;
+    serial_init_rx();
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -162,55 +266,8 @@ int main(void)
         if (m.tag != IRQ_NOTIFY_TAG)
             continue;
 
-        for (;;) {
-            int64_t status = sys_ioport_access(0, PORT_CMD, 1, 0);
-            if (status < 0 || !(status & 0x01))
-                break;
-
-            int64_t code = sys_ioport_access(0, PORT_DATA, 1, 0);
-            if (code < 0)
-                break;
-
-            if ((uint8_t) status & 0x20) {
-                /* Auxiliary (mouse) data. */
-                mouse_byte(bi.key_ep, (uint8_t) code);
-                continue;
-            }
-
-            uint8_t sc = (uint8_t) code & 0x7f;
-            bool pressed = !((uint8_t) code & 0x80);
-
-            if (sc == KB_LSHIFT || sc == KB_RSHIFT) {
-                shift = pressed;
-            } else if (sc == KB_CAPS_LOCK) {
-                if (pressed)
-                    caps = !caps;
-            } else if (sc == KB_LCTRL) {
-                ctrl = pressed;
-            } else if (pressed) {
-                char ch = keyboard_get_ascii(sc, shift, caps);
-                if (ctrl && (ch == 'd' || ch == 'D')) {
-                    send_console(bi.console_ep, '\n');
-                    send_key(bi.key_ep, INPUT_KEY_EOF);
-                    line_len = 0;
-                } else if (ch == '\b') {
-                    /* Erase only when there is something on the line. */
-                    if (line_len > 0) {
-                        send_console(bi.console_ep, '\b');
-                        send_key(bi.key_ep, '\b');
-                        line_len--;
-                    }
-                } else if (ch == '\n') {
-                    send_console(bi.console_ep, '\n');
-                    send_key(bi.key_ep, '\n');
-                    line_len = 0;
-                } else if (ch != 0) {
-                    send_console(bi.console_ep, (uint64_t) (uint8_t) ch);
-                    send_key(bi.key_ep, (uint64_t) (uint8_t) ch);
-                    line_len++;
-                }
-            }
-        }
+        ps2_drain(bi.key_ep, bi.console_ep);
+        serial_drain(bi.key_ep, bi.console_ep);
     }
 
     return 0;
