@@ -47,6 +47,12 @@
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 
+/**
+ * @brief Display geometry and resolution of the computer
+ *
+ * Records the physical screen size, the preferred resolution and the
+ * resolution the kernel actually selected at boot.
+ */
 typedef struct {
     uint64_t screen_hor_size;
     uint64_t screen_ver_size;

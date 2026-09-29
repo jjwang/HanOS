@@ -50,6 +50,9 @@
 /* resolve() returns this for the root directory. */
 #define ROOT_INDEX          (-2)
 
+/**
+ * @brief A file or directory entry from the initrd
+ */
 typedef struct {
     char name[VFS_NAME_MAX + 1];
     uint64_t off;               /* data offset inside the initrd */
@@ -58,7 +61,9 @@ typedef struct {
     bool deleted;               /* removed at runtime (initrd is read-only) */
 } vfs_ent_t;
 
-/* A file created at runtime; its bytes live in a server-side buffer. */
+/**
+ * @brief A file created at runtime with server-side storage
+ */
 typedef struct {
     bool used;
     char name[VFS_PATH_MAX];

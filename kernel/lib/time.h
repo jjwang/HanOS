@@ -31,11 +31,17 @@
 
 typedef uint64_t time_t;
 
+/**
+ * @brief Time zone offset and daylight-saving correction
+ */
 typedef struct {
     int minuteswest;            /* minutes west of Greenwich */
     int dsttime;                /* type of DST correction */
 } timezone_t;
 
+/**
+ * @brief Broken-down calendar time
+ */
 typedef struct {
     int sec;                    /* Seconds (0-60) */
     int min;                    /* Minutes (0-59) */

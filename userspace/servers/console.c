@@ -20,6 +20,9 @@
 #include <string.h>
 #include <sysfunc.h>
 
+/**
+ * @brief PSF1 bitmap font header
+ */
 typedef struct {
     uint8_t magic[2];
     uint8_t mode;

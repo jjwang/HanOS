@@ -44,6 +44,9 @@
 #define EI_OSABI        3
 #define EI_ABIVERSION   4
 
+/**
+ * @brief ELF file header identifying the object and locating its tables
+ */
 typedef struct {
     uint32_t magic;             /* Magic number and other info */
     uint8_t elf[12];
@@ -66,6 +69,9 @@ typedef struct {
 #define PF_W            2
 #define PF_R            4
 
+/**
+ * @brief ELF program header describing one loadable segment
+ */
 typedef struct {
     uint32_t type;              /* Segment type */
     uint32_t flags;             /* Segment-dependent flags */
@@ -101,6 +107,9 @@ typedef struct {
 #define SHT_SYMTAB_SHNDX    18
 #define SHT_NUM             19
 
+/**
+ * @brief ELF section header describing one section in the object
+ */
 typedef struct elf_shdr_t {
     uint32_t name;              /* An offset to a string in the shstrtab section */
     uint32_t type;              /* Section header type */
@@ -117,12 +126,18 @@ typedef struct elf_shdr_t {
                                  */
 } elf_shdr_t;
 
+/**
+ * @brief ELF note header giving the name, descriptor and type of a note
+ */
 typedef struct {
     uint32_t name_size;
     uint32_t desc_size;
     uint32_t type;
 } elf_nhdr_t;
 
+/**
+ * @brief ELF symbol table entry
+ */
 typedef struct {
     uint32_t name;              /* Symbol name (string tbl index) */
     uint8_t info;               /* Symbol type and binding */

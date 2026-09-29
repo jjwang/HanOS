@@ -42,13 +42,17 @@
 #define MAX_ORDER           10
 #define MIN_ORDER           0
 
-/* Free list node structure */
+/**
+ * @brief Free-list node linking blocks of the same order
+ */
 typedef struct buddy_block {
     struct buddy_block *next;
     struct buddy_block *prev;
 } buddy_block_t;
 
-/* Buddy allocator state */
+/**
+ * @brief Global state of the buddy physical memory allocator
+ */
 typedef struct {
     buddy_block_t *free_lists[MAX_ORDER + 1];
     uint64_t phys_limit;

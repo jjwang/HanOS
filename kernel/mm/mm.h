@@ -42,6 +42,9 @@
 #define MAX_MEM_BMP_SIZE        (NUM_PAGES(MAX_MEM_TOTAL_SIZE) / BMP_PAGES_PER_BYTE)
 #define MAX_MEM_USABLE_SIZE     (1 * GB)
 
+/**
+ * @brief Physical memory usage counters and allocation bitmap
+ */
 typedef struct {
     uint64_t phys_limit;
     uint64_t total_size;
@@ -50,6 +53,9 @@ typedef struct {
     uint8_t *bitmap;
 } mem_info_t;
 
+/**
+ * @brief Description of one mapped virtual memory range
+ */
 typedef struct {
     uint64_t vaddr;
     uint64_t paddr;
@@ -95,6 +101,9 @@ void pmm_register_buddy_allocator(void);
 
 #define PAGE_TABLE_ENTRIES      512
 
+/**
+ * @brief Virtual address space: top-level page table, mappings and lock
+ */
 typedef struct {
     uint64_t *PML4;
      vec_struct(uint64_t) mem_list;

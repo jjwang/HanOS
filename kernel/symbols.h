@@ -16,6 +16,9 @@
 
 #include <stdint.h>
 
+/**
+ * @brief Kernel symbol table entry mapping an address to a name
+ */
 typedef struct {
     uint64_t addr;
     char *name;

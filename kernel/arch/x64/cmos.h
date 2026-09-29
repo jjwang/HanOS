@@ -32,6 +32,9 @@
 #define CMOS_REG_STATUS_A 0x0A
 #define CMOS_REG_STATUS_B 0x0B
 
+/**
+ * @brief Date and time read from the CMOS real-time clock
+ */
 typedef struct {
     uint8_t seconds;
     uint8_t minutes;

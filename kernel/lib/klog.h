@@ -34,6 +34,9 @@ typedef enum {
     KLOG_LEVEL_UNK
 } klog_level_t;
 
+/**
+ * @brief Circular buffer and cursors backing the kernel log
+ */
 typedef struct {
     uint8_t buff[KLOG_BUFFER_SIZE];
     uint64_t start, end;

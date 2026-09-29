@@ -22,6 +22,9 @@
 /* Scanout pixel format assumed for the pitch computation. */
 #define DISPLAY_MODE_BPP    32
 
+/**
+ * @brief Display timing and geometry for one video mode
+ */
 typedef struct {
     bool valid;
     bool from_edid;

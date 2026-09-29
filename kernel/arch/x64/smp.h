@@ -75,6 +75,9 @@ typedef struct[[gnu::packed]] {
     uint8_t reserved;
 } cpu_t;
 
+/**
+ * @brief Aggregate state of all CPUs discovered during SMP initialization
+ */
 typedef struct {
     cpu_t cpus[CPU_MAX];
     uint16_t num_cpus;

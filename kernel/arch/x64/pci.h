@@ -41,6 +41,9 @@ typedef struct[[gnu::packed]] {
     uint16_t gsi_flags;
 } pci_device_t;
 
+/**
+ * @brief Descriptive name for a PCI device identified by vendor and device ID
+ */
 typedef struct {
     uint16_t vendor_id;
     uint16_t device_id;
@@ -58,6 +61,9 @@ void pci_outw(uint32_t id, uint32_t offset, uint16_t data);
 uint32_t pci_ind(uint32_t id, uint32_t offset);
 void pci_outd(uint32_t id, uint32_t offset, uint32_t data);
 
+/**
+ * @brief Decoded PCI base address register (BAR)
+ */
 typedef struct {
     union {
         void *address;

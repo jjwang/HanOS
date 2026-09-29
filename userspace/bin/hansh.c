@@ -43,16 +43,25 @@ static command_help_t help_msg[] = {
 };
 /* *INDENT-ON* */
 
+/**
+ * @brief Base header for a parsed shell command
+ */
 typedef struct {
     int type;
 } cmd_t;
 
+/**
+ * @brief A simple command with its argument vectors
+ */
 typedef struct {
     int type;
     char *argv[MAXARGS];
     char *eargv[MAXARGS];
 } execcmd_t;
 
+/**
+ * @brief A command with I/O redirection
+ */
 typedef struct {
     int type;
     cmd_t *cmd;
@@ -62,18 +71,27 @@ typedef struct {
     int fd;
 } redircmd_t;
 
+/**
+ * @brief Two commands joined by a pipe
+ */
 typedef struct {
     int type;
     cmd_t *left;
     cmd_t *right;
 } pipecmd_t;
 
+/**
+ * @brief Two commands run in sequence
+ */
 typedef struct {
     int type;
     cmd_t *left;
     cmd_t *right;
 } listcmd_t;
 
+/**
+ * @brief A command run in the background
+ */
 typedef struct {
     int type;
     cmd_t *cmd;

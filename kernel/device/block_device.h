@@ -17,8 +17,11 @@
 #include <stdint.h>
 #include <device/device.h>
 
+/**
+ * @brief Operations table for a block (sector-addressable) device
+ */
 typedef struct {
-    device_info_t  base;            /* must be first — cast-compatible with device_info_t */
+    device_info_t  base;            /* must be first - cast-compatible with device_info_t */
     void     (*read) (void *ctx, uint32_t lba, uint8_t sector_count, uint8_t *buf);
     void     (*write)(void *ctx, uint32_t lba, uint8_t sector_count, uint8_t *buf);
     uint32_t (*get_sector_size) (void *ctx);

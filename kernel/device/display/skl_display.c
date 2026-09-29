@@ -172,8 +172,12 @@ static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
     (void) gfx_ind(pci, PLANE_SURF_1_A);
 }
 
-/* Registers the mode set may modify, saved so a failure can restore the
- * firmware's display state instead of leaving a broken signal. */
+/**
+ * @brief Saved display registers for restoring the firmware mode set
+ *
+ * Holds the registers the mode set may modify, so a failure can restore the
+ * firmware's display state instead of leaving a broken signal.
+ */
 struct modeset_state {
     uint32_t trans[6];
     uint32_t pipeaconf, pipeasrc, pipemisc, edp_src, edp_pipe_conf,

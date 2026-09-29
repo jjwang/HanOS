@@ -23,6 +23,9 @@
 
 #include <arch/x64/pci.h>
 
+/**
+ * @brief Graphics PCI device resources
+ */
 typedef struct {
     uint32_t id;
 
@@ -34,6 +37,9 @@ typedef struct {
     uint32_t aperture_size;
 } gfx_pci_t;
 
+/**
+ * @brief Graphics translation table (GTT) state
+ */
 typedef struct {
     uint32_t stolen_mem_size;
     uint32_t gtt_mem_size;
@@ -45,17 +51,26 @@ typedef struct {
     volatile uint64_t *entries;
 } gfx_gtt_t;
 
+/**
+ * @brief A GPU object mapped through the GTT
+ */
 typedef struct {
     volatile uint8_t *cpu_addr;
     volatile uint64_t gfx_addr;
 } gfx_object_t;
 
+/**
+ * @brief A range of GPU-addressable memory
+ */
 typedef struct {
     uint64_t base;
     uint64_t top;
     uint64_t current;
 } gfx_mem_range_t;
 
+/**
+ * @brief Graphics memory allocator state
+ */
 typedef struct {
     gfx_mem_range_t vram;       /* Stolen Memory */
     gfx_mem_range_t shared;     /* Addresses mapped through aperture. */
@@ -65,13 +80,19 @@ typedef struct {
     volatile uint8_t *gfx_mem_next;
 } gfx_mem_manager_t;
 
+/**
+ * @brief GPU performance and frequency status
+ */
 typedef struct {
     uint32_t current_freq_mhz;
     uint32_t requested_freq_mhz;
     uint32_t perf_limit_reasons;
-    uint8_t rp0_freq_units;     /* GT_PERF_STATUS bits 7:0 — RP0 cap in 50MHz units */
+    uint8_t rp0_freq_units;     /* GT_PERF_STATUS bits 7:0 - RP0 cap in 50MHz units */
 } gfx_perf_status_t;
 
+/**
+ * @brief A framebuffer presented on a display plane
+ */
 typedef struct {
     gfx_object_t obj;       /* GTT-mapped framebuffer */
     uint32_t width;

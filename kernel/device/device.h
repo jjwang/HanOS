@@ -23,6 +23,9 @@ typedef enum {
     DEVICE_TYPE_CHAR,
 } device_type_t;
 
+/**
+ * @brief Common device interface shared by all device types
+ */
 typedef struct {
     char           name[32];        /* human-readable device name */
     device_type_t  type;

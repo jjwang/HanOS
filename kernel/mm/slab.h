@@ -22,6 +22,9 @@
 #include <stdint.h>
 #include <lib/spinlock.h>
 
+/**
+ * @brief One slab holding a run of objects of a single cache
+ */
 typedef struct slab_t {
     struct slab_t *next;
     struct slab_t *prev;
@@ -30,6 +33,9 @@ typedef struct slab_t {
     void *base;
 } slab_t;
 
+/**
+ * @brief Slab cache managing full, partial and empty slabs of a fixed size
+ */
 typedef struct scache_t {
     spinlock_t lock;
     void (*ctor)(struct scache_t * cache, void *obj);

@@ -75,50 +75,71 @@
 #define EVT_NUM             256
 #define XHCI_TIMEOUT_MS     500
 
-typedef struct {
+/**
+ * @brief xHCI transfer request block (TRB)
+ */
+typedef struct[[gnu::packed]] {
     uint64_t param;
     uint32_t status;
     uint32_t control;
-} __attribute__((packed)) xhci_trb_t;
+} xhci_trb_t;
 
-typedef struct {
+/**
+ * @brief xHCI device slot context
+ */
+typedef struct[[gnu::packed]] {
     uint32_t dev_info;
     uint32_t dev_info2;
     uint32_t tt_info;
     uint32_t dev_state;
     uint32_t rsvd[4];
-} __attribute__((packed)) xhci_slot_ctx_t;
+} xhci_slot_ctx_t;
 
-typedef struct {
+/**
+ * @brief xHCI endpoint context
+ */
+typedef struct[[gnu::packed]] {
     uint32_t info;
     uint32_t info2;
     uint64_t deq;
     uint32_t tx_info;
     uint32_t rsvd[3];
-} __attribute__((packed)) xhci_ep_ctx_t;
+} xhci_ep_ctx_t;
 
-typedef struct {
+/**
+ * @brief xHCI input control context
+ */
+typedef struct[[gnu::packed]] {
     uint32_t drop_flags;
     uint32_t add_flags;
     uint32_t rsvd[6];
-} __attribute__((packed)) xhci_icc_t;
+} xhci_icc_t;
 
-typedef struct {
+/**
+ * @brief xHCI input context for address and configure commands
+ */
+typedef struct[[gnu::packed]] {
     xhci_icc_t icc;
     xhci_slot_ctx_t slot;
     xhci_ep_ctx_t ep[31];
-} __attribute__((packed)) xhci_input_ctx_t;
+} xhci_input_ctx_t;
 
-typedef struct {
+/**
+ * @brief xHCI device context
+ */
+typedef struct[[gnu::packed]] {
     xhci_slot_ctx_t slot;
     xhci_ep_ctx_t ep[31];
-} __attribute__((packed)) xhci_dev_ctx_t;
+} xhci_dev_ctx_t;
 
-typedef struct {
+/**
+ * @brief xHCI event ring segment table entry
+ */
+typedef struct[[gnu::packed]] {
     uint64_t base;
     uint32_t size;
     uint32_t rsvd;
-} __attribute__((packed)) xhci_erst_entry_t;
+} xhci_erst_entry_t;
 
 static volatile uint8_t *mmio;
 static uint32_t op_base;

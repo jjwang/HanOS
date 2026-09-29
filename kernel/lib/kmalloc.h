@@ -18,6 +18,9 @@
 
 #define MEM_MAGIC_NUM       0xABEEABEE
 
+/**
+ * @brief Header stored before each kmalloc block for tracking and validation
+ */
 typedef struct {
     uint64_t magic;
     uint64_t checkno;

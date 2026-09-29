@@ -29,6 +29,9 @@ typedef enum {
     OBJ_PROCESS
 } obj_type_t;
 
+/**
+ * @brief Base header embedded in every reference-counted kernel object
+ */
 typedef struct kernel_object {
     obj_type_t type;
     volatile uint32_t refcnt;
@@ -47,12 +50,18 @@ typedef uint64_t handle_t;
 #define HANDLE_RIGHT_MAP        (1u << 4)
 #define HANDLE_RIGHT_TRANSFER   (1u << 5)
 
+/**
+ * @brief One handle-table slot referencing an object with rights and generation
+ */
 typedef struct {
     kernel_object_t *obj;       /* NULL == free slot */
     uint32_t rights;
     uint16_t generation;
 } handle_slot_t;
 
+/**
+ * @brief Per-process table of handle slots
+ */
 typedef struct handle_table {
     handle_slot_t *slots;
     uint32_t count;

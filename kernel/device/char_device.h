@@ -19,8 +19,11 @@
 #include <stdbool.h>
 #include <device/device.h>
 
+/**
+ * @brief Operations table for a character (byte-stream) device
+ */
 typedef struct {
-    device_info_t  base;            /* must be first — cast-compatible with device_info_t */
+    device_info_t  base;            /* must be first - cast-compatible with device_info_t */
     int64_t (*read) (void *ctx, uint64_t len, void *buf);
     int64_t (*write)(void *ctx, uint64_t len, const void *buf);
     bool    (*poll) (void *ctx);    /* returns true if data is available to read */

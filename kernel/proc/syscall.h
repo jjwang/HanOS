@@ -154,11 +154,17 @@
 #define PROT_WRITE      0x02
 #define PROT_EXEC       0x04
 
+/**
+ * @brief Time interval with second and microsecond parts
+ */
 typedef struct {
     uint64_t tv_sec;
     uint64_t tv_usec;
 } timeval_t;
 
+/**
+ * @brief Resource usage counters for a process
+ */
 typedef struct {
     timeval_t ru_utime;         /* user CPU time used */
     timeval_t ru_stime;         /* system CPU time used */

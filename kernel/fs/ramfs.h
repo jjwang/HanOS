@@ -18,6 +18,9 @@
 
 #include <fs/vfs.h>
 
+/**
+ * @brief In-memory RAMFS file content with its name and size
+ */
 typedef struct {
     char name[VFS_MAX_NAME_LEN];
     void *data;
@@ -43,6 +46,9 @@ typedef struct[[gnu::packed]] {
     uint8_t filename_prefix[155];
 } ustar_file_t;
 
+/**
+ * @brief Index entry describing one RAMFS file node and its parent inode
+ */
 typedef struct {
     ramfs_file_t entry;
     vfs_node_type_t type;

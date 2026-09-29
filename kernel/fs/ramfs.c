@@ -60,7 +60,9 @@ vfs_fsinfo_t ramfs = {
     .ioctl = NULL
 };
 
-/* Identifying information for a node */
+/**
+ * @brief RAMFS inode-private file buffer and its allocated size
+ */
 typedef struct {
     uint64_t alloc_size;
     void *data;

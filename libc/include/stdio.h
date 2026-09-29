@@ -27,6 +27,9 @@
 
 /* ----- Definition of file system, same with vfs.h ----- */
 #ifndef KERNEL_BUILD
+/**
+ * @brief A time value with seconds and nanoseconds
+ */
 typedef struct {
     int64_t tv_sec;
     int64_t tv_nsec;
@@ -61,6 +64,9 @@ typedef struct {
 #define S_IFCHR   0020000   /* character device */
 #define S_IFIFO   0010000   /* FIFO */
 
+/**
+ * @brief File status metadata
+ */
 typedef struct {
     int64_t     st_dev;     /* ID of device containing file */
     uint64_t    st_ino;     /* Inode number */

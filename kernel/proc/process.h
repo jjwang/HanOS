@@ -195,23 +195,37 @@ typedef enum {
 
 typedef uint64_t event_para_t;
 
+/**
+ * @brief Typed event together with its argument, used to wake a process
+ */
 typedef struct {
     event_type_t type;
     event_para_t para;
 } event_t;
 
+/**
+ * @brief Pair of file handles recorded by a duplicate operation
+ */
 typedef struct {
     vfs_handle_t fh;
     vfs_handle_t newfh;
 } file_dup_t;
 
-/* Signal dispositions and mask of a process. */
+/**
+ * @brief Signal dispositions and mask of a process
+ */
 typedef struct {
     spinlock_t lock;
     sigaction_t actions[NSIG];
     sigset_t mask;
 } signal_state_t;
 
+/**
+ * @brief Kernel process control block
+ *
+ * Holds the saved CPU context, scheduling state, parent/child links,
+ * granted capability handles and the address space of a process.
+ */
 typedef struct process {
     /* Saved CPU context (restored by exit_context_switch) and the kernel and
      * user stacks the process uses. */

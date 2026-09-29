@@ -23,6 +23,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/**
+ * @brief Interrupt-safe spinlock holding the lock state and owner's RFLAGS
+ */
 typedef struct {
     volatile uint32_t locked;   /* 0: free, 1: held */
     uint64_t irq_flags;         /* RFLAGS of the core that owns the lock */

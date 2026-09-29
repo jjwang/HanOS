@@ -25,6 +25,9 @@
 #include <ipc/object.h>
 #include <mm/mm.h>
 
+/**
+ * @brief Refcounted memory object holding a set of physical pages
+ */
 typedef struct memobj {
     kernel_object_t obj;        /* must stay first */
     spinlock_t lock;

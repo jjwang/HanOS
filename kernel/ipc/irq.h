@@ -28,6 +28,9 @@
 /* Message tag used when an IRQ fires. */
 #define IRQ_NOTIFY_TAG      0x01
 
+/**
+ * @brief Kernel object for one hardware interrupt line bound to an endpoint
+ */
 typedef struct {
     kernel_object_t obj;        /* must stay first */
     uint32_t irq;

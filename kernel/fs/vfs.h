@@ -71,6 +71,9 @@ typedef int32_t gid_t;
 #define DT_SOCK     12
 #define DT_WHT      14
 
+/**
+ * @brief Directory entry returned by readdir
+ */
 typedef struct {
     ino_t d_ino;
     off_t d_off;
@@ -91,7 +94,7 @@ typedef int64_t vfs_handle_t;
 typedef struct vfs_inode_t vfs_inode_t;
 
 /* A tnode refers to a tree node structure, used to model hierarchical
- * relationships—typically in directory trees, file trees, or custom data
+ * relationships - typically in directory trees, file trees, or custom data
  * structures supporting the filesystem.
  */
 typedef struct vfs_tnode_t vfs_tnode_t;
@@ -112,6 +115,9 @@ typedef enum {
     VFS_MODE_READWRITE
 } vfs_openmode_t;
 
+/**
+ * @brief File timestamp with second and nanosecond parts
+ */
 typedef struct {
     int64_t tv_sec;
     int64_t tv_nsec;
@@ -154,6 +160,9 @@ typedef struct {
 #define S_IWOTH     00002       /* others have write permission */
 #define S_IXOTH     00001       /* others have execute permission */
 
+/**
+ * @brief File status returned by the stat family of calls
+ */
 typedef struct {
     dev_t st_dev;               /* ID of device containing file */
     ino_t st_ino;               /* Inode number */
@@ -170,6 +179,9 @@ typedef struct {
     blkcnt_t st_blocks;         /* Number of 512B blocks allocated */
 } vfs_stat_t;
 
+/**
+ * @brief VFS directory entry with name, type and basic metadata
+ */
 typedef struct {
     vfs_node_type_t type;
     tm_t tm;
@@ -177,7 +189,9 @@ typedef struct {
     uint64_t size;
 } vfs_dirent_t;
 
-/* Details about FS format */
+/**
+ * @brief Description of a filesystem type and its operation table
+ */
 typedef struct vfs_fsinfo_t {
     char name[16];              /* File system name */
     bool istemp;                /* For ramfs, it is true; for fat32 etc., it is false */
@@ -199,6 +213,9 @@ typedef struct vfs_fsinfo_t {
     int64_t(*ioctl) (vfs_inode_t * this, int64_t request, int64_t arg);
 } vfs_fsinfo_t;
 
+/**
+ * @brief VFS tree node linking a name, status and inode into a hierarchy
+ */
 struct vfs_tnode_t {
     char name[VFS_MAX_NAME_LEN];
     vfs_stat_t st;
@@ -206,6 +223,9 @@ struct vfs_tnode_t {
     vfs_inode_t *parent;
 };
 
+/**
+ * @brief VFS inode holding file metadata and filesystem-private data
+ */
 struct vfs_inode_t {
     vfs_node_type_t type;       /* File type */
     char link[VFS_MAX_NAME_LEN];        /* Target file if file is symlink */
@@ -223,6 +243,9 @@ struct vfs_inode_t {
      vec_struct(vfs_tnode_t *) child;
 };
 
+/**
+ * @brief Open file description backing a VFS handle
+ */
 typedef struct {
     char path[VFS_MAX_PATH_LEN];
     vfs_tnode_t *tnode;

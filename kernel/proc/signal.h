@@ -22,12 +22,18 @@
 
 #include <fs/vfs.h>
 
+/**
+ * @brief Alternate signal stack description
+ */
 typedef struct {
     void *base;
     int64_t flags;
     uint64_t size;
 } stack_t;
 
+/**
+ * @brief Signal set stored as a 64-bit mask
+ */
 typedef struct {
     uint64_t sig;
 } sigset_t;
@@ -53,6 +59,9 @@ typedef struct {
 
 #define NSIG            64      /* 64 instead of 65 here */
 
+/**
+ * @brief Signal action giving the handler, mask and flags for a signal
+ */
 typedef struct {
     void *address;
     sigset_t mask;
@@ -67,6 +76,9 @@ typedef struct {
 #define POLL_PRI        5
 #define POLL_HUP        6
 
+/**
+ * @brief Value carried with a queued signal
+ */
 union sigval {
     int sival_int;
     void *sival_ptr;
@@ -74,6 +86,9 @@ union sigval {
 
 typedef long clock_t;
 
+/**
+ * @brief Detailed information about a delivered signal
+ */
 typedef struct {
     int si_signo, si_errno, si_code;
     union {

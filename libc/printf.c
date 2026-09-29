@@ -125,6 +125,9 @@
 typedef void (*out_fct_type)(char character, void* buffer, uint64_t idx, uint64_t maxlen);
 
 
+/**
+ * @brief Output callback and its argument, used as a printf buffer
+ */
 // wrapper (used as buffer) for output function type
 typedef struct {
   void  (*fct)(char character, void* arg);

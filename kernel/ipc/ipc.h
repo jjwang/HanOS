@@ -29,6 +29,9 @@
 #define IPC_WORDS       6
 #define IPC_QUEUE_LEN   64
 
+/**
+ * @brief An IPC message: protocol tag, inline words and transferred handles
+ */
 typedef struct {
     uint64_t tag;
     uint64_t words[IPC_WORDS];
@@ -36,9 +39,11 @@ typedef struct {
     uint8_t xfer_count;
 } ipc_msg_t;
 
-/* One queued message plus any kernel objects whose handles the sender moved
- * to the receiver (ipc_msg_t.xfer). The references are owned by this entry
- * until a receiver takes them. */
+/**
+ * @brief A queued message together with the objects whose handles it moves
+ *
+ * The references are owned by this entry until a receiver takes them.
+ */
 typedef struct {
     ipc_msg_t msg;
     kernel_object_t *xfer_obj[2];
@@ -46,6 +51,9 @@ typedef struct {
     uint8_t xfer_count;
 } ipc_queue_entry_t;
 
+/**
+ * @brief Kernel object holding a FIFO queue of IPC messages
+ */
 typedef struct endpoint {
     kernel_object_t obj;        /* must stay first */
     spinlock_t lock;

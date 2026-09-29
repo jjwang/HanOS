@@ -49,12 +49,19 @@
 #define O_CLOEXEC           0x4000
 #define O_PATH              0x8000
 
+/**
+ * @brief A shell command and its help text
+ */
 typedef struct {
     char command[256];
     char desc[256];
 } command_help_t;
 
-/* Layout shared with the kernel ipc_msg_t. */
+/**
+ * @brief An IPC message exchanged with the kernel
+ *
+ * The layout is shared with the kernel ipc_msg_t.
+ */
 typedef struct {
     uint64_t tag;
     uint64_t words[6];

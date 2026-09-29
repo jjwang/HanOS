@@ -35,12 +35,17 @@
 /* Message tag used by a server to write a byte to the kernel console. */
 #define CONSOLE_WRITE_TAG   0x50
 
-/* Inclusive range of I/O ports granted to a server. */
+/**
+ * @brief An inclusive range of I/O ports granted to a server
+ */
 typedef struct {
     uint16_t first;
     uint16_t last;
 } io_port_range_t;
 
+/**
+ * @brief Startup resources granted to a userspace server
+ */
 typedef struct {
     uint64_t magic;
     uint64_t irq_ep;            /* endpoint handle: IRQ notifications in */

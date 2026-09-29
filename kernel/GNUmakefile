@@ -8,6 +8,7 @@ INDENT       := indent -kr -i4 -nut
 LC_FLAGS     :=             \
     -I. -I.. -I../libc/include -Wall -Wextra  \
     -DKERNEL_BUILD          \
+    -DVERSION_STRING=\"$(shell sh ../scripts/version.sh)\" \
     -mcmodel=kernel         \
     -std=gnu11              \
     -ffreestanding          \

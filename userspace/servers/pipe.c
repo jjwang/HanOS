@@ -29,6 +29,9 @@
 #define PIPE_MAX        16
 #define PIPE_END_MAX    64
 
+/**
+ * @brief A byte-stream pipe buffer
+ */
 typedef struct {
     bool used;
     uint8_t buf[PIPE_BUF_SIZE];
@@ -39,6 +42,9 @@ typedef struct {
     uint32_t w_refs;            /* open write ends */
 } pipe_t;
 
+/**
+ * @brief A handle to one end of a pipe
+ */
 typedef struct {
     bool used;
     int pipe;

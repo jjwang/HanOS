@@ -8,6 +8,7 @@
   Declares the VFS server spawn/status helpers.
 
  @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #pragma once

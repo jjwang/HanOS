@@ -80,7 +80,11 @@ void fb_refresh(fb_info_t * fb)
 
 /* --- Boot splash --------------------------------------------------------- */
 
-/* PSF1 font header; glyph data follows, charsize bytes per 8-pixel-wide glyph. */
+/**
+ * @brief PSF1 bitmap font header followed by its glyph data
+ *
+ * Each glyph is 8 pixels wide and charsize bytes tall, one byte per row.
+ */
 typedef struct {
     uint8_t magic[2];
     uint8_t mode;

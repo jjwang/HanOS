@@ -35,6 +35,9 @@
 #define DEFAULT_FGCOLOR     COLOR_GREY
 #define DEFAULT_BGCOLOR     COLOR_BLACK
 
+/**
+ * @brief Framebuffer geometry, scan-out address and back buffer
+ */
 typedef struct {
     uint8_t *addr;
 

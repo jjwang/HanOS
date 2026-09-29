@@ -19,11 +19,17 @@
 
 #define HT_DEFAULT_ARRAY_SIZE       128
 
+/**
+ * @brief Single key/value pair stored in a hash table
+ */
 typedef struct {
     int64_t key;
     void *data;
 } ht_item_t;
 
+/**
+ * @brief Hash table made up of a bucket array and its size
+ */
 typedef struct {
     uint64_t size;
     ht_item_t *array;

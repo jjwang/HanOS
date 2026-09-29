@@ -23,6 +23,9 @@
 #include <ipc/ipc.h>
 #include <proc/process.h>
 
+/**
+ * @brief Notification endpoint with a mask of currently pending event types
+ */
 typedef struct {
     endpoint_t *ep;
     uint64_t pending;
