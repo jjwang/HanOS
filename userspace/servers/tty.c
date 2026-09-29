@@ -85,10 +85,32 @@ static void console_write(const uint8_t * p, uint64_t len)
     }
 }
 
+/* Echo one key from the input server to the console (framebuffer and serial).
+ * A line-length guard keeps backspace from erasing the shell prompt. */
+static int echo_len;
+
+static void echo_key(uint8_t k)
+{
+    if (k == '\n') {
+        console_write((const uint8_t *) "\n", 1);
+        echo_len = 0;
+    } else if (k == '\b') {
+        if (echo_len > 0) {
+            console_write((const uint8_t *) "\b", 1);
+            echo_len--;
+        }
+    } else if (k >= 0x20 && k < 0x7f) {
+        console_write(&k, 1);
+        echo_len++;
+    }
+}
+
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == TTY_KEY) {
-        key_push((uint8_t) m->words[0]);
+        uint8_t k = (uint8_t) m->words[0];
+        key_push(k);
+        echo_key(k);
         return;
     }
 
@@ -161,6 +183,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 return;
             }
         }
+
+        /* The shell's own output resets the echo column on a new line. */
+        for (uint64_t i = 0; i < len; i++)
+            if (src[i] == '\n')
+                echo_len = 0;
 
         console_write(src, len);
 

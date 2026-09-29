@@ -31,7 +31,6 @@
 
 static endpoint_t *input_irq_ep = NULL;
 static endpoint_t *input_key_ep = NULL;
-static endpoint_t *console_ep = NULL;
 static bool input_active = false;
 static pid_t input_spawner = PID_MAX;
 
@@ -46,8 +45,6 @@ static void input_spawn_attach(process_t * tc)
                                   HANDLE_RIGHT_RECV);
     handle_t h_key = handle_alloc(&tc->handles, endpoint_object(input_key_ep),
                                   HANDLE_RIGHT_SEND);
-    handle_t h_con = handle_alloc(&tc->handles, endpoint_object(console_ep),
-                                  HANDLE_RIGHT_SEND);
 
     /* PS/2 data/status ports, then COM1 for the serial console. */
     tc->io_ports[0].first = 0x60;
@@ -56,8 +53,7 @@ static void input_spawn_attach(process_t * tc)
     tc->io_ports[1].last = 0x3FF;
     tc->io_port_count = 2;
 
-    if (h_irq == HANDLE_INVALID || h_key == HANDLE_INVALID
-        || h_con == HANDLE_INVALID)
+    if (h_irq == HANDLE_INVALID || h_key == HANDLE_INVALID)
         return;
 
     bootinfo_t *bi = kmalloc(sizeof(bootinfo_t));
@@ -68,7 +64,6 @@ static void input_spawn_attach(process_t * tc)
     bi->magic = BOOTINFO_MAGIC;
     bi->irq_ep = h_irq;
     bi->key_ep = h_key;
-    bi->console_ep = h_con;
     bi->irq_num = 1;
     bi->io_ports[0].first = 0x60;
     bi->io_ports[0].last = 0x64;
@@ -97,24 +92,11 @@ _Noreturn static void input_kthread(pid_t pid)
     }
 }
 
-/* Write bytes handed over by a server to the kernel terminal. */
-_Noreturn static void console_kthread(pid_t pid)
-{
-    (void) pid;
-
-    for (;;) {
-        ipc_msg_t m;
-        if (ipc_recv(console_ep, &m) == 0 && m.tag == CONSOLE_WRITE_TAG)
-            kprintf("%c", (char) m.words[0]);
-    }
-}
-
 bool input_server_start(void)
 {
     input_irq_ep = endpoint_create();
     input_key_ep = endpoint_create();
-    console_ep = endpoint_create();
-    if (input_irq_ep == NULL || input_key_ep == NULL || console_ep == NULL)
+    if (input_irq_ep == NULL || input_key_ep == NULL)
         return false;
 
     irq_obj_t *io = irq_create(1);
@@ -147,11 +129,6 @@ bool input_server_start(void)
     if (tk == NULL)
         return false;
     sched_add(tk);
-
-    process_t *tcon = sched_new("conkbd", console_kthread, false);
-    if (tcon == NULL)
-        return false;
-    sched_add(tcon);
 
     input_active = true;
     klogi("input: server started (irq ep 0x%016lx, key ep 0x%016lx)\n",

@@ -10,8 +10,9 @@
    data/status ports, plus COM1 for a serial console. On each interrupt
    notification it drains the PS/2 controller, decodes scancodes into ASCII and
    the mouse's three-byte packets into deltas, and also drains any bytes that
-   arrived on COM1, then sends them back to the kernel. The controller status
-   byte says whether the pending byte came from the keyboard or the mouse.
+   arrived on COM1, then hands the keys to the kernel. The controller status
+   byte says whether the pending byte came from the keyboard or the mouse. The
+   tty server echoes the keys.
 
  @endverbatim
 
@@ -71,19 +72,31 @@ static uint8_t mouse_read(void)
     return inb(PORT_DATA);
 }
 
+static void ps2_flush(void)
+{
+    while (inb(PORT_CMD) & 0x01)
+        inb(PORT_DATA);
+}
+
 static void mouse_init(void)
 {
-    /* Enable the auxiliary device and its interrupt (config byte bit 1). */
-    mouse_wait(1);
-    outb(PORT_CMD, 0xA8);
+    /* Disable both ports and drain any byte the firmware left in the
+     * controller, so a stray scancode is not mistaken for the configuration
+     * byte below. */
+    outb(PORT_CMD, 0xAD);       /* disable the keyboard port */
+    outb(PORT_CMD, 0xA7);       /* disable the mouse port */
+    ps2_flush();
 
-    mouse_wait(1);
-    outb(PORT_CMD, 0x20);
-    uint8_t status = mouse_read() | 0x02;
+    outb(PORT_CMD, 0xAE);       /* enable the keyboard port */
+    outb(PORT_CMD, 0xA8);       /* enable the mouse port */
+
+    /* Configuration byte: keyboard IRQ (bit 0), mouse IRQ (bit 1), system flag
+     * (bit 2) and translation (bit 6). Writing a fixed value avoids the racy
+     * read-modify-write that could otherwise disable the keyboard. */
     mouse_wait(1);
     outb(PORT_CMD, 0x60);
     mouse_wait(1);
-    outb(PORT_DATA, status);
+    outb(PORT_DATA, 0x47);
 
     mouse_write(0xF6);          /* default settings */
     mouse_read();
@@ -106,14 +119,6 @@ static void send_mouse(uint64_t key_ep, int dx, int dy)
     m.words[0] = (uint64_t) (int64_t) dx;
     m.words[1] = (uint64_t) (int64_t) dy;
     sys_ipc_send((int64_t) key_ep, &m);
-}
-
-static void send_console(uint64_t console_ep, uint64_t ch)
-{
-    sys_ipc_msg_t m = { 0 };
-    m.tag = CONSOLE_WRITE_TAG;
-    m.words[0] = ch;
-    sys_ipc_send((int64_t) console_ep, &m);
 }
 
 /* Three-byte PS/2 mouse packet: flags, X delta, Y delta. */
@@ -149,34 +154,22 @@ static void mouse_byte(uint64_t key_ep, uint8_t data)
 static bool shift;
 static bool caps;
 static bool ctrl;
-static int line_len;
 
-/* Hand one character to the kernel and echo it on the console. */
-static void emit_key(uint64_t key_ep, uint64_t console_ep, uint8_t ch)
+/* Map a raw character to the key the tty expects and hand it to the kernel.
+ * The tty server echoes it. */
+static void send_char(uint64_t key_ep, uint8_t ch)
 {
-    if (ch == 0x04) {           /* Ctrl-D: end of file */
-        send_console(console_ep, '\n');
+    if (ch == 0x04)             /* Ctrl-D: end of file */
         send_key(key_ep, INPUT_KEY_EOF);
-        line_len = 0;
-    } else if (ch == '\b' || ch == 0x7f) {
-        /* Erase only when there is something on the line. */
-        if (line_len > 0) {
-            send_console(console_ep, '\b');
-            send_key(key_ep, '\b');
-            line_len--;
-        }
-    } else if (ch == '\n' || ch == '\r') {
-        send_console(console_ep, '\n');
+    else if (ch == '\r')
         send_key(key_ep, '\n');
-        line_len = 0;
-    } else if (ch >= 0x20 && ch < 0x7f) {
-        send_console(console_ep, ch);
+    else if (ch == 0x7f)
+        send_key(key_ep, '\b');
+    else if (ch == '\n' || ch == '\b' || (ch >= 0x20 && ch < 0x7f))
         send_key(key_ep, ch);
-        line_len++;
-    }
 }
 
-static void ps2_drain(uint64_t key_ep, uint64_t console_ep)
+static void ps2_drain(uint64_t key_ep)
 {
     for (;;) {
         int64_t status = sys_ioport_access(0, PORT_CMD, 1, 0);
@@ -206,16 +199,16 @@ static void ps2_drain(uint64_t key_ep, uint64_t console_ep)
         } else if (pressed) {
             char ch = keyboard_get_ascii(sc, shift, caps);
             if (ctrl && (ch == 'd' || ch == 'D'))
-                emit_key(key_ep, console_ep, 0x04);
+                send_char(key_ep, 0x04);
             else if (ch != 0)
-                emit_key(key_ep, console_ep, (uint8_t) ch);
+                send_char(key_ep, (uint8_t) ch);
         }
     }
 }
 
 /* Drain the serial console. Bytes already arrive as ASCII, so they go straight
  * onto the key path. */
-static void serial_drain(uint64_t key_ep, uint64_t console_ep)
+static void serial_drain(uint64_t key_ep)
 {
     if (serial_base == 0)
         return;
@@ -229,7 +222,7 @@ static void serial_drain(uint64_t key_ep, uint64_t console_ep)
         if (data < 0)
             break;
 
-        emit_key(key_ep, console_ep, (uint8_t) data);
+        send_char(key_ep, (uint8_t) data);
     }
 }
 
@@ -266,8 +259,8 @@ int main(void)
         if (m.tag != IRQ_NOTIFY_TAG)
             continue;
 
-        ps2_drain(bi.key_ep, bi.console_ep);
-        serial_drain(bi.key_ep, bi.console_ep);
+        ps2_drain(bi.key_ep);
+        serial_drain(bi.key_ep);
     }
 
     return 0;
