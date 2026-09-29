@@ -19,9 +19,11 @@
 #include <stddef.h>
 
 #include <string.h>
+#include <version.h>
 
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
+#include <printf.h>
 
 static fb_info_t fb_global;
 
@@ -78,9 +80,22 @@ void fb_refresh(fb_info_t * fb)
 
 /* --- Boot splash --------------------------------------------------------- */
 
-#define SPLASH_BG       0x0E1A24
-#define SPLASH_FG       0x4FC7D6
-#define SPLASH_TRACK    0x1C2E3A
+/* PSF1 font header; glyph data follows, charsize bytes per 8-pixel-wide glyph. */
+typedef struct {
+    uint8_t magic[2];
+    uint8_t mode;
+    uint8_t charsize;
+    uint8_t data[];
+} psf1_font_t;
+
+extern psf1_font_t boot_font_norm, boot_font_bold;
+
+#define SPLASH_BG       0x000000
+#define SPLASH_LOGO     0x00AAAA
+#define SPLASH_DESC     0xAAAAAA
+#define SPLASH_TRACK    0x1E1E1E
+#define SPLASH_FILL     0x00AAAA
+#define SPLASH_SCALE    6
 
 static int splash_track_x, splash_track_y, splash_track_w, splash_track_h;
 
@@ -110,57 +125,50 @@ static void splash_rect(fb_info_t * fb, int x, int y, int w, int h,
     }
 }
 
-/* Thick line drawn as overlapping t-by-t squares. */
-static void splash_line(fb_info_t * fb, int x0, int y0, int x1, int y1, int t,
-                        uint32_t color)
+static void splash_glyph(fb_info_t * fb, const psf1_font_t * font, int x,
+                         int y, uint8_t ch, int scale, uint32_t color)
 {
-    int dx = x1 - x0, dy = y1 - y0;
-    int steps = (dx < 0 ? -dx : dx);
-    if ((dy < 0 ? -dy : dy) > steps)
-        steps = (dy < 0 ? -dy : dy);
-    if (steps == 0)
-        steps = 1;
+    const uint8_t *glyph = font->data + (uint32_t) ch * font->charsize;
 
-    for (int s = 0; s <= steps; s++)
-        splash_rect(fb, x0 + dx * s / steps - t / 2,
-                    y0 + dy * s / steps - t / 2, t, t, color);
+    for (int i = 0; i < font->charsize; i++) {
+        uint8_t bits = glyph[i];
+        for (int k = 0; k < 8; k++)
+            if (bits & (0x80 >> k))
+                splash_rect(fb, x + k * scale, y + i * scale, scale, scale,
+                            color);
+    }
+}
+
+static void splash_text(fb_info_t * fb, const psf1_font_t * font, int x, int y,
+                        const char *s, int scale, uint32_t color)
+{
+    for (; *s != '\0'; s++, x += 8 * scale)
+        splash_glyph(fb, font, x, y, (uint8_t) *s, scale, color);
 }
 
 void fb_splash(fb_info_t * fb)
 {
     splash_rect(fb, 0, 0, (int) fb->width, (int) fb->height, SPLASH_BG);
 
-    int H = (int) fb->height / 4;
-    int W = H * 3 / 5;
-    int gap = W / 3;
-    int t = W / 4;
-    int total = W * 3 + gap * 2;
-    int ox = ((int) fb->width - total) / 2;
-    int oy = ((int) fb->height - H) / 2 - (int) fb->height / 12;
+    const char *logo = "HNK";
+    int scale = SPLASH_SCALE;
+    int lw = (int) strlen(logo) * 8 * scale;
+    int lx = ((int) fb->width - lw) / 2;
+    int ly = ((int) fb->height - boot_font_bold.charsize * scale) / 2;
+    splash_text(fb, &boot_font_bold, lx, ly, logo, scale, SPLASH_LOGO);
 
-    /* H */
-    splash_rect(fb, ox, oy, t, H, SPLASH_FG);
-    splash_rect(fb, ox + W - t, oy, t, H, SPLASH_FG);
-    splash_rect(fb, ox, oy + (H - t) / 2, W, t, SPLASH_FG);
+    char desc[96];
+    snprintf(desc, sizeof(desc),
+             "- Microkernel-based General Purpose OS Kernel for x86-64 v%s -",
+             VERSION);
+    int dx = ((int) fb->width - (int) strlen(desc) * 8) / 2;
+    int dy = ((int) fb->height + boot_font_bold.charsize * scale) / 2;
+    splash_text(fb, &boot_font_norm, dx, dy, desc, 1, SPLASH_DESC);
 
-    /* N */
-    int nx = ox + W + gap;
-    splash_rect(fb, nx, oy, t, H, SPLASH_FG);
-    splash_rect(fb, nx + W - t, oy, t, H, SPLASH_FG);
-    splash_line(fb, nx + t, oy, nx + W - t, oy + H, t, SPLASH_FG);
-
-    /* K */
-    int kx = nx + W + gap;
-    splash_rect(fb, kx, oy, t, H, SPLASH_FG);
-    splash_line(fb, kx + t, oy + H / 2, kx + W, oy, t, SPLASH_FG);
-    splash_line(fb, kx + t, oy + H / 2, kx + W, oy + H, t, SPLASH_FG);
-
-    splash_track_w = (int) fb->width / 3;
-    splash_track_h = (int) fb->height / 100;
-    if (splash_track_h < 4)
-        splash_track_h = 4;
+    splash_track_w = (int) fb->width / 4;
+    splash_track_h = 6;
     splash_track_x = ((int) fb->width - splash_track_w) / 2;
-    splash_track_y = (int) fb->height * 3 / 4;
+    splash_track_y = (int) fb->height * 4 / 5;
     splash_rect(fb, splash_track_x, splash_track_y, splash_track_w,
                 splash_track_h, SPLASH_TRACK);
 
@@ -174,6 +182,6 @@ void fb_splash_progress(fb_info_t * fb, uint32_t percent)
 
     splash_rect(fb, splash_track_x, splash_track_y,
                 splash_track_w * (int) percent / 100, splash_track_h,
-                SPLASH_FG);
+                SPLASH_FILL);
     fb_refresh(fb);
 }

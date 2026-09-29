@@ -135,7 +135,7 @@ _Noreturn void kshell(pid_t pid)
 
     char *cpu_model_name = cpu_get_model_name();
     if (strlen(cpu_model_name) > 0) {
-        kprintf("\033[36mCPU        \033[0m: %s\n", cpu_model_name);
+        kprintf("\033[36mCPU Model  \033[0m: %s\n", cpu_model_name);
     }
 
     {
