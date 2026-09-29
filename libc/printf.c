@@ -35,6 +35,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <string.h>
+#include <sysfunc.h>
+
 #include "printf.h"
 
 
@@ -867,11 +870,17 @@ static int _vsnprintf(out_fct_type out, char* buffer, const uint64_t maxlen, con
 
 int printf_(const char* format, ...)
 {
+  char buffer[256];
   va_list va;
   va_start(va, format);
-  char buffer[1];
-  const int ret = _vsnprintf(_out_char, buffer, (uint64_t)-1, format, va);
+  const int ret = _vsnprintf(_out_buffer, buffer, sizeof(buffer), format, va);
   va_end(va);
+  if (ret > 0) {
+    /* One write per call so the output is not split across log lines. */
+    uint64_t n = ((uint64_t) ret < sizeof(buffer)) ? (uint64_t) ret
+                                                   : sizeof(buffer);
+    sys_write(STDOUT, buffer, n);
+  }
   return ret;
 }
 
@@ -898,8 +907,14 @@ int snprintf_(char* buffer, uint64_t count, const char* format, ...)
 
 int vprintf_(const char* format, va_list va)
 {
-  char buffer[1];
-  return _vsnprintf(_out_char, buffer, (uint64_t)-1, format, va);
+  char buffer[256];
+  const int ret = _vsnprintf(_out_buffer, buffer, sizeof(buffer), format, va);
+  if (ret > 0) {
+    uint64_t n = ((uint64_t) ret < sizeof(buffer)) ? (uint64_t) ret
+                                                   : sizeof(buffer);
+    sys_write(STDOUT, buffer, n);
+  }
+  return ret;
 }
 
 

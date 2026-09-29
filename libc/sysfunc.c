@@ -124,11 +124,20 @@
 #define SYSCALL_IPC_RECV_TIMEOUT 65
 #define SYSCALL_MEM_UNMAP    66
 #define SYSCALL_HANDLE_DUP   67
+#define SYSCALL_SERIAL_WRITE 68
 
 void sys_libc_log(const char *message)
 {
     int ret, errno;
     SYSCALL1(SYSCALL_DEBUGLOG, message);
+}
+
+int sys_serial_write(const char *buf, uint64_t len)
+{
+    int64_t ret;
+    int errno;
+    SYSCALL2(SYSCALL_SERIAL_WRITE, buf, len);
+    return (int) ret;
 }
 
 int sys_runcmd(const char *cmd)

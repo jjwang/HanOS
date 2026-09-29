@@ -216,3 +216,16 @@ void kprintf(const char *s, ...)
 
     console_write_buf(buf, strlen(buf));
 }
+
+/* Write raw bytes to the serial console under the log lock, so server output
+ * and kernel log lines cannot interleave character by character. */
+void klog_write_raw(const char *buf, uint64_t len)
+{
+    int esc_state = 0;
+
+    spinlock_acquire(&klog_info_lock);
+    for (uint64_t i = 0; i < len; i++)
+        if (serial_keep((uint8_t) buf[i], &esc_state))
+            serial_write(buf[i]);
+    spinlock_release(&klog_info_lock);
+}

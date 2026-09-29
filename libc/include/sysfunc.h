@@ -88,6 +88,7 @@ int64_t sys_ioport_access(int op, int port, int width, int value);
 int sys_bootinfo(bootinfo_t *bi);
 
 void sys_libc_log(const char *message);
+int sys_serial_write(const char *buf, uint64_t len);
 int sys_meminfo();
 int sys_fork();
 int sys_openat(int dirfd, const char *path, int flags);

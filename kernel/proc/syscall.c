@@ -140,6 +140,33 @@ int64_t k_debug_log(char *message)
     return strlen(kmsg);
 }
 
+/* Write a server's bytes to the serial console. Serialised with the kernel log
+ * so the two streams do not interleave mid-line. */
+int64_t k_serial_write(const char *ubuf, uint64_t len)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+    if (ubuf == NULL)
+        return -1;
+
+    if (len > 256)
+        len = 256;
+
+    char buf[256];
+
+    if (len > 0) {
+        if (!user_range_ok(t, ubuf, len)
+            || copy_from_user(buf, ubuf, len) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+    }
+
+    klog_write_raw(buf, len);
+    return (int64_t) len;
+}
+
 int64_t k_sigprocmask(int64_t how, sigset_t * set, sigset_t * oldset)
 {
     process_t *t = sched_get_current_process();
@@ -2297,7 +2324,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb,
     [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout,
     [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap,      /* 66 */
-    [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup     /* 67 */
+    [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup,    /* 67 */
+    [SYSCALL_SERIAL_WRITE] = (syscall_ptr_t) k_serial_write /* 68 */
 };
 
 void syscall_init(void)

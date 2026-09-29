@@ -55,15 +55,7 @@ static void tty_spawn_attach(process_t * tc)
     bi->magic = BOOTINFO_MAGIC;
     bi->service_ep = h;
     bi->console_ep = hc;
-    bi->io_ports[0].first = 0x3F8;
-    bi->io_ports[0].last = 0x3FF;
-    bi->io_port_count = 1;
     tc->bootinfo = bi;
-
-    /* COM1, so the tty mirrors shell output to the serial console. */
-    tc->io_ports[0].first = 0x3F8;
-    tc->io_ports[0].last = 0x3FF;
-    tc->io_port_count = 1;
 
     klogi("tty: attached service endpoint to pid %ld\n", (long) tc->pid);
 }
