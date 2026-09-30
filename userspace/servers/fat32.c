@@ -433,84 +433,202 @@ static int mount(void)
     return 0;
 }
 
-static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
+#define FAT_FD_MAX  32
+
+typedef struct {
+    bool used;
+    uint32_t cluster;
+    uint32_t size;
+    uint64_t off;
+    bool is_dir;
+} fat_fd_t;
+
+static fat_fd_t fdtab[FAT_FD_MAX];
+
+static int fd_alloc(void)
 {
-    if (m->tag != FAT_READ && m->tag != FAT_STAT && m->tag != FAT_READDIR) {
-        rep->words[0] = (uint64_t) (int64_t) -38;
-        return;
-    }
+    for (int i = 0; i < FAT_FD_MAX; i++)
+        if (!fdtab[i].used)
+            return i;
+    return -1;
+}
 
-    int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
-    uint8_t *buf = NULL;
+static bool fd_ok(int fd)
+{
+    return fd >= 0 && fd < FAT_FD_MAX && fdtab[fd].used;
+}
 
-    if (!mounted || memh == 0) {
-        if (memh != 0)
-            sys_handle_close(memh);
-        rep->words[0] = (uint64_t) (int64_t) mount_err;
-        return;
-    }
-
-    if (sys_mem_map(memh, FAT_REQ_ADDR, 3) == 0)
-        buf = (uint8_t *) (uint64_t) FAT_REQ_ADDR;
-    if (buf == NULL) {
-        sys_handle_close(memh);
-        rep->words[0] = (uint64_t) (int64_t) -5;
-        return;
-    }
-
-    char path[256];
+/* Read a NUL-terminated path from the mapped request buffer. */
+static void read_path(const uint8_t * buf, char *path)
+{
     int i = 0;
+
     while (i < 255 && buf[i] != '\0') {
         path[i] = (char) buf[i];
         i++;
     }
     path[i] = '\0';
+}
+
+static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
+{
+    if (m->tag != FAT_READ && m->tag != FAT_STAT && m->tag != FAT_READDIR
+        && m->tag != FAT_OPEN && m->tag != FAT_CLOSE && m->tag != FAT_SEEK
+        && m->tag != FAT_FSTAT) {
+        rep->words[0] = (uint64_t) (int64_t) -38;
+        return;
+    }
+
+    if (!mounted) {
+        rep->words[0] = (uint64_t) (int64_t) mount_err;
+        return;
+    }
+
+    int32_t fd = (int32_t) m->words[0];
+    int64_t memh = 0;
+    uint8_t *buf = NULL;
+
+    /* OPEN/STAT carry a path; READ/READDIR return data; the rest need no
+     * buffer. */
+    if (m->tag == FAT_OPEN || m->tag == FAT_STAT || m->tag == FAT_READ
+        || m->tag == FAT_READDIR) {
+        memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        if (memh == 0 || sys_mem_map(memh, FAT_REQ_ADDR, 3) != 0) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+        buf = (uint8_t *) (uint64_t) FAT_REQ_ADDR;
+    }
 
     uint32_t cluster = 0, size = 0;
     bool is_dir = false;
 
-    if (find_path(path, &cluster, &size, &is_dir) != 0) {
-        sys_mem_unmap(memh, FAT_REQ_ADDR);
-        sys_handle_close(memh);
-        rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
-        return;
+    switch (m->tag) {
+    case FAT_OPEN:
+    case FAT_STAT: {
+        char path[256];
+
+        read_path(buf, path);
+        if (find_path(path, &cluster, &size, &is_dir) != 0) {
+            rep->words[0] = (uint64_t) (int64_t) -2;
+            break;
+        }
+
+        if (m->tag == FAT_STAT) {
+            rep->words[0] = 0;
+            rep->words[1] = size;
+            rep->words[2] = is_dir ? 1 : 0;
+            break;
+        }
+
+        int nfd = fd_alloc();
+        if (nfd < 0) {
+            rep->words[0] = (uint64_t) (int64_t) -24;
+            break;
+        }
+        fdtab[nfd].used = true;
+        fdtab[nfd].cluster = cluster;
+        fdtab[nfd].size = size;
+        fdtab[nfd].off = 0;
+        fdtab[nfd].is_dir = is_dir;
+        rep->words[0] = 0;
+        rep->words[1] = (uint64_t) nfd;
+        rep->words[2] = size;
+        break;
     }
 
-    if (m->tag == FAT_STAT) {
+    case FAT_CLOSE:
+        if (!fd_ok(fd)) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            break;
+        }
+        fdtab[fd].used = false;
         rep->words[0] = 0;
-        rep->words[1] = size;
-        rep->words[2] = is_dir ? 1 : 0;
-    } else if (m->tag == FAT_READDIR) {
+        break;
+
+    case FAT_FSTAT:
+        if (!fd_ok(fd)) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            break;
+        }
+        rep->words[0] = 0;
+        rep->words[1] = fdtab[fd].size;
+        rep->words[2] = fdtab[fd].is_dir ? 1 : 0;
+        break;
+
+    case FAT_READ: {
+        uint64_t len = m->words[1];
+
+        if (!fd_ok(fd) || fdtab[fd].is_dir) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            break;
+        }
+        if (len > FAT_DATA_MAX)
+            len = FAT_DATA_MAX;
+        uint64_t n = read_from(fdtab[fd].cluster, fdtab[fd].off, len,
+                               fdtab[fd].size, buf + FAT_DATA_OFF);
+        fdtab[fd].off += n;
+        rep->words[0] = 0;
+        rep->words[1] = n;
+        rep->words[2] = fdtab[fd].size;
+        break;
+    }
+
+    case FAT_SEEK: {
+        int64_t off = (int64_t) m->words[1];
+        int64_t whence = (int64_t) m->words[2];
+        int64_t pos;
+
+        if (!fd_ok(fd)) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            break;
+        }
+        if (whence == 0)
+            pos = off;
+        else if (whence == 1)
+            pos = (int64_t) fdtab[fd].off + off;
+        else
+            pos = (int64_t) fdtab[fd].size + off;
+        if (pos < 0) {
+            rep->words[0] = (uint64_t) (int64_t) -22;
+            break;
+        }
+        fdtab[fd].off = (uint64_t) pos;
+        rep->words[0] = 0;
+        rep->words[1] = (uint64_t) pos;
+        break;
+    }
+
+    case FAT_READDIR: {
         fat_dirent_t e;
         char nm[256];
 
-        if (!is_dir) {
+        if (!fd_ok(fd) || !fdtab[fd].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -2;
-        } else if (dir_index(cluster, m->words[0], &e, nm) != 0) {
-            rep->words[0] = (uint64_t) (int64_t) -1;    /* end of directory */
-        } else {
-            memcpy(buf + FAT_DATA_OFF, nm, strlen(nm) + 1);
-            rep->words[0] = 0;
-            rep->words[1] = e.size;
-            rep->words[2] = (e.attr & 0x10) ? 1 : 0;
+            break;
         }
-    } else if (is_dir) {
-        rep->words[0] = (uint64_t) (int64_t) -2;
-    } else {
-        uint64_t off = m->words[0];
-        uint64_t len = m->words[1];
-
-        if (len > FAT_DATA_MAX)
-            len = FAT_DATA_MAX;
-        uint64_t n = read_from(cluster, off, len, size, buf + FAT_DATA_OFF);
-
+        if (dir_index(fdtab[fd].cluster, m->words[1], &e, nm) != 0) {
+            rep->words[0] = (uint64_t) (int64_t) -1;    /* end of directory */
+            break;
+        }
+        memcpy(buf + FAT_DATA_OFF, nm, strlen(nm) + 1);
         rep->words[0] = 0;
-        rep->words[1] = n;
-        rep->words[2] = size;
+        rep->words[1] = e.size;
+        rep->words[2] = (e.attr & 0x10) ? 1 : 0;
+        break;
     }
 
-    sys_mem_unmap(memh, FAT_REQ_ADDR);
-    sys_handle_close(memh);
+    default:
+        rep->words[0] = (uint64_t) (int64_t) -38;
+        break;
+    }
+
+    if (memh != 0) {
+        sys_mem_unmap(memh, FAT_REQ_ADDR);
+        sys_handle_close(memh);
+    }
 }
 
 int main(void)

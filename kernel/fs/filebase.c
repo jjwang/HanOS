@@ -24,6 +24,8 @@
 
 #include <fs/vfs.h>
 #include <proc/syscall.h>
+#include <srv/process_srv.h>
+#include <arch/x64/smp.h>
 
 /* Allocate a tnode in memory */
 vfs_tnode_t *vfs_alloc_tnode(const char *name, vfs_inode_t * inode,
@@ -175,20 +177,37 @@ void vfs_free_nodes(vfs_tnode_t * tnode)
     kmfree(tnode);
 }
 
+/* Per-CPU scratch descriptor. The fd table lives in the process server, so a
+ * handle is resolved there and copied here just for the current operation. */
+static vfs_node_desc_t transient_fd[CPU_MAX];
+
 /* Return the node descriptor for a handle */
 vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
 {
     process_t *t = sched_get_current_process();
-    if (t != NULL) {
-        vfs_node_desc_t *fd =
-            (vfs_node_desc_t *) ht_search(&(t->open_files_table), handle);
-        if (fd != NULL)
-            return fd;
+    if (t == NULL)
+        return NULL;
+
+    int kind = 0, svc = 0;
+    int64_t sfd = 0;
+    uint64_t size = 0, seek = 0;
+
+    if (process_fd_get((int) handle, &kind, &svc, &sfd, &size, &seek) != 0) {
         klogw
             ("VFS: %s() cannot locate %ld (0x%016lx) in file list of process %ld\n",
-             func, handle, handle, t->pid);
+             func, (long) handle, (long) handle, (long) t->pid);
+        return NULL;
     }
-    return NULL;
+
+    vfs_node_desc_t *fd = &transient_fd[smp_get_current_cpu_id()];
+
+    memset(fd, 0, sizeof(*fd));
+    fd->server = true;
+    fd->svc = svc;
+    fd->server_fd = sfd;
+    fd->server_size = size;
+    fd->seek_pos = seek;
+    return fd;
 }
 
 /* Convert a path to a node, creates the node if required */

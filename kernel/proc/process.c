@@ -26,6 +26,7 @@
 #include <protocol.h>
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
+#include <srv/process_srv.h>
 #include <lib/spinlock.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/hpet.h>
@@ -186,9 +187,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     strcpy(nproc->cwd, "/");
     strncpy(nproc->name, name, sizeof(nproc->name));
 
-    ht_init(&nproc->open_files_table, HT_DEFAULT_ARRAY_SIZE);
     handle_table_init(&nproc->handles);
-
     klogi("PROC: Create pid %ld with name \"%s\" (process 0x%016lx)\n",
           nproc->pid, name, nproc);
 
@@ -289,50 +288,9 @@ process_t *process_fork(process_t * tp)
         tr->rbp = (uint64_t) tc->kstack_limit + offset;
     }
 
-    /* Increase refcount of all open files */
-    ht_init(&tc->open_files_table, tp->open_files_table.size);
-    for (i = 0; i < tp->open_files_table.size; i++) {
-        if (tp->open_files_table.array[i].key == -1
-            || tp->open_files_table.array[i].data == NULL) {
-            continue;
-        }
-        vfs_node_desc_t *fd =
-            (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
-        memcpy(fd, tp->open_files_table.array[i].data,
-               sizeof(vfs_node_desc_t));
-        tc->open_files_table.array[i].key =
-            tp->open_files_table.array[i].key;
-        tc->open_files_table.array[i].data = fd;
-        if (fd->server) {
-            /* The child inherits a reference to the parent's open file
-             * description. Queue it here, under the run-queue lock and before
-             * either process can run, so a concurrent close cannot free the fd
-             * first. ipc_notify() does not wake the receiver, which would take
-             * the same run-queue lock. */
-            endpoint_t *svc = router_lookup((service_id_t) fd->svc);
-
-            if (svc != NULL) {
-                ipc_msg_t m;
-
-                memset(&m, 0, sizeof(m));
-                m.tag = VFS_FD_FORK;
-                m.words[0] = (uint64_t) fd->server_fd;
-                ipc_notify(svc, &m);
-            }
-        } else {
-            fd->inode->refcount++;
-            if (fd->mode == VFS_MODE_READ) {
-                fd->inode->readcount++;
-            } else if (fd->mode == VFS_MODE_WRITE) {
-                fd->inode->writecount++;
-            } else {
-                fd->inode->readcount++;
-                fd->inode->writecount++;
-            }
-        }
-        klogd("PROC: copy fd %ld from pid %ld to pid %ld\n",
-              tc->open_files_table.array[i].key, tp->pid, tc->pid);
-    }
+    /* The process server owns the fd table; it clones the parent's descriptors
+     * for the child and takes a reference on each server-side description. */
+    process_fd_fork((int) tp->pid, (int) tc->pid);
 
     /* MEMMAP: hpet should be visible for all kernel processes
      *

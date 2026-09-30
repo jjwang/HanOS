@@ -152,43 +152,8 @@ void vfs_server_probe(void)
         }
     }
 
-    /* Open/read/close through the kernel's server-backed fd path. */
-    {
-        const char *path = "/bin/hansh";
-        handle_t ph;
-
-        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
-            ipc_msg_t or;
-
-            memset(&req, 0, sizeof(req));
-            req.tag = VFS_OPENAT;
-            req.words[0] = 2;   /* O_RDONLY */
-            req.xfer[0] = ph;
-            req.xfer_count = 1;
-
-            if (router_forward(SVC_FS, &req, &or)
-                && (int64_t) or.words[0] == 0) {
-                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ, or.words[2]);
-                unsigned char buf[64] = { 0 };
-                int64_t n = (fh != VFS_INVALID_HANDLE)
-                    ? vfs_read(fh, sizeof(buf), buf) : -1;
-
-                if (n > 0)
-                    klogi("vfs: read %s %ld bytes, magic %02x %02x %02x %02x "
-                          "(size %ld)\n", path, n, buf[0], buf[1], buf[2],
-                          buf[3], (int64_t) or.words[2]);
-                else
-                    klogw("vfs: read %s failed (%ld)\n", path, n);
-                if (fh != VFS_INVALID_HANDLE)
-                    vfs_close(fh);
-            } else {
-                klogw("vfs: OPENAT %s failed\n", path);
-            }
-        }
-    }
-
-    /* Stat and directory listing through the server. */
+    /* Stat through the server. The fd-based read/readdir/seek paths now live
+     * in the process server and are exercised once it is up. */
     {
         vfs_stat_t st;
 
@@ -197,62 +162,5 @@ void vfs_server_probe(void)
                   (long) st.st_size);
         else
             klogw("vfs: STAT /bin failed\n");
-
-        const char *path = "/bin";
-        handle_t ph;
-
-        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
-            ipc_msg_t or;
-
-            memset(&req, 0, sizeof(req));
-            req.tag = VFS_OPENAT;
-            req.words[0] = 2;
-            req.xfer[0] = ph;
-            req.xfer_count = 1;
-
-            if (router_forward(SVC_FS, &req, &or)
-                && (int64_t) or.words[0] == 0) {
-                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ, or.words[2]);
-                dirent_t de;
-                int cnt = 0;
-
-                while (cnt < 64 && vfs_server_readdir(fh, &de) == 0)
-                    cnt++;
-                klogi("vfs: READDIR /bin -> %d entries\n", cnt);
-                vfs_close(fh);
-            } else {
-                klogw("vfs: OPENAT /bin failed\n");
-            }
-        }
-    }
-
-    /* Seek to offset 1 of /bin/hansh and read the tail of the ELF magic. */
-    {
-        const char *path = "/bin/hansh";
-        handle_t ph;
-
-        if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) == 0) {
-            ipc_msg_t or;
-
-            memset(&req, 0, sizeof(req));
-            req.tag = VFS_OPENAT;
-            req.words[0] = 2;
-            req.xfer[0] = ph;
-            req.xfer_count = 1;
-
-            if (router_forward(SVC_FS, &req, &or)
-                && (int64_t) or.words[0] == 0) {
-                vfs_handle_t fh = vfs_open_server((int64_t) or.words[1], path,
-                                                  VFS_MODE_READ, or.words[2]);
-                unsigned char b[4] = { 0 };
-
-                vfs_seek(fh, 1, SEEK_SET);
-                int64_t n = vfs_read(fh, 3, b);
-                klogi("vfs: SEEK to 1 read %ld: %02x %02x %02x\n", n, b[0],
-                      b[1], b[2]);
-                vfs_close(fh);
-            }
-        }
     }
 }

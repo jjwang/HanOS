@@ -53,6 +53,10 @@ typedef struct {
     uint64_t console_ep;        /* endpoint handle: console bytes out */
     uint64_t service_ep;        /* endpoint handle: this server's requests in */
     uint64_t block_ep;          /* endpoint handle: block server requests out */
+    uint64_t fs_ep;             /* process server: VFS requests out */
+    uint64_t pipe_ep;           /* process server: pipe requests out */
+    uint64_t tty_ep;            /* process server: tty requests out */
+    uint64_t fat_ep;            /* process server: FAT requests out */
     uint64_t irq_num;
     io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint64_t io_port_count;

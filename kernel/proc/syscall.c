@@ -450,14 +450,14 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
         /* /fat is served by the FAT32 server (path relative to the mount). */
         const char *fpath = (full_path[4] == '\0') ? "/" : full_path + 4;
         uint64_t size = 0;
-        bool is_dir = false;
 
-        if (fat32_stat_path(fpath, &size, &is_dir) < 0) {
+        int64_t ffd = fat32_open_path(fpath, &size);
+        if (ffd < 0) {
             cpu_set_errno(ENOENT);
             return -1;
         }
 
-        vfs_handle_t sfh = vfs_open_server_svc(0, fpath, VFS_MODE_READ, size,
+        vfs_handle_t sfh = vfs_open_server_svc(ffd, fpath, VFS_MODE_READ, size,
                                                SVC_FAT);
         if (sfh == VFS_INVALID_HANDLE) {
             cpu_set_errno(ENOMEM);
@@ -989,7 +989,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
             uint64_t size = 0;
             bool is_dir = false;
 
-            if (fat32_stat_path(fd->path, &size, &is_dir) < 0) {
+            if (fat32_fstat_fd(fd->server_fd, &size, &is_dir) < 0) {
                 cpu_set_errno(ENOENT);
                 return -1;
             }
@@ -1234,8 +1234,8 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
             uint64_t size = 0;
             bool is_dir = false;
 
-            if (fat32_readdir_path(fd->path, fd->curr_dir_idx, name,
-                                   sizeof(name), &size, &is_dir) != 0) {
+            if (fat32_readdir_fd(fd->server_fd, fd->curr_dir_idx, name,
+                                 sizeof(name), &size, &is_dir) != 0) {
                 cpu_set_errno(0);
                 return -1;
             }
@@ -1554,13 +1554,7 @@ void k_exit(int64_t status)
         goto normal_exit;
     }
 
-    /* Close all open files */
-    for (uint64_t i = 0; i < t->open_files_table.size; i++) {
-        int64_t fh = t->open_files_table.array[i].key;
-        if (fh >= 0) {
-            vfs_close(fh);
-        }
-    }
+    /* The process server closes the process's descriptors from sched_exit(). */
 
   normal_exit:
     /* Exit from scheduler */

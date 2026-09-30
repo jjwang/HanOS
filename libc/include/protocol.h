@@ -54,6 +54,30 @@
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 
+/* Process server. It owns the per-process file-descriptor table; requests name
+ * the process by pid (words[0]) and replies carry 0 or -errno in words[0]. */
+#define PROC_PING           0x80        /* reply: words[0] = PROC_PONG */
+#define PROC_PONG           0x504f4e47ULL       /* "PONG" */
+
+/* fd table. PROC_FD_OPEN registers a new descriptor (svc/server_fd/size in
+ * words[1..3], flags in words[4]) and returns the fd in words[1]. PROC_FD_GET
+ * resolves a fd: out words[1]=kind (0 server, 1 kernel), words[2]=svc,
+ * words[3]=server_fd, words[4]=size, words[5]=seek_pos. PROC_FD_CLOSE removes
+ * it and returns the same fields so the caller can close the server side.
+ * PROC_FD_DUP duplicates fd words[1] (or a free one when words[2] is -1). */
+#define PROC_FD_OPEN        0x81
+#define PROC_FD_CLOSE       0x82
+#define PROC_FD_DUP         0x83
+#define PROC_FD_GET         0x84
+#define PROC_FD_SEEK        0x85        /* words[1]=pos, words[2]=whence */
+#define PROC_FD_FORK        0x86        /* words[1]=child pid */
+#define PROC_FD_EXEC        0x87
+#define PROC_FD_EXIT        0x88
+
+/* PROC_FD_GET/CLOSE kind. */
+#define PROC_FD_SERVER      0
+#define PROC_FD_KERNEL      1
+
 /* Pipe server. Transfers up to PIPE_INLINE_MAX bytes travel inline in
  * words[2..]; larger ones in a memory object in xfer[1]. A read or write that
  * cannot make progress returns PIPE_EAGAIN in words[0]. */
@@ -74,14 +98,21 @@
 #define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
 #define TTY_EAGAIN          (-11)
 
-/* FAT32 server (a read-only block-server client). The path is at offset 0 of a
- * buffer memory object in xfer[1]. FAT_READ copies [offset, offset+len) of the
- * file to VFS_IO_DATA_OFF and replies words[1]=bytes, words[2]=file size. */
-#define FAT_READ            0x70        /* words[0]=offset, words[1]=len */
-#define FAT_STAT            0x71        /* out: words[1]=size, words[2]=is_dir */
-#define FAT_READDIR         0x72        /* words[0]=index; out: -1 at end, else
-                                           words[1]=size, words[2]=is_dir and
-                                           the name at VFS_IO_DATA_OFF */
+/* FAT32 server (a read-only block-server client). File descriptors are server
+ * state: FAT_OPEN returns a fd, FAT_READ advances its offset. The path goes at
+ * offset 0 and file data at VFS_IO_DATA_OFF of a buffer memory object in
+ * xfer[1]; FAT_STAT (path) and FAT_FSTAT (fd) report size/is_dir. */
+#define FAT_READ            0x70        /* words[0]=fd, words[1]=len;
+                                           out: words[1]=bytes, words[2]=size */
+#define FAT_STAT            0x71        /* in: path; out: words[1]=size, words[2]=is_dir */
+#define FAT_READDIR         0x72        /* words[0]=fd, words[1]=index; out: -1 at
+                                           end, else words[1]=size, words[2]=is_dir
+                                           and the name at VFS_IO_DATA_OFF */
+#define FAT_OPEN            0x73        /* in: path; out: words[1]=fd, words[2]=size */
+#define FAT_CLOSE           0x74        /* words[0]=fd */
+#define FAT_SEEK            0x75        /* words[0]=fd, words[1]=off, words[2]=whence;
+                                           out: words[1]=pos */
+#define FAT_FSTAT           0x76        /* words[0]=fd; out: words[1]=size, words[2]=is_dir */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

@@ -57,6 +57,7 @@
 #include <srv/block_srv.h>
 #include <srv/vfs_srv.h>
 #include <srv/pipe_srv.h>
+#include <srv/process_srv.h>
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
 #include <proc/sched.h>
@@ -176,6 +177,10 @@ _Noreturn void kshell(pid_t pid)
         vfs_server_probe();
     if (!pipe_server_start())
         klogw("pipe: server failed to start\n");
+    if (!process_server_start())
+        klogw("process: server failed to start\n");
+    else
+        process_server_probe();
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {

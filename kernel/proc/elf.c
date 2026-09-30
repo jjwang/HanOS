@@ -76,37 +76,23 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
 
     const char *fn = path_name;
-    /* TODO: Need to review const description */
-    vfs_handle_t f = vfs_open_routed(fn, VFS_MODE_READ);
-    if (f != VFS_INVALID_HANDLE) {
-        elf_len = vfs_tell(f);
-        elf_buff = (uint8_t *) kmalloc_chunk(elf_len, __func__, __LINE__);
-        if (elf_buff != NULL) {
-            uint64_t readlen = vfs_read(f, elf_len, elf_buff);
-            if (debug_info && readlen >= 3) {
-                klogd("ELF(%s): read %ld bytes [0x%02lx 0x%02lx 0x%02lx ...] "
-                      "from %s(%ld)\n", path_name, readlen,
-                      elf_buff[0], elf_buff[1], elf_buff[2], fn, f);
-            }
 
-            if (readlen == 0) {
-                kloge("VFS: open \"%s\" successfully but cannot "
-                      "read data (len: %ld)\n", fn, elf_len);
-            }
-
-            m.vaddr = (uint64_t) elf_buff;
-            m.paddr = VIRT_TO_PHYS(elf_buff);
-            m.np = NUM_PAGES(elf_len);
-
-            vec_push_back(&process->mmap_list, m);
-        }
-        vfs_close(f);
-    } else {
+    if (vfs_load_file(fn, &elf_buff, &elf_len) != 0 || elf_buff == NULL) {
         kloge("VFS: open \"%s\" failed\n", fn);
+        goto err_exit;
     }
 
-    if (elf_buff == NULL)
-        goto err_exit;
+    if (debug_info && elf_len >= 3) {
+        klogd("ELF(%s): read %ld bytes [0x%02lx 0x%02lx 0x%02lx ...] "
+              "from %s\n", path_name, elf_len,
+              elf_buff[0], elf_buff[1], elf_buff[2], fn);
+    }
+
+    m.vaddr = (uint64_t) elf_buff;
+    m.paddr = VIRT_TO_PHYS(elf_buff);
+    m.np = NUM_PAGES(elf_len);
+
+    vec_push_back(&process->mmap_list, m);
 
     elf_hdr_t hdr = { 0 };
     memcpy(&hdr, elf_buff, sizeof(elf_hdr_t));

@@ -39,7 +39,9 @@
 /* Some definitions */
 #define VFS_FDCWD           -100
 #define VFS_INVALID_HANDLE  -1
-#define VFS_MIN_HANDLE      100
+/* fds 0..2 are stdin/stdout/stderr; the process server allocates the rest
+ * starting at 3. */
+#define VFS_MIN_HANDLE      3
 #define VFS_EOF_MAGIC_WORD  0xFF0E000F
 
 /* Options for file seek */
@@ -281,6 +283,11 @@ vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
 /* Open a path, through the userspace server when it is registered and through
  * the in-kernel VFS otherwise. */
 vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode);
+
+/* Read a whole file into a freshly kmalloc_chunk()'d kernel buffer without
+ * touching the process fd table. Used by the ELF loader, which runs while the
+ * userspace servers are still coming up. Returns 0 on success. */
+int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len);
 
 /* Server-backed stat/readdir, used by the syscall layer. `out` is a kernel
  * buffer (vfs_stat_t or dirent_t). */

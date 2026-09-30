@@ -40,6 +40,7 @@
 #include <arch/x64/panic.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/serial.h>
+#include <srv/process_srv.h>
 #include <printf.h>
 
 #define TIMESLICE_DEFAULT       MILLIS_TO_NANOS(1)
@@ -457,20 +458,9 @@ void sched_exit(int64_t status)
             curr->status = PROC_DEAD;
         }
 
-        for (uint64_t i = 0; i < curr->open_files_table.size; i++) {
-            if (curr->open_files_table.array[i].key == -1
-                || curr->open_files_table.array[i].data == NULL) {
-                continue;
-            }
-            klogd("sched_exit: dead process pid %ld close file handle %ld\n",
-                  curr->pid, curr->open_files_table.array[i].key);
-            vfs_close(curr->open_files_table.array[i].key);
-        }
-        if (curr->open_files_table.array != NULL) {
-            kmfree(curr->open_files_table.array);
-            curr->open_files_table.array = NULL;
-        }
-        curr->open_files_table.size = 0;
+        /* The process server owns the fd table and closes the server side of
+         * every descriptor the process held. */
+        process_fd_exit((int) curr->pid);
 
         sched_wake_child_waiter(curr->ppid);
     }
@@ -738,38 +728,9 @@ process_t *sched_execve(const char *path, const char *argv[],
                   tp->pid, tc->pid, dup.fh, dup.newfh);
         }
 
-        /* Increase refcount of all open files */
-        ht_init(&tc->open_files_table, tp->open_files_table.size);
-        for (i = 0; i < tp->open_files_table.size; i++) {
-            if (tp->open_files_table.array[i].key == -1
-                || tp->open_files_table.array[i].data == NULL) {
-                continue;
-            }
-            vfs_node_desc_t *fd =
-                (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
-            memcpy(fd, tp->open_files_table.array[i].data,
-                   sizeof(vfs_node_desc_t));
-            tc->open_files_table.array[i] = tp->open_files_table.array[i];
-            tc->open_files_table.array[i].data = fd;
-            if (fd->server) {
-                /* Server fds are refcounted in the server; the parent is about
-                 * to exit and close its copy, so take a reference for the
-                 * child here. */
-                vfs_server_ref_fd(fd->svc, fd->server_fd);
-            } else {
-                fd->inode->refcount++;
-                if (fd->mode == VFS_MODE_READ) {
-                    fd->inode->readcount++;
-                } else if (fd->mode == VFS_MODE_WRITE) {
-                    fd->inode->writecount++;
-                } else {
-                    fd->inode->readcount++;
-                    fd->inode->writecount++;
-                }
-            }
-            klogd("SCHED: copy fd %ld from pid %ld to pid %ld\n",
-                  tc->open_files_table.array[i].key, tp->pid, tc->pid);
-        }
+        /* The process server clones the parent's fd table for the new process;
+         * this kernel path is a fork+exec. */
+        process_fd_fork((int) tp->pid, (int) tc->pid);
     }
 
     if (elf_load(tc, path, &entry, &aux)) {

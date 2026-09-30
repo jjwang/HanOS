@@ -263,9 +263,7 @@ typedef struct process {
     io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint8_t io_port_count;
 
-    ht_t open_files_table;
     vec_struct(file_dup_t) dup_list;
-
     int64_t errno;
 
     /* Address space. */

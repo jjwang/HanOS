@@ -35,6 +35,7 @@
 #include <mm/mm.h>
 #include <ipc/object.h>
 #include <srv/fat32_srv.h>
+#include <srv/process_srv.h>
 #include <router/router.h>
 #include <proc/sched.h>
 
@@ -67,9 +68,6 @@ vfs_tnode_t vfs_root = { 0 };
 
 /* List of installed filesystems */
 vec_new_static(vfs_fsinfo_t *, vfs_fslist);
-
-/* New file handle */
-static uint64_t vfs_next_handle = VFS_MIN_HANDLE;
 
 /* Stat structure related function implementations */
 dev_t vfs_new_dev_id(void)
@@ -632,11 +630,8 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
         if (fd->svc == SVC_PIPE)
             return vfs_pipe_rw(fd->server_fd, PIPE_READ, len, buff);
         if (fd->svc == SVC_FAT) {
-            int64_t n = fat32_read_path(fd->path, fd->seek_pos, len, buff);
-
-            if (n > 0)
-                fd->seek_pos += (uint64_t) n;
-            return n;
+            /* The FAT server keeps its own offset. */
+            return fat32_read_fd(fd->server_fd, len, buff);
         }
 
         /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a
@@ -775,6 +770,8 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
     if (fd->server) {
         if (fd->svc == SVC_PIPE)
             return -1;          /* pipes are not seekable */
+        if (fd->svc == SVC_FAT)
+            return fat32_seek_fd(fd->server_fd, pos, whence);
         return vfs_server_seek(fd->server_fd, pos, whence);
     }
 
@@ -864,127 +861,22 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 
 vfs_handle_t vfs_open(char *path, vfs_openmode_t mode)
 {
-    spinlock_acquire(&vfs_lock);
-
-    /* Find the node */
-    vfs_tnode_t *req = vfs_path_to_node(path, NO_CREATE, 0);
-    if (!req) {
-        klogd("VFS: Cannot find inode for %s\n", path);
-        vfs_tnode_t *pn = NULL;
-        char curpath[VFS_MAX_PATH_LEN] = { 0 }, parent[VFS_MAX_PATH_LEN] =
-            { 0 };
-        strcpy(curpath, path);
-        while (true) {
-            vfs_get_parent_dir(curpath, parent, NULL);
-            if (strcmp(curpath, parent) == 0)
-                break;
-            pn = vfs_path_to_node(parent, NO_CREATE, 0);
-            if (pn)
-                break;
-            strcpy(curpath, parent);
-        }
-        if (pn != NULL && pn->inode->fs != NULL) {
-            klogd("VFS: Can not open %s, visit back to %s\n", path,
-                  parent);
-            req = pn->inode->fs->open(pn->inode, path);
-        }
-        if (!req)
-            goto fail;
-    } else {
-        /* OK, move forward to open the file */
-        if (req->inode->fs != NULL) {
-            req = req->inode->fs->open(req->inode, path);
-            klogv("VFS: inode for %s already exists\n", path);
-        }
-    }
-
-    req->inode->refcount++;
-    if (mode == VFS_MODE_READ) {
-        req->inode->readcount++;
-    } else if (mode == VFS_MODE_WRITE) {
-        req->inode->writecount++;
-    } else {
-        req->inode->readcount++;
-        req->inode->writecount++;
-    }
-
-    /* Create node descriptor */
-    vfs_node_desc_t *fd =
-        (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
-    memset(fd, 0, sizeof(vfs_node_desc_t));
-
-    strcpy(fd->path, path);
-    fd->tnode = req;
-    fd->inode = req->inode;
-    fd->seek_pos = 0;
-    fd->mode = mode;
-
-    /* If this is a symlink, we should set the real file size */
-    /* TODO: Need to consider in the future */
-    fd->tnode->st.st_size = req->inode->size;
-    fd->tnode->st.st_blocks =
-        DIV_ROUNDUP(fd->tnode->st.st_size, VFS_BLOCK_SIZE);
-
-    /* Return the handle */
-    vfs_handle_t fh = vfs_next_handle++;
-
-    /* Add to current process */
-    process_t *t = sched_get_current_process();
-    if (t != NULL) {
-        ht_insert(&(t->open_files_table), fh, fd);
-    } else {
-        kloge("VFS: cannot insert \"%s\" because of invalid process\n", path);
-    }
-
-    spinlock_release(&vfs_lock);
-
-    if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
-        klogi
-            ("VFS: Open %s with mode 0x%016lx and return handle %ld, process id %ld\n",
-             path, mode, fh, t != NULL ? t->pid : 0);
-    } else if (strcmp(path, "/dev/tty") != 0) {
-        klogd("VFS: Open %s with mode 0x%016lx and return handle %ld, "
-              "nd = 0x%016lx, inode = 0x%016lx\n", path, mode, fh, fd, fd->inode);
-    } else {
-        klogv("VFS: Open %s with mode 0x%016lx and return handle %ld, "
-              "nd = 0x%016lx, inode = 0x%016lx\n", path, mode, fh, fd, fd->inode);
-    }
-
-    return fh;
-  fail:
-    spinlock_release(&vfs_lock);
-    kloge("VFS: failed when opening %s with mode 0x%x\n", path, mode);
+    (void) mode;
+    /* File descriptors live in the process server now; the only kernel file
+     * access (the ELF loader) uses vfs_load_file(). */
+    klogd("VFS: in-kernel open \"%s\" is no longer available\n", path);
     return VFS_INVALID_HANDLE;
 }
 
 vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
                                  vfs_openmode_t mode, uint64_t size, int svc)
 {
-    spinlock_acquire(&vfs_lock);
+    (void) path;
 
-    vfs_node_desc_t *fd =
-        (vfs_node_desc_t *) kmalloc(sizeof(vfs_node_desc_t));
-    if (fd == NULL) {
-        spinlock_release(&vfs_lock);
-        return VFS_INVALID_HANDLE;
-    }
+    /* The process server owns the fd table; it allocates the fd. */
+    int64_t fd = process_fd_open(svc, server_fd, size, (int64_t) mode);
 
-    memset(fd, 0, sizeof(vfs_node_desc_t));
-    strncpy(fd->path, path, VFS_MAX_PATH_LEN - 1);
-    fd->mode = mode;
-    fd->server = true;
-    fd->server_fd = server_fd;
-    fd->server_size = size;
-    fd->svc = svc;
-
-    vfs_handle_t fh = vfs_next_handle++;
-
-    process_t *t = sched_get_current_process();
-    if (t != NULL)
-        ht_insert(&(t->open_files_table), fh, fd);
-
-    spinlock_release(&vfs_lock);
-    return fh;
+    return (fd < 0) ? VFS_INVALID_HANDLE : (vfs_handle_t) fd;
 }
 
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
@@ -1025,86 +917,135 @@ vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode)
     return vfs_open((char *) path, mode);
 }
 
-int64_t vfs_close(vfs_handle_t handle)
+static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
+                                   uint64_t *out_len)
 {
-    vfs_node_desc_t *sdesc = vfs_handle_to_fd(handle, __func__);
-    if (sdesc != NULL && sdesc->server) {
-        /* The FAT32 server is stateless (fds are keyed by path), so there is
-         * nothing to close there. */
-        int64_t r = (sdesc->svc == SVC_FAT)
-            ? 0 : vfs_server_close(sdesc->svc, sdesc->server_fd);
-        process_t *t = sched_get_current_process();
+    handle_t ph;
 
-        if (t != NULL)
-            ht_delete(&t->open_files_table, handle);
-        kmfree(sdesc);
-        return r;
+    if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) != 0)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_OPENAT;
+    req.words[0] = 2;           /* read */
+    req.xfer[0] = ph;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    int64_t sfd = (int64_t) rep.words[1];
+    uint64_t size = rep.words[2];
+    uint8_t *buf = NULL;
+
+    if (size > 0) {
+        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
+        if (buf == NULL) {
+            vfs_server_close(SVC_FS, sfd);
+            return -1;
+        }
     }
 
-    bool istty = false;
+    uint64_t done = 0;
 
+    while (done < size) {
+        int64_t n = vfs_server_read(sfd, size - done, buf + done);
+
+        if (n <= 0)
+            break;
+        done += (uint64_t) n;
+    }
+    vfs_server_close(SVC_FS, sfd);
+
+    if (done != size) {
+        if (buf != NULL)
+            kmfree(buf);
+        return -1;
+    }
+
+    *out_buf = buf;
+    *out_len = size;
+    return 0;
+}
+
+int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len)
+{
+    *out_buf = NULL;
+    *out_len = 0;
+
+    if (router_lookup(SVC_FS) != NULL)
+        return vfs_load_via_server(path, out_buf, out_len);
+
+    /* Early boot: read the in-kernel ramfs tnode's inode directly. */
     spinlock_acquire(&vfs_lock);
 
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
-    if (!fd)
-        goto fail;
+    char kpath[VFS_MAX_PATH_LEN];
 
-    /* TODO: Use each driver's own implementation instead of this ugly block. */
-    if (strcmp(fd->path, "/dev/tty") == 0)
-        istty = true;
-    if (strncmp(fd->path, "/dev/pipe", 9) == 0) {
-        if ((fd->mode & VFS_MODE_WRITE) && fd->inode->writecount == 1) {
-            klogi("VFS: fh %ld write EOF to %s with seek position %ld\n",
-                  handle, fd->path, fd->seek_pos);
+    strncpy(kpath, path, sizeof(kpath) - 1);
+    kpath[sizeof(kpath) - 1] = '\0';
+
+    vfs_tnode_t *tnode = vfs_path_to_node(kpath, NO_CREATE, 0);
+
+    if (tnode == NULL) {
+        spinlock_release(&vfs_lock);
+        return -1;
+    }
+
+    /* Let the filesystem open the node; ramfs populates the inode's data. */
+    if (tnode->inode->fs != NULL)
+        tnode = tnode->inode->fs->open(tnode->inode, kpath);
+
+    if (tnode == NULL || tnode->inode == NULL
+        || tnode->inode->type != VFS_NODE_FILE || tnode->inode->fs == NULL
+        || tnode->inode->fs->read == NULL) {
+        spinlock_release(&vfs_lock);
+        return -1;
+    }
+
+    uint64_t size = tnode->inode->size;
+    uint8_t *buf = NULL;
+
+    if (size > 0) {
+        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
+        if (buf == NULL) {
             spinlock_release(&vfs_lock);
-
-            uint8_t magic_word[4] = { (VFS_EOF_MAGIC_WORD >> 24) & 0xFF,
-                (VFS_EOF_MAGIC_WORD >> 16) & 0xFF,
-                (VFS_EOF_MAGIC_WORD >> 8) & 0xFF,
-                VFS_EOF_MAGIC_WORD & 0xFF
-            };
-            vfs_write(handle, 4, magic_word);
-
-            spinlock_acquire(&vfs_lock);
+            return -1;
         }
     }
 
-    fd->inode->refcount--;
-    if (fd->mode == VFS_MODE_READ) {
-        fd->inode->readcount--;
-    } else if (fd->mode == VFS_MODE_WRITE) {
-        fd->inode->writecount--;
-    } else {
-        fd->inode->readcount--;
-        fd->inode->writecount--;
-    }
+    int64_t n = (size > 0)
+        ? tnode->inode->fs->read(tnode->inode, 0, size, buf) : 0;
 
-    process_t *t = sched_get_current_process();
-    if (t != NULL) {
-        ht_delete(&(t->open_files_table), handle);
-    } else {
-        kloge("VFS: cannot remove file %ld because of invalid process\n",
-              handle);
-    }
-
-    /* Remove this file if needed */
-    if (fd->inode->refcount == 0 && fd->tnode->st.st_nlink == 0) {
-        if (fd->inode->fs->rmnode != NULL) {
-            klogd("VFS: close \"%s\" and remove tnode\n", fd->path);
-            fd->inode->fs->rmnode(fd->tnode);
-        }
-    }
-
-    kmfree(fd);
     spinlock_release(&vfs_lock);
 
-    if (!istty) {
-        klogv("VFS: close file handle %ld\n", handle);
+    if (n < 0) {
+        if (buf != NULL)
+            kmfree(buf);
+        return -1;
     }
+
+    *out_buf = buf;
+    *out_len = size;
     return 0;
-  fail:
-    spinlock_release(&vfs_lock);
-    return -1;
+}
+
+int64_t vfs_close(vfs_handle_t handle)
+{
+    int kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    /* The process server removes the fd and returns where it lived so the
+     * owning server can drop its open file description. */
+    if (process_fd_close((int) handle, &kind, &svc, &sfd) != 0)
+        return -1;
+
+    if (svc == SVC_FAT)
+        return fat32_close_fd(sfd);
+
+    return vfs_server_close(svc, sfd);
 }
 
 int64_t vfs_refresh(vfs_handle_t handle)

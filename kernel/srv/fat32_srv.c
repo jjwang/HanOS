@@ -162,8 +162,7 @@ int64_t fat32_stat_path(const char *path, uint64_t *size, bool *is_dir)
     return rc;
 }
 
-int64_t fat32_read_path(const char *path, uint64_t off, uint64_t len,
-                        void *buf)
+int64_t fat32_open_path(const char *path, uint64_t *size)
 {
     if (!fat32_active)
         return -1;
@@ -179,8 +178,37 @@ int64_t fat32_read_path(const char *path, uint64_t off, uint64_t len,
     ipc_msg_t rep;
 
     memset(&req, 0, sizeof(req));
+    req.tag = FAT_OPEN;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t fd = -1;
+    if (router_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        fd = (int64_t) rep.words[1];
+        if (size != NULL)
+            *size = rep.words[2];
+    }
+
+    memobj_unref(mo);
+    return fd;
+}
+
+int64_t fat32_read_fd(int64_t fd, uint64_t len, void *buf)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
     req.tag = FAT_READ;
-    req.words[0] = off;
+    req.words[0] = (uint64_t) fd;
     req.words[1] = len;
     req.xfer[0] = h;
     req.xfer_count = 1;
@@ -198,10 +226,70 @@ int64_t fat32_read_path(const char *path, uint64_t off, uint64_t len,
     return n;
 }
 
+int64_t fat32_seek_fd(int64_t fd, uint64_t off, int64_t whence)
+{
+    if (!fat32_active)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_SEEK;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = off;
+    req.words[2] = (uint64_t) whence;
+
+    if (!router_forward(SVC_FAT, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    return (int64_t) rep.words[1];
+}
+
+int64_t fat32_close_fd(int64_t fd)
+{
+    if (!fat32_active)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_CLOSE;
+    req.words[0] = (uint64_t) fd;
+
+    if (!router_forward(SVC_FAT, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    return 0;
+}
+
+int64_t fat32_fstat_fd(int64_t fd, uint64_t *size, bool *is_dir)
+{
+    if (!fat32_active)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_FSTAT;
+    req.words[0] = (uint64_t) fd;
+
+    if (!router_forward(SVC_FAT, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    if (size != NULL)
+        *size = rep.words[1];
+    if (is_dir != NULL)
+        *is_dir = rep.words[2] != 0;
+    return 0;
+}
+
 /* Read one directory entry (0-based) through the server. Returns 0 on success,
  * -2 at the end of the directory, -1 on error. */
-int64_t fat32_readdir_path(const char *path, uint64_t index, char *name,
-                           uint64_t namesz, uint64_t *size, bool *is_dir)
+int64_t fat32_readdir_fd(int64_t fd, uint64_t index, char *name,
+                         uint64_t namesz, uint64_t *size, bool *is_dir)
 {
     if (!fat32_active)
         return -1;
@@ -211,14 +299,13 @@ int64_t fat32_readdir_path(const char *path, uint64_t index, char *name,
     if (mo == NULL)
         return -1;
 
-    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
-
     ipc_msg_t req;
     ipc_msg_t rep;
 
     memset(&req, 0, sizeof(req));
     req.tag = FAT_READDIR;
-    req.words[0] = index;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = index;
     req.xfer[0] = h;
     req.xfer_count = 1;
 
@@ -249,61 +336,34 @@ int64_t fat32_readdir_path(const char *path, uint64_t index, char *name,
     return rc;
 }
 
-/* Read a file through the server by moving a buffer memory object to it. */
+/* Open a file, read a short preview and close it, through the server. */
 static void fat32_probe_read(const char *path)
 {
-    process_t *t = sched_get_current_process();
-    if (t == NULL)
-        return;
+    uint64_t size = 0;
+    int64_t fd = fat32_open_path(path, &size);
 
-    memobj_t *mo = memobj_create(VFS_IO_BUF_SIZE);
-    if (mo == NULL)
-        return;
-
-    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
-                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
-    if (h == HANDLE_INVALID) {
-        memobj_unref(mo);
+    if (fd < 0) {
+        klogw("fat32: open %s failed\n", path);
         return;
     }
 
-    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+    uint8_t preview[24];
+    int64_t n = fat32_read_fd(fd, sizeof(preview) - 1, preview);
 
-    ipc_msg_t req;
-    ipc_msg_t rep;
-
-    memset(&req, 0, sizeof(req));
-    req.tag = FAT_READ;
-    req.words[0] = 0;
-    req.words[1] = 4096;
-    req.xfer[0] = h;
-    req.xfer_count = 1;
-
-    if (router_forward(SVC_FAT, &req, &rep)
-        && (int64_t) rep.words[0] == 0) {
-        uint8_t *data = (uint8_t *)
-            PHYS_TO_VIRT(memobj_page(mo, VFS_IO_DATA_OFF / PAGE_SIZE))
-            + (VFS_IO_DATA_OFF % PAGE_SIZE);
-        char preview[24];
-
-        uint64_t n = rep.words[1];
-        uint64_t k = (n < sizeof(preview) - 1) ? n : sizeof(preview) - 1;
-        memcpy(preview, data, k);
-        preview[k] = '\0';
-        klogi("fat32: read %s %lu/%lu bytes: %s\n", path, n, rep.words[2],
-              preview);
+    if (n > 0) {
+        preview[n] = '\0';
+        klogi("fat32: read %s %ld/%lu bytes: %s\n", path, (long) n,
+              (unsigned long) size, preview);
     } else {
-        klogw("fat32: read %s failed (status %ld)\n", path,
-              (int64_t) rep.words[0]);
+        klogw("fat32: read %s failed\n", path);
     }
 
-    memobj_unref(mo);
+    fat32_close_fd(fd);
 }
 
 void fat32_server_probe(void)
 {
     fat32_probe_read("/HELLO.TXT");
-    fat32_probe_read("/SUB/NESTED.TXT");
+    fat32_probe_read("/SUB/ANOTHE~1.TXT");
     fat32_probe_read("/MISSING.TXT");
 }
