@@ -39,3 +39,7 @@ int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max);
 uint64_t copy_from_process(process_t * t, void *kdst, const void *usrc,
                         uint64_t len);
 uint64_t copy_to_process(process_t * t, void *udst, const void *ksrc, uint64_t len);
+
+/* Look up the fixup for a faulting instruction address. Returns 0 when the
+ * address is not a user-access instruction. Used by the page-fault handler. */
+uint64_t uaccess_find_fixup(uint64_t rip);

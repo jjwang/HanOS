@@ -24,6 +24,7 @@
 #include <proc/sched.h>
 #include <proc/process.h>
 #include <ipc/irq.h>
+#include <mm/uaccess.h>
 
 #include <printf.h>
 
@@ -82,14 +83,27 @@ void exc_handler_proc(
         return;
     }
 
-    /* Panic for Page Fault */
+    /* Page Fault */
     if (excno == 14) {
-        asm volatile("cli");    /* Disable to prevent nested interrupts */
-        apic_timer_stop();      /* Mask APIC timer IRQ on current CPU */
-        klogi("APIC: Timer IRQ masked to stop interrupt storm.\n");
+        /* The entry stub pushes the error code between the saved GPRs and the
+         * interrupted RIP, so in the exception frame the faulting RIP lands on
+         * process_regs_t.cs (process_regs_t itself models the context-switch
+         * frame, which has no error-code slot). */
+
+        /* A fault on a user-access instruction is recoverable: resume at its
+         * fixup so the copy reports -EFAULT instead of killing the kernel. */
+        uint64_t fixup = uaccess_find_fixup(tr->cs);
+        if (fixup != 0) {
+            tr->cs = fixup;
+            return;
+        }
 
         uint64_t cr2val;
         read_cr("cr2", &cr2val);
+
+        asm volatile("cli");    /* Disable to prevent nested interrupts */
+        apic_timer_stop();      /* Mask APIC timer IRQ on current CPU */
+        klogi("APIC: Timer IRQ masked to stop interrupt storm.\n");
 
         uint64_t cr3val;
         read_cr("cr3", &cr3val);

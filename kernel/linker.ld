@@ -29,6 +29,13 @@ SECTIONS
 
     .rodata : {
         *(.rodata .rodata.*)
+
+        /* Exception table: (faulting instruction, fixup) pairs emitted by the
+         * user-access helpers, consumed by the page-fault handler. */
+        . = ALIGN(8);
+        __start___ex_table = .;
+        *(__ex_table)
+        __stop___ex_table = .;
     } :rodata
     
     /* Move to the next memory page for .data */

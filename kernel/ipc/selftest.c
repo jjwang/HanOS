@@ -22,6 +22,7 @@
 #include <ipc/selftest.h>
 #include <mm/memobj.h>
 #include <mm/mm.h>
+#include <mm/uaccess.h>
 #include <proc/sched.h>
 #include <proc/process.h>
 #include <proc/syscall.h>
@@ -211,6 +212,16 @@ _Noreturn void mk_selftest_process(pid_t pid)
         }
         if (mo != NULL)
             object_unref(memobj_object(mo));
+    }
+
+    /* Fault-safe copy: an unmapped pointer must report EFAULT through the
+     * exception table instead of faulting the kernel. */
+    if (ok) {
+        uint64_t dst = 0;
+        if (copy_from_user(&dst, (const void *) 0x1000, sizeof(dst)) == 0)
+            ok = false;
+        if (copy_to_user((void *) 0x1000, &dst, sizeof(dst)) == 0)
+            ok = false;
     }
 
     klogi("MK: selftest %s\n", ok ? "PASS" : "FAIL");
