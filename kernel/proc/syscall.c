@@ -996,7 +996,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
             st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
             st.st_nlink = 1;
             st.st_size = size;
-        } else if (vfs_server_stat_path(fd->path, &st) < 0) {
+        } else if (vfs_server_fstat(fd->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
         }

@@ -292,6 +292,7 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len);
 /* Server-backed stat/readdir, used by the syscall layer. `out` is a kernel
  * buffer (vfs_stat_t or dirent_t). */
 int64_t vfs_server_stat_path(const char *path, void *out);
+int64_t vfs_server_fstat(int64_t sfd, void *out);
 int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
 int64_t vfs_server_unlink(const char *path);
 /* Take a reference on a server fd, so a description inherited across fork or

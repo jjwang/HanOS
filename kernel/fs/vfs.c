@@ -522,6 +522,35 @@ int64_t vfs_server_stat_path(const char *path, void *out)
     return 0;
 }
 
+/* Stat an open server fd. out must be a kernel buffer of at least
+ * sizeof(vfs_stat_t). */
+int64_t vfs_server_fstat(int64_t sfd, void *out)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FSTAT;
+    req.words[0] = (uint64_t) sfd;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_copy_out(mo, out, sizeof(vfs_stat_t), VFS_IO_DATA_OFF);
+    memobj_unref(mo);
+    return 0;
+}
+
 /* Read the next directory entry of a server-backed directory fd. out must be a
  * kernel buffer of at least sizeof(dirent_t). */
 int64_t vfs_server_readdir(vfs_handle_t handle, void *out)

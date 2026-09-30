@@ -388,6 +388,27 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_FSTAT) {
+        int fd = (int) m->words[0];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+
+        if (buf == NULL || fd <= 0 || fd > VFS_MAX_FDS
+            || !fds[fd - 1].in_use) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+
+        fill_stat(fds[fd - 1].ent, buf + VFS_IO_DATA_OFF);
+        rep->words[0] = 0;
+
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
     if (m->tag == VFS_OPENAT) {
         char path[VFS_PATH_MAX];
         char norm[VFS_PATH_MAX];
