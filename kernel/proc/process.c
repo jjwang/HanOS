@@ -331,7 +331,6 @@ void process_free(process_t * t)
     }
     vec_erase_all(&t->mmap_list);
     vec_erase_all(&t->child_list);
-    vec_erase_all(&t->dup_list);
 
     kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
 

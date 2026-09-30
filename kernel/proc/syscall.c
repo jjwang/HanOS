@@ -46,6 +46,7 @@
 #include <proc/signal.h>
 #include <fs/filebase.h>
 #include <fs/vfs.h>
+#include <srv/process_srv.h>
 #include <device/display/gfx.h>
 
 #define MMAP_ANON_BASE      0x80000000000
@@ -703,10 +704,17 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
 {
     cpu_set_errno(0);
 
-    if (fh == STDIN || fh == STDOUT || fh == STDERR) {
-        klogv("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld\n",
-              fh, fh, offset, whence);
-        return 0;
+    if (fh >= 0 && fh < 3) {
+        int kind = 0, svc = 0;
+        int64_t sfd = 0;
+        uint64_t size = 0, seek = 0;
+
+        /* Standard streams are not seekable unless a dup redirected them. */
+        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) != 0) {
+            klogv("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld\n",
+                  fh, fh, offset, whence);
+            return 0;
+        }
     }
 
     int64_t ret = vfs_seek(fh, offset, whence);
@@ -726,40 +734,18 @@ int64_t k_close(int64_t fh)
 
     klogd("k_close: close file handle %ld\n", fh);
 
-    if (t != NULL) {
-        spinlock_acquire(&vfs_lock);
-        /* Check whether there is file redirection */
-        for (uint64_t i = 0; i < vec_length(&t->dup_list); i++) {
-            file_dup_t dup = vec_at(&t->dup_list, i);
-            if (dup.newfh == fh) {
-                /* Close original file and delete from dup list */
-                if (dup.fh != STDIN && dup.fh != STDOUT
-                    && dup.fh != STDERR) {
-                    klogd("k_close: close dup file handle %ld\n", dup.fh);
-                    /* BUGFIX: we must release vfs_lock here before calling
-                     * vfs_close() to avoid dead lock.
-                     */
-                    spinlock_release(&vfs_lock);
-                    vfs_close(dup.fh);
-                    spinlock_acquire(&vfs_lock);
-                }
-                vec_erase(&t->dup_list, i);
-                break;
-            }
-            if (dup.fh == fh) {
-                spinlock_release(&vfs_lock);
-                /* Do not close if mapping to another file handle */
-                klogd("k_close: do not close dup file handle %ld <- %ld\n",
-                      fh, dup.newfh);
-                cpu_set_errno(EINVAL);
-                return -1;
-            }
-        }
-        spinlock_release(&vfs_lock);
+    if (fh >= 0 && fh < 3) {
+        /* Closing a standard fd only drops any redirection to a file. */
+        int kind = 0, svc = 0;
+        int64_t sfd = 0;
+
+        process_fd_close((int) fh, &kind, &svc, &sfd);
+        return 0;
     }
 
-    if (fh == STDIN || fh == STDOUT || fh == STDERR) {
-        return 0;
+    if (t == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
     }
 
     return vfs_close(fh);
@@ -777,32 +763,20 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
 
     klogd("k_read: read %ld from file handle %ld\n", count, fh);
 
-    if (fh == STDIN) {
-        bool found = false;
-        vfs_handle_t oldfh = -1;
-        if (t != NULL) {
-            spinlock_acquire(&vfs_lock);
-            /* Check whether it is redirected from some file */
-            for (uint64_t i; i < vec_length(&t->dup_list); i++) {
-                file_dup_t dup = vec_at(&t->dup_list, i);
-                if (dup.newfh == fh) {
-                    oldfh = dup.fh;
-                    found = true;
-                    break;
-                } else if (dup.fh == fh) {
-                    oldfh = dup.newfh;
-                    found = true;
-                }
-            }
-            spinlock_release(&vfs_lock);
-        }
-        if (found) {
-            int64_t ret = vfs_read(oldfh, count, buf);
-            klogd("k_read: read from handle %ld instead of %ld"
-                  " and return %ld bytes\n", oldfh, fh, ret);
-            return ret;
-        }
-        return tty_server_read(buf, count);
+    if (fh >= 0 && fh < 3) {
+        /* Standard input is the tty unless a dup redirected the fd. */
+        int kind = 0, svc = 0;
+        int64_t sfd = 0;
+        uint64_t size = 0, seek = 0;
+
+        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) == 0)
+            return vfs_read(fh, count, buf);
+
+        if (fh == STDIN)
+            return tty_server_read(buf, count);
+
+        cpu_set_errno(EBADF);
+        return -1;
     } else if (fh >= VFS_MIN_HANDLE) {
         int64_t len = vfs_read(fh, count, buf);
         klogd
@@ -826,38 +800,19 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
         return -1;
     }
 
-    if (fh == STDOUT || fh == STDERR) {
-        bool found = false;
-        vfs_handle_t oldfh = -1;
-        if (t != NULL) {
-            spinlock_acquire(&vfs_lock);
-            /* Check whether it is redirected from some file */
-            for (uint64_t i; i < vec_length(&t->dup_list); i++) {
-                file_dup_t dup = vec_at(&t->dup_list, i);
-                if (dup.newfh == fh) {
-                    oldfh = dup.fh;
-                    found = true;
-                    break;
-                } else if (dup.fh == fh) {
-                    oldfh = dup.newfh;
-                    found = true;
-                    break;
-                }
-            }
-            spinlock_release(&vfs_lock);
-        }
-        if (found) {
-            klogd("k_write: write %ld bytes to oldfh %ld <- fh %ld\n",
-                  count, oldfh, fh);
-            int64_t ret = vfs_write(oldfh, count, buf);
-            return ret;
-        }
-        return tty_server_write(buf, count);
-    }
+    if (fh >= 0 && fh < 3) {
+        /* Standard output is the tty unless a dup redirected the fd. */
+        int kind = 0, svc = 0;
+        int64_t sfd = 0;
+        uint64_t size = 0, seek = 0;
 
-    if (fh < 3) {
-        kloge("k_write: invalid file handler fh=%ld\n", fh);
-        cpu_set_errno(EPERM);
+        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) == 0)
+            return vfs_write(fh, count, buf);
+
+        if (fh == STDOUT || fh == STDERR)
+            return tty_server_write(buf, count);
+
+        cpu_set_errno(EBADF);
         return -1;
     }
 
@@ -1756,10 +1711,13 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
     klogd("k_dup3: pid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
           t->pid, fh, newfh, flags);
 
-    spinlock_acquire(&vfs_lock);
-    file_dup_t dup = {.fh = fh,.newfh = newfh };
-    vec_push_back(&t->dup_list, dup);
-    spinlock_release(&vfs_lock);
+    /* Make fh refer to newfh's open file description so that a program can
+     * redirect standard input and output in the process server.
+     */
+    if (process_fd_dup((int) newfh, (int) fh) < 0) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
 
     return 0;
 }

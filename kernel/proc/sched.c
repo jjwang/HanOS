@@ -719,15 +719,6 @@ process_t *sched_execve(const char *path, const char *argv[],
                    tp == NULL ? NULL : tp->addrspace);
 
     if (tp != NULL) {
-        uint64_t i;
-
-        for (i = 0; i < vec_length(&tp->dup_list); i++) {
-            file_dup_t dup = vec_at(&tp->dup_list, i);
-            vec_push_back(&tc->dup_list, dup);
-            klogd("SCHED: fh pair for pid %ld's child process %ld - (%ld, %ld)\n",
-                  tp->pid, tc->pid, dup.fh, dup.newfh);
-        }
-
         /* The process server clones the parent's fd table for the new process;
          * this kernel path is a fork+exec. */
         process_fd_fork((int) tp->pid, (int) tc->pid);

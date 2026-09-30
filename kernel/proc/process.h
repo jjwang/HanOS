@@ -204,14 +204,6 @@ typedef struct {
 } event_t;
 
 /**
- * @brief Pair of file handles recorded by a duplicate operation
- */
-typedef struct {
-    vfs_handle_t fh;
-    vfs_handle_t newfh;
-} file_dup_t;
-
-/**
  * @brief Signal dispositions and mask of a process
  */
 typedef struct {
@@ -263,7 +255,6 @@ typedef struct process {
     io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint8_t io_port_count;
 
-    vec_struct(file_dup_t) dup_list;
     int64_t errno;
 
     /* Address space. */
