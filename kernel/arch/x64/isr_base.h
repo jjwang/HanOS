@@ -40,6 +40,39 @@
 /* Software interrupts */
 #define IRQ128      128
 
+/**
+ * @brief Register frame saved by the exception/IRQ entry stubs
+ *
+ * The stubs push the 15 general-purpose registers (rax first, r15 last), then
+ * the error code the CPU pushed for the fault (a zero is pushed when the
+ * exception has none), then the interrupted RIP/CS/RFLAGS and, on a privilege
+ * change, RSP/SS. This is not process_regs_t, which models the context-switch
+ * frame and has no error-code slot.
+ */
+typedef struct[[gnu::packed]] {
+    uint64_t rax;
+    uint64_t rbx;
+    uint64_t rcx;
+    uint64_t rdx;
+    uint64_t rsi;
+    uint64_t rdi;
+    uint64_t rbp;
+    uint64_t r8;
+    uint64_t r9;
+    uint64_t r10;
+    uint64_t r11;
+    uint64_t r12;
+    uint64_t r13;
+    uint64_t r14;
+    uint64_t r15;
+    uint64_t errcode;
+    uint64_t rip;
+    uint64_t cs;
+    uint64_t rflags;
+    uint64_t rsp;
+    uint64_t ss;
+} exception_regs_t;
+
 typedef void (*exc_handler_t)();
 void exc_register_handler(uint64_t id, exc_handler_t handler);
 

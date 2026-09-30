@@ -72,7 +72,7 @@ void exc_register_handler(uint64_t id, exc_handler_t handler)
 }
 
 void exc_handler_proc(
-    uint64_t excno, process_regs_t * tr, uint64_t errcode,
+    uint64_t excno, exception_regs_t * tr, uint64_t errcode,
     uint64_t original_rsp, uint8_t is_userspace)
 {
     (void)original_rsp;
@@ -85,16 +85,11 @@ void exc_handler_proc(
 
     /* Page Fault */
     if (excno == 14) {
-        /* The entry stub pushes the error code between the saved GPRs and the
-         * interrupted RIP, so in the exception frame the faulting RIP lands on
-         * process_regs_t.cs (process_regs_t itself models the context-switch
-         * frame, which has no error-code slot). */
-
         /* A fault on a user-access instruction is recoverable: resume at its
          * fixup so the copy reports -EFAULT instead of killing the kernel. */
-        uint64_t fixup = uaccess_find_fixup(tr->cs);
+        uint64_t fixup = uaccess_find_fixup(tr->rip);
         if (fixup != 0) {
-            tr->cs = fixup;
+            tr->rip = fixup;
             return;
         }
 
