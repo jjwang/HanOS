@@ -38,9 +38,11 @@
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
 #define PAGE_ALIGN_UP(num)      (NUM_PAGES(num) * PAGE_SIZE)
 
-#define MAX_MEM_TOTAL_SIZE      (16 * GB)
+#define MAX_MEM_TOTAL_SIZE      (1024 * GB)
 #define MAX_MEM_BMP_SIZE        (NUM_PAGES(MAX_MEM_TOTAL_SIZE) / BMP_PAGES_PER_BYTE)
-#define MAX_MEM_USABLE_SIZE     (1 * GB)
+/* Upper bound on RAM the kernel hands to the allocator. Address spaces share
+ * the kernel page tables, so a larger bound costs no per-process work. */
+#define MAX_MEM_USABLE_SIZE     MAX_MEM_TOTAL_SIZE
 
 /**
  * @brief Physical memory usage counters and allocation bitmap
