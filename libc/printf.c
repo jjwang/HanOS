@@ -135,7 +135,7 @@ typedef void (*out_fct_type)(char character, void* buffer, uint64_t idx, uint64_
 typedef struct {
   void  (*fct)(char character, void* arg);
   void* arg;
-} out_fct_wrap_type;
+} out_fct_wrap_t;
 
 
 // internal buffer output
@@ -170,7 +170,7 @@ static inline void _out_fct(char character, void* buffer, uint64_t idx, uint64_t
   (void)idx; (void)maxlen;
   if (character) {
     // buffer is the output fct pointer
-    ((out_fct_wrap_type*)buffer)->fct(character, ((out_fct_wrap_type*)buffer)->arg);
+    ((out_fct_wrap_t*)buffer)->fct(character, ((out_fct_wrap_t*)buffer)->arg);
   }
 }
 
@@ -928,7 +928,7 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
 {
   va_list va;
   va_start(va, format);
-  const out_fct_wrap_type out_fct_wrap = { out, arg };
+  const out_fct_wrap_t out_fct_wrap = { out, arg };
   const int ret = _vsnprintf(_out_fct, (char*)(uintptr_t)&out_fct_wrap, (uint64_t)-1, format, va);
   va_end(va);
   return ret;

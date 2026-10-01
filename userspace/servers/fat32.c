@@ -435,6 +435,9 @@ static int mount(void)
 
 #define FAT_FD_MAX  32
 
+/**
+ * @brief One open file entry in the FAT32 server
+ */
 typedef struct {
     bool used;
     uint32_t cluster;

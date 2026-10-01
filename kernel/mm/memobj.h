@@ -28,7 +28,7 @@
 /**
  * @brief Refcounted memory object holding a set of physical pages
  */
-typedef struct memobj {
+typedef struct {
     kernel_object_t obj;        /* must stay first */
     spinlock_t lock;
     uint64_t size;              /* bytes, page aligned */

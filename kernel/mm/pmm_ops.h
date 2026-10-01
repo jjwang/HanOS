@@ -30,7 +30,7 @@
  * This structure defines the interface that all physical memory
  * allocators must implement.
  */
-typedef struct allocator_ops {
+typedef struct {
     /**
      * @brief Initialize the allocator
      * @param map Memory map from bootloader

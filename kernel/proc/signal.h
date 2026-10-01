@@ -79,10 +79,10 @@ typedef struct {
 /**
  * @brief Value carried with a queued signal
  */
-union sigval {
+typedef union {
     int sival_int;
     void *sival_ptr;
-};
+} sigval_t;
 
 typedef long clock_t;
 
@@ -105,7 +105,7 @@ typedef struct {
                 } __timer;
             } __first;
             union {
-                union sigval si_value;
+                sigval_t si_value;
                 struct {
                     int si_status;
                     clock_t si_utime, si_stime;

@@ -34,6 +34,9 @@
 #define SVC_TTY_ID      6
 #define SVC_FAT_ID      7
 
+/**
+ * @brief One descriptor in a process's file-descriptor table
+ */
 typedef struct {
     bool used;
     int32_t kind;

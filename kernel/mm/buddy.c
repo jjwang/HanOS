@@ -45,10 +45,12 @@
 /**
  * @brief Free-list node linking blocks of the same order
  */
-typedef struct buddy_block {
-    struct buddy_block *next;
-    struct buddy_block *prev;
-} buddy_block_t;
+typedef struct buddy_block buddy_block_t;
+
+struct buddy_block {
+    buddy_block_t *next;
+    buddy_block_t *prev;
+};
 
 /**
  * @brief Global state of the buddy physical memory allocator

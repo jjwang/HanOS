@@ -32,12 +32,14 @@ typedef enum {
 /**
  * @brief Base header embedded in every reference-counted kernel object
  */
-typedef struct kernel_object {
+typedef struct kernel_object kernel_object_t;
+
+struct kernel_object {
     obj_type_t type;
     volatile uint32_t refcnt;
     void *impl;                 /* endpoint_t*, memobj_t*, irq_t*, ... */
-    void (*destroy) (struct kernel_object *);
-} kernel_object_t;
+    void (*destroy) (kernel_object_t *);
+};
 
 typedef uint64_t handle_t;
 
@@ -62,7 +64,7 @@ typedef struct {
 /**
  * @brief Per-process table of handle slots
  */
-typedef struct handle_table {
+typedef struct {
     handle_slot_t *slots;
     uint32_t count;
     uint32_t capacity;

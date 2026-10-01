@@ -54,17 +54,20 @@ bool user_range_ok(process_t * t, const void *uptr, uint64_t len)
 
 /* --- Fault-safe primitive accesses --------------------------------------- */
 
-struct uaccess_ex_entry {
+/**
+ * @brief Exception-table entry mapping a faulting instruction to its fixup
+ */
+typedef struct {
     uint64_t insn;
     uint64_t fixup;
-};
+} uaccess_ex_entry_t;
 
-extern const struct uaccess_ex_entry __start___ex_table[];
-extern const struct uaccess_ex_entry __stop___ex_table[];
+extern const uaccess_ex_entry_t __start___ex_table[];
+extern const uaccess_ex_entry_t __stop___ex_table[];
 
 uint64_t uaccess_find_fixup(uint64_t rip)
 {
-    for (const struct uaccess_ex_entry *e = __start___ex_table;
+    for (const uaccess_ex_entry_t * e = __start___ex_table;
          e < __stop___ex_table; e++)
         if (e->insn == rip)
             return e->fixup;

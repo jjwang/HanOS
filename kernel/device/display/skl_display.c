@@ -178,7 +178,7 @@ static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
  * Holds the registers the mode set may modify, so a failure can restore the
  * firmware's display state instead of leaving a broken signal.
  */
-struct modeset_state {
+typedef struct {
     uint32_t trans[6];
     uint32_t pipeaconf, pipeasrc, pipemisc, edp_src, edp_pipe_conf,
         edp_pipe_src;
@@ -191,9 +191,9 @@ struct modeset_state {
         plane_size;
     uint32_t blc_ctl, blc_ctl2;
     uint32_t plane_buf_cfg, plane_wm_trans, plane_wm[8];
-};
+} modeset_state_t;
 
-static void modeset_save(gfx_pci_t * pci, struct modeset_state * s)
+static void modeset_save(gfx_pci_t * pci, modeset_state_t * s)
 {
     for (uint32_t i = 0; i < 6; i++)
         s->trans[i] = gfx_ind(pci, 0x60000 + i * 4);
@@ -232,7 +232,7 @@ static void modeset_save(gfx_pci_t * pci, struct modeset_state * s)
         s->plane_wm[i] = gfx_ind(pci, PLANE_WM_1A(i));
 }
 
-static void modeset_restore(gfx_pci_t * pci, const struct modeset_state * s)
+static void modeset_restore(gfx_pci_t * pci, const modeset_state_t * s)
 {
     gfx_outd(pci, PIPEACONF, 0);
     gfx_outd(pci, PLANE_CTL_1_A, 0);
@@ -277,7 +277,7 @@ static void modeset_restore(gfx_pci_t * pci, const struct modeset_state * s)
 bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
                       const display_mode_t * mode, gfx_fb_t * out_fb)
 {
-    struct modeset_state saved;
+    modeset_state_t saved;
 
     if (mode == NULL || !mode->valid || mode->hactive == 0
         || mode->vactive == 0) {

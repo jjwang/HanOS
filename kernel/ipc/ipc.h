@@ -54,7 +54,7 @@ typedef struct {
 /**
  * @brief Kernel object holding a FIFO queue of IPC messages
  */
-typedef struct endpoint {
+typedef struct {
     kernel_object_t obj;        /* must stay first */
     spinlock_t lock;
     ipc_queue_entry_t msgs[IPC_QUEUE_LEN];
