@@ -4,7 +4,7 @@
 
 ### Root Cause
 
-Even with PAT index 2 = WC and framebuffer mapped with `PCD=1,PWT=0`, the effective memory type was still UC. Per Intel/AMD combination rules, when MTRR for an address range specifies **UC**, PAT is completely overridden.
+PAT index 2 = WC and a framebuffer mapped with `PCD=1,PWT=0` still gave effective type UC. Intel/AMD combination rules: when MTRR for an address range specifies **UC**, PAT is overridden.
 
 On AMD Ryzen 7 5700U, BIOS had 4 UC MTRRs covering the framebuffer at 0xE0000000:
 
@@ -15,15 +15,15 @@ On AMD Ryzen 7 5700U, BIOS had 4 UC MTRRs covering the framebuffer at 0xE0000000
 | #2 | UC (0) | 0xDA000000 | 0x7FFE000000 | 8 MB @ 0xDA000000 |
 | #3 | UC (0) | 0xD9800000 | 0x7FFF800000 | 4 MB @ 0xD9800000 |
 
-MTRR #0 covers 0xE0000000–0xE1FFFFFF (32 MB), fully containing the framebuffer (1.83 MB). MTRR=UC + PAT=WC → UC.
+MTRR #0 covers 0xE0000000–0xE1FFFFFF (32 MB), containing the framebuffer (1.83 MB). MTRR=UC + PAT=WC → UC.
 
 ### Fix: Modify MTRR #0 to WC
 
-Extended `fb_set_wc()` in `kernel/sys/mtrr.c` to:
+Extended `fb_set_wc()` in `kernel/sys/mtrr.c`:
 
-1. **Detect covering UC MTRR** — Iterate variable MTRRs; if type=UC, valid, and fully covers framebuffer, record index.
+1. **Detect covering UC MTRR** — Iterate variable MTRRs. If type=UC, valid, and covering the framebuffer, record the index.
 
-2. **Modify MTRR in place** using standard cache-control procedure:
+2. **Modify MTRR in place** with the standard cache-control procedure:
    - Save CR0, set CD=1, clear NW=0
    - `wbinvd` (flush caches)
    - CR3 reload (flush TLB)
@@ -37,7 +37,7 @@ Extended `fb_set_wc()` in `kernel/sys/mtrr.c` to:
 
 ### Result
 
-Verified on both QEMU and Ryzen 7 5700U: `MTRR #0 type now WC (expected WC=1)`. Framebuffer write performance improved measurably.
+Verified on QEMU and Ryzen 7 5700U: `MTRR #0 type now WC (expected WC=1)`. Framebuffer write performance improved measurably.
 
 ---
 
@@ -45,11 +45,11 @@ Verified on both QEMU and Ryzen 7 5700U: `MTRR #0 type now WC (expected WC=1)`. 
 
 ### Root Cause
 
-Original `range_end = base | ~mask` did not limit `~mask` to physical address width. Since MTRR masks have zeros at bits 63:48, `~mask` produced high-bit values, causing range_end overflow. This gave false overlap positives for MTRRs #1, #2, #3.
+Original `range_end = base | ~mask` did not limit `~mask` to the physical address width. MTRR masks have zeros at bits 63:48, so `~mask` produced high-bit values and range_end overflowed. This gave false overlap positives for MTRRs #1, #2, #3.
 
 ### Fix
 
-Use `~mask & 0x000ffffffffff000` for variable bits, with three-way overlap check:
+Use `~mask & 0x000ffffffffff000` for the variable bits. Overlap check has three cases:
 
 ```
 (fb_phys & mask) == (base & mask) ||
