@@ -1567,6 +1567,113 @@ int k_getrusage(int64_t who, uint64_t usage)
     return 0;
 }
 
+/* Pack path/cwd/argv/envp and the ELF file into one buffer and hand it to the
+ * process server, which parses and maps it. Returns 0 on success. */
+static int exec_via_server(process_t * t, const char *kpath,
+                           const char **argv, const char **envp,
+                           const char *cwd)
+{
+    uint64_t argc = 0, envc = 0, i;
+
+    while (argv != NULL && argv[argc] != NULL && argc < EXEC_MAX_ARGS)
+        argc++;
+    while (envp != NULL && envp[envc] != NULL && envc < EXEC_MAX_ARGS)
+        envc++;
+
+    uint8_t *elf = NULL;
+    uint64_t elf_len = 0;
+
+    if (vfs_load_file(kpath, &elf, &elf_len) != 0 || elf == NULL) {
+        kloge("k_execve: cannot read \"%s\"\n", kpath);
+        return -1;
+    }
+
+    uint64_t header = 8 * sizeof(uint64_t);
+    uint64_t path_len = strlen(kpath) + 1;
+    uint64_t cwd_len = ((cwd != NULL) ? strlen(cwd) : 0) + 1;
+    uint64_t off_argv = header + path_len + cwd_len;
+    uint64_t off_envp = off_argv + argc * sizeof(uint64_t);
+    uint64_t off_strs = off_envp + envc * sizeof(uint64_t);
+
+    uint64_t strs = 0;
+
+    for (i = 0; i < argc; i++)
+        strs += strlen(argv[i]) + 1;
+    for (i = 0; i < envc; i++)
+        strs += strlen(envp[i]) + 1;
+
+    uint64_t off_elf = off_strs + strs;
+    uint64_t total = off_elf + elf_len;
+    uint8_t *buf = kmalloc(total);
+
+    if (buf == NULL) {
+        kmfree_chunk(elf, __func__, __LINE__);
+        return -1;
+    }
+
+    uint64_t *h = (uint64_t *) buf;
+
+    memset(buf, 0, header);
+    h[0] = header;
+    h[1] = header + path_len;
+    h[2] = off_argv;
+    h[3] = off_envp;
+    h[4] = argc;
+    h[5] = envc;
+    h[6] = off_elf;
+    h[7] = elf_len;
+    memcpy(buf + header, kpath, path_len);
+    memcpy(buf + header + path_len, (cwd != NULL) ? cwd : "", cwd_len);
+
+    uint64_t *av = (uint64_t *) (buf + off_argv);
+    uint64_t *ev = (uint64_t *) (buf + off_envp);
+    uint8_t *p = buf + off_strs;
+
+    for (i = 0; i < argc; i++) {
+        uint64_t n = strlen(argv[i]) + 1;
+        memcpy(p, argv[i], n);
+        av[i] = (uint64_t) (p - buf);
+        p += n;
+    }
+    for (i = 0; i < envc; i++) {
+        uint64_t n = strlen(envp[i]) + 1;
+        memcpy(p, envp[i], n);
+        ev[i] = (uint64_t) (p - buf);
+        p += n;
+    }
+    memcpy(buf + off_elf, elf, elf_len);
+    kmfree_chunk(elf, __func__, __LINE__);
+
+    handle_t bh = 0;
+
+    if (ipc_buf_from_kernel(buf, total, &bh) != 0) {
+        kloge("k_execve: ipc_buf_from_kernel failed\n");
+        kmfree(buf);
+        return -1;
+    }
+    kmfree(buf);
+
+    ipc_msg_t req, rep;
+
+    memset(&req, 0, sizeof(req));
+    memset(&rep, 0, sizeof(rep));
+    req.tag = PROC_EXEC;
+    req.words[0] = (uint64_t) t->pid;
+    req.xfer[0] = bh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_PROC, &req, &rep)) {
+        kloge("k_execve: router_forward(SVC_PROC) failed\n");
+        return -1;
+    }
+    if ((int64_t) rep.words[0] < 0) {
+        kloge("k_execve: process server returned %ld\n",
+              (int64_t) rep.words[0]);
+        return -1;
+    }
+    return 0;
+}
+
 int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 {
     char *cwd = NULL;
@@ -1593,6 +1700,19 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 
     const char **kargv_p = (argv != NULL) ? (const char **) kargv : NULL;
     const char **kenvp_p = (envp != NULL) ? (const char **) kenvp : NULL;
+
+    /* The process server parses and maps the image. Fall back to the in-kernel
+     * loader when the server is not registered. */
+    if (t != NULL && router_lookup(SVC_PROC) != NULL
+        && exec_via_server(t, kpath, kargv_p, kenvp_p, cwd) == 0) {
+        klogi("k_execve: server ran \"%s\", exit process %ld\n", kpath, t->pid);
+        free_exec_argv(kargv);
+        free_exec_argv(kenvp);
+        process_fd_exit((int) t->pid);
+        sched_exit(0);
+        cpu_set_errno(0);
+        return 0;
+    }
 
     if (sched_execve(kpath, kargv_p, kenvp_p, cwd) != NULL) {
         klogi("k_execve: run \"%s\" and exit from process %ld\n", kpath,
@@ -2238,6 +2358,7 @@ int64_t k_proc_spawn(int64_t parent_pid, const char *name)
 
     if (parent != NULL) {
         tc->ppid = parent->pid;
+        strcpy(tc->cwd, parent->cwd);
         spinlock_acquire(&parent->child_lock);
         vec_push_back(&parent->child_list, tc->pid);
         spinlock_release(&parent->child_lock);
@@ -2246,7 +2367,9 @@ int64_t k_proc_spawn(int64_t parent_pid, const char *name)
     return (int64_t) tc->pid;
 }
 
-/* Map memory object memh into process pid at vaddr. */
+/* Copy the pages of memory object memh into process pid at vaddr. The copy
+ * keeps the pages owned by the target process, so the server can drop the
+ * object right away. */
 int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
 {
     cpu_set_errno(0);
@@ -2254,7 +2377,8 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
     process_t *cur = sched_get_current_process();
     process_t *t = process_lookup((pid_t) pid);
 
-    if (cur == NULL || t == NULL || t->addrspace == NULL) {
+    if (cur == NULL || t == NULL || t->addrspace == NULL
+        || (vaddr & (PAGE_SIZE - 1))) {
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -2266,11 +2390,32 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
         return -1;
     }
 
-    if (memobj_map((memobj_t *) o->impl, t->addrspace, vaddr,
-                   (uint32_t) prot) != 0) {
-        cpu_set_errno(EINVAL);
-        return -1;
+    memobj_t *m = (memobj_t *) o->impl;
+    uint64_t np = memobj_page_count(m);
+    uint64_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+    if (prot & PROT_WRITE)
+        pf |= VMM_FLAG_READWRITE;
+
+    for (uint64_t i = 0; i < np; i++) {
+        uint64_t dst =
+            VIRT_TO_PHYS(kmalloc_chunk(PAGE_SIZE, __func__, __LINE__));
+        if (dst == 0) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+        memcpy((void *)PHYS_TO_VIRT(dst),
+               (void *)PHYS_TO_VIRT(memobj_page(m, i)), PAGE_SIZE);
+        vmm_map(t->addrspace, vaddr + i * PAGE_SIZE, dst, 1, pf);
+
+        mem_map_t mm = {
+            .vaddr = vaddr + i * PAGE_SIZE,
+            .paddr = dst,
+            .np = 1,
+            .flags = pf,
+        };
+        vec_push_back(&t->mmap_list, mm);
     }
+
     return 0;
 }
 
@@ -2285,7 +2430,7 @@ int64_t k_proc_set_entry(int64_t pid, uint64_t rip, uint64_t rsp)
         return -1;
     }
 
-    process_regs_t *regs = (process_regs_t *) t->context;
+    process_regs_t *regs = (process_regs_t *) PHYS_TO_VIRT((uint64_t) t->context);
     regs->rip = rip;
     if (rsp != 0)
         regs->rsp = rsp;

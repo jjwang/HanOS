@@ -126,11 +126,14 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
 
         nproc->context = nproc->ustack_top;
 
-        /* Notice that the below should be unmapped at the end of this func */
-        vmm_map(pas, (uint64_t) nproc->ustack_limit,
-                (uint64_t) nproc->ustack_limit,
-                NUM_PAGES(STACK_SIZE),
-                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+        /* The user stack VA equals its physical address. The kernel reaches it
+         * through the direct map, and the process through an identity mapping. */
+        if (pas != NULL) {
+            vmm_map(pas, (uint64_t) nproc->ustack_limit,
+                    (uint64_t) nproc->ustack_limit,
+                    NUM_PAGES(STACK_SIZE),
+                    VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
+        }
 
         vmm_map(as, (uint64_t) nproc->ustack_limit,
                 (uint64_t) nproc->ustack_limit,
@@ -146,7 +149,9 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
 
         vec_push_back(&nproc->mmap_list, m);
 
-        nproc_regs = nproc->ustack_top - sizeof(process_regs_t);
+        nproc_regs = (process_regs_t *)
+            PHYS_TO_VIRT((uint64_t) nproc->ustack_top
+                         - sizeof(process_regs_t));
 
         nproc_regs->cs = DEFAULT_UMODE_CODE;
         nproc_regs->ss = DEFAULT_UMODE_DATA;
@@ -178,7 +183,14 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     nproc_regs->rdi = new_pid;
 
     nproc->mode = mode;
-    nproc->context = nproc_regs;
+    if (mode == PROC_USER_MODE) {
+        /* context holds a physical address; exit_context_switch runs on the
+         * identity-mapped stack after the CR3 switch. */
+        nproc->context = (void *)((uint64_t) nproc->ustack_top
+                                  - sizeof(process_regs_t));
+    } else {
+        nproc->context = nproc_regs;
+    }
     nproc->ppid = PID_MAX;
     nproc->priority = priority;
     nproc->last_tick = 0;
@@ -191,7 +203,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     klogi("PROC: Create pid %ld with name \"%s\" (process 0x%016lx)\n",
           nproc->pid, name, nproc);
 
-    if (mode == PROC_USER_MODE) {
+    if (mode == PROC_USER_MODE && pas != NULL) {
         vmm_unmap(pas, (uint64_t) nproc->ustack_limit,
                   NUM_PAGES(STACK_SIZE));
     }

@@ -74,6 +74,8 @@
 #define PROC_FD_SEEK        0x85        /* words[1]=pos, words[2]=whence */
 #define PROC_FD_FORK        0x86        /* words[1]=child pid */
 #define PROC_FD_EXIT        0x88
+#define PROC_EXEC           0x89        /* words[0]=caller pid; xfer[1]=packed
+                                           path/cwd/argv/envp and ELF bytes */
 
 /* PROC_FD_GET/CLOSE kind. */
 #define PROC_FD_SERVER      0
