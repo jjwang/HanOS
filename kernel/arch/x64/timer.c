@@ -101,11 +101,13 @@ void apic_timer_enable(void)
     apic_write_reg(APIC_REG_TIMER_DCR, 0x1);
 }
 
-void apic_timer_init(uint64_t cpu_id)
+uint8_t apic_timer_init(uint64_t cpu_id)
 {
     vector = idt_get_available_vector();
-    idt_set_handler(vector, &apic_timer_handler);
 
+    /* The caller installs the real handler once its per-CPU state is ready.
+     * The timer stays masked until apic_timer_start(), so the vector does not
+     * need a handler while it is being calibrated. */
     apic_write_reg(APIC_REG_TIMER_LVT, APIC_TIMER_FLAG_MASKED | vector);
     apic_write_reg(APIC_REG_TIMER_DCR, 0x1);
     divisor = 4;
@@ -122,4 +124,6 @@ void apic_timer_init(uint64_t cpu_id)
 
     klogi("CPU %ld: APIC timer base frequency: %ld Hz. Divisor: 4. IRQ %ld.\n",
           cpu_id, base_freq, vector);
+
+    return vector;
 }

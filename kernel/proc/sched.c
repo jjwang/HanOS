@@ -641,10 +641,16 @@ void sched_init(const char *name, uint16_t cpu_id)
      * core's APIC timer is started park the boot thread in the idle loop, which
      * could then never be woken because its timer was never armed. */
 
-    apic_timer_init(cpu_id);
+    uint8_t timer_vector = apic_timer_init(cpu_id);
+
     apic_timer_set_period(TIMESLICE_DEFAULT);
     apic_timer_set_mode(APIC_TIMER_MODE_PERIODIC);
-    apic_timer_set_handler(enter_context_switch);
+
+    /* Install the context-switch entry on this core's own timer vector. The
+     * vector is per-CPU, so binding it through the shared global in timer.c
+     * would let a concurrently initialising core install the handler on the
+     * wrong vector, leaving this core's timer on the EOI-only handler. */
+    idt_set_handler(timer_vector, enter_context_switch);
 
     /* A core waiting in its idle loop relies on its own timer to notice a process
      * queued by another core. Reserving a separate vector lets a dispatcher
