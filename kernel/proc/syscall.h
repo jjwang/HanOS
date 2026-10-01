@@ -79,6 +79,12 @@
 #define SYSCALL_HANDLE_DUP  67
 #define SYSCALL_SERIAL_WRITE 68
 
+/* Process services: primitives used by the process server. */
+#define SYSCALL_PROC_SPAWN      70
+#define SYSCALL_PROC_MAP        71
+#define SYSCALL_PROC_SET_ENTRY  72
+#define SYSCALL_PROC_START      73
+
 /* Standard I/O devices */
 #define STDIN               0
 #define STDOUT              1

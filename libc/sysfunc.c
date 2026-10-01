@@ -126,6 +126,11 @@
 #define SYSCALL_HANDLE_DUP   67
 #define SYSCALL_SERIAL_WRITE 68
 
+#define SYSCALL_PROC_SPAWN      70
+#define SYSCALL_PROC_MAP        71
+#define SYSCALL_PROC_SET_ENTRY  72
+#define SYSCALL_PROC_START      73
+
 void sys_libc_log(const char *message)
 {
     int ret, errno;
@@ -284,6 +289,34 @@ int sys_dup(int fd, int flags, int newfd)
 {
     int errno, ret;
     SYSCALL3(SYSCALL_DUP3, fd, newfd, flags);
+    return ret;
+}
+
+int sys_proc_spawn(int parent, const char *name)
+{
+    int errno, ret;
+    SYSCALL2(SYSCALL_PROC_SPAWN, parent, name);
+    return ret;
+}
+
+int sys_proc_map(int pid, unsigned long vaddr, int memh, int prot)
+{
+    int errno, ret;
+    SYSCALL4(SYSCALL_PROC_MAP, pid, vaddr, memh, prot);
+    return ret;
+}
+
+int sys_proc_set_entry(int pid, unsigned long rip, unsigned long rsp)
+{
+    int errno, ret;
+    SYSCALL3(SYSCALL_PROC_SET_ENTRY, pid, rip, rsp);
+    return ret;
+}
+
+int sys_proc_start(int pid)
+{
+    int errno, ret;
+    SYSCALL1(SYSCALL_PROC_START, pid);
     return ret;
 }
 

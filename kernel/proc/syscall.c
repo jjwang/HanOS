@@ -2214,6 +2214,99 @@ int64_t k_handle_dup(int64_t handle)
     return (int64_t) h;
 }
 
+/* --- Process services primitives (used by the process server) ------------- */
+
+/* Create an empty user process, child of parent_pid. It is not scheduled until
+ * PROC_START. */
+int64_t k_proc_spawn(int64_t parent_pid, const char *name)
+{
+    cpu_set_errno(0);
+
+    char kname[64];
+    if (name == NULL || strncpy_from_user(kname, name, sizeof(kname)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    process_t *parent = process_lookup((pid_t) parent_pid);
+    process_t *tc = process_make(kname, NULL, 0, PROC_USER_MODE,
+                                 parent == NULL ? NULL : parent->addrspace);
+    if (tc == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    if (parent != NULL) {
+        tc->ppid = parent->pid;
+        spinlock_acquire(&parent->child_lock);
+        vec_push_back(&parent->child_list, tc->pid);
+        spinlock_release(&parent->child_lock);
+    }
+
+    return (int64_t) tc->pid;
+}
+
+/* Map memory object memh into process pid at vaddr. */
+int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
+{
+    cpu_set_errno(0);
+
+    process_t *cur = sched_get_current_process();
+    process_t *t = process_lookup((pid_t) pid);
+
+    if (cur == NULL || t == NULL || t->addrspace == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    kernel_object_t *o = handle_get(&cur->handles, (handle_t) memh,
+                                    HANDLE_RIGHT_MAP);
+    if (o == NULL || o->type != OBJ_MEMORY) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    if (memobj_map((memobj_t *) o->impl, t->addrspace, vaddr,
+                   (uint32_t) prot) != 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    return 0;
+}
+
+/* Set process pid's initial instruction pointer and stack pointer. */
+int64_t k_proc_set_entry(int64_t pid, uint64_t rip, uint64_t rsp)
+{
+    cpu_set_errno(0);
+
+    process_t *t = process_lookup((pid_t) pid);
+    if (t == NULL || t->context == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
+    }
+
+    process_regs_t *regs = (process_regs_t *) t->context;
+    regs->rip = rip;
+    if (rsp != 0)
+        regs->rsp = rsp;
+    return 0;
+}
+
+/* Schedule a process created by PROC_SPAWN. */
+int64_t k_proc_start(int64_t pid)
+{
+    cpu_set_errno(0);
+
+    process_t *t = process_lookup((pid_t) pid);
+    if (t == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
+    }
+
+    sched_add(t);
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -2277,7 +2370,11 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout,
     [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap,      /* 66 */
     [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup,    /* 67 */
-    [SYSCALL_SERIAL_WRITE] = (syscall_ptr_t) k_serial_write /* 68 */
+    [SYSCALL_SERIAL_WRITE] = (syscall_ptr_t) k_serial_write, /* 68 */
+    [SYSCALL_PROC_SPAWN] = (syscall_ptr_t) k_proc_spawn,        /* 70 */
+    [SYSCALL_PROC_MAP] = (syscall_ptr_t) k_proc_map,            /* 71 */
+    [SYSCALL_PROC_SET_ENTRY] = (syscall_ptr_t) k_proc_set_entry, /* 72 */
+    [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start         /* 73 */
 };
 
 void syscall_init(void)
