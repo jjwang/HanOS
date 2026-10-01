@@ -292,6 +292,13 @@ int sys_dup(int fd, int flags, int newfd)
     return ret;
 }
 
+int sys_fcntl(int fd, int cmd, int arg)
+{
+    int errno, ret;
+    SYSCALL3(SYSCALL_FCNTL, fd, cmd, arg);
+    return ret;
+}
+
 int sys_proc_spawn(int parent, const char *name)
 {
     int errno, ret;

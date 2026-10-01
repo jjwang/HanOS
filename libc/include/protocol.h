@@ -83,6 +83,14 @@
                                            Returns PROC_WAIT_BLOCK when a child
                                            exists but has not exited. */
 #define PROC_WAIT_BLOCK     (-2)
+#define PROC_FD_FCNTL       0x8C        /* words[1]=fd, words[2]=cmd, words[3]=arg;
+                                           out words[1]=flags. cmd 1=F_GETFD,
+                                           2=F_SETFD */
+
+/* fcntl commands and descriptor flags handled by PROC_FD_FCNTL. */
+#define F_GETFD             1
+#define F_SETFD             2
+#define FD_CLOEXEC          1
 
 /* PROC_FD_GET/CLOSE kind. */
 #define PROC_FD_SERVER      0

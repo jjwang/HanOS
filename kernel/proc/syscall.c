@@ -464,6 +464,8 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
             cpu_set_errno(ENOMEM);
             return -1;
         }
+        if (flags & O_CLOEXEC)
+            process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
         cpu_set_errno(0);
         return sfh;
     } else if (router_lookup(SVC_FS) != NULL) {
@@ -503,6 +505,9 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
             cpu_set_errno(ENOMEM);
             return -1;
         }
+
+        if (flags & O_CLOEXEC)
+            process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
 
         cpu_set_errno(0);
         return sfh;
@@ -1387,7 +1392,19 @@ int64_t k_getppid()
 
 int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 {
-    klogd("k_fcntl: fd 0x%016lx, request 0x%016lx, arg 0x%016lx\n", fd, request, arg);
+    cpu_set_errno(0);
+
+    /* Only the descriptor flags live in the process server for now. */
+    if (request == F_GETFD || request == F_SETFD) {
+        int64_t r = process_fd_fcntl((int) fd, (int) request, arg);
+
+        if (r < 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        return r;
+    }
+
     cpu_set_errno(ENOSYS);
     return -1;
 }

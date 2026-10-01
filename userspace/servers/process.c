@@ -45,6 +45,7 @@ typedef struct {
     uint64_t size;
     uint64_t seek_pos;
     int64_t mode;
+    bool cloexec;
 } proc_fd_t;
 
 static proc_fd_t table[PROC_PID_MAX][PROC_FD_MAX];
@@ -195,6 +196,35 @@ static void clone_fds(int32_t parent, int32_t child)
         fm.tag = VFS_FD_FORK;
         fm.words[0] = (uint64_t) e->server_fd;
         sys_ipc_send((int64_t) ep, &fm);
+    }
+}
+
+/* Close and clear every descriptor of pid marked close-on-exec. Runs after the
+ * fd table has been cloned for an exec, so the child does not inherit them. */
+static void close_cloexec(int32_t pid)
+{
+    if (pid < 0 || pid >= PROC_PID_MAX)
+        return;
+
+    for (int fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
+        proc_fd_t *e = &table[pid][fd];
+
+        if (!e->used || !e->cloexec)
+            continue;
+
+        if (e->kind == PROC_FD_SERVER) {
+            uint64_t ep = ep_for_svc(e->svc);
+            uint64_t tag = close_tag_for_svc(e->svc);
+
+            if (ep != 0 && tag != 0) {
+                sys_ipc_msg_t cm;
+                memset(&cm, 0, sizeof(cm));
+                cm.tag = tag;
+                cm.words[0] = (uint64_t) e->server_fd;
+                sys_ipc_send((int64_t) ep, &cm);
+            }
+        }
+        e->used = false;
     }
 }
 
@@ -389,6 +419,7 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
     }
 
     clone_fds(caller, pid);
+    close_cloexec(pid);
     sys_proc_start(pid);
 
   out:
@@ -477,8 +508,31 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
             *dst = *src;
             dst->used = true;
+            dst->cloexec = false;
             rep->words[0] = 0;
             rep->words[1] = (uint64_t) newfd;
+            return;
+        }
+
+    case PROC_FD_FCNTL:{
+            proc_fd_t *e = fd_get(pid, fd);
+            int32_t cmd = (int32_t) m->words[2];
+            int32_t arg = (int32_t) m->words[3];
+
+            if (e == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -9;
+                return;
+            }
+            if (cmd == F_GETFD) {
+                rep->words[1] = e->cloexec ? FD_CLOEXEC : 0;
+            } else if (cmd == F_SETFD) {
+                e->cloexec = (arg & FD_CLOEXEC) != 0;
+                rep->words[1] = e->cloexec ? FD_CLOEXEC : 0;
+            } else {
+                rep->words[0] = (uint64_t) (int64_t) -22;       /* -EINVAL */
+                return;
+            }
+            rep->words[0] = 0;
             return;
         }
 

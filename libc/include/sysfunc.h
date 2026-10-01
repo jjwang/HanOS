@@ -49,6 +49,11 @@
 #define O_CLOEXEC           0x4000
 #define O_PATH              0x8000
 
+/* fcntl commands and descriptor flags. */
+#define F_GETFD             1
+#define F_SETFD             2
+#define FD_CLOEXEC          1
+
 /**
  * @brief A shell command and its help text
  */
@@ -105,6 +110,7 @@ void sys_panic(const char *message);
 void *sys_malloc(int size);
 int sys_mkdirat(const char *path);
 int sys_dup(int fd, int flags, int newfd);
+int sys_fcntl(int fd, int cmd, int arg);
 int sys_proc_spawn(int parent, const char *name);
 int sys_proc_map(int pid, unsigned long vaddr, int memh, int prot);
 int sys_proc_set_entry(int pid, unsigned long rip, unsigned long rsp);

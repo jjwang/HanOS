@@ -206,6 +206,15 @@ int64_t process_fd_seek(int fd, uint64_t pos, int whence)
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
+int64_t process_fd_fcntl(int fd, int cmd, int64_t arg)
+{
+    ipc_msg_t rep;
+    int64_t r = proc_call(PROC_FD_FCNTL, (uint64_t) fd, (uint64_t) (int64_t) cmd,
+                          (uint64_t) arg, 0, &rep);
+
+    return (r < 0) ? r : (int64_t) rep.words[1];
+}
+
 /* Called in the parent's context after the fork, so it may block until the
  * server has cloned the child's descriptors and taken a reference on each. */
 void process_fd_fork(int parent, int child)
