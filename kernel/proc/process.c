@@ -195,15 +195,9 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         vmm_unmap(pas, (uint64_t) nproc->ustack_limit,
                   NUM_PAGES(STACK_SIZE));
     }
-#ifndef ENABLE_MEM_DEBUG
-    /* MEMMAP: hpet should be visible for all kernel processes */
-    vmm_map(nproc->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
-            1, VMM_FLAGS_MMIO);
 
-    /* MEMMAP: lapic_base should be visible for all kernel processes */
-    vmm_map(nproc->addrspace, (uint64_t) lapic_base,
-            VIRT_TO_PHYS(lapic_base), 1, VMM_FLAGS_MMIO);
-#endif
+    /* hpet and lapic_base live in the kernel half, which create_addrspace()
+     * shares with every process. */
 
     process_table_add(nproc);
 
@@ -292,19 +286,8 @@ process_t *process_fork(process_t * tp)
      * for the child and takes a reference on each server-side description. */
     process_fd_fork((int) tp->pid, (int) tc->pid);
 
-    /* MEMMAP: hpet should be visible for all kernel processes
-     *
-     * Note that if we open mem debug option, hpet is already visible for
-     * all kernel processes.
-     */
-#if !ENABLE_MEM_DEBUG
-    vmm_map(tc->addrspace, (uint64_t) hpet, VIRT_TO_PHYS(hpet),
-            1, VMM_FLAGS_MMIO);
-
-    /* MEMMAP: lapic_base should be visible for all kernel processes */
-    vmm_map(tc->addrspace, (uint64_t) lapic_base, VIRT_TO_PHYS(lapic_base),
-            1, VMM_FLAGS_MMIO);
-#endif
+    /* hpet and lapic_base live in the kernel half, which create_addrspace()
+     * shares with every process. */
 
     klogd("PROC: child pid %ld and parent pid %ld\n", tc->pid, tp->pid);
     spinlock_acquire(&tp->child_lock);

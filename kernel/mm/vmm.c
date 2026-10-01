@@ -43,6 +43,65 @@ static bool debug_info = false;
 vec_new_static(mem_map_t, global_mmap_list);
 static spinlock_t global_mmap_lock;
 
+static bool table_owned(addrspace_t * as, uint64_t phys)
+{
+    uint64_t n = vec_length(&as->mem_list);
+
+    for (uint64_t i = 0; i < n; i++)
+        if (vec_at(&as->mem_list, i) == phys)
+            return true;
+
+    return false;
+}
+
+static uint64_t *alloc_table(addrspace_t * as)
+{
+    uint64_t phys = pmm_get(8, 0x0, __func__, __LINE__);
+
+    if (phys == 0)
+        kpanic("VMM: out of memory for a page table of PML4 0x%016lx\n",
+               as->PML4);
+
+    uint64_t *t = (uint64_t *) PHYS_TO_VIRT(phys);
+    memset(t, 0, PAGE_SIZE * 8);
+    vec_push_back(&as->mem_list, phys);
+    return t;
+}
+
+/* Copy-on-write of a page-table branch shared with the kernel. */
+static uint64_t *clone_table(addrspace_t * as, uint64_t src_phys)
+{
+    uint64_t phys = pmm_get(8, 0x0, __func__, __LINE__);
+
+    if (phys == 0)
+        kpanic("VMM: out of memory for a page table of PML4 0x%016lx\n",
+               as->PML4);
+
+    uint64_t *dst = (uint64_t *) PHYS_TO_VIRT(phys);
+    memcpy(dst, (void *)PHYS_TO_VIRT(src_phys), PAGE_SIZE * 8);
+    vec_push_back(&as->mem_list, phys);
+    return dst;
+}
+
+/* Return the next-level table for entry, allocating it when absent. A kernel
+ * address space keeps its tables; a process clones a branch it still shares
+ * with the kernel before modifying it. flags receives the entry's flags. */
+static uint64_t *next_table(addrspace_t * as, uint64_t * entry, uint64_t * flags)
+{
+    if (!(*entry & VMM_FLAG_PRESENT)) {
+        *flags = VMM_FLAGS_USERMODE;
+        return alloc_table(as);
+    }
+
+    *flags = *entry & 0xfff;
+    uint64_t phys = *entry & ~(0xfffULL);
+
+    if (as != &kaddrspace && !table_owned(as, phys))
+        return clone_table(as, phys);
+
+    return (uint64_t *) PHYS_TO_VIRT(phys);
+}
+
 static void map_page(addrspace_t * addrspace, uint64_t vaddr,
                      uint64_t paddr, uint64_t flags)
 {
@@ -54,47 +113,16 @@ static void map_page(addrspace_t * addrspace, uint64_t vaddr,
     uint16_t pml4e = (vaddr >> 39) & 0x1ff;
 
     uint64_t *pml4 = as->PML4;
-    uint64_t *pdpt;
-    uint64_t *pd;
-    uint64_t *pt;
+    uint64_t f;
 
-    pdpt = (uint64_t *) PHYS_TO_VIRT(pml4[pml4e] & ~(0xfff));
-    if (!(pml4[pml4e] & VMM_FLAG_PRESENT)) {
-        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
-        if (buf == NULL) {
-            kpanic("VMM: out of memory for PDPT of PML4 0x%016lx\n", pml4);
-        }
-        pdpt = (uint64_t *) PHYS_TO_VIRT(buf);
-        memset(pdpt, 0, PAGE_SIZE * 8);
-        pml4[pml4e] =
-            MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), VMM_FLAGS_USERMODE);
-        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pdpt));
-    }
+    uint64_t *pdpt = next_table(as, &pml4[pml4e], &f);
+    pml4[pml4e] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pdpt), f);
 
-    pd = (uint64_t *) PHYS_TO_VIRT(pdpt[pdpe] & ~(0xfff));
-    if (!(pdpt[pdpe] & VMM_FLAG_PRESENT)) {
-        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
-        if (buf == NULL) {
-            kpanic("VMM: out of memory for PD of PML4 0x%016lx\n", pml4);
-        }
-        pd = (uint64_t *) PHYS_TO_VIRT(buf);
-        memset(pd, 0, PAGE_SIZE * 8);
-        pdpt[pdpe] =
-            MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), VMM_FLAGS_USERMODE);
-        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pd));
-    }
+    uint64_t *pd = next_table(as, &pdpt[pdpe], &f);
+    pdpt[pdpe] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pd), f);
 
-    pt = (uint64_t *) PHYS_TO_VIRT(pd[pde] & ~(0xfff));
-    if (!(pd[pde] & VMM_FLAG_PRESENT)) {
-        void *buf = (void *) pmm_get(8, 0x0, __func__, __LINE__);
-        if (buf == NULL) {
-            kpanic("VMM: out of memory for PT of PML4 0x%016lx\n", pml4);
-        }
-        pt = (uint64_t *) PHYS_TO_VIRT(buf);
-        memset(pt, 0, PAGE_SIZE * 8);
-        pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), VMM_FLAGS_USERMODE);
-        vec_push_back(&as->mem_list, VIRT_TO_PHYS(pt));
-    }
+    uint64_t *pt = next_table(as, &pd[pde], &f);
+    pd[pde] = MAKE_TABLE_ENTRY(VIRT_TO_PHYS(pt), f);
 
     pt[pte] = MAKE_TABLE_ENTRY(paddr & ~(0xfff), flags);
 
@@ -408,13 +436,12 @@ addrspace_t *create_addrspace(void)
 
     spinlock_init(&as->lock);
 
-    spinlock_acquire(&global_mmap_lock);
-    uint64_t len = vec_length(&global_mmap_list);
-    for (uint64_t i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&global_mmap_list, i);
-        vmm_map(as, m.vaddr, m.paddr, m.np, m.flags);
-    }
-    spinlock_release(&global_mmap_lock);
+    /* Share the kernel half of the top-level table. Kernel mappings live in
+     * PML4 entries 256..511; copying those entries shares the kernel page
+     * tables instead of rebuilding them for every process. map_page() clones
+     * a branch when the process maps into one. */
+    for (uint64_t i = 256; i < 512; i++)
+        as->PML4[i] = kaddrspace.PML4[i];
 
     as->initialized = true;
     klogd("VMM: creating address space 0x%016lx finished\n", as);
