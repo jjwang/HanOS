@@ -573,35 +573,52 @@ void sched_wait_key_commit(time_t millis)
 }
 
 /* Wake a process that is armed on the given key. A process that has not parked
- * yet is marked pending instead, so it observes the wake before it sleeps. */
-static void sched_wake_one(process_t *t, void *key)
+ * yet is marked pending instead, so it observes the wake before it sleeps.
+ * Returns true when the process became runnable. */
+static bool sched_wake_one(process_t *t, void *key)
 {
     if (t == NULL || t->wakeup_event.type != EVENT_IPC
         || t->wakeup_key != key)
-        return;
+        return false;
 
     if (t->status == PROC_SLEEPING) {
         t->wakeup_time = 0;
         t->status = PROC_READY;
-    } else {
-        t->wakeup_pending = true;
+        return true;
     }
+
+    t->wakeup_pending = true;
+    return false;
 }
 
 /* Wake every process sleeping on the given key, on any core. */
 void sched_wake_key(void *key)
 {
+    uint16_t cur = smp_get_current_cpu_id();
+
     for (uint16_t c = 0; c < CPU_MAX; c++) {
         if (idle_process[c] == NULL && running_process[c] == NULL)
             continue;
 
+        bool woke = false;
+        uint64_t n = 0;
+
         spinlock_acquire(&run_queue_lock[c]);
 
-        sched_wake_one(running_process[c], key);
-        for (uint64_t i = 0; i < vec_length(&run_queues[c]); i++)
-            sched_wake_one(vec_at(&run_queues[c], i), key);
+        if (sched_wake_one(running_process[c], key))
+            woke = true;
+
+        n = vec_length(&run_queues[c]);
+        for (uint64_t i = 0; i < n; i++)
+            if (sched_wake_one(vec_at(&run_queues[c], i), key))
+                woke = true;
 
         spinlock_release(&run_queue_lock[c]);
+
+        /* Kick the core that owns the woken process, so it reschedules now
+         * instead of waiting for its own timer tick. */
+        if (woke && c != cur && sched_ipi_vector != 0)
+            apic_send_ipi(c, sched_ipi_vector, 0);
     }
 }
 
