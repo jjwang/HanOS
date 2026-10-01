@@ -34,6 +34,12 @@ static uint32_t khead;
 static uint32_t ktail;
 static uint32_t kcount;
 
+/* A read with no pending key is deferred: the reply endpoint is kept here and
+ * answered when a key arrives, so the reader blocks instead of polling. */
+static int64_t wait_reply;
+static uint64_t wait_len;
+static bool msg_deferred;
+
 static bootinfo_t bi;
 
 static void key_push(uint8_t k)
@@ -96,6 +102,28 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint8_t k = (uint8_t) m->words[0];
         key_push(k);
         echo_key(k);
+
+        /* Satisfy a deferred read now, so the waiting shell is woken. */
+        if (wait_reply != 0) {
+            sys_ipc_msg_t rr;
+            uint64_t n = (wait_len < kcount) ? wait_len : kcount;
+            uint8_t tmp[TTY_INLINE_MAX];
+
+            memset(&rr, 0, sizeof(rr));
+            rr.tag = TTY_READ;
+            for (uint64_t i = 0; i < n; i++) {
+                tmp[i] = keys[ktail];
+                ktail = (ktail + 1) % TTY_KEY_MAX;
+            }
+            kcount -= (uint32_t) n;
+            memcpy(&rr.words[2], tmp, n);
+            rr.words[0] = 0;
+            rr.words[1] = n;
+
+            sys_ipc_send(wait_reply, &rr);
+            sys_handle_close(wait_reply);
+            wait_reply = 0;
+        }
         return;
     }
 
@@ -108,8 +136,20 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint8_t *dst = NULL;
 
         if (n == 0) {
-            rep->words[0] = (uint64_t) (int64_t) TTY_EAGAIN;
-            rep->words[1] = 0;
+            /* No key yet: keep the request (and its reply endpoint) and answer
+             * it when a key arrives. A newer request replaces the old one. */
+            if (wait_reply != 0) {
+                sys_ipc_msg_t old;
+
+                memset(&old, 0, sizeof(old));
+                old.tag = TTY_READ;
+                old.words[0] = (uint64_t) (int64_t) TTY_EAGAIN;
+                sys_ipc_send(wait_reply, &old);
+                sys_handle_close(wait_reply);
+            }
+            wait_reply = (int64_t) m->xfer[0];
+            wait_len = len;
+            msg_deferred = true;
             return;
         }
 
@@ -204,10 +244,11 @@ int main(void)
         sys_ipc_msg_t rep;
         memset(&rep, 0, sizeof(rep));
         rep.tag = m.tag;
+        msg_deferred = false;
         handle(&m, &rep);
 
         int64_t reply = (int64_t) m.xfer[0];
-        if (reply != 0) {
+        if (reply != 0 && !msg_deferred) {
             sys_ipc_send(reply, &rep);
             sys_handle_close(reply);
         }

@@ -45,7 +45,8 @@ endpoint_t *router_lookup(service_id_t id)
     return services[id].ep;
 }
 
-bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep)
+bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
+                            ipc_msg_t *rep, time_t timeout_ms)
 {
     endpoint_t *ep = router_lookup(id);
     process_t *cur = sched_get_current_process();
@@ -100,7 +101,12 @@ bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep)
         return false;
     }
 
-    int r = ipc_recv_timeout(reply, rep, 1000);
+    int r = ipc_recv_timeout(reply, rep, timeout_ms);
     object_unref(endpoint_object(reply));
     return r == 0;
+}
+
+bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep)
+{
+    return router_forward_timeout(id, req, rep, 1000);
 }

@@ -40,3 +40,5 @@ typedef enum {
 void router_register(service_id_t id, endpoint_t *ep, pid_t owner);
 endpoint_t *router_lookup(service_id_t id);
 bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep);
+bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
+                            ipc_msg_t *rep, time_t timeout_ms);

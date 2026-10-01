@@ -232,6 +232,8 @@ _Noreturn static void console_flush_kthread(pid_t pid)
             }
         }
 
-        sched_sleep(1);
+        /* Idle poll. A longer interval cuts the wakeups that a single-core host
+         * turns into vCPU contention. */
+        sched_sleep(10);
     }
 }

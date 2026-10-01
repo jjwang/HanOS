@@ -113,7 +113,9 @@ int64_t tty_server_read(void *buf, uint64_t len)
         req.tag = TTY_READ;
         req.words[0] = len;
 
-        if (!router_forward(SVC_TTY, &req, &rep))
+        /* The server defers an empty read instead of answering TTY_EAGAIN, so
+         * this blocks until a key arrives and the reply wakes us. */
+        if (!router_forward_timeout(SVC_TTY, &req, &rep, 60 * 60 * 1000))
             return -1;
 
         if ((int64_t) rep.words[0] == TTY_EAGAIN) {
