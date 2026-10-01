@@ -158,7 +158,6 @@ typedef enum {
     PROC_READY,
     PROC_RUNNING,
     PROC_SLEEPING,
-    PROC_DYING,
     PROC_DEAD,
     PROC_UNKNOWN
 } process_status_t;
@@ -241,14 +240,9 @@ typedef struct process {
     process_mode_t mode;
     bool forked;
     bool fds_ready;                 /* child's fd table cloned after fork */
-    int64_t exit_status;            /* status passed to sched_exit() */
 
     /* Global process table chain (pid -> process lookup). */
     struct process *table_next;
-
-    /* Parent/child relationship. */
-    spinlock_t child_lock;          /* protects child_list across CPUs */
-    vec_struct(pid_t) child_list;
 
     /* Capability handles and resources granted by the kernel. */
     handle_table_t handles;         /* per-process capability handles */

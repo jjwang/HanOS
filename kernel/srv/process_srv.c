@@ -220,3 +220,24 @@ void process_fd_exit(int pid)
      * process's context (not under the run-queue lock), so it may block. */
     proc_call(PROC_FD_EXIT, (uint64_t) pid, 0, 0, 0, NULL);
 }
+
+/* Tell the server that the current process exited with status. The server
+ * records it and later hands it to the parent's wait. */
+void process_exit_notify(int64_t status)
+{
+    proc_call(PROC_EXIT, (uint64_t) status, 0, 0, 0, NULL);
+}
+
+/* Ask the server for a reapable child of the current process. Returns the child
+ * pid, 0 when none is ready and nohang is set, PROC_WAIT_BLOCK when a child
+ * exists but has not exited, or a negative errno. */
+int64_t process_wait(int target, int nohang, int64_t *status)
+{
+    ipc_msg_t rep;
+    int64_t r = proc_call(PROC_WAIT, (uint64_t) (int64_t) target,
+                          (uint64_t) (nohang != 0), 0, 0, &rep);
+
+    if (r >= 0 && status != NULL)
+        *status = (int64_t) rep.words[1];
+    return r;
+}

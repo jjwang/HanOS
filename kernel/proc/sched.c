@@ -108,14 +108,6 @@ static uint16_t sched_pick_cpu(void)
     return ids[idx];
 }
 
-/* Locate a process by its pid through the global process table. The returned
- * pointer is only valid until the process is reaped.
- */
-static process_t *sched_find_process(pid_t pid)
-{
-    return process_lookup(pid);
-}
-
 _Noreturn void process_idle(pid_t pid)
 {
     /* TODO: Need to find out why a #PF occurs without sleeping. */
@@ -152,27 +144,9 @@ _Noreturn void process_idle(pid_t pid)
             continue;
         }
 
-        /* Step 2: Remove the process from its parent's child list. The parent
-         * may live on another core, so search all cores. */
-        process_t *tp = sched_find_process(t->ppid);
-        if (tp != NULL) {
-            spinlock_acquire(&tp->child_lock);
-            for (uint64_t k = 0; k < vec_length(&tp->child_list); k++) {
-                if (vec_at(&tp->child_list, k) == t->pid) {
-                    vec_erase(&tp->child_list, k);
-                    break;
-                }
-            }
-            if (vec_length(&tp->child_list) == 0
-                && tp->status == PROC_DYING) {
-                tp->status = PROC_DEAD;
-            }
-            spinlock_release(&tp->child_lock);
-        }
-
         klogi("sched: clean memory of dead process #%ld (0x%016lx)\n", t->pid, t);
 
-        /* Step 3: Free all resources of this dead process */
+        /* Step 2: Free all resources of this dead process */
         process_free(t);
     }
 }
@@ -354,40 +328,9 @@ void sched_sleep_impl(time_t millis, bool advanced)
     force_context_switch();
 }
 
-/* Report the status of a process. A process that still has a live child is reported
- * as PROC_RUNNING so that it is not reaped before its children.
- */
-process_status_t sched_get_process_status(pid_t pid)
-{
-    process_t *t = process_lookup(pid);
-    if (t == NULL)
-        return PROC_UNKNOWN;
-
-    bool has_child = false;
-
-    spinlock_acquire(&t->child_lock);
-    for (uint64_t i = 0; i < vec_length(&t->child_list); i++) {
-        pid_t child_pid = vec_at(&t->child_list, i);
-        process_t *child = process_lookup(child_pid);
-        if (child != NULL && child->status != PROC_DEAD
-            && child->status != PROC_UNKNOWN) {
-            has_child = true;
-            break;
-        }
-    }
-    spinlock_release(&t->child_lock);
-
-    if (has_child)
-        return PROC_RUNNING;
-    if (t->status == PROC_DYING)
-        return PROC_DEAD;
-
-    return t->status;
-}
-
 /* Wake up a parent that is sleeping in waitpid() for one of its children to
- * exit. The parent re-checks its child list after waking, so it is enough to
- * mark every sleeper that waits on EVENT_CHILD_EXIT as ready.
+ * exit. The parent re-checks with the process server after waking, so it is
+ * enough to mark every sleeper that waits on EVENT_CHILD_EXIT as ready.
  */
 static void sched_wake_child_waiter(pid_t parent_pid)
 {
@@ -413,51 +356,25 @@ static void sched_wake_child_waiter(pid_t parent_pid)
 
 void sched_exit(int64_t status)
 {
+    (void) status;
+
     cpu_t *cpu = smp_get_current_cpu(false);
     if (cpu == NULL) {
         return;
     }
 
-    /* The DYING -> DEAD transition must not be preempted: a process that is
-     * switched out while PROC_DYING is never selected again, so it would stay
-     * DYING forever and its parent would keep seeing a live child. Keep
-     * interrupts disabled until the final context switch. */
+    /* Keep interrupts disabled until the final context switch: a process that
+     * is switched out while dead is never selected again. The process server
+     * holds the exit status and does the parent/child bookkeeping. */
     asm volatile ("cli" ::: "memory");
 
     uint16_t cpu_id = cpu->cpu_id;
     process_t *curr = running_process[cpu_id];
     if (curr) {
-        curr->status = PROC_DYING;
-        curr->exit_status = status;
         if (curr->pid < 1) {
             kpanic("SCHED: %s meets corrupted pid\n", __func__);
         }
-        spinlock_acquire(&curr->child_lock);
-        uint64_t len = vec_length(&(curr->child_list));
-        pid_t *children = NULL;
-        if (len > 0) {
-            children = kmalloc(len * sizeof(pid_t));
-            if (children != NULL) {
-                for (uint64_t i = 0; i < len; i++)
-                    children[i] = vec_at(&(curr->child_list), i);
-            }
-        }
-        spinlock_release(&curr->child_lock);
-
-        bool all_children_dead = (children != NULL || len == 0);
-        for (uint64_t i = 0; all_children_dead && i < len; i++) {
-            if (sched_get_process_status(children[i]) != PROC_DEAD) {
-                all_children_dead = false;
-            }
-        }
-        if (children != NULL) {
-            kmfree(children);
-        }
-
-        if (all_children_dead) {  /* This also includes no-children situation */
-            curr->status = PROC_DEAD;
-        }
-
+        curr->status = PROC_DEAD;
         sched_wake_child_waiter(curr->ppid);
     }
 
@@ -891,9 +808,6 @@ process_t *sched_execve(const char *path, const char *argv[],
 
     if (tp != NULL) {
         klogi("SCHED: child pid %ld and parent pid %ld\n", tc->pid, tp->pid);
-        spinlock_acquire(&tp->child_lock);
-        vec_push_back(&tp->child_list, tc->pid);
-        spinlock_release(&tp->child_lock);
         tc->ppid = tp->pid;
     }
 
@@ -903,67 +817,5 @@ process_t *sched_execve(const char *path, const char *argv[],
     sched_add(tc);
 
     return tc;
-}
-
-/* Try to reap a process that has already exited.
- *
- * Returns 1 and stores the process's exit status in *status when a dead process was
- * found, removed from its run queue and freed; 0 when the process still exists but
- * is alive; -1 when no process with that pid can be found (it was already reaped
- * by another core's idle process).
- */
-int sched_reap(pid_t pid, int64_t *status)
-{
-    /* Use the effective status: a PROC_DYING process that has no live children is
-     * reported as PROC_DEAD, so an exec wrapper whose replacement has exited
-     * can be reaped even if the idle process never finalized it. */
-    process_status_t st = sched_get_process_status(pid);
-
-    if (st == PROC_UNKNOWN)
-        return -1;              /* already reaped */
-    if (st != PROC_DEAD)
-        return 0;               /* still alive */
-
-    for (uint16_t c = 0; c < CPU_MAX; c++) {
-        if (idle_process[c] == NULL && running_process[c] == NULL)
-            continue;
-
-        spinlock_acquire(&run_queue_lock[c]);
-
-        process_t *rt = running_process[c];
-        if (rt != NULL && rt->pid == pid) {
-            /* Still running (possibly about to finalize its own exit). */
-            spinlock_release(&run_queue_lock[c]);
-            return 0;
-        }
-
-        for (uint64_t i = 0; i < vec_length(&run_queues[c]); i++) {
-            process_t *t = vec_at(&run_queues[c], i);
-            if (t == NULL || t->pid != pid)
-                continue;
-
-            bool dead = (t->status == PROC_DEAD || t->status == PROC_DYING);
-            int64_t exit_status = t->exit_status;
-
-            if (!dead) {
-                spinlock_release(&run_queue_lock[c]);
-                return 0;
-            }
-
-            vec_erase(&run_queues[c], i);
-            spinlock_release(&run_queue_lock[c]);
-
-            klogi("SCHED: CPU %ld reaps dead process #%ld from CPU %ld\n",
-                  smp_get_current_cpu_id(), pid, c);
-            if (status != NULL)
-                *status = exit_status;
-            process_free(t);
-            return 1;
-        }
-
-        spinlock_release(&run_queue_lock[c]);
-    }
-
-    return -1;
 }
 

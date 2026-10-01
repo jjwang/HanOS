@@ -49,6 +49,19 @@ typedef struct {
 
 static proc_fd_t table[PROC_PID_MAX][PROC_FD_MAX];
 
+/* Parent/child bookkeeping for wait/exit. The kernel reports fork and exit
+ * events; the server decides when a child is reapable. A process counts as
+ * exited only after it exits and all of its children are gone, so a parent that
+ * exec'd (spawn then exit) stays waitable until its replacement finishes. */
+typedef struct {
+    bool used;
+    int32_t ppid;
+    bool exited;
+    int32_t status;
+} proc_rec_t;
+
+static proc_rec_t procs[PROC_PID_MAX];
+
 static bootinfo_t bi;
 
 /* Service endpoints the process server notifies on fork. */
@@ -111,6 +124,49 @@ static void reply_fd(proc_fd_t * e, sys_ipc_msg_t * rep)
     rep->words[3] = (uint64_t) e->server_fd;
     rep->words[4] = e->size;
     rep->words[5] = e->seek_pos;
+}
+
+/* --- wait/exit bookkeeping ------------------------------------------------ */
+
+static void proc_register(int32_t pid, int32_t ppid)
+{
+    if (pid < 0 || pid >= PROC_PID_MAX)
+        return;
+
+    procs[pid].used = true;
+    procs[pid].ppid = ppid;
+    procs[pid].exited = false;
+    procs[pid].status = 0;
+}
+
+static void proc_mark_exit(int32_t pid, int32_t status)
+{
+    if (pid < 0 || pid >= PROC_PID_MAX)
+        return;
+
+    procs[pid].used = true;
+    procs[pid].exited = true;
+    procs[pid].status = status;
+}
+
+static bool proc_all_children_done(int32_t pid)
+{
+    for (int i = 0; i < PROC_PID_MAX; i++) {
+        if (procs[i].used && procs[i].ppid == pid && !procs[i].exited)
+            return false;
+    }
+    return true;
+}
+
+/* True when pid has exited and every child has exited too. An unknown pid
+ * counts as done. */
+static bool proc_done(int32_t pid)
+{
+    if (pid < 0 || pid >= PROC_PID_MAX || !procs[pid].used)
+        return true;
+    if (!procs[pid].exited)
+        return false;
+    return proc_all_children_done(pid);
 }
 
 static void clone_fds(int32_t parent, int32_t child)
@@ -270,6 +326,7 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
     pid = sys_proc_spawn(caller, name);
     if (pid < 0)
         goto out;
+    proc_register(pid, (int32_t) caller);
 
     for (uint64_t i = 0; i < eh->phnum; i++) {
         elf64_phdr_t *ph =
@@ -454,7 +511,43 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 return;
             }
             clone_fds(pid, child);
+            proc_register(child, pid);
             rep->words[0] = 0;
+            return;
+        }
+
+    case PROC_EXIT:
+        proc_mark_exit(pid, (int32_t) m->words[1]);
+        rep->words[0] = 0;
+        return;
+
+    case PROC_WAIT:{
+            int32_t parent = pid;
+            int32_t target = (int32_t) m->words[1];
+            bool wait_any = (target == -1 || target == 0);
+            bool nohang = (m->words[2] != 0);
+            bool have = false;
+
+            for (int i = 1; i < PROC_PID_MAX; i++) {
+                if (!procs[i].used || procs[i].ppid != parent)
+                    continue;
+                if (!wait_any && i != target)
+                    continue;
+
+                have = true;
+                if (proc_done(i)) {
+                    rep->words[0] = (uint64_t) i;
+                    rep->words[1] = (uint64_t) (int64_t) procs[i].status;
+                    procs[i].used = false;
+                    return;
+                }
+            }
+
+            if (!have) {
+                rep->words[0] = (uint64_t) (int64_t) -1;        /* -ECHILD */
+                return;
+            }
+            rep->words[0] = nohang ? 0 : (uint64_t) (int64_t) PROC_WAIT_BLOCK;
             return;
         }
 

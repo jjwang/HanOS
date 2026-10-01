@@ -49,8 +49,6 @@ process_t *sched_get_current_process(void);
 uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);
 pid_t sched_get_pid(void);
-process_status_t sched_get_process_status(pid_t pid);
-int sched_reap(pid_t pid, int64_t *status);
 
 process_t *sched_execve(const char *path, const char *argv[],
                      const char *envp[], const char *cwd);

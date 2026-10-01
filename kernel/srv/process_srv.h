@@ -33,3 +33,7 @@ int64_t process_fd_dup(int fd, int newfd);
 int64_t process_fd_seek(int fd, uint64_t pos, int whence);
 void process_fd_fork(int parent, int child);
 void process_fd_exit(int pid);
+
+/* wait/exit bookkeeping, served by the userspace process server. */
+void process_exit_notify(int64_t status);
+int64_t process_wait(int target, int nohang, int64_t *status);

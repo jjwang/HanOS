@@ -229,11 +229,9 @@ process_t *process_fork(process_t * tp)
     memcpy(tc, tp, sizeof(process_t));
 
     memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
-    memset(&tc->child_list, 0, sizeof(tc->child_list));
     handle_table_init(&tc->handles);
 
     pid_t new_pid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
-    spinlock_init(&tc->child_lock);
 
     tc->forked = true;
     tc->addrspace = create_addrspace();
@@ -302,9 +300,6 @@ process_t *process_fork(process_t * tp)
      * shares with every process. */
 
     klogd("PROC: child pid %ld and parent pid %ld\n", tc->pid, tp->pid);
-    spinlock_acquire(&tp->child_lock);
-    vec_push_back(&tp->child_list, tc->pid);
-    spinlock_release(&tp->child_lock);
 
   norm_exit:
     return tc;
@@ -325,7 +320,6 @@ void process_free(process_t * t)
         kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
     }
     vec_erase_all(&t->mmap_list);
-    vec_erase_all(&t->child_list);
 
     kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
 

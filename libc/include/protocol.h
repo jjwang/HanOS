@@ -76,6 +76,13 @@
 #define PROC_FD_EXIT        0x88
 #define PROC_EXEC           0x89        /* words[0]=caller pid; xfer[1]=packed
                                            path/cwd/argv/envp and ELF bytes */
+#define PROC_EXIT           0x8A        /* words[0]=pid, words[1]=status */
+#define PROC_WAIT           0x8B        /* words[0]=parent, words[1]=target pid
+                                           (-1 or 0 for any), words[2]=nohang;
+                                           out words[0]=child pid, words[1]=status.
+                                           Returns PROC_WAIT_BLOCK when a child
+                                           exists but has not exited. */
+#define PROC_WAIT_BLOCK     (-2)
 
 /* PROC_FD_GET/CLOSE kind. */
 #define PROC_FD_SERVER      0

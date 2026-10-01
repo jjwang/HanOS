@@ -1409,95 +1409,38 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
     /* pid is passed as a 32-bit signed value, so truncate before comparing:
      * a userland wait(-1) arrives as 0x00000000FFFFFFFF. */
     int32_t wpid = (int32_t) pid;
-    bool wait_any = (wpid == -1 || wpid == 0);
     bool nohang = (flags & WNOHANG) != 0;
 
     while (true) {
-        pid_t *children = NULL;
-        uint64_t len;
+        int64_t st = 0;
+        int64_t r = process_wait((int) wpid, nohang ? 1 : 0, &st);
 
-        spinlock_acquire(&parent->child_lock);
-        len = vec_length(&(parent->child_list));
-        if (len > 0) {
-            children = kmalloc(len * sizeof(pid_t));
-            if (children != NULL) {
-                for (uint64_t i = 0; i < len; i++)
-                    children[i] = vec_at(&(parent->child_list), i);
-            }
-        }
-        spinlock_release(&parent->child_lock);
-
-        if (len > 0 && children == NULL) {
-            if (nohang) {
-                cpu_set_errno(ENOMEM);
-                return -1;
-            }
-            sched_wait_child(10);
-            continue;
-        }
-
-        bool have_child = false;
-        bool reaped = false;
-        pid_t reaped_pid = PID_NONE;
-        int64_t exit_status = 0;
-
-        for (uint64_t i = 0; i < len; i++) {
-            if (!wait_any && (int64_t) children[i] != (int64_t) wpid)
-                continue;
-
-            have_child = true;
-
-            int64_t st = 0;
-            int rc = sched_reap(children[i], &st);
-            if (rc == 1) {
-                reaped = true;
-                reaped_pid = children[i];
-                exit_status = st;
-                break;
-            }
-            if (rc == -1) {
-                /* The child was already reaped by an idle core. */
-                reaped = true;
-                reaped_pid = children[i];
-                break;
-            }
-        }
-
-        if (children != NULL)
-            kmfree(children);
-
-        if (reaped) {
-            spinlock_acquire(&parent->child_lock);
-            for (uint64_t i = 0; i < vec_length(&(parent->child_list)); i++) {
-                if (vec_at(&(parent->child_list), i) == reaped_pid) {
-                    vec_erase(&(parent->child_list), i);
-                    break;
-                }
-            }
-            spinlock_release(&parent->child_lock);
-
+        if (r > 0) {
             if (status != NULL) {
-                int32_t st32 = (int32_t) exit_status;
+                int32_t st32 = (int32_t) st;
                 if (copy_to_user(status, &st32, sizeof(st32)) != 0) {
                     cpu_set_errno(EFAULT);
                     return -1;
                 }
             }
             cpu_set_errno(0);
-            return reaped_pid;
+            return r;
         }
 
-        if (!have_child) {
-            cpu_set_errno(ECHILD);
-            return -1;
-        }
-
-        if (nohang) {
+        if (r == 0) {           /* WNOHANG: a child exists but has not exited */
             cpu_set_errno(0);
             return 0;
         }
 
-        sched_wait_child(10);
+        if (r == PROC_WAIT_BLOCK) {
+            /* A child exists but has not exited. The server records the status;
+             * sleep briefly and ask again. */
+            sched_wait_child(10);
+            continue;
+        }
+
+        cpu_set_errno(ECHILD);
+        return -1;
     }
 }
 
@@ -1509,6 +1452,8 @@ void k_exit(int64_t status)
         /* The process server owns the fd table and closes the server side of
          * every descriptor the process held. */
         process_fd_exit((int) t->pid);
+        /* Record the exit status so the parent's wait can collect it. */
+        process_exit_notify(status);
     }
 
     /* Exit from scheduler */
@@ -1709,6 +1654,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
         process_fd_exit((int) t->pid);
+        process_exit_notify(0);
         sched_exit(0);
         cpu_set_errno(0);
         return 0;
@@ -2359,9 +2305,6 @@ int64_t k_proc_spawn(int64_t parent_pid, const char *name)
     if (parent != NULL) {
         tc->ppid = parent->pid;
         strcpy(tc->cwd, parent->cwd);
-        spinlock_acquire(&parent->child_lock);
-        vec_push_back(&parent->child_list, tc->pid);
-        spinlock_release(&parent->child_lock);
     }
 
     return (int64_t) tc->pid;
