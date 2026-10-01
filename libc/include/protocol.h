@@ -73,7 +73,6 @@
 #define PROC_FD_GET         0x84
 #define PROC_FD_SEEK        0x85        /* words[1]=pos, words[2]=whence */
 #define PROC_FD_FORK        0x86        /* words[1]=child pid */
-#define PROC_FD_EXEC        0x87
 #define PROC_FD_EXIT        0x88
 
 /* PROC_FD_GET/CLOSE kind. */

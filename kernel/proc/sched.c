@@ -458,10 +458,6 @@ void sched_exit(int64_t status)
             curr->status = PROC_DEAD;
         }
 
-        /* The process server owns the fd table and closes the server side of
-         * every descriptor the process held. */
-        process_fd_exit((int) curr->pid);
-
         sched_wake_child_waiter(curr->ppid);
     }
 
@@ -619,6 +615,34 @@ void sched_wake_key(void *key)
          * instead of waiting for its own timer tick. */
         if (woke && c != cur && sched_ipi_vector != 0)
             apic_send_ipi(c, sched_ipi_vector, 0);
+    }
+}
+
+/* The process server clones a child's fd table after fork. The parent marks
+ * the child ready once the server replies; the child waits here, so it never
+ * runs with an incomplete fd table. */
+void sched_mark_fds_ready(pid_t pid)
+{
+    process_t *t = process_lookup(pid);
+    if (t == NULL)
+        return;
+
+    t->fds_ready = true;
+    sched_wake_key(t);
+}
+
+void sched_wait_fds_ready(process_t * t)
+{
+    for (;;) {
+        if (t->fds_ready)
+            return;
+
+        sched_wait_key_begin(t);
+        if (t->fds_ready) {
+            sched_wait_key_cancel();
+            return;
+        }
+        sched_wait_key_commit(1000);
     }
 }
 

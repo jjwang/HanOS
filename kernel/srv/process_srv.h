@@ -32,5 +32,4 @@ int64_t process_fd_close(int fd, int *kind, int *svc, int64_t *server_fd);
 int64_t process_fd_dup(int fd, int newfd);
 int64_t process_fd_seek(int fd, uint64_t pos, int whence);
 void process_fd_fork(int parent, int child);
-void process_fd_exec(int pid);
 void process_fd_exit(int pid);

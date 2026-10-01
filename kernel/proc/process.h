@@ -240,6 +240,7 @@ typedef struct process {
     process_status_t status;
     process_mode_t mode;
     bool forked;
+    bool fds_ready;                 /* child's fd table cloned after fork */
     int64_t exit_status;            /* status passed to sched_exit() */
 
     /* Global process table chain (pid -> process lookup). */

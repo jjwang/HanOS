@@ -206,37 +206,17 @@ int64_t process_fd_seek(int fd, uint64_t pos, int whence)
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
-/* Called from process_fork() while the run-queue lock is held, so only enqueue;
- * waking the server here would take the same lock. */
+/* Called in the parent's context after the fork, so it may block until the
+ * server has cloned the child's descriptors and taken a reference on each. */
 void process_fd_fork(int parent, int child)
 {
-    if (proc_ep == NULL)
-        return;
-
-    ipc_msg_t m;
-
-    memset(&m, 0, sizeof(m));
-    m.tag = PROC_FD_FORK;
-    m.words[0] = (uint64_t) parent;
-    m.words[1] = (uint64_t) child;
-    ipc_notify(proc_ep, &m);
-}
-
-void process_fd_exec(int pid)
-{
-    proc_call(PROC_FD_EXEC, (uint64_t) pid, 0, 0, 0, NULL);
+    (void) parent;
+    proc_call(PROC_FD_FORK, (uint64_t) child, 0, 0, 0, NULL);
 }
 
 void process_fd_exit(int pid)
 {
-    /* Called from sched_exit() with interrupts disabled, so only enqueue. */
-    if (proc_ep == NULL)
-        return;
-
-    ipc_msg_t m;
-
-    memset(&m, 0, sizeof(m));
-    m.tag = PROC_FD_EXIT;
-    m.words[0] = (uint64_t) pid;
-    ipc_notify(proc_ep, &m);
+    /* Close the process's descriptors before it is reaped. Runs in the exiting
+     * process's context (not under the run-queue lock), so it may block. */
+    proc_call(PROC_FD_EXIT, (uint64_t) pid, 0, 0, 0, NULL);
 }

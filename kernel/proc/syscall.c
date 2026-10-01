@@ -1362,16 +1362,17 @@ int64_t k_fork()
         cpu_set_errno(ECHILD);
         return -1;
     } else if (t->pid == sched_get_pid()) {
-        /*
-         * This should be parent process and returns child process id, but
-         * currently it returns parent process id
-         */
+        /* Parent: the process server clones the child's fd table, then the
+         * child is allowed to run. */
+        process_fd_fork((int) t->pid, (int) tid_child);
+        sched_mark_fds_ready(tid_child);
         klogd("k_fork: return %ld from parent process #%ld\n", tid_child,
               t->pid);
         return tid_child;
     } else {
-        /* This should be child process and returns 0 */
+        /* Child: wait until the parent has cloned our fd table. */
         klogd("k_fork: return 0 from child process #%ld\n", tid_child);
+        sched_wait_fds_ready(curr_proc);
         return 0;
     }
   err_exit:
@@ -1505,13 +1506,11 @@ void k_exit(int64_t status)
     process_t *t = sched_get_current_process();
     if (t != NULL) {
         klogi("k_exit: process %ld exit with status %ld\n", t->pid, status);
-    } else {
-        goto normal_exit;
+        /* The process server owns the fd table and closes the server side of
+         * every descriptor the process held. */
+        process_fd_exit((int) t->pid);
     }
 
-    /* The process server closes the process's descriptors from sched_exit(). */
-
-  normal_exit:
     /* Exit from scheduler */
     sched_exit(status);
 }
@@ -1600,6 +1599,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
               t != NULL ? t->pid : 0);
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
+        process_fd_exit((int) (t != NULL ? t->pid : 0));
         sched_exit(0);
         cpu_set_errno(0);
         return 0;

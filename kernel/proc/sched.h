@@ -43,6 +43,8 @@ void sched_wait_key_begin(void *key);
 void sched_wait_key_commit(time_t ms);
 void sched_wait_key_cancel(void);
 void sched_wake_key(void *key);
+void sched_mark_fds_ready(pid_t pid);
+void sched_wait_fds_ready(process_t *t);
 process_t *sched_get_current_process(void);
 uint16_t sched_get_cpu_num(void);
 uint64_t sched_get_ticks(void);

@@ -282,9 +282,9 @@ process_t *process_fork(process_t * tp)
         tr->rbp = (uint64_t) tc->kstack_limit + offset;
     }
 
-    /* The process server owns the fd table; it clones the parent's descriptors
-     * for the child and takes a reference on each server-side description. */
-    process_fd_fork((int) tp->pid, (int) tc->pid);
+    /* The process server clones the child's fd table after the fork; k_fork()
+     * drives that and the child waits until it is done. */
+    tc->fds_ready = false;
 
     /* hpet and lapic_base live in the kernel half, which create_addrspace()
      * shares with every process. */

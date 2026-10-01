@@ -253,11 +253,6 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
-    case PROC_FD_EXEC:
-        /* execve keeps the process's descriptors. */
-        rep->words[0] = 0;
-        return;
-
     case PROC_FD_EXIT:
         if (pid >= 0 && pid < PROC_PID_MAX) {
             for (int i = 0; i < PROC_FD_MAX; i++) {
