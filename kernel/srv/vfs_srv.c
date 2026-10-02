@@ -25,7 +25,7 @@
 #include <mm/mm.h>
 #include <router/router.h>
 #include <fs/vfs.h>
-#include <fs/ramfs.h>
+#include <fs/initrd.h>
 #include <proc/sched.h>
 
 /* Where the boot initrd is mapped in the VFS server's address space. */
@@ -57,7 +57,7 @@ static void vfs_spawn_attach(process_t * tc)
     void *iaddr = NULL;
     uint64_t isize = 0;
 
-    ramfs_get_initrd(&iaddr, &isize);
+    initrd_get(&iaddr, &isize);
     if (iaddr != NULL && isize != 0) {
         vmm_map(tc->addrspace, VFS_INITRD_VADDR, VIRT_TO_PHYS((uint64_t) iaddr),
                 NUM_PAGES(isize), VMM_FLAG_PRESENT | VMM_FLAG_USER);

@@ -44,7 +44,7 @@
 
 /* Internal sentinel: the pipe server would block; the caller retries. */
 #define VFS_IO_AGAIN        (-2)
-#include <fs/ramfs.h>
+#include <fs/initrd.h>
 #include <lib/klog.h>
 #include <lib/klib.h>
 #include <lib/kmalloc.h>
@@ -124,23 +124,13 @@ void vfs_init()
         return;
     vfs_initialized = true;
 
-    /* Initialize the root folder */
+    /* Only the root inode stays; paths are served from user space. The initrd
+     * is read directly by the ELF loader until the VFS server registers. */
     vfs_root.inode = vfs_alloc_inode(VFS_NODE_FOLDER, 0777, 0, NULL, NULL);
     vfs_root.st.st_dev = vfs_new_dev_id();
     vfs_root.st.st_ino = vfs_new_ino_id();
     vfs_root.st.st_mode |= S_IFDIR;
     vfs_root.st.st_nlink = 1;
-
-    /* Only ramfs (the initrd) stays in the kernel, to bootstrap the userspace
-     * servers. FAT32, pipes and the tty are served from user space. */
-    vfs_register_fs(&ramfs);
-
-    /* Mount RAMFS without device name (NULL) */
-    vfs_mount(NULL, "/", "ramfs");
-
-    /* Create directory for mounting devices in the future */
-    vfs_path_to_node("/disk", CREATE, VFS_NODE_FOLDER);
-    vfs_path_to_node("/dev", CREATE, VFS_NODE_FOLDER);
 
     klogi("VFS initialization finished\n");
 }
@@ -1004,57 +994,8 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len)
     if (router_lookup(SVC_FS) != NULL)
         return vfs_load_via_server(path, out_buf, out_len);
 
-    /* Early boot: read the in-kernel ramfs tnode's inode directly. */
-    spinlock_acquire(&vfs_lock);
-
-    char kpath[VFS_MAX_PATH_LEN];
-
-    strncpy(kpath, path, sizeof(kpath) - 1);
-    kpath[sizeof(kpath) - 1] = '\0';
-
-    vfs_tnode_t *tnode = vfs_path_to_node(kpath, NO_CREATE, 0);
-
-    if (tnode == NULL) {
-        spinlock_release(&vfs_lock);
-        return -1;
-    }
-
-    /* Let the filesystem open the node; ramfs populates the inode's data. */
-    if (tnode->inode->fs != NULL)
-        tnode = tnode->inode->fs->open(tnode->inode, kpath);
-
-    if (tnode == NULL || tnode->inode == NULL
-        || tnode->inode->type != VFS_NODE_FILE || tnode->inode->fs == NULL
-        || tnode->inode->fs->read == NULL) {
-        spinlock_release(&vfs_lock);
-        return -1;
-    }
-
-    uint64_t size = tnode->inode->size;
-    uint8_t *buf = NULL;
-
-    if (size > 0) {
-        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
-        if (buf == NULL) {
-            spinlock_release(&vfs_lock);
-            return -1;
-        }
-    }
-
-    int64_t n = (size > 0)
-        ? tnode->inode->fs->read(tnode->inode, 0, size, buf) : 0;
-
-    spinlock_release(&vfs_lock);
-
-    if (n < 0) {
-        if (buf != NULL)
-            kmfree(buf);
-        return -1;
-    }
-
-    *out_buf = buf;
-    *out_len = size;
-    return 0;
+    /* Early boot: read the file straight from the initrd image. */
+    return initrd_load(path, out_buf, out_len);
 }
 
 int64_t vfs_close(vfs_handle_t handle)

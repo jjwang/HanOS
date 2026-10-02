@@ -18,6 +18,7 @@
 
 #include <fs/vfs.h>
 #include <lib/klib.h>
+#include <lib/kmalloc.h>
 #include <lib/image.h>
 
 typedef struct[[gnu::packed]] {
@@ -44,25 +45,11 @@ typedef struct[[gnu::packed]] {
 
 bool bmp_load_from_file(image_t * image, char *fn)
 {
-    vfs_handle_t fh = vfs_open(fn, VFS_MODE_READ);
-    if (fh == VFS_INVALID_HANDLE) {
-        klogi("Open file %s failed\n", fn);
-        return false;
-    }
+    uint64_t bmp_size = 0;
+    uint8_t *bmp_buff = NULL;
 
-    uint64_t bmp_size = vfs_tell(fh);
-    uint8_t *bmp_buff = kmalloc(bmp_size);
-
-    if (bmp_buff != NULL) {
-        vfs_read(fh, bmp_size, bmp_buff);
-    } else {
-        kloge("bmp: cannot malloc %ld bytes\n", bmp_size);
-        return false;
-    }
-
-    vfs_close(fh);
-
-    if (bmp_buff == NULL) {
+    if (vfs_load_file(fn, &bmp_buff, &bmp_size) != 0 || bmp_buff == NULL) {
+        klogi("bmp: cannot load %s\n", fn);
         return false;
     }
 
@@ -73,7 +60,7 @@ bool bmp_load_from_file(image_t * image, char *fn)
 
     /* Don't support bpp lower than 8 */
     if (header.bi_bpp % 8 != 0) {
-        kmfree(bmp_buff);
+        kmfree_chunk(bmp_buff, __func__, __LINE__);
         return false;
     }
 
@@ -95,7 +82,7 @@ bool bmp_load_from_file(image_t * image, char *fn)
     image->img_width = header.bi_width;
     image->img_height = header.bi_height;
 
-    kmfree(bmp_buff);
+    kmfree_chunk(bmp_buff, __func__, __LINE__);
 
     return image->img != NULL ? true : false;
 }

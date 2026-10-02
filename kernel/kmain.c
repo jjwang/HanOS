@@ -68,7 +68,7 @@
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/filebase.h>
-#include <fs/ramfs.h>
+#include <fs/initrd.h>
 #include <proc/elf.h>
 
 LIMINE_BASE_REVISION(1)
@@ -398,7 +398,7 @@ void kmain(void)
                 vmm_map(&kaddrspace, (uint64_t) module->address,
                         VIRT_TO_PHYS(module->address),
                         NUM_PAGES(module->size), VMM_FLAGS_DEFAULT);
-                ramfs_init(module->address, module->size);
+                initrd_init(module->address, module->size);
             }
         }
     } else {
