@@ -133,7 +133,8 @@ exc\excno:
         mov %rax, %ss       /* Restore SS (critical for stack operations) */
         xor %rax, %rax          
         mov %rax, %fs       /* Clear FS (user-specific) */
-        mov %rax, %gs       /* Clear GS (SMP CPU ID) */
+        /* GS.base stays the per-CPU pointer. Clearing it breaks the
+         * syscall handler, which reads the per-CPU errno through %gs. */
         cli                 /* Disable interrupts to avoid nested faults */
             
         /* CR2 is passed as a separate argument (4th arg) to exc_handler_proc */
