@@ -46,6 +46,7 @@
 #include <proc/signal.h>
 #include <fs/vfs.h>
 #include <srv/process_srv.h>
+#include <srv/net_srv.h>
 #include <device/display/gfx.h>
 
 #define MMAP_ANON_BASE      0x80000000000
@@ -2028,6 +2029,102 @@ int64_t k_proc_start(int64_t pid)
     return 0;
 }
 
+/* --- network sockets ----------------------------------------------------- */
+
+int64_t k_socket(int64_t domain, int64_t type, int64_t protocol)
+{
+    cpu_set_errno(0);
+
+    if (net_server_active() == false) {
+        cpu_set_errno(EAFNOSUPPORT);
+        return -1;
+    }
+
+    int64_t fd = net_socket((int) domain, (int) type, (int) protocol);
+
+    if (fd < 0) {
+        cpu_set_errno(EAFNOSUPPORT);
+        return -1;
+    }
+    return fd;
+}
+
+int64_t k_bind(int64_t sock, int64_t ip, int64_t port)
+{
+    cpu_set_errno(0);
+
+    if (net_bind((int) sock, (uint32_t) ip, (uint16_t) port) < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_sendto(int64_t sock, int64_t ip, int64_t port, void *buf,
+                 uint64_t len)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+    if (buf != NULL && len > 0 && !user_range_ok(t, buf, len)) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    int64_t n = net_sendto((int) sock, (uint32_t) ip, (uint16_t) port, buf,
+                           len);
+
+    if (n < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+    return n;
+}
+
+int64_t k_recvfrom(int64_t sock, void *buf, uint64_t len, void *ip_ptr,
+                   void *port_ptr)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+    if (buf != NULL && len > 0 && !user_range_ok(t, buf, len)) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    int64_t n = net_recvfrom((int) sock, buf, len, &ip, &port);
+
+    if (n < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+
+    if (ip_ptr != NULL
+        && copy_to_user(ip_ptr, &ip, sizeof(ip)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (port_ptr != NULL
+        && copy_to_user(port_ptr, &port, sizeof(port)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return n;
+}
+
+int64_t k_socket_close(int64_t sock)
+{
+    cpu_set_errno(0);
+
+    if (net_close((int) sock) < 0) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -2041,8 +2138,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_GETPID] = (syscall_ptr_t) k_getpid,
     [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
     (syscall_ptr_t) k_not_implemented,
-    (syscall_ptr_t) k_not_implemented,
-    (syscall_ptr_t) k_not_implemented,
+    [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
+    [SYSCALL_BIND] = (syscall_ptr_t) k_bind,
     [SYSCALL_FORK] = (syscall_ptr_t) k_fork,
     [SYSCALL_EXECVE] = (syscall_ptr_t) k_execve,
     [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,  /* 16 */
@@ -2095,7 +2192,10 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_PROC_SPAWN] = (syscall_ptr_t) k_proc_spawn,        /* 70 */
     [SYSCALL_PROC_MAP] = (syscall_ptr_t) k_proc_map,            /* 71 */
     [SYSCALL_PROC_SET_ENTRY] = (syscall_ptr_t) k_proc_set_entry, /* 72 */
-    [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start         /* 73 */
+    [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start,        /* 73 */
+    [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,                /* 74 */
+    [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,            /* 75 */
+    [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close     /* 76 */
 };
 
 void syscall_init(void)

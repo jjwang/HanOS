@@ -58,6 +58,16 @@
                   : "rcx", "r11", "memory");                   \
 })
 
+#define SYSCALL5(NUM, ARG0, ARG1, ARG2, ARG3, ARG4) ({         \
+    register typeof(ARG3) arg3 asm("r10") = ARG3;              \
+    register typeof(ARG4) arg4 asm("r8")  = ARG4;              \
+    asm volatile ("syscall"                                    \
+                  : "=a"(ret), "=d"(errno)                     \
+                  : "a"(NUM), "D"(ARG0), "S"(ARG1), "d"(ARG2), \
+                    "r"(arg3), "r"(arg4)                       \
+                  : "rcx", "r11", "memory");                   \
+})
+
 #define SYSCALL6(NUM, ARG0, ARG1, ARG2, ARG3, ARG4, ARG5) ({   \
     register typeof(ARG3) arg3 asm("r10") = ARG3;              \
     register typeof(ARG4) arg4 asm("r8")  = ARG4;              \
@@ -130,6 +140,9 @@
 #define SYSCALL_PROC_MAP        71
 #define SYSCALL_PROC_SET_ENTRY  72
 #define SYSCALL_PROC_START      73
+#define SYSCALL_SENDTO          74
+#define SYSCALL_RECVFROM        75
+#define SYSCALL_SOCKET_CLOSE    76
 
 void sys_libc_log(const char *message)
 {
@@ -459,5 +472,42 @@ int sys_bootinfo(bootinfo_t * bi)
 {
     int64_t ret, errno;
     SYSCALL1(SYSCALL_BOOTINFO, bi);
+    return (int) ret;
+}
+
+int sys_socket(int domain, int type, int protocol)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_SOCKET, domain, type, protocol);
+    return (int) ret;
+}
+
+int sys_bind(int sock, uint32_t ip, uint16_t port)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_BIND, sock, ip, port);
+    return (int) ret;
+}
+
+int64_t sys_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
+                   uint64_t len)
+{
+    int64_t ret, errno;
+    SYSCALL5(SYSCALL_SENDTO, sock, ip, port, buf, len);
+    return ret;
+}
+
+int64_t sys_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
+                     uint16_t *port)
+{
+    int64_t ret, errno;
+    SYSCALL5(SYSCALL_RECVFROM, sock, buf, len, ip, port);
+    return ret;
+}
+
+int sys_socket_close(int sock)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_SOCKET_CLOSE, sock);
     return (int) ret;
 }

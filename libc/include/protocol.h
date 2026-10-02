@@ -135,5 +135,24 @@
                                            out: words[1]=pos */
 #define FAT_FSTAT           0x76        /* words[0]=fd; out: words[1]=size, words[2]=is_dir */
 
+/* Network server. Datagram sockets only; traffic to the loopback address is
+ * delivered to the matching bound socket. A data buffer travels in xfer[1];
+ * the reply endpoint is xfer[0]. A recvfrom with no data is held and answered
+ * when a datagram arrives. */
+#define AF_INET             2
+#define SOCK_DGRAM          2
+#define NET_IP_LOOPBACK     0x7f000001U /* 127.0.0.1 */
+#define NET_PING            0x90
+#define NET_SOCKET          0x91        /* words[0]=domain, words[1]=type;
+                                           out words[1]=sock fd */
+#define NET_BIND            0x92        /* words[0]=sock, words[1]=ip, words[2]=port */
+#define NET_SENDTO          0x93        /* words[0]=sock, words[1]=ip, words[2]=port,
+                                           words[3]=len; in xfer[1]=data;
+                                           out words[1]=sent */
+#define NET_RECVFROM        0x94        /* words[0]=sock, words[1]=len; in xfer[1]=buf;
+                                           out words[1]=n, words[2]=src ip,
+                                           words[3]=src port */
+#define NET_CLOSE           0x95        /* words[0]=sock */
+
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

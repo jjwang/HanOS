@@ -85,6 +85,11 @@
 #define SYSCALL_PROC_SET_ENTRY  72
 #define SYSCALL_PROC_START      73
 
+/* Network sockets, served by the network server. */
+#define SYSCALL_SENDTO          74
+#define SYSCALL_RECVFROM        75
+#define SYSCALL_SOCKET_CLOSE    76
+
 /* Standard I/O devices */
 #define STDIN               0
 #define STDOUT              1

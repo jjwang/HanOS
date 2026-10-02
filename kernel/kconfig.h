@@ -45,6 +45,7 @@
 #define DEFAULT_TTY_SVR         "/bin/tty"
 #define DEFAULT_FAT32_SVR       "/bin/fat32"
 #define DEFAULT_PROC_SVR        "/bin/process"
+#define DEFAULT_NET_SVR         "/bin/net"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

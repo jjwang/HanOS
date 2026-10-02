@@ -45,7 +45,7 @@ LIBC_DEPS := $(patsubst %.c, %.u.d, ${LIBC_FILES})
 ASM_FILES := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
-CELF      := servers/block servers/console servers/fat32 servers/input servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest
+CELF      := servers/block servers/console servers/fat32 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest
 
 .PHONY: clean all
 

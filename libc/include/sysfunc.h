@@ -111,6 +111,13 @@ void *sys_malloc(int size);
 int sys_mkdirat(const char *path);
 int sys_dup(int fd, int flags, int newfd);
 int sys_fcntl(int fd, int cmd, int arg);
+int sys_socket(int domain, int type, int protocol);
+int sys_bind(int sock, uint32_t ip, uint16_t port);
+int64_t sys_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
+                   uint64_t len);
+int64_t sys_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
+                     uint16_t *port);
+int sys_socket_close(int sock);
 int sys_proc_spawn(int parent, const char *name);
 int sys_proc_map(int pid, unsigned long vaddr, int memh, int prot);
 int sys_proc_set_entry(int pid, unsigned long rip, unsigned long rsp);
