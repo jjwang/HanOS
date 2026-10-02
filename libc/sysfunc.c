@@ -145,6 +145,8 @@
 #define SYSCALL_SOCKET_CLOSE    76
 #define SYSCALL_MEM_PHYS        77
 #define SYSCALL_CONNECT         78
+#define SYSCALL_LISTEN          79
+#define SYSCALL_ACCEPT          80
 
 void sys_libc_log(const char *message)
 {
@@ -518,6 +520,20 @@ int sys_connect(int sock, uint32_t ip, uint16_t port)
 {
     int64_t ret, errno;
     SYSCALL3(SYSCALL_CONNECT, sock, ip, port);
+    return (int) ret;
+}
+
+int sys_listen(int sock, int backlog)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_LISTEN, sock, backlog);
+    return (int) ret;
+}
+
+int sys_accept(int sock)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_ACCEPT, sock);
     return (int) ret;
 }
 

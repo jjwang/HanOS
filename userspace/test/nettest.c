@@ -32,6 +32,55 @@ static command_help_t help_msg[] = {
 #define GW_IP           0x0a000202U     /* 10.0.2.2, the QEMU gateway */
 #define UDP_ECHO_PORT   9999
 #define TCP_ECHO_PORT   9998
+#define TCP_SRV_PORT    9997
+
+static int tcp_srv_test(void)
+{
+    int l = sys_socket(AF_INET, SOCK_STREAM, 0);
+
+    if (l < 0) {
+        printf("nettest: srv socket FAIL\n");
+        return 1;
+    }
+    if (sys_bind(l, 0, TCP_SRV_PORT) < 0) {
+        printf("nettest: srv bind FAIL\n");
+        return 1;
+    }
+    if (sys_listen(l, 1) < 0) {
+        printf("nettest: srv listen FAIL\n");
+        return 1;
+    }
+    printf("nettest: srv listening\n");
+
+    int c = sys_accept(l);
+
+    if (c < 0) {
+        printf("nettest: srv accept FAIL\n");
+        return 1;
+    }
+    printf("nettest: srv accepted\n");
+
+    char buf[64];
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    int64_t n = sys_recvfrom(c, buf, sizeof(buf) - 1, &ip, &port);
+
+    if (n <= 0) {
+        printf("nettest: srv recv FAIL\n");
+        return 1;
+    }
+    buf[n] = '\0';
+    printf("nettest: srv recv %ld: %s\n", (long) n, buf);
+
+    int64_t s = sys_sendto(c, 0, 0, buf, n);
+
+    printf("nettest: srv echo %ld\n", (long) s);
+
+    sys_socket_close(c);
+    sys_socket_close(l);
+    return (s == n) ? 0 : 1;
+}
+
 
 static int udp_nic_test(void)
 {
@@ -115,6 +164,13 @@ int main(int argc, char *argv[])
         int rc = tcp_nic_test();
 
         printf("nettest: tcp %s\n", rc == 0 ? "PASS" : "FAIL");
+        sys_exit(rc);
+    }
+
+    if (argc > 1 && strcmp(argv[1], "srv") == 0) {
+        int rc = tcp_srv_test();
+
+        printf("nettest: srv %s\n", rc == 0 ? "PASS" : "FAIL");
         sys_exit(rc);
     }
 

@@ -54,6 +54,9 @@ typedef struct {
     uint16_t peer_port;
     bool got_ack;
     bool got_fin;
+    bool listening;
+    int accept_pending;         /* completed connection fd, or 0 */
+    int64_t acc_wait_reply;     /* deferred accept reply endpoint */
 } net_sock_t;
 
 static net_sock_t socks[NET_MAX_SOCKS];
@@ -736,6 +739,31 @@ static int tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
     return (int) len;
 }
 
+/* Find a TCP socket for an incoming segment: match the peer first, then fall
+ * back to a listening socket on the local port. */
+static net_sock_t *tcp_find(uint16_t dport, uint32_t src, uint16_t sport,
+                            bool * is_listen)
+{
+    net_sock_t *ls = NULL;
+
+    *is_listen = false;
+    for (int i = 0; i < NET_MAX_SOCKS; i++) {
+        net_sock_t *s = &socks[i];
+
+        if (!s->used || !s->stream || !s->bound || s->port != dport)
+            continue;
+        if (s->listening) {
+            ls = s;
+            continue;
+        }
+        if (s->peer_ip == src && s->peer_port == sport)
+            return s;
+    }
+    if (ls != NULL)
+        *is_listen = true;
+    return ls;
+}
+
 /* Dispatch one received Ethernet frame: ARP, ICMP, UDP and TCP. */
 static void net_rx_frame(uint8_t * pkt, int n)
 {
@@ -837,23 +865,55 @@ static void net_rx_frame(uint8_t * pkt, int n)
         uint32_t poff = 14 + ihl + tcp_off;
         uint32_t plen = (iptot > ihl + tcp_off)
             ? iptot - ihl - tcp_off : 0;
-        net_sock_t *s = NULL;
+        uint16_t sport = ntohs(t->src);
+        bool is_listen = false;
+        net_sock_t *s;
 
         if (n < (int) poff)
             plen = 0;
         else if (poff + plen > (uint32_t) n)
             plen = (uint32_t) n - poff;
 
-        for (int i = 0; i < NET_MAX_SOCKS; i++) {
-            if (socks[i].used && socks[i].stream && socks[i].bound
-                && socks[i].port == dport) {
-                s = &socks[i];
-                break;
-            }
-        }
+        s = tcp_find(dport, src, sport, &is_listen);
         if (s == NULL)
             return;
 
+        if (is_listen) {
+            if ((t->flags & TCP_SYN) && !(t->flags & TCP_ACK)) {
+                int nfd = sock_alloc();
+
+                if (nfd > 0) {
+                    net_sock_t *ns = &socks[nfd - 1];
+
+                    ns->stream = true;
+                    ns->bound = true;
+                    ns->port = dport;
+                    ns->peer_ip = src;
+                    ns->peer_port = sport;
+                    ns->snd_nxt = 2000 + (uint32_t) nfd * 100;
+                    ns->snd_una = ns->snd_nxt;
+                    ns->rcv_nxt = seq + 1;
+                    ns->tstate = 2;
+                    tcp_send_seg(ns, TCP_SYN | TCP_ACK, NULL, 0);
+                    ns->snd_nxt++;
+
+                    if (s->acc_wait_reply != 0) {
+                        sys_ipc_msg_t rr;
+
+                        memset(&rr, 0, sizeof(rr));
+                        rr.tag = NET_ACCEPT;
+                        rr.words[0] = 0;
+                        rr.words[1] = (uint64_t) nfd;
+                        sys_ipc_send(s->acc_wait_reply, &rr);
+                        sys_handle_close(s->acc_wait_reply);
+                        s->acc_wait_reply = 0;
+                    } else {
+                        s->accept_pending = nfd;
+                    }
+                }
+            }
+            return;
+        }
 
         if (t->flags & TCP_RST) {
             s->tstate = -1;
@@ -929,6 +989,38 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
         rep->words[0] = 0;
+        return;
+    }
+
+    if (m->tag == NET_LISTEN) {
+        net_sock_t *s = sock_get((int) m->words[0]);
+
+        if (s == NULL || !s->stream || !s->bound) {
+            rep->words[0] = (uint64_t) (int64_t) -22;
+            return;
+        }
+        s->listening = true;
+        rep->words[0] = 0;
+        return;
+    }
+
+    if (m->tag == NET_ACCEPT) {
+        net_sock_t *s = sock_get((int) m->words[0]);
+
+        if (s == NULL || !s->listening) {
+            rep->words[0] = (uint64_t) (int64_t) -22;
+            return;
+        }
+        if (s->accept_pending > 0) {
+            int fd = s->accept_pending;
+
+            s->accept_pending = 0;
+            rep->words[0] = 0;
+            rep->words[1] = (uint64_t) fd;
+            return;
+        }
+        s->acc_wait_reply = (int64_t) m->xfer[0];
+        msg_deferred = true;
         return;
     }
 

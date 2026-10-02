@@ -2152,6 +2152,30 @@ int64_t k_connect(int64_t sock, int64_t ip, int64_t port)
     return 0;
 }
 
+int64_t k_listen(int64_t sock, int64_t backlog)
+{
+    cpu_set_errno(0);
+
+    if (net_listen((int) sock, (int) backlog) < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_accept(int64_t sock)
+{
+    cpu_set_errno(0);
+
+    int64_t fd = net_accept((int) sock);
+
+    if (fd < 0) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+    return fd;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -2224,7 +2248,9 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,            /* 75 */
     [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,    /* 76 */
     [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys,            /* 77 */
-    [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect               /* 78 */
+    [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,               /* 78 */
+    [SYSCALL_LISTEN] = (syscall_ptr_t) k_listen,                 /* 79 */
+    [SYSCALL_ACCEPT] = (syscall_ptr_t) k_accept                  /* 80 */
 };
 
 void syscall_init(void)

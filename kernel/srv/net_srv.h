@@ -23,6 +23,8 @@ bool net_server_active(void);
 int64_t net_socket(int domain, int type, int protocol);
 int64_t net_bind(int sock, uint32_t ip, uint16_t port);
 int64_t net_connect(int sock, uint32_t ip, uint16_t port);
+int64_t net_listen(int sock, int backlog);
+int64_t net_accept(int sock);
 int64_t net_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len);
 int64_t net_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,

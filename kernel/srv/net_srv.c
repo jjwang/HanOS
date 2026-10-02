@@ -255,6 +255,36 @@ int64_t net_connect(int sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
+int64_t net_listen(int sock, int backlog)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_LISTEN;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = (uint64_t) backlog;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
+int64_t net_accept(int sock)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_ACCEPT;
+    req.words[0] = (uint64_t) sock;
+
+    if (!router_forward_timeout(SVC_NET, &req, &rep, 3600 * 1000)
+        || (int64_t) rep.words[0] < 0)
+        return -1;
+    return (int64_t) rep.words[1];
+}
+
 int64_t net_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len)
 {

@@ -156,6 +156,8 @@
 #define NET_CLOSE           0x95        /* words[0]=sock */
 #define NET_CONNECT         0x96        /* words[0]=sock, words[1]=ip, words[2]=port;
                                            out words[0]=status */
+#define NET_LISTEN          0x97        /* words[0]=sock */
+#define NET_ACCEPT          0x98        /* words[0]=sock; out words[1]=new sock fd */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

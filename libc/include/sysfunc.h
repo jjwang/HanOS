@@ -119,6 +119,8 @@ int64_t sys_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
                      uint16_t *port);
 int sys_socket_close(int sock);
 int sys_connect(int sock, uint32_t ip, uint16_t port);
+int sys_listen(int sock, int backlog);
+int sys_accept(int sock);
 int64_t sys_mem_phys(int64_t handle, uint64_t offset);
 int sys_proc_spawn(int parent, const char *name);
 int sys_proc_map(int pid, unsigned long vaddr, int memh, int prot);

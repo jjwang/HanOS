@@ -91,6 +91,8 @@
 #define SYSCALL_SOCKET_CLOSE    76
 #define SYSCALL_MEM_PHYS        77
 #define SYSCALL_CONNECT         78
+#define SYSCALL_LISTEN          79
+#define SYSCALL_ACCEPT          80
 
 /* Standard I/O devices */
 #define STDIN               0
