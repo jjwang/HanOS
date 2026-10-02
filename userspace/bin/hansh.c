@@ -174,15 +174,37 @@ void runcmd(cmd_t * cmd)
     sys_exit(0);
 }
 
+static char inbuf[CMD_MAX_LEN];
+static int inpos;
+static int inlen;
+
+/* Return the next buffered input byte, or -1. Fills the buffer with one read
+ * so a whole command line usually costs a single IPC. */
+static int input_byte(void)
+{
+    if (inpos >= inlen) {
+        int n = sys_read(STDIN, inbuf, sizeof(inbuf));
+
+        if (n <= 0)
+            return -1;
+        inlen = n;
+        inpos = 0;
+    }
+    return (unsigned char) inbuf[inpos++];
+}
+
 int getcmd(char *buf, int nbuf)
 {
     int i;
     sys_write(STDOUT, CMD_PROMPT, strlen(CMD_PROMPT));
     memset(buf, 0, nbuf);
     for (i = 0;;) {
-        if (sys_read(STDIN, &buf[i], 1) != 1) {
+        int c = input_byte();
+
+        if (c < 0) {
             break;
         }
+        buf[i] = (char) c;
         if (buf[i] == '\b') {
             if (i > 0) {
                 buf[i - 1] = '\0';

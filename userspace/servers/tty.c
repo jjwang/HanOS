@@ -96,6 +96,44 @@ static void echo_key(uint8_t k)
     }
 }
 
+/* Answer the deferred read with the buffered keys. */
+static void flush_deferred(void)
+{
+    sys_ipc_msg_t rr;
+    uint64_t n = (wait_len < kcount) ? wait_len : kcount;
+    uint8_t tmp[TTY_INLINE_MAX];
+
+    memset(&rr, 0, sizeof(rr));
+    rr.tag = TTY_READ;
+    for (uint64_t i = 0; i < n; i++) {
+        tmp[i] = keys[ktail];
+        ktail = (ktail + 1) % TTY_KEY_MAX;
+    }
+    kcount -= (uint32_t) n;
+    memcpy(&rr.words[2], tmp, n);
+    rr.words[0] = 0;
+    rr.words[1] = n;
+
+    sys_ipc_send(wait_reply, &rr);
+    sys_handle_close(wait_reply);
+    wait_reply = 0;
+}
+
+/* A deferred read is answered once the line is complete, so a shell gets a
+ * whole command in one reply. A reader that asked for few bytes is answered as
+ * soon as that many arrive, which keeps single-byte readers unbuffered. */
+static bool read_ready(void)
+{
+    if (kcount >= wait_len)
+        return true;
+
+    for (uint32_t i = 0; i < kcount; i++)
+        if (keys[(ktail + i) % TTY_KEY_MAX] == '\n')
+            return true;
+
+    return false;
+}
+
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == TTY_KEY) {
@@ -103,27 +141,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         key_push(k);
         echo_key(k);
 
-        /* Satisfy a deferred read now, so the waiting shell is woken. */
-        if (wait_reply != 0) {
-            sys_ipc_msg_t rr;
-            uint64_t n = (wait_len < kcount) ? wait_len : kcount;
-            uint8_t tmp[TTY_INLINE_MAX];
-
-            memset(&rr, 0, sizeof(rr));
-            rr.tag = TTY_READ;
-            for (uint64_t i = 0; i < n; i++) {
-                tmp[i] = keys[ktail];
-                ktail = (ktail + 1) % TTY_KEY_MAX;
-            }
-            kcount -= (uint32_t) n;
-            memcpy(&rr.words[2], tmp, n);
-            rr.words[0] = 0;
-            rr.words[1] = n;
-
-            sys_ipc_send(wait_reply, &rr);
-            sys_handle_close(wait_reply);
-            wait_reply = 0;
-        }
+        /* Wake a waiting reader once a full line (or the requested length) is
+         * buffered. */
+        if (wait_reply != 0 && read_ready())
+            flush_deferred();
         return;
     }
 
