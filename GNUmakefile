@@ -42,7 +42,6 @@ initrd:
 
 $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
-	@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
@@ -59,9 +58,7 @@ $(ISO_IMAGE): limine initrd kernel
 
 $(HDD_IMAGE): limine initrd kernel
 	rm -rf initrd.tar
-	#@if [ -e "xbstrap-build/system-root" ]; then cp -rf xbstrap-build/system-root/* initrd 2>/dev/null; fi
 	mkdir -p initrd/etc initrd/usr initrd/root
-	#cp -rf sysroot/* initrd
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
 	rm -f $(HDD_IMAGE)
 	mkdir -p $(dir $(HDD_IMAGE))

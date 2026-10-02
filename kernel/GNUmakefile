@@ -6,7 +6,7 @@ NASM         := nasm
 INDENT       := indent -kr -i4 -nut
 
 LC_FLAGS     :=             \
-    -I. -I.. -I../libc/include -Wall -Wextra  \
+    -I. -I.. -I../include -Ilibc -Wall -Wextra  \
     -DKERNEL_BUILD          \
     -DVERSION_STRING=\"$(shell sh ../scripts/version.sh)\" \
     -mcmodel=kernel         \
@@ -42,11 +42,6 @@ H_FILES      := $(shell find ./ -type f,l -name '*.h')
 C_OBJS       := $(C_FILES:.c=.o)
 C_DEPS       := $(C_FILES:.c=.d)
 
-LIBC_C_FILES := $(shell find ../libc -type f,l -name '*.c')
-LIBC_H_FILES := $(shell find ../libc -type f,l -name '*.c')
-LIBC_OBJS    := $(patsubst %.c, %.k.o, ${LIBC_C_FILES})
-LIBC_DEPS    := $(patsubst %.c, %.k.d, ${LIBC_C_FILES})
-
 AS_FILES     := $(shell find ./ -type f,l -name '*.s')
 AS_OBJS      := $(AS_FILES:.s=.o)
 
@@ -55,7 +50,7 @@ MAC_FILES    := $(shell find ./ -type f,l -name '*.mac')
 ASM_FILES    := $(shell find ./ -type f,l -name '*.asm')
 ASM_OBJS     := $(ASM_FILES:.asm=.o)
 
-OBJS         := $(C_OBJS) $(LIBC_OBJS) $(AS_OBJS) $(ASM_OBJS)
+OBJS         := $(C_OBJS) $(AS_OBJS) $(ASM_OBJS)
 
 SYMBOLFILE     := _symbols.gen
 SYMBOLOBJ      := _symbols.o
@@ -67,20 +62,12 @@ TRAMPOLINEBLOB := arch/x64/trampoline.bin
 
 all: $(KERNELOBJ) $(SYMBOLFILE)
 
-indent: $(C_FILES) $(H_FILES) $(LIBC_C_FILES) $(LIBC_H_FILES) 
+indent: $(C_FILES) $(H_FILES)
 	@for file in $(C_FILES); do \
 		$(INDENT) $$file;       \
 		rm -f $${file}~;        \
 	done
 	@for file in $(H_FILES); do \
-		$(INDENT) $$file;       \
-		rm -f $${file}~;        \
-	done
-	@for file in $(LIBC_C_FILES); do \
-		$(INDENT) $$file;       \
-		rm -f $${file}~;        \
-	done
-	@for file in $(LIBC_H_FILES); do \
 		$(INDENT) $$file;       \
 		rm -f $${file}~;        \
 	done
@@ -116,14 +103,7 @@ $(BOOT_DIR)/limine.h:
 
 $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.o, %.d, $@) $<
-	$(CC) $(LC_FLAGS) -c $< -o $@
-
--include $(LIBC_DEPS)
-
-$(LIBC_OBJS): %.k.o: %.c
-	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.k.o, %.k.d, $@) $<
+	$(CC) -MM -I. -I../include -Ilibc -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(AS_OBJS): %.o: %.s
@@ -140,4 +120,4 @@ $(TRAMPOLINEBLOB): $(TRAMPOLINEFILE)
 	@$(NASM) $^ -o $@
 
 clean:
-	rm -rf $(KERNELOBJ) $(OBJS) $(C_DEPS) $(LIBC_DEPS) $(SYMBOLFILE) $(SYMBOLOBJ) $(TRAMPOLINEBLOB) hanos.sym
+	rm -rf $(KERNELOBJ) $(OBJS) $(C_DEPS) $(SYMBOLFILE) $(SYMBOLOBJ) $(TRAMPOLINEBLOB) hanos.sym

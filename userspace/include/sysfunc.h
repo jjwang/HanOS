@@ -18,7 +18,7 @@
 #pragma once
 #include <stdint.h>
 
-#include <stdio.h>
+#include <hanos.h>
 #include <bootinfo.h>
 
 #define AT_FDCWD            -100
@@ -27,28 +27,34 @@
 #define STDOUT              1
 #define STDERR              2
 
-/* Reserve 3 bits for the access mode */
-#define O_ACCMODE           0x0007
-#define O_EXEC              1
-#define O_RDONLY            2
-#define O_RDWR              3
-#define O_SEARCH            4
-#define O_WRONLY            5
+/* Open flags (Linux values) */
+#define O_ACCMODE           00000003
+#define O_RDONLY            00000000
+#define O_WRONLY            00000001
+#define O_RDWR              00000002
+#define O_CREAT             00000100
+#define O_EXCL              00000200
+#define O_NOCTTY            00000400
+#define O_TRUNC             00001000
+#define O_APPEND            00002000
+#define O_NONBLOCK          00004000
+#define O_DSYNC             00010000
+#define O_DIRECTORY         00200000
+#define O_NOFOLLOW          00400000
+#define O_CLOEXEC           02000000
+#define O_SYNC              04010000
+#define O_PATH              010000000
 
-/* All remaining flags get their own bit */
-#define O_APPEND            0x0008
-#define O_CREAT             0x0010
-#define O_DIRECTORY         0x0020
-#define O_EXCL              0x0040
-#define O_NOCTTY            0x0080
-#define O_NOFOLLOW          0x0100
-#define O_TRUNC             0x0200
-#define O_NONBLOCK          0x0400
-#define O_DSYNC             0x0800
-#define O_RSYNC             0x1000
-#define O_SYNC              0x2000
-#define O_CLOEXEC           0x4000
-#define O_PATH              0x8000
+/* mmap flags (Linux values) */
+#define MAP_SHARED          0x01
+#define MAP_PRIVATE         0x02
+#define MAP_FIXED           0x10
+#define MAP_ANONYMOUS       0x20
+
+#define PROT_NONE           0x00
+#define PROT_READ           0x01
+#define PROT_WRITE          0x02
+#define PROT_EXEC           0x04
 
 /* fcntl commands and descriptor flags. */
 #define F_GETFD             1

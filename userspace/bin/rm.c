@@ -33,13 +33,13 @@ int32_t main(int32_t argc, char *argv[])
     int32_t i;
 
     if (argc < 2) {
-        fprintf(STDERR, "Usage: rm files...\n");
+        dprintf(STDERR, "Usage: rm files...\n");
         sys_exit(1);
     }
 
     for (i = 1; i < argc; i++) {
         if (sys_unlink(argv[i]) < 0) {
-            fprintf(STDERR, "rm: %s failed to delete\n", argv[i]);
+            dprintf(STDERR, "rm: %s failed to delete\n", argv[i]);
             break;
         }
     }

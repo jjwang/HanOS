@@ -36,7 +36,6 @@
 #include <stdint.h>
 
 #include <string.h>
-#include <sysfunc.h>
 
 #include "printf.h"
 
@@ -868,23 +867,6 @@ static int32_t _vsnprintf(out_fct_type out, char* buffer, const uint64_t maxlen,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t printf_(const char* format, ...)
-{
-  char buffer[256];
-  va_list va;
-  va_start(va, format);
-  const int32_t ret = _vsnprintf(_out_buffer, buffer, sizeof(buffer), format, va);
-  va_end(va);
-  if (ret > 0) {
-    /* One write per call so the output is not split across log lines. */
-    uint64_t n = ((uint64_t) ret < sizeof(buffer)) ? (uint64_t) ret
-                                                   : sizeof(buffer);
-    sys_write(STDOUT, buffer, n);
-  }
-  return ret;
-}
-
-
 int32_t sprintf_(char* buffer, const char* format, ...)
 {
   va_list va;
@@ -905,19 +887,6 @@ int32_t snprintf_(char* buffer, uint64_t count, const char* format, ...)
 }
 
 
-int32_t vprintf_(const char* format, va_list va)
-{
-  char buffer[256];
-  const int32_t ret = _vsnprintf(_out_buffer, buffer, sizeof(buffer), format, va);
-  if (ret > 0) {
-    uint64_t n = ((uint64_t) ret < sizeof(buffer)) ? (uint64_t) ret
-                                                   : sizeof(buffer);
-    sys_write(STDOUT, buffer, n);
-  }
-  return ret;
-}
-
-
 int32_t vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va)
 {
   return _vsnprintf(_out_buffer, buffer, count, format, va);
@@ -932,35 +901,6 @@ int32_t fctprintf(void (*out)(char character, void* arg), void* arg, const char*
   const int32_t ret = _vsnprintf(_out_fct, (char*)(uintptr_t)&out_fct_wrap, (uint64_t)-1, format, va);
   va_end(va);
   return ret;
-}
-
-// Below are HanOS specific functions
-#include <string.h>
-#include <sysfunc.h>
-
-void _putchar(char character)
-{
-    char charbuff[2];
-
-    charbuff[0] = character;
-    charbuff[1] = '\0';
-
-    sys_write(STDOUT, charbuff, strlen(charbuff));
-}
-
-int32_t fprintf(int32_t fd, const char *fmt, ...)
-{
-    char charbuff[256] = {0};
-    va_list va;
-
-    va_start(va, fmt);
-    vsnprintf_(charbuff, sizeof(charbuff) - 1, fmt, va);
-    va_end(va);
-
-    int32_t ret = sys_write(fd, charbuff, strlen(charbuff));
-    charbuff[0] = '\0';
-
-    return ret;
 }
 
 /* *INDENT-ON* */

@@ -38,12 +38,12 @@ int32_t main(int32_t argc, char *argv[])
 
     fd = sys_open(path, O_CREAT | O_WRONLY);
     if (fd < 0) {
-        fprintf(STDERR, "crtest: create failed\n");
+        dprintf(STDERR, "crtest: create failed\n");
         sys_exit(1);
     }
 
     if (sys_write(fd, msg, strlen(msg)) != (int32_t) strlen(msg)) {
-        fprintf(STDERR, "crtest: write failed\n");
+        dprintf(STDERR, "crtest: write failed\n");
         sys_close(fd);
         sys_exit(1);
     }
@@ -51,7 +51,7 @@ int32_t main(int32_t argc, char *argv[])
 
     fd = sys_open(path, O_RDONLY);
     if (fd < 0) {
-        fprintf(STDERR, "crtest: reopen failed\n");
+        dprintf(STDERR, "crtest: reopen failed\n");
         sys_exit(1);
     }
 

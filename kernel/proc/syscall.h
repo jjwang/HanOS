@@ -18,116 +18,36 @@
 #pragma once
 #include <stdint.h>
 
-#define SYSCALL_DEBUGLOG    0
-#define SYSCALL_MMAP        1
-#define SYSCALL_OPENAT      2
-#define SYSCALL_READ        3
-#define SYSCALL_WRITE       4
-#define SYSCALL_SEEK        5
-#define SYSCALL_CLOSE       6
-#define SYSCALL_SET_FS_BASE 7
-#define SYSCALL_IOCTL       8
-#define SYSCALL_GETPID      9
-#define SYSCALL_CHDIR       10
-#define SYSCALL_MKDIRAT     11
-#define SYSCALL_SOCKET      12
-#define SYSCALL_BIND        13
-#define SYSCALL_FORK        14
-#define SYSCALL_EXECVE      15
-#define SYSCALL_FACCESSAT   16
-#define SYSCALL_FSTATAT     17
-#define SYSCALL_FSTAT       18
-#define SYSCALL_GETPPID     19
-#define SYSCALL_FCNTL       20
-#define SYSCALL_DUP3        21
-#define SYSCALL_WAITPID     22
-#define SYSCALL_EXIT        23
-#define SYSCALL_READDIR     24
-#define SYSCALL_MUNMAP      25
-#define SYSCALL_GETCWD      26
-#define SYSCALL_GETCLOCK    27
-#define SYSCALL_READLINK    28
-#define SYSCALL_GETRUSAGE   29
-#define SYSCALL_GETRLIMIT   30
-#define SYSCALL_UNAME       31
-#define SYSCALL_FUTEX_WAIT  32
-#define SYSCALL_FUTEX_WAKE  33
-#define SYSCALL_MEMINFO     34
-#define SYSCALL_PIPE        35
-#define SYSCALL_UNLINK      36
-#define SYSCALL_CHMOD       39
-#define SYSCALL_RUNCMD      40
-#define SYSCALL_GETENTROPY  41
-#define SYSCALL_SIGPROCMASK 42
-#define SYSCALL_SIGACTION   43
-
-/* Microkernel: IPC and capability handles */
-#define SYSCALL_EP_CREATE   50
-#define SYSCALL_IPC_SEND    51
-#define SYSCALL_IPC_RECV    52
-#define SYSCALL_IPC_CALL    53
-#define SYSCALL_IPC_REPLY   54
-#define SYSCALL_MEM_ALLOC   55
-#define SYSCALL_MEM_MAP     56
-#define SYSCALL_IRQ_BIND    57
-#define SYSCALL_IRQ_ACK     58
-#define SYSCALL_HANDLE_CLOSE 60
-#define SYSCALL_IOPORT_ACCESS 61
-#define SYSCALL_BOOTINFO    63
-#define SYSCALL_IPC_RECV_NB 64
-#define SYSCALL_IPC_RECV_TIMEOUT 65
-#define SYSCALL_MEM_UNMAP   66
-#define SYSCALL_HANDLE_DUP  67
-#define SYSCALL_SERIAL_WRITE 68
-
-/* Process services: primitives used by the process server. */
-#define SYSCALL_PROC_SPAWN      70
-#define SYSCALL_PROC_MAP        71
-#define SYSCALL_PROC_SET_ENTRY  72
-#define SYSCALL_PROC_START      73
-
-/* Network sockets, served by the network server. */
-#define SYSCALL_SENDTO          74
-#define SYSCALL_RECVFROM        75
-#define SYSCALL_SOCKET_CLOSE    76
-#define SYSCALL_MEM_PHYS        77
-#define SYSCALL_CONNECT         78
-#define SYSCALL_LISTEN          79
-#define SYSCALL_ACCEPT          80
+#include <syscall_nr.h>
 
 /* Standard I/O devices */
 #define STDIN               0
 #define STDOUT              1
 #define STDERR              2
 
-/* Used in memory map of syscall */
-#define MAP_PRIVATE         0x01
-#define MAP_SHARED          0x02
-#define MAP_FIXED           0x04
-#define MAP_ANONYMOUS       0x08
+/* Used in memory map of syscall (Linux values) */
+#define MAP_SHARED          0x01
+#define MAP_PRIVATE         0x02
+#define MAP_FIXED           0x10
+#define MAP_ANONYMOUS       0x20
 
-/* Reserve 3 bits for the access mode */
-#define O_ACCMODE           0x0007
-#define O_EXEC              1
-#define O_RDONLY            2
-#define O_RDWR              3
-#define O_SEARCH            4
-#define O_WRONLY            5
-
-/* All remaining flags get their own bit */
-#define O_APPEND            0x0008
-#define O_CREAT             0x0010
-#define O_DIRECTORY         0x0020
-#define O_EXCL              0x0040
-#define O_NOCTTY            0x0080
-#define O_NOFOLLOW          0x0100
-#define O_TRUNC             0x0200
-#define O_NONBLOCK          0x0400
-#define O_DSYNC             0x0800
-#define O_RSYNC             0x1000
-#define O_SYNC              0x2000
-#define O_CLOEXEC           0x4000
-#define O_PATH              0x8000
+/* Open flags (Linux values) */
+#define O_ACCMODE           00000003
+#define O_RDONLY            00000000
+#define O_WRONLY            00000001
+#define O_RDWR              00000002
+#define O_CREAT             00000100
+#define O_EXCL              00000200
+#define O_NOCTTY            00000400
+#define O_TRUNC             00001000
+#define O_APPEND            00002000
+#define O_NONBLOCK          00004000
+#define O_DSYNC             00010000
+#define O_DIRECTORY         00200000
+#define O_NOFOLLOW          00400000
+#define O_CLOEXEC           02000000
+#define O_SYNC              04010000
+#define O_PATH              010000000
 
 /* EFLAGS bits */
 #define X86_EFLAGS_CF   0x00000001      /* Carry Flag */

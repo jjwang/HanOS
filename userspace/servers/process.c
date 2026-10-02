@@ -291,6 +291,8 @@ static uint64_t build_stack(uint8_t * base, uint64_t size, uint64_t argc,
     SPUSH(21);                  /* AT_PHENT */
     SPUSH(phnum);
     SPUSH(22);                  /* AT_PHNUM */
+    SPUSH(4096);
+    SPUSH(30);                  /* AT_PAGESZ */
     SPUSH(0);                   /* end of environment */
     for (uint64_t i = envc; i > 0; i--)
         SPUSH(envpp[i - 1]);

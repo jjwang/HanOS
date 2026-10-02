@@ -38,7 +38,7 @@ int32_t main(int32_t argc, char *argv[])
 
     int32_t fd = sys_open("/bin/hansh", 0);
     if (fd < 0) {
-        fprintf(STDERR, "fdtest: open /bin/hansh failed\n");
+        dprintf(STDERR, "fdtest: open /bin/hansh failed\n");
         sys_exit(1);
     }
 
@@ -55,7 +55,7 @@ int32_t main(int32_t argc, char *argv[])
         }
 
         if (pid < 0) {
-            fprintf(STDERR, "fdtest: fork failed\n");
+            dprintf(STDERR, "fdtest: fork failed\n");
             sys_exit(1);
         }
 

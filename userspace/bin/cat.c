@@ -36,12 +36,12 @@ void cat(int32_t fd)
 
     while ((n = sys_read(fd, buf, sizeof(buf))) > 0) {
         if (sys_write(STDOUT, buf, n) != n) {
-            fprintf(STDERR, "cat: write error\n");
+            dprintf(STDERR, "cat: write error\n");
             sys_exit(1);
         }
     }
     if (n < 0) {
-        fprintf(STDERR, "cat: read error\n");
+        dprintf(STDERR, "cat: read error\n");
         sys_exit(1);
     }
 }
@@ -57,9 +57,9 @@ int32_t main(int32_t argc, char *argv[])
 
     for (i = 1; i < argc; i++) {
         if ((fd = sys_open(argv[i], O_RDONLY)) < 0) {
-            fprintf(STDERR, "cat: cannot open ");
-            fprintf(STDERR, argv[i]);
-            fprintf(STDERR, "\n");
+            dprintf(STDERR, "cat: cannot open ");
+            dprintf(STDERR, argv[i]);
+            dprintf(STDERR, "\n");
             sys_exit(1);
         }
         cat(fd);

@@ -17,11 +17,11 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <sysfunc.h>
-#include <printf.h>
 
 /* *INDENT-OFF* */
 static command_help_t help_msg[] = { 
@@ -68,7 +68,7 @@ void wc(int32_t fd, char *name)
         }
     }
     if (n < 0) {
-        fprintf(STDERR, "wc: read error\n");
+        dprintf(STDERR, "wc: read error\n");
         sys_exit(1);
     }
   succ_exit:
@@ -90,9 +90,9 @@ int32_t main(int32_t argc, char *argv[])
 
     for (i = 1; i < argc; i++) {
         if ((fd = sys_open(argv[i], 0)) < 0) {
-            fprintf(STDERR, "wc: cannot open \n");
-            fprintf(STDERR, argv[i]);
-            fprintf(STDERR, "\n");
+            dprintf(STDERR, "wc: cannot open \n");
+            dprintf(STDERR, argv[i]);
+            dprintf(STDERR, "\n");
             sys_exit(1);
         }
         wc(fd, argv[i]);

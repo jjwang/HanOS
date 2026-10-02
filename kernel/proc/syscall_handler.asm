@@ -21,14 +21,32 @@ syscall_handler:
     mov rcx, r10
 
     extern syscall_funcs
-    call [rax * 8 + syscall_funcs]
-
+    cmp rax, 0x470          ; SYSCALL_TABLE_SIZE (keep in sync with syscall.h)
+    jae .enosys
+    mov rbx, [rax * 8 + syscall_funcs]
+    test rbx, rbx
+    jz .enosys
+    call rbx
+    jmp .dispatched
+.enosys:
+    mov rax, -38            ; -ENOSYS
+.dispatched:
     ; pop all registers except rax which is used for storing return value
     pop_all_syscall
 
     swapgs
 
-    mov rdx, qword [gs:0x0]  ; return errno in rdx
+    ; Linux convention: a handler reports an error as -1 plus a per-CPU errno.
+    ; Convert that to a negative errno in rax. Keep -1 when errno is 0 so a
+    ; handler that uses -1 as a non-error result is not turned into success.
+    mov rdx, qword [gs:0x0]  ; errno
+    cmp rax, -1
+    jne .done
+    test rdx, rdx
+    jz .done
+    neg rdx
+    mov rax, rdx
+.done:
     mov rsp, r15             ; back to user stack
     pop r15                  ; pop r15 from user stack
 

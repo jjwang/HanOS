@@ -879,7 +879,7 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
             if (fat32_readdir_fd(fd->server_fd, fd->curr_dir_idx, name,
                                  sizeof(name), &size, &is_dir) != 0) {
                 cpu_set_errno(0);
-                return -1;
+                return 0;       /* end of directory */
             }
             de.d_ino = fd->curr_dir_idx + 1;
             de.d_type = is_dir ? DT_DIR : DT_REG;
@@ -888,14 +888,14 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
         } else if (vfs_server_readdir(handle, &de) < 0) {
             /* End of directory or a server error. */
             cpu_set_errno(0);
-            return -1;
+            return 0;
         }
 
         if (copy_to_user((void *) buff, &de, sizeof(de)) != 0) {
             cpu_set_errno(EFAULT);
             return -1;
         }
-        return 0;
+        return (int64_t) sizeof(de);
     }
 
     errno = ENOTDIR;
@@ -2177,81 +2177,75 @@ int64_t k_accept(int64_t sock)
     return fd;
 }
 
-syscall_ptr_t syscall_funcs[] = {
-    [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
-    [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
-    [SYSCALL_OPENAT] = (syscall_ptr_t) k_openat,
+syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
-    [SYSCALL_SEEK] = (syscall_ptr_t) k_seek,
     [SYSCALL_CLOSE] = (syscall_ptr_t) k_close,
-    [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,
-    [SYSCALL_IOCTL] = (syscall_ptr_t) k_ioctl,  /* 8 */
+    [SYSCALL_FSTAT] = (syscall_ptr_t) k_fstat,
+    [SYSCALL_LSEEK] = (syscall_ptr_t) k_seek,
+    [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
+    [SYSCALL_MUNMAP] = (syscall_ptr_t) k_vm_unmap,
+    [SYSCALL_RT_SIGACTION] = (syscall_ptr_t) k_sigaction,
+    [SYSCALL_RT_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,
+    [SYSCALL_IOCTL] = (syscall_ptr_t) k_ioctl,
+    [SYSCALL_PIPE] = (syscall_ptr_t) k_pipe,
     [SYSCALL_GETPID] = (syscall_ptr_t) k_getpid,
-    [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
-    (syscall_ptr_t) k_not_implemented,
     [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
+    [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,
+    [SYSCALL_ACCEPT] = (syscall_ptr_t) k_accept,
+    [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,
+    [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,
     [SYSCALL_BIND] = (syscall_ptr_t) k_bind,
+    [SYSCALL_LISTEN] = (syscall_ptr_t) k_listen,
     [SYSCALL_FORK] = (syscall_ptr_t) k_fork,
     [SYSCALL_EXECVE] = (syscall_ptr_t) k_execve,
-    [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,  /* 16 */
-    [SYSCALL_FSTATAT] = (syscall_ptr_t) k_fstatat,
-    [SYSCALL_FSTAT] = (syscall_ptr_t) k_fstat,
-    [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
-    [SYSCALL_FCNTL] = (syscall_ptr_t) k_fcntl,  /* 20 */
-    [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
-    [SYSCALL_WAITPID] = (syscall_ptr_t) k_waitpid,
     [SYSCALL_EXIT] = (syscall_ptr_t) k_exit,
-    [SYSCALL_READDIR] = (syscall_ptr_t) k_readdir,
-    [SYSCALL_MUNMAP] = (syscall_ptr_t) k_vm_unmap,      /* 25 */
-    [SYSCALL_GETCWD] = (syscall_ptr_t) k_getcwd,
-    [SYSCALL_GETCLOCK] = (syscall_ptr_t) k_getclock,
-    [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,
-    [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,  /* 29 */
-    (syscall_ptr_t) k_not_implemented,
+    [SYSCALL_WAIT4] = (syscall_ptr_t) k_waitpid,
     [SYSCALL_UNAME] = (syscall_ptr_t) k_uname,
+    [SYSCALL_FCNTL] = (syscall_ptr_t) k_fcntl,
+    [SYSCALL_GETCWD] = (syscall_ptr_t) k_getcwd,
+    [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
+    [SYSCALL_UNLINK] = (syscall_ptr_t) k_unlink,
+    [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,
+    [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,
+    [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
+    [SYSCALL_GETDENTS64] = (syscall_ptr_t) k_readdir,
+    [SYSCALL_CLOCK_GETTIME] = (syscall_ptr_t) k_getclock,
+    [SYSCALL_OPENAT] = (syscall_ptr_t) k_openat,
+    [SYSCALL_NEWFSTATAT] = (syscall_ptr_t) k_fstatat,
+    [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,
+    [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
+    [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
+    [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
+    [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,
+    [SYSCALL_MEMINFO] = (syscall_ptr_t) k_meminfo,
+    [SYSCALL_RUNCMD] = (syscall_ptr_t) k_runcmd,
+    [SYSCALL_CHMOD] = (syscall_ptr_t) k_chmod,
     [SYSCALL_FUTEX_WAIT] = (syscall_ptr_t) k_futex_wait,
     [SYSCALL_FUTEX_WAKE] = (syscall_ptr_t) k_futex_wake,
-    [SYSCALL_MEMINFO] = (syscall_ptr_t) k_meminfo,      /* 34 */
-    [SYSCALL_PIPE] = (syscall_ptr_t) k_pipe,
-    [SYSCALL_UNLINK] = (syscall_ptr_t) k_unlink,        /* 36 */
-    (syscall_ptr_t) k_not_implemented,
-    (syscall_ptr_t) k_not_implemented,
-    [SYSCALL_CHMOD] = (syscall_ptr_t) k_chmod,  /* 39 */
-    [SYSCALL_RUNCMD] = (syscall_ptr_t) k_runcmd,
-    [SYSCALL_GETENTROPY] = (syscall_ptr_t) k_getentropy,
-    [SYSCALL_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,      /* 42 */
-    [SYSCALL_SIGACTION] = (syscall_ptr_t) k_sigaction,
-    (syscall_ptr_t) k_not_implemented,
-    (syscall_ptr_t) k_not_implemented,
-    [SYSCALL_EP_CREATE] = (syscall_ptr_t) k_ep_create,  /* 50 */
+    [SYSCALL_EP_CREATE] = (syscall_ptr_t) k_ep_create,
     [SYSCALL_IPC_SEND] = (syscall_ptr_t) k_ipc_send,
     [SYSCALL_IPC_RECV] = (syscall_ptr_t) k_ipc_recv,
     [SYSCALL_IPC_CALL] = (syscall_ptr_t) k_ipc_call,
     [SYSCALL_IPC_REPLY] = (syscall_ptr_t) k_ipc_reply,
-    [SYSCALL_MEM_ALLOC] = (syscall_ptr_t) k_mem_alloc,   /* 55 */
-    [SYSCALL_MEM_MAP] = (syscall_ptr_t) k_mem_map,       /* 56 */
+    [SYSCALL_MEM_ALLOC] = (syscall_ptr_t) k_mem_alloc,
+    [SYSCALL_MEM_MAP] = (syscall_ptr_t) k_mem_map,
     [SYSCALL_IRQ_BIND] = (syscall_ptr_t) k_irq_bind,
     [SYSCALL_IRQ_ACK] = (syscall_ptr_t) k_irq_ack,
-    [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close,     /* 60 */
+    [SYSCALL_HANDLE_CLOSE] = (syscall_ptr_t) k_handle_close,
     [SYSCALL_IOPORT_ACCESS] = (syscall_ptr_t) k_ioport_access,
-    [SYSCALL_BOOTINFO] = (syscall_ptr_t) k_bootinfo,              /* 63 */
+    [SYSCALL_BOOTINFO] = (syscall_ptr_t) k_bootinfo,
     [SYSCALL_IPC_RECV_NB] = (syscall_ptr_t) k_ipc_recv_nb,
     [SYSCALL_IPC_RECV_TIMEOUT] = (syscall_ptr_t) k_ipc_recv_timeout,
-    [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap,      /* 66 */
-    [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup,    /* 67 */
-    [SYSCALL_SERIAL_WRITE] = (syscall_ptr_t) k_serial_write, /* 68 */
-    [SYSCALL_PROC_SPAWN] = (syscall_ptr_t) k_proc_spawn,        /* 70 */
-    [SYSCALL_PROC_MAP] = (syscall_ptr_t) k_proc_map,            /* 71 */
-    [SYSCALL_PROC_SET_ENTRY] = (syscall_ptr_t) k_proc_set_entry, /* 72 */
-    [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start,        /* 73 */
-    [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,                /* 74 */
-    [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,            /* 75 */
-    [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,    /* 76 */
-    [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys,            /* 77 */
-    [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,               /* 78 */
-    [SYSCALL_LISTEN] = (syscall_ptr_t) k_listen,                 /* 79 */
-    [SYSCALL_ACCEPT] = (syscall_ptr_t) k_accept                  /* 80 */
+    [SYSCALL_MEM_UNMAP] = (syscall_ptr_t) k_mem_unmap,
+    [SYSCALL_HANDLE_DUP] = (syscall_ptr_t) k_handle_dup,
+    [SYSCALL_SERIAL_WRITE] = (syscall_ptr_t) k_serial_write,
+    [SYSCALL_PROC_SPAWN] = (syscall_ptr_t) k_proc_spawn,
+    [SYSCALL_PROC_MAP] = (syscall_ptr_t) k_proc_map,
+    [SYSCALL_PROC_SET_ENTRY] = (syscall_ptr_t) k_proc_set_entry,
+    [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start,
+    [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,
+    [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys
 };
 
 void syscall_init(void)

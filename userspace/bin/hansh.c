@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sysfunc.h>
-#include <printf.h>
 
 /* Parsed command representation */
 /* Currently we only support EXEC */
@@ -127,7 +126,7 @@ void runcmd(cmd_t * cmd)
                  (pathname[0] != '/') ? "/bin/" : "", ecmd->argv[0]);
         sys_libc_log("hansh: start to execute process for current process\n");
         if (sys_exec(pathname, ecmd->argv) < 0) {
-            fprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
+            dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
         }
         break;
 
@@ -243,19 +242,19 @@ int32_t main(void)
                 buf[strlen(buf) - 1] = 0;       /* chop \n */
             }
             if (sys_chdir(buf + 3) < 0)
-                fprintf(STDERR, "cd: cannot change folder to \"%s\"\n",
+                dprintf(STDERR, "cd: cannot change folder to \"%s\"\n",
                         buf + 3);
             continue;
         } else if (buf[0] == 'm' && buf[1] == 'e' && buf[2] == 'm'
                    && buf[3] == '\0') {
             if (sys_meminfo() < 0)
-                fprintf(STDERR,
+                dprintf(STDERR,
                         "mem: cannot display memory usage information\n");
             continue;
         } else if (buf[0] == 'l' && buf[1] == 's' && buf[2] == 'p'
                    && buf[3] == 'c' && buf[4] == 'i' && buf[5] == '\0') {
             if (sys_runcmd(buf) < 0)
-                fprintf(STDERR, "lspci: cannot list pci devices\n");
+                dprintf(STDERR, "lspci: cannot list pci devices\n");
             continue;
         }
 
@@ -272,7 +271,7 @@ int32_t main(void)
         sys_libc_log
             ("hansh: exit from current command and wait for next one");
     }
-    fprintf(STDERR, "exit: ending sh\n");
+    dprintf(STDERR, "exit: ending sh\n");
     sys_exit(0);
 
     return 0;
@@ -427,7 +426,7 @@ cmd_t *parsecmd(char *s)
     cmd = parseline(&s, es);
     peek(&s, es, "");
     if (s != es) {
-        fprintf(STDERR, "leftovers: %s\n", s);
+        dprintf(STDERR, "leftovers: %s\n", s);
         sys_panic("syntax");
     }
     nulterminate(cmd);

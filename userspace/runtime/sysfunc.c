@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include <sysfunc.h>
 
@@ -79,74 +80,8 @@
                   : "rcx", "r11", "memory");                   \
 })
 
-#define SYSCALL_DEBUGLOG    0
-#define SYSCALL_MMAP        1
-#define SYSCALL_OPENAT      2
-#define SYSCALL_READ        3
-#define SYSCALL_WRITE       4
-#define SYSCALL_SEEK        5
-#define SYSCALL_CLOSE       6
-#define SYSCALL_SET_FS_BASE 7
-#define SYSCALL_IOCTL       8
-#define SYSCALL_GETPID      9
-#define SYSCALL_CHDIR       10
-#define SYSCALL_MKDIRAT     11
-#define SYSCALL_SOCKET      12
-#define SYSCALL_BIND        13
-#define SYSCALL_FORK        14
-#define SYSCALL_EXECVE      15
-#define SYSCALL_FACCESSAT   16
-#define SYSCALL_FSTATAT     17
-#define SYSCALL_FSTAT       18
-#define SYSCALL_GETPPID     19
-#define SYSCALL_FCNTL       20
-#define SYSCALL_DUP3        21
-#define SYSCALL_WAITPID     22
-#define SYSCALL_EXIT        23
-#define SYSCALL_READDIR     24
-#define SYSCALL_MUNMAP      25
-#define SYSCALL_GETCWD      26
-#define SYSCALL_GETCLOCK    27
-#define SYSCALL_READLINK    28
-#define SYSCALL_GETRUSAGE   29
-#define SYSCALL_GETRLIMIT   30
-#define SYSCALL_UNAME       31
-#define SYSCALL_FUTEX_WAIT  32
-#define SYSCALL_FUTEX_WAKE  33
-#define SYSCALL_MEMINFO     34
-#define SYSCALL_PIPE        35
-#define SYSCALL_UNLINK      36
-#define SYSCALL_RUNCMD      40
-
-#define SYSCALL_EP_CREATE    50
-#define SYSCALL_IPC_SEND     51
-#define SYSCALL_IPC_RECV     52
-#define SYSCALL_IPC_CALL     53
-#define SYSCALL_IPC_REPLY     54
-#define SYSCALL_MEM_ALLOC    55
-#define SYSCALL_MEM_MAP      56
-#define SYSCALL_IRQ_BIND     57
-#define SYSCALL_IRQ_ACK      58
-#define SYSCALL_HANDLE_CLOSE 60
-#define SYSCALL_IOPORT_ACCESS 61
-#define SYSCALL_BOOTINFO     63
-#define SYSCALL_IPC_RECV_NB  64
-#define SYSCALL_IPC_RECV_TIMEOUT 65
-#define SYSCALL_MEM_UNMAP    66
-#define SYSCALL_HANDLE_DUP   67
-#define SYSCALL_SERIAL_WRITE 68
-
-#define SYSCALL_PROC_SPAWN      70
-#define SYSCALL_PROC_MAP        71
-#define SYSCALL_PROC_SET_ENTRY  72
-#define SYSCALL_PROC_START      73
-#define SYSCALL_SENDTO          74
-#define SYSCALL_RECVFROM        75
-#define SYSCALL_SOCKET_CLOSE    76
-#define SYSCALL_MEM_PHYS        77
-#define SYSCALL_CONNECT         78
-#define SYSCALL_LISTEN          79
-#define SYSCALL_ACCEPT          80
+/* Syscall numbers come from the shared header. */
+#include <syscall_nr.h>
 
 void sys_libc_log(const char *message)
 {
@@ -266,6 +201,9 @@ int32_t sys_exec(const char *path, char *const argv[])
 void sys_exit(int32_t status)
 {
     int32_t ret, errno;
+
+    /* The raw syscall does not run musl's exit, so flush stdio first. */
+    fflush(NULL);
     SYSCALL1(SYSCALL_EXIT, status);
 }
 
@@ -273,7 +211,7 @@ int32_t sys_wait(int32_t pid)
 {
     while (true) {
         int32_t errno, ret;
-        SYSCALL3(SYSCALL_WAITPID, pid, NULL, 0);
+        SYSCALL3(SYSCALL_WAIT4, pid, NULL, 0);
         if (ret < 0)
             break;
     }
@@ -291,7 +229,7 @@ void *sys_malloc(int32_t size)
 {
     void *ret;
     int32_t errno;
-    SYSCALL6(SYSCALL_MMAP, 0, size, 0, 0x08, 0, 0);
+    SYSCALL6(SYSCALL_MMAP, 0, size, 0, MAP_ANONYMOUS, 0, 0);
     return ret;
 }
 
@@ -354,14 +292,14 @@ int32_t sys_fstat(int32_t fd, stat_t * statbuf)
 int32_t sys_stat(const char *path, stat_t * statbuf)
 {
     int32_t errno, ret;
-    SYSCALL4(SYSCALL_FSTATAT, AT_FDCWD, path, statbuf, 0);
+    SYSCALL4(SYSCALL_NEWFSTATAT, AT_FDCWD, path, statbuf, 0);
     return ret;
 }
 
 int32_t sys_readdir(int32_t fd, void *buffer)
 {
     int32_t ret, errno;
-    SYSCALL2(SYSCALL_READDIR, fd, buffer);
+    SYSCALL2(SYSCALL_GETDENTS64, fd, buffer);
     return ret;
 }
 
