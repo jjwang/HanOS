@@ -181,6 +181,14 @@ typedef struct {
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
 
+/* Build an absolute path from a directory handle (or VFS_FDCWD) and a path. */
+int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
+                          uint64_t full_path_size);
+
+/* Resolve a handle to its server-side descriptor via the process server. The
+ * result is a per-CPU scratch descriptor valid until the next call. */
+vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func);
+
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
                              vfs_openmode_t mode, uint64_t size);

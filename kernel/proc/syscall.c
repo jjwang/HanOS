@@ -44,7 +44,6 @@
 #include <proc/wait.h>
 #include <proc/syscall.h>
 #include <proc/signal.h>
-#include <fs/filebase.h>
 #include <fs/vfs.h>
 #include <srv/process_srv.h>
 #include <device/display/gfx.h>

@@ -67,7 +67,6 @@
 #include <srv/console_srv.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
-#include <fs/filebase.h>
 #include <fs/initrd.h>
 #include <proc/elf.h>
 
