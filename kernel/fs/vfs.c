@@ -476,16 +476,12 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
     return n;
 }
 
-/* Blocking pipe read/write built on vfs_pipe_xfer(). */
+/* Blocking pipe read/write. The pipe server holds a request that cannot make
+ * progress and answers it once the other end moves data or closes, so a single
+ * call blocks until the operation completes. */
 static int64_t vfs_pipe_rw(int64_t sfd, uint64_t tag, uint64_t len, void *buff)
 {
-    for (;;) {
-        int64_t n = vfs_pipe_xfer(sfd, tag, len, buff);
-
-        if (n != VFS_IO_AGAIN)
-            return n;
-        sched_sleep(1);
-    }
+    return vfs_pipe_xfer(sfd, tag, len, buff);
 }
 
 /* Ask the server for the stat of a path. The path and the result share one
