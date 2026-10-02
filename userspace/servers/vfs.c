@@ -129,6 +129,116 @@ static void norm_dir(const char *path, char *out, uint64_t outsz)
     out[n] = '\0';
 }
 
+#define VFS_MOUNT_FAT "/fat"
+
+/* Join cwd and path into a normalized absolute path. cwd is already absolute. */
+static void join_path(const char *cwd, const char *path, char *out,
+                      uint64_t outsz)
+{
+    if (path[0] == '/') {
+        out[0] = '/';
+        out[1] = '\0';
+    } else {
+        uint64_t n = strlen(cwd);
+
+        if (n == 0 || n >= outsz)
+            n = 0;
+        memcpy(out, cwd, n);
+        out[n] = '\0';
+        if (n == 0) {
+            out[0] = '/';
+            out[1] = '\0';
+        }
+    }
+
+    uint64_t i = 0;
+
+    while (path[i] != '\0') {
+        char comp[VFS_PATH_MAX];
+
+        while (path[i] == '/')
+            i++;
+        if (path[i] == '\0')
+            break;
+
+        uint64_t j = i;
+        while (path[j] != '\0' && path[j] != '/')
+            j++;
+
+        uint64_t clen = j - i;
+        if (clen >= sizeof(comp))
+            clen = sizeof(comp) - 1;
+        memcpy(comp, &path[i], clen);
+        comp[clen] = '\0';
+        i = j;
+
+        if (strcmp(comp, ".") == 0)
+            continue;
+
+        if (strcmp(comp, "..") == 0) {
+            uint64_t n = strlen(out);
+            while (n > 1 && out[n - 1] == '/')
+                n--;
+            if (n > 1) {
+                uint64_t k = n - 1;
+                while (k > 0 && out[k] != '/')
+                    k--;
+                out[(k == 0) ? 1 : k] = '\0';
+            }
+            continue;
+        }
+
+        uint64_t olen = strlen(out);
+        if (olen > 0 && out[olen - 1] != '/')
+            strncat(out, "/", outsz - olen - 1);
+        strncat(out, comp, outsz - strlen(out) - 1);
+    }
+}
+
+/* True when abs is /fat or below it; rel receives the mount-relative path. */
+static bool fat_rel(const char *abs, char *rel, uint64_t relsz)
+{
+    uint64_t ml = strlen(VFS_MOUNT_FAT);
+
+    if (strcmp(abs, VFS_MOUNT_FAT) == 0) {
+        strcpy(rel, "/");
+        return true;
+    }
+    if (strncmp(abs, VFS_MOUNT_FAT, ml) == 0 && abs[ml] == '/') {
+        uint64_t n = strlen(abs + ml);
+
+        if (n >= relsz)
+            n = relsz - 1;
+        memcpy(rel, abs + ml, n);
+        rel[n] = '\0';
+        return true;
+    }
+    return false;
+}
+
+/* Split "cwd\0path\0" read from the request buffer. */
+static void split_cwd_path(const uint8_t *buf, char *cwd, char *path)
+{
+    int i = 0;
+
+    while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
+        cwd[i] = (char) buf[i];
+        i++;
+    }
+    cwd[i] = '\0';
+    if (buf[i] != '\0') {
+        path[0] = '\0';
+        return;
+    }
+    i++;
+
+    int j = 0;
+
+    while (i < VFS_PATH_MAX - 1 && buf[i] != '\0')
+        path[j++] = (char) buf[i++];
+    path[j] = '\0';
+}
+
 /* Record one archive entry, stripping a trailing '/' from directories. */
 static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size)
 {
@@ -309,37 +419,6 @@ static int fd_alloc(void)
     return -1;
 }
 
-/* Read the request's path from the buffer in xfer[1]. */
-static void read_path(const sys_ipc_msg_t *m, char *path)
-{
-    int i = 0;
-
-    path[0] = '\0';
-
-    if (m->xfer_count >= 2) {
-        int64_t memh = (int64_t) m->xfer[1];
-        uint8_t *buf = map_buf(memh);
-
-        if (buf != NULL) {
-            while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
-                path[i] = (char) buf[i];
-                i++;
-            }
-            sys_mem_unmap(memh, VFS_BUF_VADDR);
-        }
-        sys_handle_close(memh);
-    } else {
-        const char *p = (const char *) &m->words[1];
-
-        while (i < VFS_PATH_MAX - 1 && p[i] != '\0') {
-            path[i] = p[i];
-            i++;
-        }
-    }
-
-    path[i] = '\0';
-}
-
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == VFS_PING) {
@@ -348,19 +427,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_FACCESSAT) {
-        char path[VFS_PATH_MAX];
-
-        read_path(m, path);
-        rep->words[0] = (resolve(path) >= 0) ? 0 : (uint64_t) (int64_t) -2;
-        return;
-    }
-
-    if (m->tag == VFS_FSTATAT) {
-        char path[VFS_PATH_MAX];
+        char cwd[VFS_PATH_MAX], path[VFS_PATH_MAX], abs[VFS_PATH_MAX];
+        char rel[VFS_PATH_MAX];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
-        int e;
-        int i = 0;
 
         if (buf == NULL) {
             if (memh != 0)
@@ -369,18 +439,49 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
-        while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
-            path[i] = (char) buf[i];
-            i++;
-        }
-        path[i] = '\0';
+        split_cwd_path(buf, cwd, path);
+        join_path(cwd, path, abs, sizeof(abs));
 
-        e = resolve(path);
-        if (e < 0) {
-            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+        if (fat_rel(abs, rel, sizeof(rel))) {
+            strcpy((char *) buf, rel);
+            rep->words[0] = VFS_REDIRECT_FAT;
         } else {
-            fill_stat(e, buf + VFS_IO_DATA_OFF);
-            rep->words[0] = 0;
+            rep->words[0] = (resolve(abs) >= 0) ? 0 : (uint64_t) (int64_t) -2;
+        }
+
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_FSTATAT) {
+        char cwd[VFS_PATH_MAX], path[VFS_PATH_MAX], abs[VFS_PATH_MAX];
+        char rel[VFS_PATH_MAX];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        int e;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
+            return;
+        }
+
+        split_cwd_path(buf, cwd, path);
+        join_path(cwd, path, abs, sizeof(abs));
+
+        if (fat_rel(abs, rel, sizeof(rel))) {
+            strcpy((char *) buf, rel);
+            rep->words[0] = VFS_REDIRECT_FAT;
+        } else {
+            e = resolve(abs);
+            if (e < 0) {
+                rep->words[0] = (uint64_t) (int64_t) -2;        /* -ENOENT */
+            } else {
+                fill_stat(e, buf + VFS_IO_DATA_OFF);
+                rep->words[0] = 0;
+            }
         }
 
         sys_mem_unmap(memh, VFS_BUF_VADDR);
@@ -410,34 +511,58 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_OPENAT) {
-        char path[VFS_PATH_MAX];
+        char cwd[VFS_PATH_MAX], path[VFS_PATH_MAX], abs[VFS_PATH_MAX];
+        char rel[VFS_PATH_MAX];
         char norm[VFS_PATH_MAX];
         uint64_t flags = m->words[0];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
         int e;
 
-        read_path(m, path);
-        e = resolve(path);
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
+            return;
+        }
+
+        split_cwd_path(buf, cwd, path);
+        join_path(cwd, path, abs, sizeof(abs));
+
+        if (fat_rel(abs, rel, sizeof(rel))) {
+            strcpy((char *) buf, rel);
+            rep->words[0] = VFS_REDIRECT_FAT;
+            sys_mem_unmap(memh, VFS_BUF_VADDR);
+            sys_handle_close(memh);
+            return;
+        }
+
+        e = resolve(abs);
 
         if (e < 0 && (flags & O_CREAT)) {
-            norm_dir(path, norm, sizeof(norm));
+            norm_dir(abs, norm, sizeof(norm));
             if (norm[0] != '\0')
                 e = dyn_create(norm);
         }
 
         if (e < 0) {
             rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+            sys_mem_unmap(memh, VFS_BUF_VADDR);
+            sys_handle_close(memh);
             return;
         }
 
         int fd = fd_alloc();
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
+            sys_mem_unmap(memh, VFS_BUF_VADDR);
+            sys_handle_close(memh);
             return;
         }
 
         if (idx_is_dir(e)) {
             fds[fd - 1].is_dir = true;
-            norm_dir(path, fds[fd - 1].dir, sizeof(fds[fd - 1].dir));
+            norm_dir(abs, fds[fd - 1].dir, sizeof(fds[fd - 1].dir));
         } else {
             fds[fd - 1].ent = e;
         }
@@ -445,6 +570,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) fd;
         rep->words[2] = idx_is_dir(e) ? 0 : idx_size(e);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
         return;
     }
 
@@ -673,21 +800,40 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_UNLINK) {
-        char path[VFS_PATH_MAX];
+        char cwd[VFS_PATH_MAX], path[VFS_PATH_MAX], abs[VFS_PATH_MAX];
+        char rel[VFS_PATH_MAX];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
         int e;
 
-        read_path(m, path);
-        e = resolve(path);
-
-        if (e < 0 || idx_is_dir(e)) {
-            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
-        } else if (idx_is_dyn(e)) {
-            dyns[e - ent_count].used = false;
-            rep->words[0] = 0;
-        } else {
-            ents[e].deleted = true;
-            rep->words[0] = 0;
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
+            return;
         }
+
+        split_cwd_path(buf, cwd, path);
+        join_path(cwd, path, abs, sizeof(abs));
+
+        if (fat_rel(abs, rel, sizeof(rel))) {
+            strcpy((char *) buf, rel);
+            rep->words[0] = VFS_REDIRECT_FAT;
+        } else {
+            e = resolve(abs);
+            if (e < 0 || idx_is_dir(e)) {
+                rep->words[0] = (uint64_t) (int64_t) -2;        /* -ENOENT */
+            } else if (idx_is_dyn(e)) {
+                dyns[e - ent_count].used = false;
+                rep->words[0] = 0;
+            } else {
+                ents[e].deleted = true;
+                rep->words[0] = 0;
+            }
+        }
+
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
         return;
     }
 

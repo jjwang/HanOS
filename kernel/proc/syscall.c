@@ -427,6 +427,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 {
     /* "mode" is always zero */
     (void) mode;
+    (void) dirfh;
     cpu_set_errno(0);
 
     /* Copy the user path into the kernel before touching it. */
@@ -437,82 +438,24 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     }
     path = kpath;
 
-    char full_path[VFS_MAX_PATH_LEN] = { 0 };
-    if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
-        klogv("k_openat: cannot get full path for \"%s\"\n", path);
-        cpu_set_errno(EINVAL);
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int svc = SVC_FS;
+
+    /* The VFS server owns the namespace and resolves cwd+path; it redirects
+     * paths under the FAT mount to the FAT server. */
+    vfs_handle_t sfh = vfs_open_path(cwd, path, (int) flags, &svc);
+
+    if (sfh == VFS_INVALID_HANDLE) {
+        cpu_set_errno(ENOENT);
         return -1;
-    } else if ((strcmp(full_path, "/fat") == 0
-                || strncmp(full_path, "/fat/", 5) == 0)
-               && fat32_server_active()) {
-        /* /fat is served by the FAT32 server (path relative to the mount). */
-        const char *fpath = (full_path[4] == '\0') ? "/" : full_path + 4;
-        uint64_t size = 0;
-
-        int64_t ffd = fat32_open_path(fpath, &size);
-        if (ffd < 0) {
-            cpu_set_errno(ENOENT);
-            return -1;
-        }
-
-        vfs_handle_t sfh = vfs_open_server_svc(ffd, fpath, VFS_MODE_READ, size,
-                                               SVC_FAT);
-        if (sfh == VFS_INVALID_HANDLE) {
-            cpu_set_errno(ENOMEM);
-            return -1;
-        }
-        if (flags & O_CLOEXEC)
-            process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
-        cpu_set_errno(0);
-        return sfh;
-    } else if (router_lookup(SVC_FS) != NULL) {
-        /* Route to the userspace VFS server: it returns a server fd. */
-        handle_t ph;
-
-        if (ipc_buf_from_kernel(full_path, strlen(full_path) + 1, &ph) != 0) {
-            cpu_set_errno(ENOMEM);
-            return -1;
-        }
-
-        ipc_msg_t req;
-        ipc_msg_t rep;
-
-        memset(&req, 0, sizeof(req));
-        req.tag = VFS_OPENAT;
-        req.words[0] = (uint64_t) flags;
-        req.xfer[0] = ph;
-        req.xfer_count = 1;
-
-        if (!router_forward(SVC_FS, &req, &rep)
-            || (int64_t) rep.words[0] < 0) {
-            cpu_set_errno(ENOENT);
-            return -1;
-        }
-
-        vfs_openmode_t smode = VFS_MODE_READWRITE;
-
-        if ((flags & 0x7) == O_RDONLY)
-            smode = VFS_MODE_READ;
-        else if ((flags & 0x7) == O_WRONLY)
-            smode = VFS_MODE_WRITE;
-
-        vfs_handle_t sfh =
-            vfs_open_server((int64_t) rep.words[1], full_path, smode, rep.words[2]);
-        if (sfh == VFS_INVALID_HANDLE) {
-            cpu_set_errno(ENOMEM);
-            return -1;
-        }
-
-        if (flags & O_CLOEXEC)
-            process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
-
-        cpu_set_errno(0);
-        return sfh;
     }
 
-    /* No filesystem server is registered; the kernel has no namespace. */
-    cpu_set_errno(ENOENT);
-    return -1;
+    if (flags & O_CLOEXEC)
+        process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
+
+    cpu_set_errno(0);
+    return sfh;
 }
 
 int64_t k_chmod(char *path, int64_t flags)
@@ -536,18 +479,10 @@ int64_t k_unlink(char *path)
 
     klogi("k_unlink: %s\n", path);
 
-    char full_path[VFS_MAX_PATH_LEN] = { 0 };
-    if (vfs_get_full_path(VFS_FDCWD, path, full_path, sizeof(full_path)) < 0) {
-        cpu_set_errno(EINVAL);
-        return -1;
-    }
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
 
-    if (router_lookup(SVC_FS) == NULL) {
-        cpu_set_errno(ENOENT);
-        return -1;
-    }
-
-    if (vfs_server_unlink(full_path) < 0) {
+    if (vfs_unlink_path(cwd, path) < 0) {
         cpu_set_errno(ENOENT);
         return -1;
     }
@@ -698,6 +633,7 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
                   int64_t flags)
 {
+    (void) dirfh;
     (void) flags;
 
     char kpath[VFS_MAX_PATH_LEN] = { 0 };
@@ -707,52 +643,20 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
     }
     path = kpath;
 
-    char full_path[VFS_MAX_PATH_LEN] = { 0 };
-    if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    vfs_stat_t st;
+
+    if (vfs_stat_path(cwd, path, &st) < 0) {
+        cpu_set_errno(ENOENT);
         return -1;
     }
-
-    if ((strcmp(full_path, "/fat") == 0 || strncmp(full_path, "/fat/", 5) == 0)
-        && fat32_server_active()) {
-        const char *fpath = (full_path[4] == '\0') ? "/" : full_path + 4;
-        vfs_stat_t st;
-        uint64_t size = 0;
-        bool is_dir = false;
-
-        memset(&st, 0, sizeof(st));
-        if (fat32_stat_path(fpath, &size, &is_dir) < 0) {
-            cpu_set_errno(ENOENT);
-            return -1;
-        }
-        st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
-        st.st_nlink = 1;
-        st.st_size = size;
-
-        if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-        cpu_set_errno(0);
-        return 0;
+    if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
     }
-
-    if (router_lookup(SVC_FS) != NULL) {
-        vfs_stat_t st;
-
-        if (vfs_server_stat_path(full_path, &st) < 0) {
-            cpu_set_errno(ENOENT);
-            return -1;
-        }
-        if (copy_to_user((void *) statbuf, &st, sizeof(st)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-        cpu_set_errno(0);
-        return 0;
-    }
-
-    cpu_set_errno(ENOENT);
-    return -1;
+    cpu_set_errno(0);
+    return 0;
 }
 
 int64_t k_fstat(int64_t handle, int64_t statbuf)
@@ -810,6 +714,7 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
 int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
                     uint64_t flags)
 {
+    (void) dirfh;
     (void) flags;
 
     cpu_set_errno(0);
@@ -821,50 +726,18 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
     }
     path = kpath;
 
-    char full_path[VFS_MAX_PATH_LEN] = { 0 };
-    if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
-        cpu_set_errno(EBADF);
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+
+    klogi("k_faccessat: access \"%s\" at mode 0x%016lx\n", path, mode);
+
+    if (vfs_access_path(cwd, path, mode) < 0) {
+        cpu_set_errno(ENOENT);
         return -1;
     }
 
-    klogi("k_faccessat: open \"%s\" at mode 0x%016lx and flags 0x%016lx\n",
-          full_path, mode, flags);
-
-    /* Route to the userspace VFS server when one is registered. The path
-     * travels in a memory object (xfer[0]); router_forward moves it. */
-    if (router_lookup(SVC_FS) != NULL) {
-        handle_t ph;
-
-        if (ipc_buf_from_kernel(full_path, strlen(full_path) + 1, &ph) != 0) {
-            cpu_set_errno(ENOMEM);
-            return -1;
-        }
-
-        ipc_msg_t req;
-        ipc_msg_t rep;
-
-        memset(&req, 0, sizeof(req));
-        req.tag = VFS_FACCESSAT;
-        req.words[0] = mode;
-        req.xfer[0] = ph;
-        req.xfer_count = 1;
-
-        if (!router_forward(SVC_FS, &req, &rep)) {
-            cpu_set_errno(EIO);
-            return -1;
-        }
-
-        if ((int64_t) rep.words[0] < 0) {
-            cpu_set_errno((int) (int64_t) - rep.words[0]);
-            return -1;
-        }
-
-        cpu_set_errno(0);
-        return 0;
-    }
-
-    cpu_set_errno(EBADF);
-    return -1;
+    cpu_set_errno(0);
+    return 0;
 }
 
 int64_t k_getpid()
@@ -962,11 +835,11 @@ int64_t k_chdir(char *dir)
           t->cwd, dir, fullpath);
 
     /* The VFS server owns the namespace; ask it whether the folder exists. */
-    if (router_lookup(SVC_FS) != NULL) {
+    {
         vfs_stat_t st;
 
         memset(&st, 0, sizeof(st));
-        if (vfs_server_stat_path(fullpath, &st) < 0
+        if (vfs_stat_path("/", fullpath, &st) < 0
             || (st.st_mode & S_IFMT) != S_IFDIR) {
             cpu_set_errno(ENOENT);
             goto err_exit;

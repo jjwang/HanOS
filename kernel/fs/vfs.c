@@ -40,108 +40,6 @@
 /* Internal sentinel: the pipe server would block; the caller retries. */
 #define VFS_IO_AGAIN        (-2)
 
-int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
-                          uint64_t full_path_size)
-{
-    /* Clean the full path buffer */
-    full_path[0] = '\0';
-
-    if ((int32_t) dirfh == (int32_t) VFS_FDCWD) {
-        /* Get the parent path name from TCB (process control block) */
-        process_t *t = sched_get_current_process();
-        if (t != NULL) {
-            if (path[0] != '/')
-                strcpy(full_path, t->cwd);
-        } else {
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
-    } else if ((int32_t) dirfh >= (int32_t) 0) {
-        /* Get the parent path name from dirfh */
-        vfs_node_desc_t *tnode =
-            vfs_handle_to_fd((vfs_handle_t) dirfh, __func__);
-        if (tnode != NULL) {
-            if (path[0] == '.')
-                strcpy(full_path, tnode->path);
-        } else {
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
-    }
-
-    if (strcmp(path, ".") == 0) {
-        return 0;
-    }
-
-    if (path[0] == '/') {
-        strcpy(full_path, "/");
-    }
-
-    /* Extracted folder name one by one */
-    char temp_path[VFS_MAX_PATH_LEN] = { 0 };
-    char *curr = NULL, *child = NULL;
-
-    strcpy(temp_path, path);
-    curr = temp_path;
-
-    while (true) {
-        child = strchr(curr, '/');
-        if (child != NULL) {
-            *child = '\0';
-            child++;
-        }
-        if (strcmp(curr, "..") == 0) {
-            /* Change full path to parent folder */
-            bool succ = false;
-            if (strlen(full_path) > 0) {
-                uint64_t fpl = strlen(full_path);
-                if (fpl > 0 && full_path[fpl - 1] == '/') {
-                    full_path[fpl - 1] = '\0';
-                }
-                fpl = strlen(full_path);
-                if (fpl > 0) {
-                    for (uint64_t i = fpl - 1;; i--) {
-                        if (full_path[i] == '/') {
-                            full_path[(i > 0) ? i : (i + 1)] = '\0';
-                            succ = true;
-                            break;
-                        }
-                        if (i == 0)
-                            break;
-                    }
-                }
-            }
-            if (!succ) {
-                cpu_set_errno(EINVAL);
-                return -1;
-            }
-        } else if (strcmp(curr, ".") == 0) {
-            /* Do nothing */
-        } else if (strlen(curr) == 0) {
-            /* Do nothing */
-        } else {
-            /* Make sure the parent path name ends with '/' */
-            uint64_t fpl = strlen(full_path);
-            if (fpl > 0) {
-                if (full_path[fpl - 1] != '/')
-                    strncat(full_path, "/", full_path_size);
-            } else {
-                strcpy(full_path, "/");
-            }
-            strncat(full_path, curr, full_path_size);
-        }
-
-        /* Move to next folder */
-        if (child != NULL) {
-            curr = child;
-        } else {
-            break;
-        }
-    }
-
-    return 0;
-}
-
 /* Per-CPU scratch descriptor. The fd table lives in the process server, so a
  * handle is resolved there and copied here just for the current operation. */
 static vfs_node_desc_t transient_fd[CPU_MAX];
@@ -389,10 +287,33 @@ static int64_t vfs_pipe_rw(int64_t sfd, uint64_t tag, uint64_t len, void *buff)
     return vfs_pipe_xfer(sfd, tag, len, buff);
 }
 
-/* Ask the server for the stat of a path. The path and the result share one
- * buffer memory object: the path at offset 0, the stat at VFS_IO_DATA_OFF.
- * out must be a kernel buffer of at least sizeof(vfs_stat_t). */
-int64_t vfs_server_stat_path(const char *path, void *out)
+/* Pack "cwd\0path\0" at the start of the request buffer. */
+static void memobj_pack_cwd_path(memobj_t * mo, const char *cwd,
+                                 const char *path)
+{
+    uint64_t clen = strlen(cwd) + 1;
+    uint64_t plen = strlen(path) + 1;
+
+    if (clen > VFS_IO_DATA_OFF)
+        clen = VFS_IO_DATA_OFF;
+    if (clen + plen > VFS_IO_DATA_OFF)
+        plen = VFS_IO_DATA_OFF - clen;
+
+    memobj_copy_in(mo, cwd, clen, 0);
+    if (plen > 1)
+        memobj_copy_in(mo, path, plen, clen);
+}
+
+/* Read the server-provided path (a redirect) from the start of the buffer. */
+static void memobj_read_path(memobj_t * mo, char *out, uint64_t outsz)
+{
+    memobj_copy_out(mo, out, outsz - 1, 0);
+    out[outsz - 1] = '\0';
+}
+
+/* Stat a path. The VFS server resolves cwd+path; when the path is under the FAT
+ * mount it redirects and the kernel asks the FAT server. */
+int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
 {
     handle_t mh;
     memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
@@ -400,10 +321,7 @@ int64_t vfs_server_stat_path(const char *path, void *out)
     if (mo == NULL)
         return -1;
 
-    uint64_t plen = strlen(path) + 1;
-    if (plen > VFS_IO_DATA_OFF)
-        plen = VFS_IO_DATA_OFF;
-    memobj_copy_in(mo, path, plen, 0);
+    memobj_pack_cwd_path(mo, cwd, path);
 
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -413,14 +331,166 @@ int64_t vfs_server_stat_path(const char *path, void *out)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep)) {
         memobj_unref(mo);
         return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_FAT) {
+        char rel[VFS_MAX_PATH_LEN];
+        uint64_t size = 0;
+        bool is_dir = false;
+
+        memobj_read_path(mo, rel, sizeof(rel));
+        memobj_unref(mo);
+        if (fat32_stat_path(rel, &size, &is_dir) < 0)
+            return -1;
+        memset(out, 0, sizeof(*out));
+        out->st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
+        out->st_nlink = 1;
+        out->st_size = size;
+        return 0;
+    }
+
+    if (rc < 0) {
+        memobj_unref(mo);
+        return rc;
     }
 
     memobj_copy_out(mo, out, sizeof(vfs_stat_t), VFS_IO_DATA_OFF);
     memobj_unref(mo);
     return 0;
+}
+
+int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FACCESSAT;
+    req.words[0] = mode;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_FAT) {
+        char rel[VFS_MAX_PATH_LEN];
+        uint64_t size = 0;
+        bool is_dir = false;
+
+        memobj_read_path(mo, rel, sizeof(rel));
+        memobj_unref(mo);
+        return (fat32_stat_path(rel, &size, &is_dir) == 0) ? 0 : -1;
+    }
+
+    memobj_unref(mo);
+    return rc;
+}
+
+int64_t vfs_unlink_path(const char *cwd, const char *path)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_UNLINK;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_FAT)
+        rc = -30;               /* -EROFS: the FAT mount is read-only */
+    memobj_unref(mo);
+    return rc;
+}
+
+/* Open a path; fills *svc with the service that owns the returned fd. */
+vfs_handle_t vfs_open_path(const char *cwd, const char *path, int flags,
+                           int *svc)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return VFS_INVALID_HANDLE;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_OPENAT;
+    req.words[0] = (uint64_t) flags;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return VFS_INVALID_HANDLE;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_FAT) {
+        char rel[VFS_MAX_PATH_LEN];
+        uint64_t size = 0;
+
+        memobj_read_path(mo, rel, sizeof(rel));
+        memobj_unref(mo);
+
+        int64_t ffd = fat32_open_path(rel, &size);
+
+        if (ffd < 0)
+            return VFS_INVALID_HANDLE;
+        if (svc != NULL)
+            *svc = SVC_FAT;
+        return vfs_open_server_svc(ffd, rel, VFS_MODE_READ, size, SVC_FAT);
+    }
+
+    if (rc < 0) {
+        memobj_unref(mo);
+        return VFS_INVALID_HANDLE;
+    }
+
+    int64_t sfd = (int64_t) rep.words[1];
+    uint64_t size = rep.words[2];
+
+    memobj_unref(mo);
+    if (svc != NULL)
+        *svc = SVC_FS;
+    return vfs_open_server(sfd, path, VFS_MODE_READWRITE, size);
 }
 
 /* Stat an open server fd. out must be a kernel buffer of at least
@@ -501,37 +571,6 @@ static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
     if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
         return -1;
     return (int64_t) rep.words[1];
-}
-
-/* Ask the server to remove a path. */
-int64_t vfs_server_unlink(const char *path)
-{
-    handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
-
-    if (mo == NULL)
-        return -1;
-
-    uint64_t plen = strlen(path) + 1;
-    if (plen > VFS_IO_DATA_OFF)
-        plen = VFS_IO_DATA_OFF;
-    memobj_copy_in(mo, path, plen, 0);
-
-    ipc_msg_t req;
-    ipc_msg_t rep;
-
-    memset(&req, 0, sizeof(req));
-    req.tag = VFS_UNLINK;
-    req.xfer[0] = mh;
-    req.xfer_count = 1;
-
-    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
-        memobj_unref(mo);
-        return -1;
-    }
-
-    memobj_unref(mo);
-    return 0;
 }
 
 /* Add a reference to a server fd's open file description (used by fork). */

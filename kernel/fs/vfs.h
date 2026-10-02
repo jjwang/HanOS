@@ -181,13 +181,17 @@ typedef struct {
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
 
-/* Build an absolute path from a directory handle (or VFS_FDCWD) and a path. */
-int64_t vfs_get_full_path(int64_t dirfh, const char *path, char *full_path,
-                          uint64_t full_path_size);
-
 /* Resolve a handle to its server-side descriptor via the process server. The
  * result is a per-CPU scratch descriptor valid until the next call. */
 vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func);
+
+/* Path operations. The VFS server resolves cwd+path and redirects paths under
+ * the FAT mount to the FAT server. */
+int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out);
+int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
+int64_t vfs_unlink_path(const char *cwd, const char *path);
+vfs_handle_t vfs_open_path(const char *cwd, const char *path, int flags,
+                           int *svc);
 
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
@@ -202,12 +206,9 @@ vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
  * on success. */
 int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len);
 
-/* Server-backed stat/readdir, used by the syscall layer. `out` is a kernel
- * buffer (vfs_stat_t or dirent_t). */
-int64_t vfs_server_stat_path(const char *path, void *out);
+/* Stat an open server fd. `out` is a kernel vfs_stat_t buffer. */
 int64_t vfs_server_fstat(int64_t sfd, void *out);
 int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
-int64_t vfs_server_unlink(const char *path);
 /* Take a reference on a server fd, so a description inherited across fork or
  * execve stays open. */
 void vfs_server_ref_fd(int svc, int64_t sfd);

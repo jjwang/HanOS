@@ -157,7 +157,7 @@ void vfs_server_probe(void)
     {
         vfs_stat_t st;
 
-        if (vfs_server_stat_path("/bin", &st) == 0)
+        if (vfs_stat_path("/", "/bin", &st) == 0)
             klogi("vfs: STAT /bin mode 0x%x size %ld\n", st.st_mode,
                   (long) st.st_size);
         else

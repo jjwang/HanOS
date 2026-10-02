@@ -27,10 +27,13 @@
 #define BLOCK_OK            0
 #define BLOCK_ERR           (-1)
 
-/* VFS server. A request that carries a path (or a data buffer) puts it in a
- * memory object in xfer[1]; the reply endpoint is always xfer[0]. Replies put
- * 0 or -errno in words[0] (and e.g. the server fd in words[1]). */
-#define VFS_OPENAT          0x30        /* words[0]=flags; in: path; out: fd */
+/* VFS server. A request that carries a path puts "cwd\0path\0" at offset 0 of a
+ * memory object in xfer[1]; the reply endpoint is always xfer[0]. Replies put 0
+ * or -errno in words[0] (and e.g. the server fd in words[1]). When the path is
+ * under the FAT mount the server writes the mount-relative path back into the
+ * object and replies VFS_REDIRECT_FAT; the caller then issues the FAT request. */
+#define VFS_REDIRECT_FAT    100         /* path belongs to the FAT mount */
+#define VFS_OPENAT          0x30        /* words[0]=flags; in: cwd+path; out: fd */
 #define VFS_READ            0x31        /* words[0]=fd, words[1]=len;
                                            out: words[1]=bytes, xfer[1]=data */
 #define VFS_WRITE           0x32        /* words[0]=fd, words[1]=len;
@@ -40,10 +43,10 @@
                                            out: words[1]=new position */
 #define VFS_READDIR         0x35        /* words[0]=fd; out: words[0]=0 or -1 (end);
                                            xfer[1]=buffer, dirent at VFS_IO_DATA_OFF */
-#define VFS_UNLINK          0x36        /* in: path */
-#define VFS_FSTATAT         0x38        /* words[0]=flags; in: path in xfer[1];
+#define VFS_UNLINK          0x36        /* in: cwd+path */
+#define VFS_FSTATAT         0x38        /* words[0]=flags; in: cwd+path in xfer[1];
                                            out: stat at VFS_IO_DATA_OFF */
-#define VFS_FACCESSAT       0x39        /* words[0]=mode; in: path */
+#define VFS_FACCESSAT       0x39        /* words[0]=mode; in: cwd+path */
 #define VFS_FSTAT           0x3A        /* words[0]=fd; out: stat at
                                            VFS_IO_DATA_OFF */
 #define VFS_FD_FORK         0x3C        /* words[0]=fd; add a reference (fork) */
