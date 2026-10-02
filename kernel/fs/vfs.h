@@ -1,23 +1,14 @@
 /**-----------------------------------------------------------------------------
 
  @file    vfs.h
- @brief   Definition of VFS related data structures and functions
+ @brief   Types and helpers for the userspace file service
+
  @details
  @verbatim
 
-  VFS is an abstraction layer that provides a unified interface for various
-  physical file systems. This allows users to access the file system through
-  standard file operation functions without knowing the details of the
-  underlying physical file system. 
-
-  Like all Unix-like system, inode is the fundmental data structure of VFS which
-  stores file index information. All children node pointers will be stored in
-  inode. tnode is used to store tree information, e.g., parent node. node_desc
-  data structure is used for every file operation, from fopen, fread to fclose. 
-
-  History:
-    Jan 1, 2026  The spinlock currently in use is inefficient and needs to be
-                 optimized to improve its running speed on physical machines.
+   The filesystem runs in user space. The kernel keeps the shared path, stat and
+   dirent types, and forwards file operations to the VFS, FAT, pipe and tty
+   servers. No file data is served in ring 0.
 
  @endverbatim
 
@@ -42,7 +33,6 @@
 /* fds 0..2 are stdin/stdout/stderr; the process server allocates the rest
  * starting at 3. */
 #define VFS_MIN_HANDLE      3
-#define VFS_EOF_MAGIC_WORD  0xFF0E000F
 
 /* Options for file seek */
 #define SEEK_CUR            1
@@ -87,20 +77,6 @@ typedef struct {
 /* VFS data structure definitions */
 typedef int64_t vfs_handle_t;
 
-/* Forward declaration */
-
-/* The inode (index node) is an abstract representation of a file or directory.
- * Each file or directory has one unique inode that stores metadata
- * (permissions, ownership, timestamps, etc.) and methods for file operations.
- */
-typedef struct vfs_inode_t vfs_inode_t;
-
-/* A tnode refers to a tree node structure, used to model hierarchical
- * relationships - typically in directory trees, file trees, or custom data
- * structures supporting the filesystem.
- */
-typedef struct vfs_tnode_t vfs_tnode_t;
-
 typedef enum {
     VFS_NODE_FILE,
     VFS_NODE_SYMLINK,
@@ -124,10 +100,6 @@ typedef struct {
     int64_t tv_sec;
     int64_t tv_nsec;
 } vfs_timespec_t;
-
-/* System calls return below stat structure. It is according to Linux
- * definition.
- */
 
 /* File type and mode */
 #define S_IFMT    0170000       /* bit mask for the file type bit field */
@@ -192,86 +164,22 @@ typedef struct {
 } vfs_dirent_t;
 
 /**
- * @brief Description of a filesystem type and its operation table
- */
-typedef struct vfs_fsinfo_t {
-    char name[16];              /* File system name */
-    bool istemp;                /* For ramfs, it is true; for fat32 etc., it is false */
-     vec_struct(void *) filelist;
-
-    vfs_inode_t *(*mount)(vfs_inode_t * device);
-    vfs_tnode_t *(*open)(vfs_inode_t * this, const char *path);
-
-    int64_t(*mknode) (vfs_tnode_t * this);
-    int64_t(*rmnode) (vfs_tnode_t * this);
-    int64_t(*read) (vfs_inode_t * this, uint64_t offset, uint64_t len,
-                     void *buff);
-    int64_t(*write) (vfs_inode_t * this, uint64_t offset, uint64_t len,
-                      const void *buff);
-    int64_t(*sync) (vfs_inode_t * this);
-    int64_t(*refresh) (vfs_inode_t * this);
-    int64_t(*getdent) (vfs_inode_t * this, uint64_t pos,
-                        vfs_dirent_t * dirent);
-    int64_t(*ioctl) (vfs_inode_t * this, int64_t request, int64_t arg);
-} vfs_fsinfo_t;
-
-/**
- * @brief VFS tree node linking a name, status and inode into a hierarchy
- */
-struct vfs_tnode_t {
-    char name[VFS_MAX_NAME_LEN];
-    vfs_stat_t st;
-    vfs_inode_t *inode;
-    vfs_inode_t *parent;
-};
-
-/**
- * @brief VFS inode holding file metadata and filesystem-private data
- */
-struct vfs_inode_t {
-    vfs_node_type_t type;       /* File type */
-    char link[VFS_MAX_NAME_LEN];        /* Target file if file is symlink */
-    uint64_t size;              /* File size */
-    uint32_t perms;             /* File permission, modified by chmod */
-    uint32_t uid;               /* User id */
-    uint32_t refcount;          /* Reference count, used by symlink */
-    uint32_t readcount;
-    uint32_t writecount;
-    tm_t tm;
-    vfs_fsinfo_t *fs;
-    void *ident;
-    spinlock_t lock;
-    vfs_tnode_t *mountpoint;
-     vec_struct(vfs_tnode_t *) child;
-};
-
-/**
  * @brief Open file description backing a VFS handle
+ *
+ * The fd table lives in the process server. A handle is resolved there and the
+ * result is copied into a per-CPU scratch descriptor for the current call.
  */
 typedef struct {
     char path[VFS_MAX_PATH_LEN];
-    vfs_tnode_t *tnode;
-    vfs_inode_t *inode;
-    vfs_openmode_t mode;
-    uint64_t seek_pos;
-    vfs_tnode_t *curr_dir_ent;
-    uint64_t curr_dir_idx;
-    /* When set, this fd is owned by the userspace VFS server and is forwarded
-     * there; server_fd is the descriptor the server returned. */
     bool server;
     int64_t server_fd;
     uint64_t server_size;       /* file size reported by the server on open */
     int svc;                    /* service that owns server_fd */
+    uint64_t seek_pos;
+    uint64_t curr_dir_idx;
 } vfs_node_desc_t;
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
-
-void vfs_init();
-void vfs_register_fs(vfs_fsinfo_t * fs);
-vfs_fsinfo_t *vfs_get_fs(char *name);
-void vfs_debug();
-
-vfs_handle_t vfs_open(char *path, vfs_openmode_t mode);
 
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
@@ -280,13 +188,10 @@ vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
 vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
                                  vfs_openmode_t mode, uint64_t size, int svc);
 
-/* Open a path, through the userspace server when it is registered and through
- * the in-kernel VFS otherwise. */
-vfs_handle_t vfs_open_routed(const char *path, vfs_openmode_t mode);
-
 /* Read a whole file into a freshly kmalloc_chunk()'d kernel buffer without
- * touching the process fd table. Used by the ELF loader, which runs while the
- * userspace servers are still coming up. Returns 0 on success. */
+ * touching the process fd table. Used by the ELF loader, which falls back to
+ * the initrd image while the userspace servers are still coming up. Returns 0
+ * on success. */
 int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len);
 
 /* Server-backed stat/readdir, used by the syscall layer. `out` is a kernel
@@ -298,18 +203,8 @@ int64_t vfs_server_unlink(const char *path);
 /* Take a reference on a server fd, so a description inherited across fork or
  * execve stays open. */
 void vfs_server_ref_fd(int svc, int64_t sfd);
-int64_t vfs_create(char *path, vfs_node_type_t type);
 int64_t vfs_close(vfs_handle_t handle);
 uint64_t vfs_tell(vfs_handle_t handle);
 int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence);
 int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff);
 int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff);
-int64_t vfs_unlink(char *path);
-int64_t vfs_chmod(vfs_handle_t handle, int32_t newperms);
-int64_t vfs_refresh(vfs_handle_t handle);
-int64_t vfs_getdent(vfs_handle_t handle, vfs_dirent_t * dirent);
-int64_t vfs_mount(char *device, char *path, char *fsname);
-int64_t vfs_ioctl(vfs_handle_t handle, int64_t request, int64_t arg);
-
-dev_t vfs_new_dev_id(void);
-ino_t vfs_new_ino_id(void);

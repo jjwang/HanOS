@@ -350,8 +350,6 @@ void kmain(void)
     self_info.actual_res_x = fb_info->width;
     self_info.actual_res_y = fb_info->height;
 
-    vfs_init();
-
     klogi("Init SMP...\n");
     fb_splash_progress(fb_get(), 20);
     smp_init();

@@ -55,8 +55,6 @@ extern int64_t syscall_handler();
 
 typedef int64_t(*syscall_ptr_t) (void);
 
-extern spinlock_t vfs_lock;
-
 static bool debug_info = false;
 
 /* Copy a user path into a kernel buffer. Returns false on a bad pointer or a
@@ -511,116 +509,18 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
         cpu_set_errno(0);
         return sfh;
-    } else {
-        /* Check whether folder exists or not, e.g. filename is "1/txt" */
-        uint64_t len = strlen(full_path);
-        if (len == 0) {
-            klogv("k_openat: full path of \"%s\" is null\n", path);
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
-        for (int64_t i = len - 1; i >= 0; i--) {
-            if (full_path[i] == '/') {
-                full_path[i] = '\0';
-                break;
-            }
-        }
-        if (strlen(full_path) > 0) {
-            vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
-            if (tnode == NULL) {
-                klogv("k_openat: directory \"%s\" doesn't exist\n",
-                      full_path);
-                cpu_set_errno(ENOENT);
-                return -1;
-            }
-        }
-        if (vfs_get_full_path(dirfh, path, full_path, sizeof(full_path)) < 0) {
-            klogv("k_openat: full path of \"%s\" cannot be got\n", path);
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
-        klogi("k_openat: continue opening \"%s\"\n", full_path);
     }
 
-    vfs_openmode_t openmode = VFS_MODE_READWRITE;
-    int32_t perms = 0;
-    switch (flags & 0x7) {
-    case O_EXEC:
-        openmode = VFS_MODE_READ;
-        perms = S_IRUSR | S_IXUSR;
-        break;
-    case O_RDONLY:
-        openmode = VFS_MODE_READ;
-        perms = S_IRUSR;
-        break;
-    case O_WRONLY:
-        openmode = VFS_MODE_WRITE;
-        perms = S_IWUSR;
-        break;
-    case O_RDWR:
-    default:
-        openmode = VFS_MODE_READWRITE;
-        perms = S_IRUSR | S_IWUSR;
-        break;
-    }
-
-    if (flags & O_CREAT) {
-        int64_t ret = vfs_create(full_path, VFS_NODE_FILE);
-        if (ret < 0) {
-            klogv("k_openat: creating file for \"%s\" failed\n", path);
-            cpu_set_errno(EEXIST);
-            return ret;
-        } else {
-            vfs_handle_t fh = vfs_open(full_path, VFS_MODE_WRITE);
-            if (fh != VFS_INVALID_HANDLE) {
-                vfs_chmod(fh, perms | S_IRUSR);
-                vfs_close(fh);
-            }
-        }
-    }
-
-    klogd("k_openat: dirfh 0x%016lx, path %s and flags 0x%016lx\n", dirfh, path,
-          flags);
-    return vfs_open(full_path, openmode);
+    /* No filesystem server is registered; the kernel has no namespace. */
+    cpu_set_errno(ENOENT);
+    return -1;
 }
 
 int64_t k_chmod(char *path, int64_t flags)
 {
-    cpu_set_errno(0);
-
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(path, kpath, sizeof(kpath))) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-    path = kpath;
-
-    klogi("k_chmod: \"%s\" with flags 0x%016lx\n", path, flags);
-
-    vfs_handle_t fh = k_openat(VFS_FDCWD, path, O_RDWR, 0);
-    if (fh != VFS_INVALID_HANDLE) {
-        int32_t perms = 0;
-        switch (flags & 0x7) {
-        case O_EXEC:
-            perms = S_IRUSR | S_IXUSR;
-            break;
-        case O_RDONLY:
-            perms = S_IRUSR;
-            break;
-        case O_WRONLY:
-            perms = S_IWUSR;
-            break;
-        case O_RDWR:
-        default:
-            perms = S_IRUSR | S_IWUSR;
-            break;
-        }
-        vfs_chmod(fh, perms | S_IRUSR);
-        vfs_close(fh);
-        return 0;
-    }
-
-    cpu_set_errno(ENOENT);
+    (void) path;
+    (void) flags;
+    cpu_set_errno(ENOSYS);
     return -1;
 }
 
@@ -641,68 +541,19 @@ int64_t k_unlink(char *path)
     if (vfs_get_full_path(VFS_FDCWD, path, full_path, sizeof(full_path)) < 0) {
         cpu_set_errno(EINVAL);
         return -1;
-    } else {
-        /* Check whether folder exists or not, e.g. filename is "1/txt" */
-        uint64_t len = strlen(full_path);
-        if (len == 0) {
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
-        for (int64_t i = len - 1; i >= 0; i--) {
-            if (full_path[i] == '/') {
-                full_path[i] = '\0';
-                break;
-            }
-        }
-        if (strlen(full_path) > 0) {
-            vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
-            if (tnode == NULL) {
-                klogd("k_openat: directory \"%s\" doesn't exist\n",
-                      full_path);
-                cpu_set_errno(ENOENT);
-                return -1;
-            }
-        }
-        if (vfs_get_full_path(VFS_FDCWD, path, full_path, sizeof(full_path)) <
-            0) {
-            cpu_set_errno(EINVAL);
-            return -1;
-        }
     }
 
-    if (router_lookup(SVC_FS) != NULL) {
-        if (vfs_server_unlink(full_path) < 0) {
-            cpu_set_errno(ENOENT);
-            return -1;
-        }
-        cpu_set_errno(0);
-        return 0;
-    }
-
-    vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
-    if (tnode == NULL) {
+    if (router_lookup(SVC_FS) == NULL) {
         cpu_set_errno(ENOENT);
         return -1;
     }
 
-    vfs_inode_t *pi = tnode->parent;
-    for (uint64_t i = 0; i < vec_length(&(pi->child)); i++) {
-        if (vec_at(&(pi->child), i) == tnode) {
-            if (tnode->inode->refcount == 0) {
-                vec_erase(&(pi->child), i);
-                return 0;
-            } else {
-                klogw
-                    ("k_unlink: failed because of refcount of \"%s\" is %ld\n",
-                     path, tnode->inode->refcount);
-                cpu_set_errno(EINVAL);
-                return -1;
-            }
-        }
+    if (vfs_server_unlink(full_path) < 0) {
+        cpu_set_errno(ENOENT);
+        return -1;
     }
-
-    cpu_set_errno(ENOENT);
-    return -1;
+    cpu_set_errno(0);
+    return 0;
 }
 
 int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
@@ -901,25 +752,8 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
         return 0;
     }
 
-    vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
-
-    if (node != NULL && node->st.st_nlink > 0) {
-        if (copy_to_user((void *) statbuf, &(node->st),
-                         sizeof(vfs_stat_t)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-        klogd
-            ("k_fstatat: success with dirfh 0x%016lx and path %s(%s), size %ld\n",
-             dirfh, full_path, path, node->st.st_size);
-        cpu_set_errno(0);
-        return 0;
-    } else {
-        klogd("k_fstatat: fail with dirfh 0x%016lx and path %s(%s)\n",
-              dirfh, full_path, path);
-        cpu_set_errno(ENOENT);
-        return -1;
-    }
+    cpu_set_errno(ENOENT);
+    return -1;
 }
 
 int64_t k_fstat(int64_t handle, int64_t statbuf)
@@ -968,20 +802,9 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
         return 0;
     }
 
-    if (fd != NULL) {
-        if (copy_to_user((void *) statbuf, &(fd->tnode->st),
-                         sizeof(vfs_stat_t)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-        klogd("k_fstat: success with file handle %ld and size %ld\n",
-              handle, fd->tnode->st.st_size);
-        return 0;
-    } else {
-        kloge("k_fstat: fail with file handle %ld\n", handle);
-        cpu_set_errno(EINVAL);
-        return -1;
-    }
+    kloge("k_fstat: fail with file handle %ld\n", handle);
+    cpu_set_errno(EINVAL);
+    return -1;
 }
 
 /* TODO: Currently ignoring the flags parameter. */
@@ -1041,30 +864,8 @@ int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
         return 0;
     }
 
-    vfs_tnode_t *node = vfs_path_to_node(full_path, NO_CREATE, 0);
-
-    if (node != NULL) {
-        uint32_t perms = node->inode->perms;
-        if ((mode & R_OK) && !(perms & S_IRUSR)) {
-            cpu_set_errno(EACCES);
-            return -1;
-        }
-        if ((mode & W_OK) && !(perms & S_IWUSR)) {
-            cpu_set_errno(EACCES);
-            return -1;
-        }
-        if ((mode & X_OK) && !(perms & S_IXUSR)) {
-            cpu_set_errno(EACCES);
-            return -1;
-        }
-        if (mode & F_OK) {
-            return 0;
-        }
-        return 0;
-    } else {
-        cpu_set_errno(EBADF);
-        return -1;
-    }
+    cpu_set_errno(EBADF);
+    return -1;
 }
 
 int64_t k_getpid()
@@ -1161,9 +962,16 @@ int64_t k_chdir(char *dir)
     klogd("k_chdir: current \"%s\", target \"%s\" and change to \"%s\"",
           t->cwd, dir, fullpath);
 
-    if (vfs_path_to_node(fullpath, NO_CREATE, 0) == NULL) {
-        cpu_set_errno(ENOENT);
-        goto err_exit;
+    /* The VFS server owns the namespace; ask it whether the folder exists. */
+    if (router_lookup(SVC_FS) != NULL) {
+        vfs_stat_t st;
+
+        memset(&st, 0, sizeof(st));
+        if (vfs_server_stat_path(fullpath, &st) < 0
+            || (st.st_mode & S_IFMT) != S_IFDIR) {
+            cpu_set_errno(ENOENT);
+            goto err_exit;
+        }
     }
 
     strcpy(t->cwd, fullpath);
@@ -1216,43 +1024,7 @@ int64_t k_readdir(int64_t handle, uint64_t buff)
         return 0;
     }
 
-    if (!(fd->inode->type == VFS_NODE_FOLDER
-          || fd->inode->type == VFS_NODE_MOUNTPOINT)) {
-        errno = ENOTDIR;
-        goto err_exit;
-    }
-
-    if (fd->curr_dir_ent == NULL) {
-        if (vec_length(&fd->inode->child) == 0) {
-            /* End of dir */
-            goto err_exit;
-        }
-        fd->curr_dir_ent = vec_at(&fd->inode->child, 0);
-        fd->curr_dir_idx = 0;
-    } else {
-        if (fd->curr_dir_idx >= vec_length(&fd->inode->child) - 1) {
-            /* End of dir */
-            fd->curr_dir_ent = NULL;
-            goto err_exit;
-        }
-        fd->curr_dir_ent = vec_at(&fd->inode->child, fd->curr_dir_idx + 1);
-        fd->curr_dir_idx++;
-    }
-
-    dirent_t kde;
-    memset(&kde, 0, sizeof(kde));
-    strncpy(kde.d_name, fd->curr_dir_ent->name, sizeof(kde.d_name) - 1);
-    kde.d_ino = fd->curr_dir_ent->st.st_ino;
-    kde.d_off = 0;
-    kde.d_reclen = sizeof(dirent_t);
-    kde.d_type = DT_UNKNOWN;
-
-    if (copy_to_user((void *) buff, &kde, sizeof(kde)) != 0) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-
-    return 0;
+    errno = ENOTDIR;
   err_exit:
     cpu_set_errno(errno);
     return -1;
@@ -1741,39 +1513,11 @@ int k_getclock(void *_, int64_t which, vfs_timespec_t * out)
 int64_t k_readlink(int64_t dirfh, const char *path, void *buffer,
                    uint64_t max_size)
 {
-    cpu_set_errno(0);
-
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(path, kpath, sizeof(kpath))) {
-        cpu_set_errno(EFAULT);
-        return -1;
-    }
-    path = kpath;
-
-    char full_path[VFS_MAX_PATH_LEN] = { 0 };
-    vfs_get_full_path(dirfh, path, full_path, sizeof(full_path));
-
-    vfs_tnode_t *tnode = vfs_path_to_node(full_path, NO_CREATE, 0);
-
-    if (tnode == NULL)
-        goto err_exit;
-    if (tnode->inode->type != VFS_NODE_SYMLINK)
-        goto err_exit;
-
-    uint64_t link_len = strlen(tnode->inode->link);
-    if (link_len < max_size) {
-        klogd("k_readlink: %s -> %s\n", full_path, tnode->inode->link);
-        if (copy_to_user(buffer, tnode->inode->link, link_len + 1) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-    } else {
-        goto err_exit;
-    }
-    return (int64_t) link_len;
-
-  err_exit:
-    cpu_set_errno(EINVAL);
+    (void) dirfh;
+    (void) path;
+    (void) buffer;
+    (void) max_size;
+    cpu_set_errno(ENOSYS);
     return -1;
 }
 
