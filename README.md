@@ -16,6 +16,7 @@ Current features:
 - Read a PS/2 keyboard and mouse; drive the hardware cursor from a USB HID pointer.
 - Mount a VFS over an initrd ramfs and a read-only FAT32 driver. The FAT32 server reads the disk through a userspace block server.
 - Run a userspace shell with `ls`, `cat`, `wc`, `pwd`, `rm`, and `echo`.
+- Link userspace against musl; keep the kernel on a small freestanding C library.
 
 ## Building
 
@@ -33,10 +34,13 @@ make run-uefi   # boots under UEFI (downloads OVMF first)
 ## Layout
 
 ```
-kernel/     the kernel (arch/x64, mm, proc, fs, ipc, router, srv)
-userspace/  the programs: servers/, bin/, test/
-libc/       a small C library shared by the kernel and userspace
+kernel/     the kernel (arch/x64, mm, proc, fs, ipc, router, srv) and its C library (libc/)
+userspace/  the programs (servers/, bin/, test/) and the HanOS runtime
+include/    wire headers shared by the kernel and userspace
+musl/       the musl build and the HanOS port layer
 ```
+
+See `musl/README.md` for the musl build.
 
 ## Documentation
 

@@ -16,6 +16,7 @@ HanOS 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用�
 - 读取 PS/2 键盘和鼠标。USB HID 指针驱动硬件光标。
 - VFS 挂载 initrd ramfs 和只读 FAT32 驱动。FAT32 服务经用户态块服务读盘。
 - 用户态 shell 提供 `ls`、`cat`、`wc`、`pwd`、`rm`、`echo`。
+- 用户态链接 musl。内核保留一个精简的 freestanding C 库。
 
 ## 构建
 
@@ -33,10 +34,13 @@ make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 ## 目录结构
 
 ```
-kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）
-userspace/  用户态程序：servers/、bin/、test/
-libc/       内核与用户态共用的小 C 库
+kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（libc/）
+userspace/  用户态程序（servers/、bin/、test/）与 HanOS 运行时
+include/    内核与用户态共享的线协议头
+musl/       musl 构建与 HanOS 移植层
 ```
+
+musl 的构建说明见 `musl/README.md`。
 
 ## 文档
 
