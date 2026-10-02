@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <arch/x64/madt.h>
 #include <arch/x64/panic.h>
 #include <arch/x64/smp.h>

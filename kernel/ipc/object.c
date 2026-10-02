@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <lib/kmalloc.h>
@@ -175,7 +176,7 @@ kernel_object_t *handle_get(handle_table_t *ht, handle_t h, uint32_t rights)
     return o;
 }
 
-int handle_close(handle_table_t *ht, handle_t h)
+int32_t handle_close(handle_table_t *ht, handle_t h)
 {
     if (ht == NULL || h == HANDLE_INVALID)
         return -1;

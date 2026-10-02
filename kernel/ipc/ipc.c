@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <lib/kmalloc.h>
@@ -46,7 +47,7 @@ kernel_object_t *endpoint_object(endpoint_t *ep)
 
 /* Pop one entry. When objs != NULL the caller takes ownership of the staged
  * object references; otherwise they are discarded here. */
-static int ipc_try_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
+static int32_t ipc_try_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
                              kernel_object_t **objs, uint32_t *rights,
                              uint8_t *count)
 {
@@ -81,7 +82,7 @@ static int ipc_try_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
     return 0;
 }
 
-int ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
+int32_t ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
                   kernel_object_t **objs, uint32_t *rights, uint8_t count)
 {
     if (ep == NULL || msg == NULL)
@@ -116,12 +117,12 @@ int ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
     return 0;
 }
 
-int ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
+int32_t ipc_send(endpoint_t *ep, const ipc_msg_t *msg)
 {
     return ipc_send_objs(ep, msg, NULL, NULL, 0);
 }
 
-int ipc_notify(endpoint_t *ep, const ipc_msg_t *msg)
+int32_t ipc_notify(endpoint_t *ep, const ipc_msg_t *msg)
 {
     if (ep == NULL || msg == NULL)
         return -1;
@@ -144,7 +145,7 @@ int ipc_notify(endpoint_t *ep, const ipc_msg_t *msg)
     return 0;
 }
 
-int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
+int32_t ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
                   kernel_object_t **objs, uint32_t *rights, uint8_t *count)
 {
     if (ep == NULL || msg == NULL)
@@ -160,12 +161,12 @@ int ipc_recv_objs(endpoint_t *ep, ipc_msg_t *msg,
     }
 }
 
-int ipc_recv(endpoint_t *ep, ipc_msg_t *msg)
+int32_t ipc_recv(endpoint_t *ep, ipc_msg_t *msg)
 {
     return ipc_recv_objs(ep, msg, NULL, NULL, NULL);
 }
 
-int ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
+int32_t ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
                           kernel_object_t **objs, uint32_t *rights,
                           uint8_t *count, time_t timeout_ms)
 {
@@ -194,12 +195,12 @@ int ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
     }
 }
 
-int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms)
+int32_t ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t timeout_ms)
 {
     return ipc_recv_timeout_objs(ep, msg, NULL, NULL, NULL, timeout_ms);
 }
 
-int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep)
+int32_t ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep)
 {
     endpoint_t *reply = endpoint_create();
     if (reply == NULL)
@@ -208,7 +209,7 @@ int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep)
     ipc_msg_t m = *req;
     m.words[IPC_WORDS - 1] = (uint64_t) reply;
 
-    int r = ipc_send(ep, &m);
+    int32_t r = ipc_send(ep, &m);
     if (r == 0)
         r = ipc_recv_timeout(reply, rep, 1000);
 
@@ -216,7 +217,7 @@ int ipc_call(endpoint_t *ep, const ipc_msg_t *req, ipc_msg_t *rep)
     return r;
 }
 
-int ipc_reply(endpoint_t *ep, const ipc_msg_t *rep)
+int32_t ipc_reply(endpoint_t *ep, const ipc_msg_t *rep)
 {
     return ipc_send(ep, rep);
 }

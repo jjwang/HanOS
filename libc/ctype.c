@@ -17,50 +17,51 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <ctype.h>
 
-int isalnum(int c)
+int32_t isalnum(int32_t c)
 {
     return isalpha(c) || isdigit(c);
 }
 
-int isalpha(int c)
+int32_t isalpha(int32_t c)
 {
     return (c >= 'A' && c <= 'Z')
         || (c >= 'a' && c <= 'z');
 }
 
-int isblank(int c)
+int32_t isblank(int32_t c)
 {
     return c == ' ' || c == '\t';
 }
 
-int iscntrl(int c)
+int32_t iscntrl(int32_t c)
 {
     return c >= 0 && c <= 31;
 }
 
-int isdigit(int c)
+int32_t isdigit(int32_t c)
 {
     return c >= '0' && c <= '9';
 }
 
-int isgraph(int c)
+int32_t isgraph(int32_t c)
 {
     return c >= 33 && c <= 126;
 }
 
-int islower(int c)
+int32_t islower(int32_t c)
 {
     return c >= 'a' && c <= 'z';
 }
 
-int isprint(int c)
+int32_t isprint(int32_t c)
 {
     return c >= 32 && c <= 126;
 }
 
-int ispunct(int c)
+int32_t ispunct(int32_t c)
 {
     return (c >= 33 && c <= 47)
         || (c >= 58 && c <= 64)
@@ -68,25 +69,25 @@ int ispunct(int c)
         || (c >= 123 && c <= 126);
 }
 
-int isspace(int c)
+int32_t isspace(int32_t c)
 {
     return (c == ' ')
         || (c >= 9 && c <= 13);
 }
 
-int isupper(int c)
+int32_t isupper(int32_t c)
 {
     return c >= 'A' && c <= 'Z';
 }
 
-int isxdigit(int c)
+int32_t isxdigit(int32_t c)
 {
     return isdigit(c)
         || (c >= 'a' && c <= 'f')
         || (c >= 'A' && c <= 'F');
 }
 
-int tolower(int c)
+int32_t tolower(int32_t c)
 {
     if (!isalpha(c) || islower(c)) {
         return c;
@@ -95,7 +96,7 @@ int tolower(int c)
     return c + 32;
 }
 
-int toupper(int c)
+int32_t toupper(int32_t c)
 {
     if (!isalpha(c) || isupper(c)) {
         return c;

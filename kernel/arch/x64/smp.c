@@ -24,6 +24,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <stddef.h>
 #include <kconfig.h>
 
@@ -50,8 +51,8 @@ extern uint8_t smp_trampoline_blob_start, smp_trampoline_blob_end;
 
 uint8_t smp_halt_ipi_vector = 0;
 
-static volatile int *ap_boot_counter =
-    (volatile int *) PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
+static volatile int32_t *ap_boot_counter =
+    (volatile int32_t *) PHYS_TO_VIRT(SMP_AP_BOOT_COUNTER_ADDR);
 
 static smp_info_t *smp_info = NULL;
 
@@ -303,7 +304,7 @@ void smp_init()
         }
 
         memset(&(smp_info->cpus[coreid]), 0, sizeof(cpu_t));
-        int counter_prev = *ap_boot_counter;
+        int32_t counter_prev = *ap_boot_counter;
 
         /* if cpu is not online capable, do not initialize it */
         if (!(lapics[i]->flags & MADT_LAPIC_FLAG_ONLINE_CAPABLE)
@@ -341,7 +342,7 @@ void smp_init()
             hpet_sleep(100);
             /* check if cpu has started */
             for (uint64_t j = 0; j < 1000; j++) {
-                int counter_curr = *ap_boot_counter;
+                int32_t counter_curr = *ap_boot_counter;
                 if (counter_curr != counter_prev) {
                     success = true;
                     break;

@@ -20,6 +20,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <lib/klog.h>
@@ -685,7 +686,7 @@ process_t *sched_execve(const char *path, const char *argv[],
     if (tp != NULL) {
         /* The process server clones the parent's fd table for the new process;
          * this kernel path is a fork+exec. */
-        process_fd_fork((int) tp->pid, (int) tc->pid);
+        process_fd_fork((int32_t) tp->pid, (int32_t) tc->pid);
     }
 
     if (elf_load(tc, path, &entry, &aux)) {

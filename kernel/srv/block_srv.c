@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -64,7 +65,7 @@ static void block_spawn_attach(process_t * tc)
     tc->bootinfo = bi;
 
     klogi("block: attached ATA ports to pid %ld (ep handle %ld)\n",
-          (long)tc->pid, (long)h);
+          (int64_t)tc->pid, (int64_t)h);
 }
 
 bool block_server_start(void)
@@ -137,7 +138,7 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
     } else {
         ipc_msg_t rep;
         if (ipc_recv_timeout(reply, &rep, 3000) != 0) {
-            klogw("block: tag 0x%lx timed out\n", (unsigned long)tag);
+            klogw("block: tag 0x%lx timed out\n", (uint64_t)tag);
         } else if (tag == BLOCK_GET_INFO) {
             klogi("block: GET_INFO sector_size %lu count %lu\n",
                   rep.words[0], rep.words[1]);

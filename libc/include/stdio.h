@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #include <numeric.h>
 
@@ -88,6 +89,6 @@ typedef vfs_stat_t stat_t;
 #endif /* NO KERNEL_BUILD */
 /* ----- Definition of file system finished ----- */
 
-int fprintf(int fd, const char *fmt, ...);
-int printf(const char *fmt, ...);
+int32_t fprintf(int32_t fd, const char *fmt, ...);
+int32_t printf(const char *fmt, ...);
 

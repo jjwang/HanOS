@@ -26,6 +26,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #include <3rd-party/boot/limine.h>
 

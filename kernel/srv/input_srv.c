@@ -15,6 +15,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <kconfig.h>
@@ -83,8 +84,8 @@ _Noreturn static void input_kthread(pid_t pid)
             continue;
 
         if (m.tag == INPUT_MOUSE_TAG) {
-            gfx_cursor_move((int) (int64_t) m.words[0],
-                            (int) (int64_t) m.words[1]);
+            gfx_cursor_move((int32_t) (int64_t) m.words[0],
+                            (int32_t) (int64_t) m.words[1]);
         } else if (m.tag == INPUT_KEY_TAG) {
             /* The tty server owns /dev/tty. */
             tty_server_deliver_key((uint8_t) m.words[0]);

@@ -16,6 +16,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <mm/mm.h>
 #include <mm/alloc.h>
 #include <mm/slab.h>
@@ -67,7 +68,7 @@ static void dtor(scache_t * cache, void *obj)
 static scache_t *getcachefromsize(uint64_t size)
 {
     scache_t *cache = NULL;
-    for (int i = 0; i < CACHE_COUNT; ++i) {
+    for (int32_t i = 0; i < CACHE_COUNT; ++i) {
         if (size <= allocsizes[i]) {
             cache = caches[i];
             break;
@@ -133,7 +134,7 @@ void *realloc(void *ptr, uint64_t size)
 
 void alloc_init()
 {
-    for (int i = 0; i < CACHE_COUNT; ++i) {
+    for (int32_t i = 0; i < CACHE_COUNT; ++i) {
         caches[i] = slab_newcache(allocsizes[i] + sizeof(uint64_t) * 2
                                   + sizeof(uint64_t) * USE_POISON,
                                   0, initarea, dtor);

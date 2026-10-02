@@ -46,7 +46,7 @@ typedef struct {
     int64_t wait_memh;
     uint32_t wait_len;
     /* TCP state. */
-    int tstate;                 /* 0 closed, 1 syn sent, 2 established */
+    int32_t tstate;                 /* 0 closed, 1 syn sent, 2 established */
     uint32_t snd_nxt;
     uint32_t snd_una;
     uint32_t rcv_nxt;
@@ -55,7 +55,7 @@ typedef struct {
     bool got_ack;
     bool got_fin;
     bool listening;
-    int accept_pending;         /* completed connection fd, or 0 */
+    int32_t accept_pending;         /* completed connection fd, or 0 */
     int64_t acc_wait_reply;     /* deferred accept reply endpoint */
 } net_sock_t;
 
@@ -293,7 +293,7 @@ static bool nic_send(const uint8_t *pkt, uint32_t len)
     return true;
 }
 
-static int nic_poll(uint8_t *out)
+static int32_t nic_poll(uint8_t *out)
 {
     nic_rx_desc_t *d = &rx_ring[rx_cur];
 
@@ -309,7 +309,7 @@ static int nic_poll(uint8_t *out)
     nic_barrier();
     nic_write(E1000_RDT, rx_cur);
     rx_cur = (rx_cur + 1) % RX_COUNT;
-    return (int) len;
+    return (int32_t) len;
 }
 
 static bool nic_init(void)
@@ -339,18 +339,18 @@ static bool nic_init(void)
     tx_bufs = dma + off;
     tx_bufs_phys = dma_phys + off;
 
-    for (int i = 0; i < RX_COUNT; i++) {
+    for (int32_t i = 0; i < RX_COUNT; i++) {
         rx_ring[i].addr = rx_bufs_phys + i * NIC_BUF;
         rx_ring[i].status = 0;
     }
-    for (int i = 0; i < TX_COUNT; i++) {
+    for (int32_t i = 0; i < TX_COUNT; i++) {
         tx_ring[i].addr = tx_bufs_phys + i * NIC_BUF;
         tx_ring[i].status = 0x1;        /* free */
     }
 
     nic_write(E1000_IMC, 0xffffffffU);  /* no interrupts, poll */
     nic_write(E1000_CTRL, nic_read(E1000_CTRL) | E1000_CTRL_RST);
-    for (int i = 0; i < 100000 && (nic_read(E1000_CTRL) & E1000_CTRL_RST); i++)
+    for (int32_t i = 0; i < 100000 && (nic_read(E1000_CTRL) & E1000_CTRL_RST); i++)
         ;
 
     /* Set Link Up so the MAC will transmit. */
@@ -390,19 +390,19 @@ static bool nic_init(void)
     return true;
 }
 
-static void net_rx_frame(uint8_t * pkt, int n);
+static void net_rx_frame(uint8_t * pkt, int32_t n);
 static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
                     uint32_t plen);
 
 static void arp_store(uint32_t ip, const uint8_t * m)
 {
-    for (int i = 0; i < ARP_CACHE_N; i++) {
+    for (int32_t i = 0; i < ARP_CACHE_N; i++) {
         if (arp_cache[i].used && arp_cache[i].ip == ip) {
             memcpy(arp_cache[i].mac, m, 6);
             return;
         }
     }
-    for (int i = 0; i < ARP_CACHE_N; i++) {
+    for (int32_t i = 0; i < ARP_CACHE_N; i++) {
         if (!arp_cache[i].used) {
             arp_cache[i].used = true;
             arp_cache[i].ip = ip;
@@ -414,7 +414,7 @@ static void arp_store(uint32_t ip, const uint8_t * m)
 
 static bool arp_lookup(uint32_t ip, uint8_t * out)
 {
-    for (int i = 0; i < ARP_CACHE_N; i++) {
+    for (int32_t i = 0; i < ARP_CACHE_N; i++) {
         if (arp_cache[i].used && arp_cache[i].ip == ip) {
             memcpy(out, arp_cache[i].mac, 6);
             return true;
@@ -429,8 +429,8 @@ static void net_poll_once(void)
 {
     uint8_t rx[NIC_BUF];
 
-    for (int i = 0; i < 16; i++) {
-        int n = nic_poll(rx);
+    for (int32_t i = 0; i < 16; i++) {
+        int32_t n = nic_poll(rx);
 
         if (n <= 0)
             break;
@@ -463,7 +463,7 @@ static bool arp_resolve(uint32_t ip, uint8_t * out)
     if (!nic_send(pkt, 14 + sizeof(arp_hdr_t)))
         return false;
 
-    for (int i = 0; i < 4000000; i++) {
+    for (int32_t i = 0; i < 4000000; i++) {
         net_poll_once();
         if (arp_lookup(ip, out))
             return true;
@@ -491,7 +491,7 @@ static bool icmp_ping(uint32_t ip, uint16_t seq)
     if (!ip_send(ip, 1, seg, icmp_len))
         return false;
 
-    for (int i = 0; i < 4000000; i++) {
+    for (int32_t i = 0; i < 4000000; i++) {
         net_poll_once();
         if (icmp_got_reply && icmp_last_seq == seq)
             return true;
@@ -522,16 +522,16 @@ static void nic_selftest(void)
         net_log("net: ping 10.0.2.2 FAIL\n");
 }
 
-static net_sock_t *sock_get(int fd)
+static net_sock_t *sock_get(int32_t fd)
 {
     if (fd < 1 || fd > NET_MAX_SOCKS || !socks[fd - 1].used)
         return NULL;
     return &socks[fd - 1];
 }
 
-static int sock_alloc(void)
+static int32_t sock_alloc(void)
 {
-    for (int i = 0; i < NET_MAX_SOCKS; i++) {
+    for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
         if (socks[i].used)
             continue;
         memset(&socks[i], 0, sizeof(socks[i]));
@@ -713,7 +713,7 @@ static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
         return false;
     s->snd_nxt++;
 
-    for (int i = 0; i < 3000; i++) {
+    for (int32_t i = 0; i < 3000; i++) {
         net_poll_once();
         if (s->tstate == 2) {
             tcp_send_seg(s, TCP_ACK, NULL, 0);
@@ -726,7 +726,7 @@ static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
     return false;
 }
 
-static int tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
+static int32_t tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
 {
     if (s->tstate != 2)
         return -1;
@@ -736,7 +736,7 @@ static int tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
         return -1;
 
     s->snd_nxt += len;
-    return (int) len;
+    return (int32_t) len;
 }
 
 /* Find a TCP socket for an incoming segment: match the peer first, then fall
@@ -747,7 +747,7 @@ static net_sock_t *tcp_find(uint16_t dport, uint32_t src, uint16_t sport,
     net_sock_t *ls = NULL;
 
     *is_listen = false;
-    for (int i = 0; i < NET_MAX_SOCKS; i++) {
+    for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
         net_sock_t *s = &socks[i];
 
         if (!s->used || !s->stream || !s->bound || s->port != dport)
@@ -765,7 +765,7 @@ static net_sock_t *tcp_find(uint16_t dport, uint32_t src, uint16_t sport,
 }
 
 /* Dispatch one received Ethernet frame: ARP, ICMP, UDP and TCP. */
-static void net_rx_frame(uint8_t * pkt, int n)
+static void net_rx_frame(uint8_t * pkt, int32_t n)
 {
     if (n < 14)
         return;
@@ -808,8 +808,8 @@ static void net_rx_frame(uint8_t * pkt, int n)
     uint32_t ihl = (uint32_t) (ip4->ver_ihl & 0xf) * 4;
     uint32_t iptot = ntohs(ip4->tot_len);
 
-    if (ip4->proto == 1 && ihl >= 20 && n >= 14 + (int) ihl
-        + (int) sizeof(icmp_hdr_t)) {
+    if (ip4->proto == 1 && ihl >= 20 && n >= 14 + (int32_t) ihl
+        + (int32_t) sizeof(icmp_hdr_t)) {
         icmp_hdr_t *ic = (icmp_hdr_t *) (pkt + 14 + ihl);
 
         if (ic->type == 8) {
@@ -836,7 +836,7 @@ static void net_rx_frame(uint8_t * pkt, int n)
     }
 
     if (ip4->proto == 17 && ihl >= 20
-        && n >= 14 + (int) ihl + (int) sizeof(udp_hdr_t)) {
+        && n >= 14 + (int32_t) ihl + (int32_t) sizeof(udp_hdr_t)) {
         udp_hdr_t *u = (udp_hdr_t *) (pkt + 14 + ihl);
         uint16_t dport = ntohs(u->dst);
         uint16_t sport = ntohs(u->src);
@@ -845,7 +845,7 @@ static void net_rx_frame(uint8_t * pkt, int n)
         if (14 + ihl + 8 + ulen > (uint32_t) n)
             ulen = (uint32_t) n - 14 - ihl - 8;
 
-        for (int i = 0; i < NET_MAX_SOCKS; i++) {
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
             if (addr_match(&socks[i], MY_IP, dport)) {
                 sock_push(&socks[i], pkt + 14 + ihl + 8, ulen, src, sport);
                 sock_flush(&socks[i]);
@@ -856,7 +856,7 @@ static void net_rx_frame(uint8_t * pkt, int n)
     }
 
     if (ip4->proto == 6 && ihl >= 20
-        && n >= 14 + (int) ihl + (int) sizeof(tcp_hdr_t)) {
+        && n >= 14 + (int32_t) ihl + (int32_t) sizeof(tcp_hdr_t)) {
         tcp_hdr_t *t = (tcp_hdr_t *) (pkt + 14 + ihl);
         uint16_t dport = ntohs(t->dst);
         uint32_t seq = ntohl(t->seq);
@@ -869,7 +869,7 @@ static void net_rx_frame(uint8_t * pkt, int n)
         bool is_listen = false;
         net_sock_t *s;
 
-        if (n < (int) poff)
+        if (n < (int32_t) poff)
             plen = 0;
         else if (poff + plen > (uint32_t) n)
             plen = (uint32_t) n - poff;
@@ -880,7 +880,7 @@ static void net_rx_frame(uint8_t * pkt, int n)
 
         if (is_listen) {
             if ((t->flags & TCP_SYN) && !(t->flags & TCP_ACK)) {
-                int nfd = sock_alloc();
+                int32_t nfd = sock_alloc();
 
                 if (nfd > 0) {
                     net_sock_t *ns = &socks[nfd - 1];
@@ -963,7 +963,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -97;   /* -EAFNOSUPPORT */
             return;
         }
-        int fd = sock_alloc();
+        int32_t fd = sock_alloc();
 
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
@@ -976,7 +976,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_CONNECT) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
 
         if (s == NULL || !s->stream) {
             rep->words[0] = (uint64_t) (int64_t) -9;
@@ -993,7 +993,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_LISTEN) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
 
         if (s == NULL || !s->stream || !s->bound) {
             rep->words[0] = (uint64_t) (int64_t) -22;
@@ -1005,14 +1005,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_ACCEPT) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
 
         if (s == NULL || !s->listening) {
             rep->words[0] = (uint64_t) (int64_t) -22;
             return;
         }
         if (s->accept_pending > 0) {
-            int fd = s->accept_pending;
+            int32_t fd = s->accept_pending;
 
             s->accept_pending = 0;
             rep->words[0] = 0;
@@ -1025,7 +1025,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_BIND) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t ip = (uint32_t) m->words[1];
         uint16_t port = (uint16_t) m->words[2];
 
@@ -1033,7 +1033,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
-        for (int i = 0; i < NET_MAX_SOCKS; i++) {
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
             if (&socks[i] != s && addr_match(&socks[i], ip, port)) {
                 rep->words[0] = (uint64_t) (int64_t) -98;       /* -EADDRINUSE */
                 return;
@@ -1047,7 +1047,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_SENDTO) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t ip = (uint32_t) m->words[1];
         uint16_t port = (uint16_t) m->words[2];
         uint32_t len = (uint32_t) m->words[3];
@@ -1072,7 +1072,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         sys_handle_close(memh);
 
         if (s->stream) {
-            int n = tcp_send(s, pkt, len);
+            int32_t n = tcp_send(s, pkt, len);
 
             if (n < 0) {
                 rep->words[0] = (uint64_t) (int64_t) -5;        /* -EIO */
@@ -1084,7 +1084,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
 
         if (is_loopback(ip)) {
-            for (int i = 0; i < NET_MAX_SOCKS; i++) {
+            for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
                 if (addr_match(&socks[i], ip, port)) {
                     sock_push(&socks[i], pkt, len, s->ip, s->port);
                     sock_flush(&socks[i]);
@@ -1101,7 +1101,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_RECVFROM) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t len = (uint32_t) m->words[1];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
@@ -1136,7 +1136,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_CLOSE) {
-        net_sock_t *s = sock_get((int) m->words[0]);
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
 
         if (s == NULL) {
             rep->words[0] = (uint64_t) (int64_t) -9;
@@ -1164,7 +1164,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */

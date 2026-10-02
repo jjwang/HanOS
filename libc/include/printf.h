@@ -1,3 +1,4 @@
+#include <stdint.h>
 /* *INDENT-OFF* */
 
 /**-----------------------------------------------------------------------------
@@ -74,7 +75,7 @@ void _putchar(char character);
  * \return The number of characters that are written into the array, not counting the terminating null character
  */
 #define printf_ printf
-int printf_(const char* format, ...);
+int32_t printf_(const char* format, ...);
 
 
 /**
@@ -85,7 +86,7 @@ int printf_(const char* format, ...);
  * \return The number of characters that are WRITTEN into the buffer, not counting the terminating null character
  */
 #define sprintf sprintf_
-int sprintf_(char* buffer, const char* format, ...);
+int32_t sprintf_(char* buffer, const char* format, ...);
 
 
 /**
@@ -100,8 +101,8 @@ int sprintf_(char* buffer, const char* format, ...);
  */
 #define snprintf  snprintf_
 #define vsnprintf vsnprintf_
-int  snprintf_(char* buffer, uint64_t count, const char* format, ...);
-int vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va);
+int32_t  snprintf_(char* buffer, uint64_t count, const char* format, ...);
+int32_t vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va);
 
 
 /**
@@ -111,7 +112,7 @@ int vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va);
  * \return The number of characters that are WRITTEN into the buffer, not counting the terminating null character
  */
 #define vprintf vprintf_
-int vprintf_(const char* format, va_list va);
+int32_t vprintf_(const char* format, va_list va);
 
 
 /**
@@ -122,7 +123,7 @@ int vprintf_(const char* format, va_list va);
  * \param format A string that specifies the format of the output
  * \return The number of characters that are sent to the output function, not counting the terminating null character
  */
-int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...);
+int32_t fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...);
 
 
 #ifdef __cplusplus

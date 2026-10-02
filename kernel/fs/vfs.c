@@ -16,6 +16,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <protocol.h>
@@ -51,14 +52,14 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
     if (t == NULL)
         return NULL;
 
-    int kind = 0, svc = 0;
+    int32_t kind = 0, svc = 0;
     int64_t sfd = 0;
     uint64_t size = 0, seek = 0;
 
-    if (process_fd_get((int) handle, &kind, &svc, &sfd, &size, &seek) != 0) {
+    if (process_fd_get((int32_t) handle, &kind, &svc, &sfd, &size, &seek) != 0) {
         klogw
             ("VFS: %s() cannot locate %ld (0x%016lx) in file list of process %ld\n",
-             func, (long) handle, (long) handle, (long) t->pid);
+             func, (int64_t) handle, (int64_t) handle, (int64_t) t->pid);
         return NULL;
     }
 
@@ -199,7 +200,7 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
     return (int64_t) rep.words[1];
 }
 
-static int64_t vfs_server_close(int svc, int64_t sfd)
+static int64_t vfs_server_close(int32_t svc, int64_t sfd)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -436,8 +437,8 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
 }
 
 /* Open a path; fills *svc with the service that owns the returned fd. */
-vfs_handle_t vfs_open_path(const char *cwd, const char *path, int flags,
-                           int *svc)
+vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
+                           int32_t *svc)
 {
     handle_t mh;
     memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
@@ -574,7 +575,7 @@ static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
 }
 
 /* Add a reference to a server fd's open file description (used by fork). */
-void vfs_server_ref_fd(int svc, int64_t sfd)
+void vfs_server_ref_fd(int32_t svc, int64_t sfd)
 {
     if (router_lookup(svc) == NULL)
         return;
@@ -683,7 +684,7 @@ int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
 }
 
 vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
-                                 vfs_openmode_t mode, uint64_t size, int svc)
+                                 vfs_openmode_t mode, uint64_t size, int32_t svc)
 {
     (void) path;
 
@@ -778,12 +779,12 @@ uint64_t vfs_tell(vfs_handle_t handle)
 
 int64_t vfs_close(vfs_handle_t handle)
 {
-    int kind = 0, svc = 0;
+    int32_t kind = 0, svc = 0;
     int64_t sfd = 0;
 
     /* The process server removes the fd and returns where it lived so the
      * owning server can drop its open file description. */
-    if (process_fd_close((int) handle, &kind, &svc, &sfd) != 0)
+    if (process_fd_close((int32_t) handle, &kind, &svc, &sfd) != 0)
         return -1;
 
     if (svc == SVC_FAT)

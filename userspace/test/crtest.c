@@ -27,14 +27,14 @@ static command_help_t help_msg[] = {
 };
 /* *INDENT-ON* */
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
     (void) argc;
     (void) argv;
 
     const char *path = "/root/ramfile";
     const char *msg = "hello from ramfs\n";
-    int fd;
+    int32_t fd;
 
     fd = sys_open(path, O_CREAT | O_WRONLY);
     if (fd < 0) {
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
         sys_exit(1);
     }
 
-    if (sys_write(fd, msg, strlen(msg)) != (int) strlen(msg)) {
+    if (sys_write(fd, msg, strlen(msg)) != (int32_t) strlen(msg)) {
         fprintf(STDERR, "crtest: write failed\n");
         sys_close(fd);
         sys_exit(1);
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     }
 
     char buf[64] = { 0 };
-    int n = sys_read(fd, buf, sizeof(buf) - 1);
+    int32_t n = sys_read(fd, buf, sizeof(buf) - 1);
 
     sys_close(fd);
 

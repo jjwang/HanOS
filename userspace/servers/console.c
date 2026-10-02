@@ -59,21 +59,21 @@ static uint32_t bg = COLOR_BLACK;
 
 /* Rows changed since the last blit, so only those are copied to the
  * framebuffer instead of the whole screen. */
-static int dirty_min = -1;
-static int dirty_max = -1;
+static int32_t dirty_min = -1;
+static int32_t dirty_max = -1;
 
 static void mark_row(uint32_t y)
 {
-    if (dirty_min < 0 || (int) y < dirty_min)
-        dirty_min = (int) y;
-    if (dirty_max < 0 || (int) y > dirty_max)
-        dirty_max = (int) y;
+    if (dirty_min < 0 || (int32_t) y < dirty_min)
+        dirty_min = (int32_t) y;
+    if (dirty_max < 0 || (int32_t) y > dirty_max)
+        dirty_max = (int32_t) y;
 }
 
 static void mark_all(void)
 {
     dirty_min = 0;
-    dirty_max = (int) fb_h - 1;
+    dirty_max = (int32_t) fb_h - 1;
 }
 
 static void flush(void)
@@ -191,10 +191,10 @@ static void putc_raw(uint8_t c)
 }
 
 /* Minimal SGR handling so the kernel's coloured output renders. */
-static int esc_state;
-static int esc_param;
+static int32_t esc_state;
+static int32_t esc_param;
 
-static void apply_sgr(int p)
+static void apply_sgr(int32_t p)
 {
     switch (p) {
     case 0:
@@ -260,7 +260,7 @@ static void process(sys_ipc_msg_t * m)
         term_input((uint8_t) m->words[i]);
 }
 
-int main(void)
+int32_t main(void)
 {
     bootinfo_t bi;
 
@@ -295,7 +295,7 @@ int main(void)
 
     for (;;) {
         sys_ipc_msg_t m;
-        int r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m, 500);
+        int32_t r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m, 500);
 
         if (cursor_drawn) {
             draw_cursor(false);

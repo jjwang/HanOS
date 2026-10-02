@@ -23,6 +23,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 
 #include <stddef.h>
 
@@ -122,7 +123,7 @@ _Noreturn void kshell(pid_t pid)
      * out why.
      */
     if (false) {
-        int y = 0, x = 128, z;
+        int32_t y = 0, x = 128, z;
         z = x / y;
         klogi("kshell: 128 / 0 = %ld\n", z);
     }

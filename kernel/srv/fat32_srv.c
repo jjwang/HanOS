@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -59,7 +60,7 @@ static void fat32_spawn_attach(process_t * tc)
     bi->block_ep = hb;
     tc->bootinfo = bi;
 
-    klogi("fat32: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("fat32: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool fat32_server_start(void)
@@ -352,8 +353,8 @@ static void fat32_probe_read(const char *path)
 
     if (n > 0) {
         preview[n] = '\0';
-        klogi("fat32: read %s %ld/%lu bytes: %s\n", path, (long) n,
-              (unsigned long) size, preview);
+        klogi("fat32: read %s %ld/%lu bytes: %s\n", path, (int64_t) n,
+              (uint64_t) size, preview);
     } else {
         klogw("fat32: read %s failed\n", path);
     }

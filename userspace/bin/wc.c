@@ -34,10 +34,10 @@ char out[512] = { 0 };
 
 bool outmore = false;
 
-void wc(int fd, char *name)
+void wc(int32_t fd, char *name)
 {
-    int i, n;
-    int l, w, c, inword;
+    int32_t i, n;
+    int32_t l, w, c, inword;
 
     l = w = c = 0;
     inword = 0;
@@ -79,9 +79,9 @@ void wc(int fd, char *name)
     printf("\t%d\t%d\t%d\n", l, w, c);
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
-    int fd, i;
+    int32_t fd, i;
 
     if (argc <= 1) {
         wc(STDIN, "[unknown]");

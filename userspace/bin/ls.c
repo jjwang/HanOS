@@ -53,7 +53,7 @@ void ls(char *path)
     char fmtbuf[DIRSIZE + 1] = { 0 };
     char buf[DIRSIZE + 1] = { 0 };
     char *p;
-    int fd, num;
+    int32_t fd, num;
     dirent_t de;
     stat_t st;
 
@@ -110,9 +110,9 @@ void ls(char *path)
     sys_close(fd);
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
-    int i;
+    int32_t i;
 
     if (argc < 2) {
         ls(".");

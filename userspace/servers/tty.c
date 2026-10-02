@@ -69,7 +69,7 @@ static void console_write(const uint8_t * p, uint64_t len)
             wm.words[k++] = p[sent++];
         wm.words[5] = k;
 
-        for (int tries = 0; tries < 1000; tries++) {
+        for (int32_t tries = 0; tries < 1000; tries++) {
             if (sys_ipc_send((int64_t) bi.console_ep, &wm) == 0)
                 break;
         }
@@ -78,7 +78,7 @@ static void console_write(const uint8_t * p, uint64_t len)
 
 /* Echo one key from the input server to the console (framebuffer and serial).
  * A line-length guard keeps backspace from erasing the shell prompt. */
-static int echo_len;
+static int32_t echo_len;
 
 static void echo_key(uint8_t k)
 {
@@ -250,7 +250,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */

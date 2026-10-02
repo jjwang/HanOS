@@ -15,9 +15,10 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #include <stdbool.h>
 
-bool itoa(int num, char* str, int len, int base);
-int rand(int seed, int min, int max);
+bool itoa(int32_t num, char* str, int32_t len, int32_t base);
+int32_t rand(int32_t seed, int32_t min, int32_t max);
 

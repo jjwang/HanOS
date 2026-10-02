@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <lib/klog.h>
@@ -93,7 +94,7 @@ static handle_t publish(memobj_t * m)
                         | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
 }
 
-int ipc_buf_from_user(process_t * t, const void *uptr, uint64_t len,
+int32_t ipc_buf_from_user(process_t * t, const void *uptr, uint64_t len,
                       handle_t * out)
 {
     if (t == NULL || uptr == NULL || len == 0 || out == NULL)
@@ -118,7 +119,7 @@ int ipc_buf_from_user(process_t * t, const void *uptr, uint64_t len,
     return 0;
 }
 
-int ipc_buf_to_user(process_t * t, handle_t h, void *uptr, uint64_t len)
+int32_t ipc_buf_to_user(process_t * t, handle_t h, void *uptr, uint64_t len)
 {
     if (t == NULL || uptr == NULL || len == 0)
         return -1;
@@ -142,7 +143,7 @@ int ipc_buf_to_user(process_t * t, handle_t h, void *uptr, uint64_t len)
     return ok ? 0 : -1;
 }
 
-int ipc_buf_from_kernel(const void *kptr, uint64_t len, handle_t * out)
+int32_t ipc_buf_from_kernel(const void *kptr, uint64_t len, handle_t * out)
 {
     if (kptr == NULL || len == 0 || out == NULL)
         return -1;

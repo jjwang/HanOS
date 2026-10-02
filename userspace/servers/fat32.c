@@ -84,12 +84,12 @@ static uint32_t fat_lba;
 static uint32_t data_lba;
 static uint32_t root_cluster;
 static bool mounted;
-static int mount_err = -100;
+static int32_t mount_err = -100;
 
 /* Single-threaded server: one cluster-sized scratch buffer. */
 static uint8_t cluster_buf[SEC * 128];
 
-static int blk_read(uint32_t lba, uint8_t count, uint8_t *dst)
+static int32_t blk_read(uint32_t lba, uint8_t count, uint8_t *dst)
 {
     int64_t memh = sys_mem_alloc((uint64_t) count * SEC);
     if (memh < 0)
@@ -133,7 +133,7 @@ static int blk_read(uint32_t lba, uint8_t count, uint8_t *dst)
     }
 
     sys_ipc_msg_t rep;
-    int rc = -5;
+    int32_t rc = -5;
     if (sys_ipc_recv_timeout(reply, &rep, 2000) == 0) {
         if ((int64_t) rep.words[0] != BLOCK_OK) {
             rc = -6;
@@ -170,18 +170,18 @@ static uint32_t fat_next(uint32_t cluster)
     return (v >= 0x0FFFFFF8) ? 0 : v;
 }
 
-static int strcasecmp_ascii(const char *a, const char *b)
+static int32_t strcasecmp_ascii(const char *a, const char *b)
 {
     for (;;) {
-        unsigned char ca = (unsigned char) *a++;
-        unsigned char cb = (unsigned char) *b++;
+        uint8_t ca = (uint8_t) *a++;
+        uint8_t cb = (uint8_t) *b++;
 
         if (ca >= 'a' && ca <= 'z')
             ca -= 32;
         if (cb >= 'a' && cb <= 'z')
             cb -= 32;
         if (ca != cb)
-            return (int) ca - (int) cb;
+            return (int32_t) ca - (int32_t) cb;
         if (ca == 0)
             return 0;
     }
@@ -189,13 +189,13 @@ static int strcasecmp_ascii(const char *a, const char *b)
 
 static void fmt_83(const uint8_t name[11], char *out)
 {
-    int o = 0;
+    int32_t o = 0;
 
-    for (int i = 0; i < 8 && name[i] != ' '; i++)
+    for (int32_t i = 0; i < 8 && name[i] != ' '; i++)
         out[o++] = (char) name[i];
     if (name[8] != ' ') {
         out[o++] = '.';
-        for (int i = 8; i < 11 && name[i] != ' '; i++)
+        for (int32_t i = 8; i < 11 && name[i] != ' '; i++)
             out[o++] = (char) name[i];
     }
     out[o] = '\0';
@@ -204,11 +204,11 @@ static void fmt_83(const uint8_t name[11], char *out)
 /* Scan a directory (following its cluster chain). With `want` non-NULL, match
  * the effective name (the long name if present, else the 8.3 name); otherwise
  * return the `index`-th live entry. Fills out/out_name and returns 0, or -1. */
-static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
+static int32_t dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
                     fat_dirent_t *out, char *out_name)
 {
     uint16_t lfn[LFN_MAX_ENTRIES * LFN_CHARS_PER_ENTRY];
-    int lfn_len = 0;
+    int32_t lfn_len = 0;
     uint32_t cluster = dir_cluster;
     uint64_t seen = 0;
 
@@ -216,8 +216,8 @@ static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
         if (blk_read(cluster_lba(cluster), spc, cluster_buf) != 0)
             return -1;
 
-        int entries = (int) spc * SEC / 32;
-        for (int i = 0; i < entries; i++) {
+        int32_t entries = (int32_t) spc * SEC / 32;
+        for (int32_t i = 0; i < entries; i++) {
             fat_dirent_t *e = (fat_dirent_t *) (cluster_buf + i * 32);
 
             if (e->name[0] == 0x00)
@@ -228,18 +228,18 @@ static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
             }
             if (e->attr == 0x0F) {
                 fat_lfn_t *l = (fat_lfn_t *) e;
-                int base = ((l->seq & 0x1F) - 1) * LFN_CHARS_PER_ENTRY;
+                int32_t base = ((l->seq & 0x1F) - 1) * LFN_CHARS_PER_ENTRY;
                 uint16_t chars[LFN_CHARS_PER_ENTRY];
 
                 if (base < 0
                     || base + LFN_CHARS_PER_ENTRY >
-                    (int) (sizeof(lfn) / sizeof(lfn[0])))
+                    (int32_t) (sizeof(lfn) / sizeof(lfn[0])))
                     continue;
 
                 memcpy(chars + 0, l->name1, 10);
                 memcpy(chars + 5, l->name2, 12);
                 memcpy(chars + 11, l->name3, 4);
-                for (int c = 0; c < LFN_CHARS_PER_ENTRY; c++)
+                for (int32_t c = 0; c < LFN_CHARS_PER_ENTRY; c++)
                     lfn[base + c] = chars[c];
                 if (base + LFN_CHARS_PER_ENTRY > lfn_len)
                     lfn_len = base + LFN_CHARS_PER_ENTRY;
@@ -257,9 +257,9 @@ static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
             char nm[256];
 
             if (lfn_len > 0) {
-                int o = 0;
+                int32_t o = 0;
 
-                for (int k = 0; k < lfn_len && o < 255; k++) {
+                for (int32_t k = 0; k < lfn_len && o < 255; k++) {
                     uint16_t u = lfn[k];
 
                     if (u == 0)
@@ -298,20 +298,20 @@ static int dir_scan(uint32_t dir_cluster, const char *want, uint64_t index,
     return -1;
 }
 
-static int dir_lookup(uint32_t dir_cluster, const char *want,
+static int32_t dir_lookup(uint32_t dir_cluster, const char *want,
                       fat_dirent_t *out)
 {
     return dir_scan(dir_cluster, want, 0, out, NULL);
 }
 
-static int dir_index(uint32_t dir_cluster, uint64_t index, fat_dirent_t *out,
+static int32_t dir_index(uint32_t dir_cluster, uint64_t index, fat_dirent_t *out,
                      char *out_name)
 {
     return dir_scan(dir_cluster, NULL, index, out, out_name);
 }
 
 /* Walk an absolute path; returns 0 and fills cluster/size/is_dir. */
-static int find_path(const char *path, uint32_t *out_cluster,
+static int32_t find_path(const char *path, uint32_t *out_cluster,
                      uint32_t *out_size, bool *out_is_dir)
 {
     uint32_t cluster = root_cluster;
@@ -331,13 +331,13 @@ static int find_path(const char *path, uint32_t *out_cluster,
         const char *start = p;
         while (*p != '\0' && *p != '/')
             p++;
-        int len = (int) (p - start);
+        int32_t len = (int32_t) (p - start);
         while (*p == '/')
             p++;
 
         fat_dirent_t e;
         char comp[256];
-        int cl = (len < 255) ? len : 255;
+        int32_t cl = (len < 255) ? len : 255;
 
         memcpy(comp, start, (uint64_t) cl);
         comp[cl] = '\0';
@@ -400,10 +400,10 @@ static uint64_t read_from(uint32_t cluster, uint64_t off, uint64_t len,
     return done;
 }
 
-static int mount(void)
+static int32_t mount(void)
 {
     uint8_t sec[SEC];
-    int rc = blk_read(0, 1, sec);
+    int32_t rc = blk_read(0, 1, sec);
     if (rc != 0) {
         mount_err = -100 + rc;
         return -1;
@@ -448,15 +448,15 @@ typedef struct {
 
 static fat_fd_t fdtab[FAT_FD_MAX];
 
-static int fd_alloc(void)
+static int32_t fd_alloc(void)
 {
-    for (int i = 0; i < FAT_FD_MAX; i++)
+    for (int32_t i = 0; i < FAT_FD_MAX; i++)
         if (!fdtab[i].used)
             return i;
     return -1;
 }
 
-static bool fd_ok(int fd)
+static bool fd_ok(int32_t fd)
 {
     return fd >= 0 && fd < FAT_FD_MAX && fdtab[fd].used;
 }
@@ -464,7 +464,7 @@ static bool fd_ok(int fd)
 /* Read a NUL-terminated path from the mapped request buffer. */
 static void read_path(const uint8_t * buf, char *path)
 {
-    int i = 0;
+    int32_t i = 0;
 
     while (i < 255 && buf[i] != '\0') {
         path[i] = (char) buf[i];
@@ -526,7 +526,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             break;
         }
 
-        int nfd = fd_alloc();
+        int32_t nfd = fd_alloc();
         if (nfd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;
             break;
@@ -634,7 +634,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */

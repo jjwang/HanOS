@@ -24,7 +24,7 @@ typedef enum {
     DEC
 } num_sys_t;
 
-int memcmp(const void *s1, const void *s2, uint64_t len);
+int32_t memcmp(const void *s1, const void *s2, uint64_t len);
 void memset(void *addr, uint8_t val, uint64_t len);
 void* memcpy(void *dest, const void *src, uint64_t len);
 
@@ -35,7 +35,7 @@ int64_t strcmp(const char *a, const char *b);
 int64_t strncmp(const char *a, const char *b, uint64_t len);
 int64_t strcat(char *dest, const char *src);
 int64_t strncat(char *dest, const char *src, uint64_t dest_size);
-char *strchr(const char *s, int c);
+char *strchr(const char *s, int32_t c);
 uint64_t strtol(char* s, num_sys_t type);
 char *strlwr(char *s);
 char *strupr(char *s);

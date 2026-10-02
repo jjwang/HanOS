@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -68,7 +69,7 @@ static void process_spawn_attach(process_t * tc)
 
     tc->bootinfo = bi;
 
-    klogi("process: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("process: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool process_server_start(void)
@@ -141,7 +142,7 @@ static int64_t proc_call(uint64_t tag, uint64_t w1, uint64_t w2, uint64_t w3,
     return (int64_t) rep.words[0];
 }
 
-int64_t process_fd_open(int svc, int64_t server_fd, uint64_t size,
+int64_t process_fd_open(int32_t svc, int64_t server_fd, uint64_t size,
                         int64_t mode)
 {
     ipc_msg_t rep;
@@ -151,7 +152,7 @@ int64_t process_fd_open(int svc, int64_t server_fd, uint64_t size,
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
-int64_t process_fd_get(int fd, int *kind, int *svc, int64_t *server_fd,
+int64_t process_fd_get(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_fd,
                        uint64_t *size, uint64_t *seek_pos)
 {
     ipc_msg_t rep;
@@ -160,9 +161,9 @@ int64_t process_fd_get(int fd, int *kind, int *svc, int64_t *server_fd,
     if (r < 0)
         return r;
     if (kind != NULL)
-        *kind = (int) rep.words[1];
+        *kind = (int32_t) rep.words[1];
     if (svc != NULL)
-        *svc = (int) rep.words[2];
+        *svc = (int32_t) rep.words[2];
     if (server_fd != NULL)
         *server_fd = (int64_t) rep.words[3];
     if (size != NULL)
@@ -172,7 +173,7 @@ int64_t process_fd_get(int fd, int *kind, int *svc, int64_t *server_fd,
     return 0;
 }
 
-int64_t process_fd_close(int fd, int *kind, int *svc, int64_t *server_fd)
+int64_t process_fd_close(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_fd)
 {
     ipc_msg_t rep;
     int64_t r = proc_call(PROC_FD_CLOSE, (uint64_t) fd, 0, 0, 0, &rep);
@@ -180,15 +181,15 @@ int64_t process_fd_close(int fd, int *kind, int *svc, int64_t *server_fd)
     if (r < 0)
         return r;
     if (kind != NULL)
-        *kind = (int) rep.words[1];
+        *kind = (int32_t) rep.words[1];
     if (svc != NULL)
-        *svc = (int) rep.words[2];
+        *svc = (int32_t) rep.words[2];
     if (server_fd != NULL)
         *server_fd = (int64_t) rep.words[3];
     return 0;
 }
 
-int64_t process_fd_dup(int fd, int newfd)
+int64_t process_fd_dup(int32_t fd, int32_t newfd)
 {
     ipc_msg_t rep;
     int64_t r = proc_call(PROC_FD_DUP, (uint64_t) fd, (uint64_t) newfd, 0, 0,
@@ -197,7 +198,7 @@ int64_t process_fd_dup(int fd, int newfd)
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
-int64_t process_fd_seek(int fd, uint64_t pos, int whence)
+int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence)
 {
     ipc_msg_t rep;
     int64_t r = proc_call(PROC_FD_SEEK, (uint64_t) fd, pos, (uint64_t) whence,
@@ -206,7 +207,7 @@ int64_t process_fd_seek(int fd, uint64_t pos, int whence)
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
-int64_t process_fd_fcntl(int fd, int cmd, int64_t arg)
+int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg)
 {
     ipc_msg_t rep;
     int64_t r = proc_call(PROC_FD_FCNTL, (uint64_t) fd, (uint64_t) (int64_t) cmd,
@@ -217,13 +218,13 @@ int64_t process_fd_fcntl(int fd, int cmd, int64_t arg)
 
 /* Called in the parent's context after the fork, so it may block until the
  * server has cloned the child's descriptors and taken a reference on each. */
-void process_fd_fork(int parent, int child)
+void process_fd_fork(int32_t parent, int32_t child)
 {
     (void) parent;
     proc_call(PROC_FD_FORK, (uint64_t) child, 0, 0, 0, NULL);
 }
 
-void process_fd_exit(int pid)
+void process_fd_exit(int32_t pid)
 {
     /* Close the process's descriptors before it is reaped. Runs in the exiting
      * process's context (not under the run-queue lock), so it may block. */
@@ -240,7 +241,7 @@ void process_exit_notify(int64_t status)
 /* Ask the server for a reapable child of the current process. Returns the child
  * pid, 0 when none is ready and nohang is set, PROC_WAIT_BLOCK when a child
  * exists but has not exited, or a negative errno. */
-int64_t process_wait(int target, int nohang, int64_t *status)
+int64_t process_wait(int32_t target, int32_t nohang, int64_t *status)
 {
     ipc_msg_t rep;
     int64_t r = proc_call(PROC_WAIT, (uint64_t) (int64_t) target,

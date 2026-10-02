@@ -18,6 +18,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <arch/x64/acpi.h>
 #include <arch/x64/apic.h>
 #include <arch/x64/madt.h>

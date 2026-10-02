@@ -18,6 +18,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 typedef struct[[gnu::packed]] {
     uint8_t padding[8];

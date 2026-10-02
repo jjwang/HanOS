@@ -34,9 +34,9 @@ static command_help_t help_msg[] = {
 #define TCP_ECHO_PORT   9998
 #define TCP_SRV_PORT    9997
 
-static int tcp_srv_test(void)
+static int32_t tcp_srv_test(void)
 {
-    int l = sys_socket(AF_INET, SOCK_STREAM, 0);
+    int32_t l = sys_socket(AF_INET, SOCK_STREAM, 0);
 
     if (l < 0) {
         printf("nettest: srv socket FAIL\n");
@@ -52,7 +52,7 @@ static int tcp_srv_test(void)
     }
     printf("nettest: srv listening\n");
 
-    int c = sys_accept(l);
+    int32_t c = sys_accept(l);
 
     if (c < 0) {
         printf("nettest: srv accept FAIL\n");
@@ -70,11 +70,11 @@ static int tcp_srv_test(void)
         return 1;
     }
     buf[n] = '\0';
-    printf("nettest: srv recv %ld: %s\n", (long) n, buf);
+    printf("nettest: srv recv %ld: %s\n", (int64_t) n, buf);
 
     int64_t s = sys_sendto(c, 0, 0, buf, n);
 
-    printf("nettest: srv echo %ld\n", (long) s);
+    printf("nettest: srv echo %ld\n", (int64_t) s);
 
     sys_socket_close(c);
     sys_socket_close(l);
@@ -82,9 +82,9 @@ static int tcp_srv_test(void)
 }
 
 
-static int udp_nic_test(void)
+static int32_t udp_nic_test(void)
 {
-    int s = sys_socket(AF_INET, SOCK_DGRAM, 0);
+    int32_t s = sys_socket(AF_INET, SOCK_DGRAM, 0);
 
     if (s < 0) {
         printf("nettest: udp socket FAIL\n");
@@ -94,7 +94,7 @@ static int udp_nic_test(void)
     const char *m = "udp-hello";
     int64_t n = sys_sendto(s, GW_IP, UDP_ECHO_PORT, m, strlen(m));
 
-    printf("nettest: udp sent %ld\n", (long) n);
+    printf("nettest: udp sent %ld\n", (int64_t) n);
     if (n != (int64_t) strlen(m))
         return 1;
 
@@ -104,19 +104,19 @@ static int udp_nic_test(void)
     int64_t r = sys_recvfrom(s, buf, sizeof(buf) - 1, &ip, &port);
 
     if (r <= 0) {
-        printf("nettest: udp recv FAIL %ld\n", (long) r);
+        printf("nettest: udp recv FAIL %ld\n", (int64_t) r);
         return 1;
     }
     buf[r] = '\0';
-    printf("nettest: udp recv %ld: %s\n", (long) r, buf);
+    printf("nettest: udp recv %ld: %s\n", (int64_t) r, buf);
 
     sys_socket_close(s);
     return strcmp(buf, m) == 0 ? 0 : 1;
 }
 
-static int tcp_nic_test(void)
+static int32_t tcp_nic_test(void)
 {
-    int s = sys_socket(AF_INET, SOCK_STREAM, 0);
+    int32_t s = sys_socket(AF_INET, SOCK_STREAM, 0);
 
     if (s < 0) {
         printf("nettest: tcp socket FAIL\n");
@@ -131,7 +131,7 @@ static int tcp_nic_test(void)
     const char *m = "tcp-hello";
     int64_t n = sys_sendto(s, 0, 0, m, strlen(m));
 
-    printf("nettest: tcp sent %ld\n", (long) n);
+    printf("nettest: tcp sent %ld\n", (int64_t) n);
     if (n != (int64_t) strlen(m))
         return 1;
 
@@ -141,34 +141,34 @@ static int tcp_nic_test(void)
     int64_t r = sys_recvfrom(s, buf, sizeof(buf) - 1, &ip, &port);
 
     if (r <= 0) {
-        printf("nettest: tcp recv FAIL %ld\n", (long) r);
+        printf("nettest: tcp recv FAIL %ld\n", (int64_t) r);
         return 1;
     }
     buf[r] = '\0';
-    printf("nettest: tcp recv %ld: %s\n", (long) r, buf);
+    printf("nettest: tcp recv %ld: %s\n", (int64_t) r, buf);
 
     sys_socket_close(s);
     return strcmp(buf, m) == 0 ? 0 : 1;
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
     if (argc > 1 && strcmp(argv[1], "udp") == 0) {
-        int rc = udp_nic_test();
+        int32_t rc = udp_nic_test();
 
         printf("nettest: udp %s\n", rc == 0 ? "PASS" : "FAIL");
         sys_exit(rc);
     }
 
     if (argc > 1 && strcmp(argv[1], "tcp") == 0) {
-        int rc = tcp_nic_test();
+        int32_t rc = tcp_nic_test();
 
         printf("nettest: tcp %s\n", rc == 0 ? "PASS" : "FAIL");
         sys_exit(rc);
     }
 
     if (argc > 1 && strcmp(argv[1], "srv") == 0) {
-        int rc = tcp_srv_test();
+        int32_t rc = tcp_srv_test();
 
         printf("nettest: srv %s\n", rc == 0 ? "PASS" : "FAIL");
         sys_exit(rc);
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
     (void) argc;
     (void) argv;
 
-    int rx = sys_socket(AF_INET, SOCK_DGRAM, 0);
+    int32_t rx = sys_socket(AF_INET, SOCK_DGRAM, 0);
 
     if (rx < 0) {
         printf("nettest: socket rx FAIL\n");
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         sys_exit(1);
     }
 
-    int tx = sys_socket(AF_INET, SOCK_DGRAM, 0);
+    int32_t tx = sys_socket(AF_INET, SOCK_DGRAM, 0);
 
     if (tx < 0) {
         printf("nettest: socket tx FAIL\n");
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     int64_t sent = sys_sendto(tx, NET_IP_LOOPBACK, NET_TEST_PORT, msg,
                               strlen(msg));
 
-    printf("nettest: sent %ld bytes\n", (long) sent);
+    printf("nettest: sent %ld bytes\n", (int64_t) sent);
     if (sent != (int64_t) strlen(msg)) {
         printf("nettest: sendto FAIL\n");
         sys_exit(1);
@@ -211,12 +211,12 @@ int main(int argc, char *argv[])
     int64_t n = sys_recvfrom(rx, buf, sizeof(buf) - 1, &ip, &port);
 
     if (n <= 0) {
-        printf("nettest: recvfrom FAIL %ld\n", (long) n);
+        printf("nettest: recvfrom FAIL %ld\n", (int64_t) n);
         sys_exit(1);
     }
     buf[n] = '\0';
 
-    printf("nettest: recv %ld bytes from %u:%u: %s\n", (long) n, ip, port,
+    printf("nettest: recv %ld bytes from %u:%u: %s\n", (int64_t) n, ip, port,
            buf);
 
     sys_socket_close(rx);

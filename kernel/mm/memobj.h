@@ -41,8 +41,8 @@ memobj_t *memobj_create(uint64_t size);
 kernel_object_t *memobj_object(memobj_t * m);
 
 /* Map/unmap the whole object into an address space at a page-aligned vaddr. */
-int memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot);
-int memobj_unmap(memobj_t * m, addrspace_t * as, uint64_t vaddr);
+int32_t memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot);
+int32_t memobj_unmap(memobj_t * m, addrspace_t * as, uint64_t vaddr);
 
 uint64_t memobj_size(memobj_t * m);
 uint64_t memobj_page_count(memobj_t * m);

@@ -16,6 +16,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/klib.h>
 #include <lib/spinlock.h>
 #include <lib/klog.h>

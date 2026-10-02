@@ -24,6 +24,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/klog.h>
 #include <lib/time.h>
 #include <arch/x64/hpet.h>

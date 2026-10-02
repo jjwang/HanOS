@@ -17,6 +17,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <numeric.h>
@@ -71,21 +72,21 @@ static bool copy_user_path(const char *upath, char *kpath, uint64_t ksize)
 
 static void free_exec_argv(char **kargv)
 {
-    for (int i = 0; kargv != NULL && kargv[i] != NULL; i++)
+    for (int32_t i = 0; kargv != NULL && kargv[i] != NULL; i++)
         kmfree(kargv[i]);
 }
 
 /* Copy a NULL-terminated array of user strings into kernel memory. The caller
  * must provide room for EXEC_MAX_ARGS + 1 entries. Returns 0 on success. */
-static int copy_exec_argv(const char *uarr[], char **karr)
+static int32_t copy_exec_argv(const char *uarr[], char **karr)
 {
-    for (int i = 0; i <= EXEC_MAX_ARGS; i++)
+    for (int32_t i = 0; i <= EXEC_MAX_ARGS; i++)
         karr[i] = NULL;
 
     if (uarr == NULL)
         return 0;
 
-    for (int i = 0; i < EXEC_MAX_ARGS; i++) {
+    for (int32_t i = 0; i < EXEC_MAX_ARGS; i++) {
         uint64_t uptr = 0;
 
         if (copy_from_user(&uptr, &uarr[i], sizeof(uptr)) != 0)
@@ -441,11 +442,11 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
-    int svc = SVC_FS;
+    int32_t svc = SVC_FS;
 
     /* The VFS server owns the namespace and resolves cwd+path; it redirects
      * paths under the FAT mount to the FAT server. */
-    vfs_handle_t sfh = vfs_open_path(cwd, path, (int) flags, &svc);
+    vfs_handle_t sfh = vfs_open_path(cwd, path, (int32_t) flags, &svc);
 
     if (sfh == VFS_INVALID_HANDLE) {
         cpu_set_errno(ENOENT);
@@ -453,7 +454,7 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
     }
 
     if (flags & O_CLOEXEC)
-        process_fd_fcntl((int) sfh, F_SETFD, FD_CLOEXEC);
+        process_fd_fcntl((int32_t) sfh, F_SETFD, FD_CLOEXEC);
 
     cpu_set_errno(0);
     return sfh;
@@ -496,12 +497,12 @@ int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
     cpu_set_errno(0);
 
     if (fh >= 0 && fh < 3) {
-        int kind = 0, svc = 0;
+        int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
         /* Standard streams are not seekable unless a dup redirected them. */
-        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) != 0) {
+        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) != 0) {
             klogv("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld\n",
                   fh, fh, offset, whence);
             return 0;
@@ -527,10 +528,10 @@ int64_t k_close(int64_t fh)
 
     if (fh >= 0 && fh < 3) {
         /* Closing a standard fd only drops any redirection to a file. */
-        int kind = 0, svc = 0;
+        int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
 
-        process_fd_close((int) fh, &kind, &svc, &sfd);
+        process_fd_close((int32_t) fh, &kind, &svc, &sfd);
         return 0;
     }
 
@@ -556,11 +557,11 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
 
     if (fh >= 0 && fh < 3) {
         /* Standard input is the tty unless a dup redirected the fd. */
-        int kind = 0, svc = 0;
+        int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
-        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) == 0)
+        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) == 0)
             return vfs_read(fh, count, buf);
 
         if (fh == STDIN)
@@ -593,11 +594,11 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
 
     if (fh >= 0 && fh < 3) {
         /* Standard output is the tty unless a dup redirected the fd. */
-        int kind = 0, svc = 0;
+        int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
-        if (process_fd_get((int) fh, &kind, &svc, &sfd, &size, &seek) == 0)
+        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) == 0)
             return vfs_write(fh, count, buf);
 
         if (fh == STDOUT || fh == STDERR)
@@ -974,8 +975,8 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
             return -1;
         }
 
-        klogi("k_pipe: server pipe read %ld write %ld\n", (long) rfh,
-              (long) wfh);
+        klogi("k_pipe: server pipe read %ld write %ld\n", (int64_t) rfh,
+              (int64_t) wfh);
         return 0;
     }
 
@@ -1014,7 +1015,7 @@ int64_t k_fork()
     } else if (t->pid == sched_get_pid()) {
         /* Parent: the process server clones the child's fd table, then the
          * child is allowed to run. */
-        process_fd_fork((int) t->pid, (int) tid_child);
+        process_fd_fork((int32_t) t->pid, (int32_t) tid_child);
         sched_mark_fds_ready(tid_child);
         klogd("k_fork: return %ld from parent process #%ld\n", tid_child,
               t->pid);
@@ -1041,7 +1042,7 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 
     /* Only the descriptor flags live in the process server for now. */
     if (request == F_GETFD || request == F_SETFD) {
-        int64_t r = process_fd_fcntl((int) fd, (int) request, arg);
+        int64_t r = process_fd_fcntl((int32_t) fd, (int32_t) request, arg);
 
         if (r < 0) {
             cpu_set_errno(EBADF);
@@ -1075,7 +1076,7 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
 
     while (true) {
         int64_t st = 0;
-        int64_t r = process_wait((int) wpid, nohang ? 1 : 0, &st);
+        int64_t r = process_wait((int32_t) wpid, nohang ? 1 : 0, &st);
 
         if (r > 0) {
             if (status != NULL) {
@@ -1113,7 +1114,7 @@ void k_exit(int64_t status)
         klogi("k_exit: process %ld exit with status %ld\n", t->pid, status);
         /* The process server owns the fd table and closes the server side of
          * every descriptor the process held. */
-        process_fd_exit((int) t->pid);
+        process_fd_exit((int32_t) t->pid);
         /* Record the exit status so the parent's wait can collect it. */
         process_exit_notify(status);
     }
@@ -1122,7 +1123,7 @@ void k_exit(int64_t status)
     sched_exit(status);
 }
 
-int k_getcwd(char *buffer, uint64_t size)
+int32_t k_getcwd(char *buffer, uint64_t size)
 {
     process_t *t = sched_get_current_process();
     cpu_set_errno(0);
@@ -1159,7 +1160,7 @@ int k_getcwd(char *buffer, uint64_t size)
     return -1;
 }
 
-int k_getrusage(int64_t who, uint64_t usage)
+int32_t k_getrusage(int64_t who, uint64_t usage)
 {
     /* When gcc is launched, it will call getrusage(). We need to dive into
      * gcc to know the purpose of this function call.
@@ -1176,7 +1177,7 @@ int k_getrusage(int64_t who, uint64_t usage)
 
 /* Pack path/cwd/argv/envp and the ELF file into one buffer and hand it to the
  * process server, which parses and maps it. Returns 0 on success. */
-static int exec_via_server(process_t * t, const char *kpath,
+static int32_t exec_via_server(process_t * t, const char *kpath,
                            const char **argv, const char **envp,
                            const char *cwd)
 {
@@ -1315,7 +1316,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         klogi("k_execve: server ran \"%s\", exit process %ld\n", kpath, t->pid);
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
-        process_fd_exit((int) t->pid);
+        process_fd_exit((int32_t) t->pid);
         process_exit_notify(0);
         sched_exit(0);
         cpu_set_errno(0);
@@ -1327,7 +1328,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
               t != NULL ? t->pid : 0);
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
-        process_fd_exit((int) (t != NULL ? t->pid : 0));
+        process_fd_exit((int32_t) (t != NULL ? t->pid : 0));
         sched_exit(0);
         cpu_set_errno(0);
         return 0;
@@ -1339,7 +1340,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     return -1;
 }
 
-int k_getclock(void *_, int64_t which, vfs_timespec_t * out)
+int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
 {
     (void) _;
 
@@ -1414,7 +1415,7 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
     /* Make fh refer to newfh's open file description so that a program can
      * redirect standard input and output in the process server.
      */
-    if (process_fd_dup((int) newfh, (int) fh) < 0) {
+    if (process_fd_dup((int32_t) newfh, (int32_t) fh) < 0) {
         cpu_set_errno(EBADF);
         return -1;
     }
@@ -1575,7 +1576,7 @@ int64_t k_ipc_send(int64_t handle, void *umsg)
 /* Common receive path: install any handles the sender moved onto this message
  * into the receiver's table, then return the (rewritten) message to user space.
  * mode 0 = blocking, 1 = timeout, 2 = non-blocking. */
-static int64_t k_ipc_recv_common(endpoint_t *ep, void *umsg, int mode,
+static int64_t k_ipc_recv_common(endpoint_t *ep, void *umsg, int32_t mode,
                                  time_t timeout)
 {
     process_t *t = sched_get_current_process();
@@ -1588,7 +1589,7 @@ static int64_t k_ipc_recv_common(endpoint_t *ep, void *umsg, int mode,
     kernel_object_t *objs[2];
     uint32_t rights[2];
     uint8_t n = 0;
-    int r;
+    int32_t r;
 
     if (mode == 0)
         r = ipc_recv_objs(ep, &m, objs, rights, &n);
@@ -2056,7 +2057,7 @@ int64_t k_socket(int64_t domain, int64_t type, int64_t protocol)
         return -1;
     }
 
-    int64_t fd = net_socket((int) domain, (int) type, (int) protocol);
+    int64_t fd = net_socket((int32_t) domain, (int32_t) type, (int32_t) protocol);
 
     if (fd < 0) {
         cpu_set_errno(EAFNOSUPPORT);
@@ -2069,7 +2070,7 @@ int64_t k_bind(int64_t sock, int64_t ip, int64_t port)
 {
     cpu_set_errno(0);
 
-    if (net_bind((int) sock, (uint32_t) ip, (uint16_t) port) < 0) {
+    if (net_bind((int32_t) sock, (uint32_t) ip, (uint16_t) port) < 0) {
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -2087,7 +2088,7 @@ int64_t k_sendto(int64_t sock, int64_t ip, int64_t port, void *buf,
         return -1;
     }
 
-    int64_t n = net_sendto((int) sock, (uint32_t) ip, (uint16_t) port, buf,
+    int64_t n = net_sendto((int32_t) sock, (uint32_t) ip, (uint16_t) port, buf,
                            len);
 
     if (n < 0) {
@@ -2110,7 +2111,7 @@ int64_t k_recvfrom(int64_t sock, void *buf, uint64_t len, void *ip_ptr,
 
     uint32_t ip = 0;
     uint16_t port = 0;
-    int64_t n = net_recvfrom((int) sock, buf, len, &ip, &port);
+    int64_t n = net_recvfrom((int32_t) sock, buf, len, &ip, &port);
 
     if (n < 0) {
         cpu_set_errno(EIO);
@@ -2134,7 +2135,7 @@ int64_t k_socket_close(int64_t sock)
 {
     cpu_set_errno(0);
 
-    if (net_close((int) sock) < 0) {
+    if (net_close((int32_t) sock) < 0) {
         cpu_set_errno(EBADF);
         return -1;
     }
@@ -2145,7 +2146,7 @@ int64_t k_connect(int64_t sock, int64_t ip, int64_t port)
 {
     cpu_set_errno(0);
 
-    if (net_connect((int) sock, (uint32_t) ip, (uint16_t) port) < 0) {
+    if (net_connect((int32_t) sock, (uint32_t) ip, (uint16_t) port) < 0) {
         cpu_set_errno(EIO);
         return -1;
     }
@@ -2156,7 +2157,7 @@ int64_t k_listen(int64_t sock, int64_t backlog)
 {
     cpu_set_errno(0);
 
-    if (net_listen((int) sock, (int) backlog) < 0) {
+    if (net_listen((int32_t) sock, (int32_t) backlog) < 0) {
         cpu_set_errno(EINVAL);
         return -1;
     }
@@ -2167,7 +2168,7 @@ int64_t k_accept(int64_t sock)
 {
     cpu_set_errno(0);
 
-    int64_t fd = net_accept((int) sock);
+    int64_t fd = net_accept((int32_t) sock);
 
     if (fd < 0) {
         cpu_set_errno(EBADF);

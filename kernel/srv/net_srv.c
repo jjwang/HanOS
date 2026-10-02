@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -87,7 +88,7 @@ static bool net_grant_nic(process_t * tc, bootinfo_t * bi)
         bi->net_dma_phys = dma_phys;
         bi->net_dma_size = NET_DMA_SIZE;
         klogi("net: granted DMA 0x%lx (%ld bytes) at 0x%lx\n", dma_phys,
-              (long) NET_DMA_SIZE, (long) NET_DMA_VADDR);
+              (int64_t) NET_DMA_SIZE, (int64_t) NET_DMA_VADDR);
     }
 
     klogi("net: granted NIC %04x:%04x BAR0 0x%lx (%ld bytes) at 0x%lx\n",
@@ -118,7 +119,7 @@ static void net_spawn_attach(process_t * tc)
 
     tc->bootinfo = bi;
 
-    klogi("net: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("net: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool net_server_start(void)
@@ -207,7 +208,7 @@ static void net_copy_out(memobj_t * mo, void *dst, uint64_t len)
     }
 }
 
-int64_t net_socket(int domain, int type, int protocol)
+int64_t net_socket(int32_t domain, int32_t type, int32_t protocol)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -223,7 +224,7 @@ int64_t net_socket(int domain, int type, int protocol)
     return (int64_t) rep.words[1];
 }
 
-int64_t net_bind(int sock, uint32_t ip, uint16_t port)
+int64_t net_bind(int32_t sock, uint32_t ip, uint16_t port)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -239,7 +240,7 @@ int64_t net_bind(int sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
-int64_t net_connect(int sock, uint32_t ip, uint16_t port)
+int64_t net_connect(int32_t sock, uint32_t ip, uint16_t port)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -255,7 +256,7 @@ int64_t net_connect(int sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
-int64_t net_listen(int sock, int backlog)
+int64_t net_listen(int32_t sock, int32_t backlog)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -270,7 +271,7 @@ int64_t net_listen(int sock, int backlog)
     return (int64_t) rep.words[0];
 }
 
-int64_t net_accept(int sock)
+int64_t net_accept(int32_t sock)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -285,7 +286,7 @@ int64_t net_accept(int sock)
     return (int64_t) rep.words[1];
 }
 
-int64_t net_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
+int64_t net_sendto(int32_t sock, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len)
 {
     if (len > NET_IO_BUF_SIZE)
@@ -328,7 +329,7 @@ int64_t net_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
     return n;
 }
 
-int64_t net_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
+int64_t net_recvfrom(int32_t sock, void *buf, uint64_t len, uint32_t *ip,
                      uint16_t *port)
 {
     if (len > NET_IO_BUF_SIZE)
@@ -371,7 +372,7 @@ int64_t net_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
     return n;
 }
 
-int64_t net_close(int sock)
+int64_t net_close(int32_t sock)
 {
     ipc_msg_t req;
     ipc_msg_t rep;

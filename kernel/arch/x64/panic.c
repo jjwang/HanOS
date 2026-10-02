@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -25,7 +26,7 @@
 
 #include <printf.h>
 
-static int symbols_get_index(uint64_t addr)
+static int32_t symbols_get_index(uint64_t addr)
 {
     for (uint64_t i = 0; _kernel_symtab[i].addr < UINT64_MAX; i++)
         if (_kernel_symtab[i].addr < addr
@@ -47,7 +48,7 @@ void display_backtrace()
         if (func_addr == (uint64_t) NULL || rbp_val == NULL) {
             break;
         }
-        int idx = symbols_get_index(func_addr);
+        int32_t idx = symbols_get_index(func_addr);
         if (idx < 0) {
             klogu(" \t[%02d] \t%016lx (Unknown Function)\n", i, func_addr);
         } else {
@@ -80,7 +81,7 @@ void dump_backtrace()
         if (func_addr == (uint64_t) NULL || rbp_val == NULL) {
             break;
         }
-        int idx = symbols_get_index(func_addr);
+        int32_t idx = symbols_get_index(func_addr);
         if (idx < 0) {
             sprintf(errmsg, " \t[%02d] \t%016lx (Unknown Function)\n", i, func_addr);
         } else {

@@ -30,9 +30,9 @@ static command_help_t help_msg[] = {
 
 char buf[512] = { 0 };
 
-void cat(int fd)
+void cat(int32_t fd)
 {
-    int n;
+    int32_t n;
 
     while ((n = sys_read(fd, buf, sizeof(buf))) > 0) {
         if (sys_write(STDOUT, buf, n) != n) {
@@ -46,9 +46,9 @@ void cat(int fd)
     }
 }
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
-    int fd, i;
+    int32_t fd, i;
 
     if (argc <= 1) {
         cat(STDIN);

@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #include <stdio.h>
 #include <bootinfo.h>
@@ -76,59 +77,59 @@ typedef struct {
 
 /* Microkernel IPC and capability calls. */
 int64_t sys_ep_create(void);
-int sys_ipc_send(int64_t handle, const sys_ipc_msg_t *msg);
-int sys_ipc_recv(int64_t handle, sys_ipc_msg_t *msg);
-int sys_ipc_recv_nb(int64_t handle, sys_ipc_msg_t *msg);
-int sys_ipc_recv_timeout(int64_t handle, sys_ipc_msg_t *msg, int64_t timeout_ms);
-int sys_ipc_call(int64_t handle, const sys_ipc_msg_t *req, sys_ipc_msg_t *rep);
-int sys_ipc_reply(int64_t handle, const sys_ipc_msg_t *msg);
+int32_t sys_ipc_send(int64_t handle, const sys_ipc_msg_t *msg);
+int32_t sys_ipc_recv(int64_t handle, sys_ipc_msg_t *msg);
+int32_t sys_ipc_recv_nb(int64_t handle, sys_ipc_msg_t *msg);
+int32_t sys_ipc_recv_timeout(int64_t handle, sys_ipc_msg_t *msg, int64_t timeout_ms);
+int32_t sys_ipc_call(int64_t handle, const sys_ipc_msg_t *req, sys_ipc_msg_t *rep);
+int32_t sys_ipc_reply(int64_t handle, const sys_ipc_msg_t *msg);
 int64_t sys_mem_alloc(uint64_t size);
-int sys_mem_map(int64_t handle, uint64_t vaddr, int prot);
-int sys_mem_unmap(int64_t handle, uint64_t vaddr);
-int sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
-int sys_irq_ack(int64_t irq_handle);
-int sys_handle_close(int64_t handle);
+int32_t sys_mem_map(int64_t handle, uint64_t vaddr, int32_t prot);
+int32_t sys_mem_unmap(int64_t handle, uint64_t vaddr);
+int32_t sys_irq_bind(int64_t irq_handle, int64_t ep_handle);
+int32_t sys_irq_ack(int64_t irq_handle);
+int32_t sys_handle_close(int64_t handle);
 int64_t sys_handle_dup(int64_t handle);
-int64_t sys_ioport_access(int op, int port, int width, int value);
-int sys_bootinfo(bootinfo_t *bi);
+int64_t sys_ioport_access(int32_t op, int32_t port, int32_t width, int32_t value);
+int32_t sys_bootinfo(bootinfo_t *bi);
 
 void sys_libc_log(const char *message);
-int sys_serial_write(const char *buf, uint64_t len);
-int sys_meminfo();
-int sys_fork();
-int sys_openat(int dirfd, const char *path, int flags);
-int sys_getcwd(char *buffer, uint64_t size);
-int sys_chdir(const char *path);
-int sys_open(const char *path, int flags);
-int sys_close(int fd);
-int sys_read(int fd, void *buf, uint64_t count);
-int sys_write(int fd, const void *buf, uint64_t count);
-int sys_exec(const char *path, char *const argv[]);
-void sys_exit(int status);
-int sys_wait(int pid);
+int32_t sys_serial_write(const char *buf, uint64_t len);
+int32_t sys_meminfo();
+int32_t sys_fork();
+int32_t sys_openat(int32_t dirfd, const char *path, int32_t flags);
+int32_t sys_getcwd(char *buffer, uint64_t size);
+int32_t sys_chdir(const char *path);
+int32_t sys_open(const char *path, int32_t flags);
+int32_t sys_close(int32_t fd);
+int32_t sys_read(int32_t fd, void *buf, uint64_t count);
+int32_t sys_write(int32_t fd, const void *buf, uint64_t count);
+int32_t sys_exec(const char *path, char *const argv[]);
+void sys_exit(int32_t status);
+int32_t sys_wait(int32_t pid);
 void sys_panic(const char *message);
-void *sys_malloc(int size);
-int sys_mkdirat(const char *path);
-int sys_dup(int fd, int flags, int newfd);
-int sys_fcntl(int fd, int cmd, int arg);
-int sys_socket(int domain, int type, int protocol);
-int sys_bind(int sock, uint32_t ip, uint16_t port);
-int64_t sys_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
+void *sys_malloc(int32_t size);
+int32_t sys_mkdirat(const char *path);
+int32_t sys_dup(int32_t fd, int32_t flags, int32_t newfd);
+int32_t sys_fcntl(int32_t fd, int32_t cmd, int32_t arg);
+int32_t sys_socket(int32_t domain, int32_t type, int32_t protocol);
+int32_t sys_bind(int32_t sock, uint32_t ip, uint16_t port);
+int64_t sys_sendto(int32_t sock, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len);
-int64_t sys_recvfrom(int sock, void *buf, uint64_t len, uint32_t *ip,
+int64_t sys_recvfrom(int32_t sock, void *buf, uint64_t len, uint32_t *ip,
                      uint16_t *port);
-int sys_socket_close(int sock);
-int sys_connect(int sock, uint32_t ip, uint16_t port);
-int sys_listen(int sock, int backlog);
-int sys_accept(int sock);
+int32_t sys_socket_close(int32_t sock);
+int32_t sys_connect(int32_t sock, uint32_t ip, uint16_t port);
+int32_t sys_listen(int32_t sock, int32_t backlog);
+int32_t sys_accept(int32_t sock);
 int64_t sys_mem_phys(int64_t handle, uint64_t offset);
-int sys_proc_spawn(int parent, const char *name);
-int sys_proc_map(int pid, unsigned long vaddr, int memh, int prot);
-int sys_proc_set_entry(int pid, unsigned long rip, unsigned long rsp);
-int sys_proc_start(int pid);
-int sys_fstat(int fd, stat_t *statbuf);
-int sys_stat(const char *path, stat_t *statbuf);
-int sys_readdir(int fd, void *buffer);
-int sys_pipe(int *fd);
-int sys_unlink(const char *path);
-int sys_runcmd(const char *cmd);
+int32_t sys_proc_spawn(int32_t parent, const char *name);
+int32_t sys_proc_map(int32_t pid, uint64_t vaddr, int32_t memh, int32_t prot);
+int32_t sys_proc_set_entry(int32_t pid, uint64_t rip, uint64_t rsp);
+int32_t sys_proc_start(int32_t pid);
+int32_t sys_fstat(int32_t fd, stat_t *statbuf);
+int32_t sys_stat(const char *path, stat_t *statbuf);
+int32_t sys_readdir(int32_t fd, void *buffer);
+int32_t sys_pipe(int32_t *fd);
+int32_t sys_unlink(const char *path);
+int32_t sys_runcmd(const char *cmd);

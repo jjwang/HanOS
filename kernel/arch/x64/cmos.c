@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <stdbool.h>
 
 #include <string.h>
@@ -24,7 +25,7 @@
 
 #define CURRENT_YEAR    2022    /* Change this each year! */
 
-int century_register = 0x00;    /* Set by ACPI table parsing code if possible */
+int32_t century_register = 0x00;    /* Set by ACPI table parsing code if possible */
 
 uint8_t get_rtc_register(uint8_t reg);
 bool update_in_progress();

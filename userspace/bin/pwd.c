@@ -29,10 +29,10 @@ static command_help_t help_msg[] = {
 };
 /* *INDENT-ON* */
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
     char path[DIRSIZE + 1] = { 0 };
-    int ret = sys_getcwd(path, DIRSIZE);
+    int32_t ret = sys_getcwd(path, DIRSIZE);
     if (ret < 0) {
         printf("pwd: getting current workding folder failed\n");
     } else {

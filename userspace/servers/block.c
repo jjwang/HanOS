@@ -73,7 +73,7 @@ static void outw(uint16_t port, uint16_t val)
 /* 400 ns delay: read the alternate status register four times. */
 static void io_wait(void)
 {
-    for (int i = 0; i < 4; i++)
+    for (int32_t i = 0; i < 4; i++)
         inb(ATA_IO_BASE + ATA_REG_CONTROL);
 }
 
@@ -81,9 +81,9 @@ static void io_wait(void)
  * IOPORT_ACCESS syscall, so the limit is small on purpose. */
 #define ATA_POLL_LIMIT      0x1000
 
-static int wait_not_busy(void)
+static int32_t wait_not_busy(void)
 {
-    for (int t = 0; t < ATA_POLL_LIMIT; t++) {
+    for (int32_t t = 0; t < ATA_POLL_LIMIT; t++) {
         uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
 
         if (st == 0x00 || st == 0xFF)
@@ -97,7 +97,7 @@ static int wait_not_busy(void)
 }
 
 /* IDENTIFY the primary master. Returns 0 and fills sector size/count. */
-static int ata_init(uint64_t *sector_size, uint64_t *sector_count)
+static int32_t ata_init(uint64_t *sector_size, uint64_t *sector_count)
 {
     outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xA0);
     io_wait();
@@ -119,7 +119,7 @@ static int ata_init(uint64_t *sector_size, uint64_t *sector_count)
         return -1;              /* not an ATA (ATAPI) device */
 
     uint16_t ident[256];
-    for (int i = 0; i < 256; i++)
+    for (int32_t i = 0; i < 256; i++)
         ident[i] = inw(ATA_IO_BASE + ATA_REG_DATA);
 
     *sector_size = ATA_SECTOR_SIZE;
@@ -127,7 +127,7 @@ static int ata_init(uint64_t *sector_size, uint64_t *sector_count)
     return 0;
 }
 
-static int ata_read(uint32_t lba, uint8_t count, uint8_t *buf)
+static int32_t ata_read(uint32_t lba, uint8_t count, uint8_t *buf)
 {
     outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
     io_wait();
@@ -142,14 +142,14 @@ static int ata_read(uint32_t lba, uint8_t count, uint8_t *buf)
         if (wait_not_busy() != 0)
             return -1;
         uint16_t *dst = (uint16_t *) (buf + s * ATA_SECTOR_SIZE);
-        for (int i = 0; i < 256; i++)
+        for (int32_t i = 0; i < 256; i++)
             dst[i] = inw(ATA_IO_BASE + ATA_REG_DATA);
         io_wait();
     }
     return 0;
 }
 
-static int ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
+static int32_t ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
 {
     outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
     io_wait();
@@ -164,13 +164,13 @@ static int ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
         if (wait_not_busy() != 0)
             return -1;
         const uint16_t *src = (const uint16_t *) (buf + s * ATA_SECTOR_SIZE);
-        for (int i = 0; i < 256; i++)
+        for (int32_t i = 0; i < 256; i++)
             outw(ATA_IO_BASE + ATA_REG_DATA, src[i]);
         io_wait();
     }
     /* Cache flush; wait until it finishes so an immediate read sees the data. */
     outb(ATA_IO_BASE + ATA_REG_COMMAND, 0xE7);
-    for (int t = 0; t < ATA_POLL_LIMIT; t++) {
+    for (int32_t t = 0; t < ATA_POLL_LIMIT; t++) {
         uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
         if (st == 0x00 || st == 0xFF || !(st & ATA_SR_BSY))
             break;
@@ -178,7 +178,7 @@ static int ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
     return 0;
 }
 
-int main(void)
+int32_t main(void)
 {
     bootinfo_t bi;
 
@@ -187,7 +187,7 @@ int main(void)
     }
 
     uint64_t sector_size = 0, sector_count = 0;
-    int have_disk = (ata_init(&sector_size, &sector_count) == 0);
+    int32_t have_disk = (ata_init(&sector_size, &sector_count) == 0);
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -207,7 +207,7 @@ int main(void)
             /* xfer[0] = reply endpoint, xfer[1] = memory object with the data. */
             int64_t memh = (int64_t) m.xfer[1];
             uint8_t *buf = (uint8_t *) BLOCK_BUF_VADDR;
-            int rc = -1;
+            int32_t rc = -1;
 
             if (sys_mem_map(memh, BLOCK_BUF_VADDR, 3) == 0) {
                 if (m.tag == BLOCK_READ)

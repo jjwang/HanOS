@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <lib/kmalloc.h>
@@ -67,7 +68,7 @@ kernel_object_t *memobj_object(memobj_t * m)
     return &m->obj;
 }
 
-int memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot)
+int32_t memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot)
 {
     if (m == NULL || as == NULL || (vaddr & (PAGE_SIZE - 1)))
         return -1;
@@ -83,7 +84,7 @@ int memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot)
     return 0;
 }
 
-int memobj_unmap(memobj_t * m, addrspace_t * as, uint64_t vaddr)
+int32_t memobj_unmap(memobj_t * m, addrspace_t * as, uint64_t vaddr)
 {
     if (m == NULL || as == NULL || (vaddr & (PAGE_SIZE - 1)))
         return -1;

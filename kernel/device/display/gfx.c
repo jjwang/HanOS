@@ -149,10 +149,10 @@ void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
     uint16_t ggc = pci_inw(id, MGGC0);
     uint32_t bdsm = pci_ind(id, BDSM);
 
-    int gms = (ggc >> GGC_GMS_SHIFT) & GGC_GMS_MASK;
+    int32_t gms = (ggc >> GGC_GMS_SHIFT) & GGC_GMS_MASK;
     gtt->stolen_mem_size = GMS_TO_SIZE[gms];
 
-    int ggms = (ggc >> GGC_GGMS_SHIFT) & GGC_GGMS_MASK;
+    int32_t ggms = (ggc >> GGC_GGMS_SHIFT) & GGC_GGMS_MASK;
     gtt->gtt_mem_size = 0;
 
     switch (ggms) {
@@ -342,7 +342,7 @@ static void gfx_attach_fb(const gfx_fb_t * gfb)
 }
 
 /* Move the hardware cursor by a relative amount (used by the pointer driver). */
-void gfx_cursor_move(int dx, int dy)
+void gfx_cursor_move(int32_t dx, int32_t dy)
 {
     skl_cursor_move(dx, dy);
 }
@@ -591,7 +591,7 @@ bool gfx_edp_panel_on(gfx_pci_t * pci)
     pp |= PP_CONTROL_POWER_STATE | PP_CONTROL_VDD_FORCE;
     gfx_outd(pci, PP_CONTROL, pp);
 
-    int timeout = 200000;
+    int32_t timeout = 200000;
     while (timeout-- > 0) {
         if (gfx_ind(pci, PP_STATUS) & PP_STATUS_ON)
             return true;
@@ -746,7 +746,7 @@ void gfx_get_display_info(gfx_pci_t * pci)
 bool gfx_wait_pipe_state(gfx_pci_t * pci, uint8_t pipe, bool enabled)
 {
     uint32_t pipe_conf_reg = PIPEACONF + (pipe * 0x1000);
-    int timeout = 50000;  /* 50ms */
+    int32_t timeout = 50000;  /* 50ms */
 
     while (timeout-- > 0) {
         uint32_t conf = gfx_ind(pci, pipe_conf_reg);
@@ -1139,7 +1139,7 @@ bool gfx_wait_vblank(gfx_pci_t * pci, uint8_t pipe)
     gfx_outd(pci, DEIIR, vblank_bit);
 
     /* Wait for vblank */
-    int timeout = 50000;  /* 50ms */
+    int32_t timeout = 50000;  /* 50ms */
     while (timeout-- > 0) {
         uint32_t iir = gfx_ind(pci, DEIIR);
         if (iir & vblank_bit) {

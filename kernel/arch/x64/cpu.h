@@ -166,7 +166,7 @@ static inline void port_outsw(uint16_t port, const void *addr,
 
 static inline void port_io_wait()
 {
-    for (int i = 0; i < 4; i++) {
+    for (int32_t i = 0; i < 4; i++) {
         asm volatile ("nop");
     }
 }

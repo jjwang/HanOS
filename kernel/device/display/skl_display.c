@@ -16,6 +16,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/klog.h>
 #include <string.h>
 #include <arch/x64/cpu.h>
@@ -86,7 +87,7 @@ static bool pipe_is_running(gfx_pci_t * pci)
 static void wait_vblank(gfx_pci_t * pci)
 {
     uint32_t a = gfx_ind(pci, 0x70040);
-    for (int i = 0; i < 40 && gfx_ind(pci, 0x70040) == a; i++)
+    for (int32_t i = 0; i < 40 && gfx_ind(pci, 0x70040) == a; i++)
         pit_wait(1);
 }
 
@@ -448,7 +449,7 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     gfx_outd(pci, PIPEACONF, PIPE_PROGRESSIVE);
     gfx_outd(pci, PIPEACONF,
              gfx_ind(pci, PIPEACONF) | PIPE_ENABLE | PIPE_PROGRESSIVE);
-    for (int i = 0; i < 100 && !(gfx_ind(pci, PIPEACONF) & PIPE_STATE); i++)
+    for (int32_t i = 0; i < 100 && !(gfx_ind(pci, PIPEACONF) & PIPE_STATE); i++)
         pit_wait(1);
     if (!pipe_is_running(pci)) {
         kloge("GFX: modeset: pipe A did not start\n");
@@ -669,8 +670,8 @@ static struct {
     gfx_object_t obj;
     uint32_t width;
     uint32_t height;
-    int x;
-    int y;
+    int32_t x;
+    int32_t y;
     bool ready;
 } cursor = { 0 };
 
@@ -795,7 +796,7 @@ static void cursor_draw(volatile uint8_t * base)
     }
 }
 
-static uint32_t cursor_pos(int x, int y)
+static uint32_t cursor_pos(int32_t x, int32_t y)
 {
     uint32_t pos = 0;
 
@@ -830,8 +831,8 @@ bool skl_cursor_init(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     cursor.pci = pci;
     cursor.width = width;
     cursor.height = height;
-    cursor.x = (int) width / 2;
-    cursor.y = (int) height / 2;
+    cursor.x = (int32_t) width / 2;
+    cursor.y = (int32_t) height / 2;
 
     /* A small data-buffer allocation and watermark so the cursor fetch is not
      * starved; the primary plane uses blocks 0..445. */
@@ -856,19 +857,19 @@ bool skl_cursor_init(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     return true;
 }
 
-void skl_cursor_set(int x, int y)
+void skl_cursor_set(int32_t x, int32_t y)
 {
     if (!cursor.ready)
         return;
 
     if (x < 0)
         x = 0;
-    else if (x > (int) cursor.width - 1)
-        x = (int) cursor.width - 1;
+    else if (x > (int32_t) cursor.width - 1)
+        x = (int32_t) cursor.width - 1;
     if (y < 0)
         y = 0;
-    else if (y > (int) cursor.height - 1)
-        y = (int) cursor.height - 1;
+    else if (y > (int32_t) cursor.height - 1)
+        y = (int32_t) cursor.height - 1;
 
     cursor.x = x;
     cursor.y = y;
@@ -880,7 +881,7 @@ void skl_cursor_set(int x, int y)
     gfx_outd(cursor.pci, CURABASE, (uint32_t) cursor.obj.gfx_addr);
 }
 
-void skl_cursor_move(int dx, int dy)
+void skl_cursor_move(int32_t dx, int32_t dy)
 {
     skl_cursor_set(cursor.x + dx, cursor.y + dy);
 }
@@ -892,8 +893,8 @@ void skl_cursor_selftest(void)
     if (!cursor.ready)
         return;
 
-    int w = (int) cursor.width;
-    int h = (int) cursor.height;
+    int32_t w = (int32_t) cursor.width;
+    int32_t h = (int32_t) cursor.height;
 
     skl_cursor_set(0, 0);
     pit_wait(120);

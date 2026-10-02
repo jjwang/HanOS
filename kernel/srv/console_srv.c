@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <kconfig.h>
@@ -51,7 +52,7 @@ static void console_spawn_attach(process_t * tc)
 {
     if (sched_get_pid() != console_spawner) {
         klogw("console: spawn hook ran for pid %ld, expected %ld\n",
-              (long)sched_get_pid(), (long)console_spawner);
+              (int64_t)sched_get_pid(), (int64_t)console_spawner);
         return;
     }
 
@@ -98,7 +99,7 @@ static void console_spawn_attach(process_t * tc)
     tc->bootinfo = bi;
 
     klogi("console: attached fb 0x%016lx %ux%u to pid %ld (fg 0x%06x)\n",
-          vaddr, fb->width, fb->height, (long)tc->pid, fg);
+          vaddr, fb->width, fb->height, (int64_t)tc->pid, fg);
 }
 
 bool console_server_start(void)

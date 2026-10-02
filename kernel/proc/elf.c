@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <proc/elf.h>
@@ -32,7 +33,7 @@
 
 static bool debug_info = false;
 
-int elf_find_symbol_table(elf_hdr_t * hdr, elf_shdr_t * shdr)
+int32_t elf_find_symbol_table(elf_hdr_t * hdr, elf_shdr_t * shdr)
 {
     for (uint64_t i = 0; i < hdr->shnum; i++) {
         if (shdr[i].type == SHT_SYMTAB) {
@@ -286,7 +287,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
         klogd("ELF(%s): dumping headers finished\n", path_name);
     }
 
-    int symbol_table_index = elf_find_symbol_table(&hdr, shdr);
+    int32_t symbol_table_index = elf_find_symbol_table(&hdr, shdr);
 
     if (debug_info) {
         klogd("ELF(%s): symbol table index is %ld (0x%016lx)\n", path_name,

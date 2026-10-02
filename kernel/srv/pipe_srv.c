@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 
@@ -46,7 +47,7 @@ static void pipe_spawn_attach(process_t * tc)
     bi->service_ep = h;
     tc->bootinfo = bi;
 
-    klogi("pipe: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("pipe: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool pipe_server_start(void)

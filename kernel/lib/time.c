@@ -15,22 +15,23 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/klog.h>
 #include <lib/time.h>
 
-static int year_is_leap(int year)
+static int32_t year_is_leap(int32_t year)
 {
     return ((year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0)));
 }
 
-static int day_of_week(long seconds)
+static int32_t day_of_week(int64_t seconds)
 {
-    long day = seconds / 86400;
+    int64_t day = seconds / 86400;
     day += 4;
     return day % 7;
 }
 
-static long days_in_month(int month, int year)
+static int64_t days_in_month(int32_t month, int32_t year)
 {
     switch (month) {
     case 12:
@@ -67,26 +68,26 @@ void localtime(const time_t * timep, tm_t * _timevalue)
     time_t year_sec = 0;
     time_t cur_time = *timep;
 
-    for (int year = 1970; year < 2100; ++year) {
-        long added = year_is_leap(year) ? 366 : 365;
-        long secs = added * 86400;
+    for (int32_t year = 1970; year < 2100; ++year) {
+        int64_t added = year_is_leap(year) ? 366 : 365;
+        int64_t secs = added * 86400;
 
         if (seconds + secs > cur_time) {
             _timevalue->year = year - 1900;
             year_sec = seconds;
-            for (int month = 1; month <= 12; ++month) {
+            for (int32_t month = 1; month <= 12; ++month) {
                 secs = days_in_month(month, year) * 86400;
                 if (seconds + secs > cur_time) {
                     _timevalue->mon = month - 1;
-                    for (int day = 1; day <= days_in_month(month, year);
+                    for (int32_t day = 1; day <= days_in_month(month, year);
                          ++day) {
                         secs = 60 * 60 * 24;
                         if (seconds + secs > cur_time) {
                             _timevalue->mday = day;
-                            for (int hour = 1; hour <= 24; ++hour) {
+                            for (int32_t hour = 1; hour <= 24; ++hour) {
                                 secs = 60 * 60;
                                 if (seconds + secs > cur_time) {
-                                    long remaining = cur_time - seconds;
+                                    int64_t remaining = cur_time - seconds;
                                     _timevalue->hour = hour - 1;
                                     _timevalue->min = remaining / 60;
                                     _timevalue->sec = remaining % 60;

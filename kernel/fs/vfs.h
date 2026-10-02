@@ -174,7 +174,7 @@ typedef struct {
     bool server;
     int64_t server_fd;
     uint64_t server_size;       /* file size reported by the server on open */
-    int svc;                    /* service that owns server_fd */
+    int32_t svc;                    /* service that owns server_fd */
     uint64_t seek_pos;
     uint64_t curr_dir_idx;
 } vfs_node_desc_t;
@@ -190,15 +190,15 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func);
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out);
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
 int64_t vfs_unlink_path(const char *cwd, const char *path);
-vfs_handle_t vfs_open_path(const char *cwd, const char *path, int flags,
-                           int *svc);
+vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
+                           int32_t *svc);
 
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
                              vfs_openmode_t mode, uint64_t size);
 /* Same, but for any service (e.g. the pipe server). */
 vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
-                                 vfs_openmode_t mode, uint64_t size, int svc);
+                                 vfs_openmode_t mode, uint64_t size, int32_t svc);
 
 /* Read a whole file into a freshly kmalloc_chunk()'d kernel buffer without
  * touching the process fd table. Used by the ELF loader, which falls back to
@@ -211,7 +211,7 @@ int64_t vfs_server_fstat(int64_t sfd, void *out);
 int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
 /* Take a reference on a server fd, so a description inherited across fork or
  * execve stays open. */
-void vfs_server_ref_fd(int svc, int64_t sfd);
+void vfs_server_ref_fd(int32_t svc, int64_t sfd);
 int64_t vfs_close(vfs_handle_t handle);
 uint64_t vfs_tell(vfs_handle_t handle);
 int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence);

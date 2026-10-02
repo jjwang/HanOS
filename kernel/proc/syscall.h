@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #define SYSCALL_DEBUGLOG    0
 #define SYSCALL_MMAP        1

@@ -95,12 +95,12 @@ static uint64_t close_tag_for_svc(int32_t svc)
     return 0;
 }
 
-static int fd_alloc(int32_t pid, proc_fd_t **out)
+static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
 {
     if (pid < 0 || pid >= PROC_PID_MAX)
         return -1;
 
-    for (int fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
         if (!table[pid][fd].used) {
             *out = &table[pid][fd];
             return fd;
@@ -152,7 +152,7 @@ static void proc_mark_exit(int32_t pid, int32_t status)
 
 static bool proc_all_children_done(int32_t pid)
 {
-    for (int i = 0; i < PROC_PID_MAX; i++) {
+    for (int32_t i = 0; i < PROC_PID_MAX; i++) {
         if (procs[i].used && procs[i].ppid == pid && !procs[i].exited)
             return false;
     }
@@ -180,7 +180,7 @@ static void clone_fds(int32_t parent, int32_t child)
 
     /* The child inherits a reference to each server-side open file
      * description, so tell the owning server to add one. */
-    for (int fd = 0; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
         proc_fd_t *e = &table[child][fd];
         uint64_t ep;
 
@@ -206,7 +206,7 @@ static void close_cloexec(int32_t pid)
     if (pid < 0 || pid >= PROC_PID_MAX)
         return;
 
-    for (int fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
         proc_fd_t *e = &table[pid][fd];
 
         if (!e->used || !e->cloexec)
@@ -384,10 +384,10 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
                ph->filesz);
         sys_mem_unmap(mh, PROC_EXEC_SEG_ADDR);
 
-        int prot = (ph->flags & EXEC_PF_W)
+        int32_t prot = (ph->flags & EXEC_PF_W)
             ? (EXEC_PROT_READ | EXEC_PROT_WRITE) : EXEC_PROT_READ;
 
-        if (sys_proc_map(pid, vaddr, (int) mh, prot) != 0) {
+        if (sys_proc_map(pid, vaddr, (int32_t) mh, prot) != 0) {
             sys_handle_close(mh);
             goto out;
         }
@@ -409,7 +409,7 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
                                    eh->phnum);
         sys_mem_unmap(mh, PROC_EXEC_SEG_ADDR);
 
-        if (sys_proc_map(pid, PROC_EXEC_STK_ADDR, (int) mh,
+        if (sys_proc_map(pid, PROC_EXEC_STK_ADDR, (int32_t) mh,
                          EXEC_PROT_READ | EXEC_PROT_WRITE) != 0) {
             sys_handle_close(mh);
             goto out;
@@ -439,7 +439,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     case PROC_FD_OPEN:{
             proc_fd_t *e = NULL;
-            int nfd = fd_alloc(pid, &e);
+            int32_t nfd = fd_alloc(pid, &e);
 
             if (nfd < 0) {
                 rep->words[0] = (uint64_t) (int64_t) -24;       /* -EMFILE */
@@ -582,7 +582,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             bool nohang = (m->words[2] != 0);
             bool have = false;
 
-            for (int i = 1; i < PROC_PID_MAX; i++) {
+            for (int32_t i = 1; i < PROC_PID_MAX; i++) {
                 if (!procs[i].used || procs[i].ppid != parent)
                     continue;
                 if (!wait_any && i != target)
@@ -620,7 +620,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     case PROC_FD_EXIT:
         if (pid >= 0 && pid < PROC_PID_MAX) {
-            for (int i = 0; i < PROC_FD_MAX; i++) {
+            for (int32_t i = 0; i < PROC_FD_MAX; i++) {
                 proc_fd_t *e = &table[pid][i];
 
                 if (!e->used || e->kind != PROC_FD_SERVER)
@@ -648,7 +648,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */

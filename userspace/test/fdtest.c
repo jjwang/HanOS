@@ -31,23 +31,23 @@ static command_help_t help_msg[] = {
 };
 /* *INDENT-ON* */
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
     (void) argc;
     (void) argv;
 
-    int fd = sys_open("/bin/hansh", 0);
+    int32_t fd = sys_open("/bin/hansh", 0);
     if (fd < 0) {
         fprintf(STDERR, "fdtest: open /bin/hansh failed\n");
         sys_exit(1);
     }
 
-    for (int i = 0; i < FD_FORKS; i++) {
-        int pid = sys_fork();
+    for (int32_t i = 0; i < FD_FORKS; i++) {
+        int32_t pid = sys_fork();
 
         if (pid == 0) {
-            unsigned char b = 0;
-            int n = sys_read(fd, &b, 1);
+            uint8_t b = 0;
+            int32_t n = sys_read(fd, &b, 1);
 
             printf("fdtest[%d] child  %s %02x\n", i, (n == 1) ? "ok" : "FAIL",
                    b);
@@ -61,8 +61,8 @@ int main(int argc, char *argv[])
 
         sys_wait(pid);
 
-        unsigned char b = 0;
-        int n = sys_read(fd, &b, 1);
+        uint8_t b = 0;
+        int32_t n = sys_read(fd, &b, 1);
 
         printf("fdtest[%d] parent %s %02x\n", i, (n == 1) ? "ok" : "FAIL", b);
     }

@@ -42,6 +42,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 #include <arch/x64/cpu.h>
@@ -218,7 +219,7 @@ __attribute__((noinline)) void fb_set_wc(uint64_t fb_phys, uint64_t fb_size)
     }
 
     /* Dump MTRR state for the framebuffer region and try to set WC */
-    int mtrr_fb_idx = -1;
+    int32_t mtrr_fb_idx = -1;
     if (cpuid_check_feature(CPUID_FEATURE_MTRR)) {
         uint64_t mtrrcap = read_msr(0xfe);
         uint64_t mtrrdef = read_msr(0x2ff);

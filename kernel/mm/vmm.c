@@ -169,7 +169,7 @@ static void unmap_page(addrspace_t * addrspace, uint64_t vaddr)
             asm volatile ("invlpg (%0)"::"r" (vaddr));
     }
 
-    for (int i = 0; i < 512 * 8; i++)
+    for (int32_t i = 0; i < 512 * 8; i++)
         if (pt[i] != 0)
             goto done;
 
@@ -186,7 +186,7 @@ static void unmap_page(addrspace_t * addrspace, uint64_t vaddr)
         }
     }
 
-    for (int i = 0; i < 512 * 8; i++)
+    for (int32_t i = 0; i < 512 * 8; i++)
         if (pd[i] != 0)
             goto done;
 
@@ -201,7 +201,7 @@ static void unmap_page(addrspace_t * addrspace, uint64_t vaddr)
             break;
         }
     }
-    for (int i = 0; i < 512 * 8; i++)
+    for (int32_t i = 0; i < 512 * 8; i++)
         if (pdpt[i] != 0)
             goto done;
 

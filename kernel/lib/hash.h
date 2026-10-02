@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #define HT_DEFAULT_ARRAY_SIZE       128
 

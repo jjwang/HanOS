@@ -16,6 +16,7 @@ sent.
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/serial.h>
 #include <string.h>

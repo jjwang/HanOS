@@ -11,6 +11,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 
 void *memcpy(void *dest, const void *src, uint64_t len)
@@ -60,14 +61,14 @@ void memset(void *addr, uint8_t val, uint64_t len)
         a[i] = val;
 }
 
-int memcmp(const void *s1, const void *s2, uint64_t len)
+int32_t memcmp(const void *s1, const void *s2, uint64_t len)
 {
     const uint8_t *a = (const uint8_t *) s1;
     const uint8_t *b = (const uint8_t *) s2;
 
     for (uint64_t i = 0; i < len; i++) {
         if (a[i] != b[i])
-            return (int) a[i] - (int) b[i];
+            return (int32_t) a[i] - (int32_t) b[i];
     }
     return 0;
 }
@@ -164,7 +165,7 @@ uint64_t strtol(char *s, num_sys_t type)
     return val;
 }
 
-char *strchr(const char *s, int c)
+char *strchr(const char *s, int32_t c)
 {
     while (*s) {
         if (*s == c) {

@@ -13,6 +13,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/spinlock.h>
 #include <router/router.h>
 #include <lib/time.h>
@@ -101,7 +102,7 @@ bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
         return false;
     }
 
-    int r = ipc_recv_timeout(reply, rep, timeout_ms);
+    int32_t r = ipc_recv_timeout(reply, rep, timeout_ms);
     object_unref(endpoint_object(reply));
     return r == 0;
 }

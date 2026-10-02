@@ -29,10 +29,10 @@ static command_help_t help_msg[] = {
 
 #define CLOEXEC_FD  3
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
     if (argc > 1 && strcmp(argv[1], "child") == 0) {
-        int r = sys_fcntl(CLOEXEC_FD, F_GETFD, 0);
+        int32_t r = sys_fcntl(CLOEXEC_FD, F_GETFD, 0);
 
         if (r < 0)
             printf("cloexec: child fd closed ok\n");
@@ -41,20 +41,20 @@ int main(int argc, char *argv[])
         sys_exit(r < 0 ? 0 : 1);
     }
 
-    int fd = sys_open("/bin/hansh", O_RDONLY | O_CLOEXEC);
+    int32_t fd = sys_open("/bin/hansh", O_RDONLY | O_CLOEXEC);
 
     if (fd != CLOEXEC_FD) {
         printf("cloexec: open got fd %d FAIL\n", fd);
         sys_exit(1);
     }
 
-    int flags = sys_fcntl(fd, F_GETFD, 0);
+    int32_t flags = sys_fcntl(fd, F_GETFD, 0);
 
     printf("cloexec: fd %d flags %d %s\n", fd, flags,
            (flags & FD_CLOEXEC) ? "ok" : "FAIL");
 
     char *cargv[] = { "cloexectest", "child", NULL };
-    int pid = sys_fork();
+    int32_t pid = sys_fork();
 
     if (pid == 0) {
         sys_exec("/bin/cloexectest", cargv);

@@ -15,6 +15,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <stddef.h>
 
 #include <string.h>
@@ -25,9 +26,9 @@ char *argv[] = {
     NULL
 };
 
-int main(void)
+int32_t main(void)
 {
-    int pid, wpid;
+    int32_t pid, wpid;
 
     /* TODO: Here we need to init console which can be found in XV6 */
 

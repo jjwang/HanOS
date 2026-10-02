@@ -65,7 +65,7 @@ typedef struct {
 typedef struct {
     void *address;
     sigset_t mask;
-    int flags;
+    int32_t flags;
     void (*restorer)(void);
 } sigaction_t;
 
@@ -80,19 +80,19 @@ typedef struct {
  * @brief Value carried with a queued signal
  */
 typedef union {
-    int sival_int;
+    int32_t sival_int;
     void *sival_ptr;
 } sigval_t;
 
-typedef long clock_t;
+typedef int64_t clock_t;
 
 /**
  * @brief Detailed information about a delivered signal
  */
 typedef struct {
-    int si_signo, si_errno, si_code;
+    int32_t si_signo, si_errno, si_code;
     union {
-        char __pad[128 - 2 * sizeof(int) - sizeof(long)];
+        char __pad[128 - 2 * sizeof(int32_t) - sizeof(int64_t)];
         struct {
             union {
                 struct {
@@ -100,37 +100,37 @@ typedef struct {
                     uid_t si_uid;
                 } __piduid;
                 struct {
-                    int si_timerid;
-                    int si_overrun;
+                    int32_t si_timerid;
+                    int32_t si_overrun;
                 } __timer;
             } __first;
             union {
                 sigval_t si_value;
                 struct {
-                    int si_status;
+                    int32_t si_status;
                     clock_t si_utime, si_stime;
                 } __sigchld;
             } __second;
         } __si_common;
         struct {
             void *si_addr;
-            short si_addr_lsb;
+            int16_t si_addr_lsb;
             union {
                 struct {
                     void *si_lower;
                     void *si_upper;
                 } __addr_bnd;
-                unsigned si_pkey;
+                uint32_t si_pkey;
             } __first;
         } __sigfault;
         struct {
-            long si_band;
-            int si_fd;
+            int64_t si_band;
+            int32_t si_fd;
         } __sigpoll;
         struct {
             void *si_call_addr;
-            int si_syscall;
-            unsigned si_arch;
+            int32_t si_syscall;
+            uint32_t si_arch;
         } __sigsys;
     } __si_fields;
 } siginfo_t;

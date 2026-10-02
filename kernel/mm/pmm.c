@@ -106,7 +106,7 @@ uint64_t pmm_get(uint64_t numpages, uint64_t baseaddr,
 
     /* Search from the last allocation, then wrap around once so pages freed
      * below the hint are still found. */
-    for (int pass = 0; pass < 2; pass++) {
+    for (int32_t pass = 0; pass < 2; pass++) {
         uint64_t from = (pass == 0) ? hint : baseaddr;
         uint64_t to = (pass == 0) ? limit : hint;
 

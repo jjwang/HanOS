@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <lib/klog.h>
 #include <device/display/display_mode.h>
 

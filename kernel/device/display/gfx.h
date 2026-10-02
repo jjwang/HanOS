@@ -110,7 +110,7 @@ bool gfx_init(void);
 void gfx_start(void);
 
 /* Move the hardware cursor by a relative amount. */
-void gfx_cursor_move(int dx, int dy);
+void gfx_cursor_move(int32_t dx, int32_t dy);
 
 /* Testing and diagnostics */
 bool gfx_test_advanced_features(gfx_pci_t * pci);

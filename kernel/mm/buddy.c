@@ -228,7 +228,7 @@ void buddy_init(struct limine_memmap_response *map, uint64_t higher_half)
     spinlock_init(&buddy_state.lock);
 
     /* Initialize free lists */
-    for (int i = 0; i <= MAX_ORDER; i++) {
+    for (int32_t i = 0; i <= MAX_ORDER; i++) {
         buddy_state.free_lists[i] = NULL;
     }
 
@@ -417,8 +417,8 @@ void buddy_dump_usage(void)
             u / 1024, u / (1024 * 1024));
 
     kprintf("  Free lists:\n");
-    for (int order = 0; order <= MAX_ORDER; order++) {
-        int count = 0;
+    for (int32_t order = 0; order <= MAX_ORDER; order++) {
+        int32_t count = 0;
         buddy_block_t *block = buddy_state.free_lists[order];
         while (block) {
             count++;

@@ -35,23 +35,23 @@ typedef uint64_t time_t;
  * @brief Time zone offset and daylight-saving correction
  */
 typedef struct {
-    int minuteswest;            /* minutes west of Greenwich */
-    int dsttime;                /* type of DST correction */
+    int32_t minuteswest;            /* minutes west of Greenwich */
+    int32_t dsttime;                /* type of DST correction */
 } timezone_t;
 
 /**
  * @brief Broken-down calendar time
  */
 typedef struct {
-    int sec;                    /* Seconds (0-60) */
-    int min;                    /* Minutes (0-59) */
-    int hour;                   /* Hours (0-23) */
-    int mday;                   /* Day of the month (1-31) */
-    int mon;                    /* Month (0-11) */
-    int year;                   /* Year - 1900 */
-    int wday;                   /* Day of the week (0-6, Sunday = 0) */
-    int yday;                   /* Day in the year (0-365, 1 Jan = 0) */
-    int isdst;                  /* Daylight saving time */
+    int32_t sec;                    /* Seconds (0-60) */
+    int32_t min;                    /* Minutes (0-59) */
+    int32_t hour;                   /* Hours (0-23) */
+    int32_t mday;                   /* Day of the month (1-31) */
+    int32_t mon;                    /* Month (0-11) */
+    int32_t year;                   /* Year - 1900 */
+    int32_t wday;                   /* Day of the week (0-6, Sunday = 0) */
+    int32_t yday;                   /* Day in the year (0-365, 1 Jan = 0) */
+    int32_t isdst;                  /* Daylight saving time */
 } tm_t;
 
 void localtime(const time_t * timep, tm_t * tm);

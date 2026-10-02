@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <kconfig.h>
 
 #include <lib/klog.h>
@@ -58,7 +59,7 @@ static void klog_puts_buf(klog_info_t * k, const char *s)
 /* Serial monitors usually do not interpret ANSI escapes, so drop them from
  * the serial stream and emit plain text instead. The caller keeps the state
  * across a line so a sequence split over characters is still removed. */
-static bool serial_keep(uint8_t c, int *state)
+static bool serial_keep(uint8_t c, int32_t *state)
 {
     switch (*state) {
     case 0:
@@ -168,7 +169,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
 
     spinlock_acquire(&klog_info_lock);
 
-    int esc_state = 0;
+    int32_t esc_state = 0;
 
     for (uint64_t i = logout.start; i < logout.end;) {
         klog_info.buff[klog_info.end] = logout.buff[i];
@@ -202,7 +203,7 @@ void kprintf(const char *s, ...)
 
 #if KPRINTF_SERIAL_MIRROR
     {
-        int esc_state = 0;
+        int32_t esc_state = 0;
 
         /* Serialise with klogi()'s serial output so the two streams do not
          * interleave character by character. */
@@ -221,7 +222,7 @@ void kprintf(const char *s, ...)
  * and kernel log lines cannot interleave character by character. */
 void klog_write_raw(const char *buf, uint64_t len)
 {
-    int esc_state = 0;
+    int32_t esc_state = 0;
 
     spinlock_acquire(&klog_info_lock);
     for (uint64_t i = 0; i < len; i++)

@@ -27,6 +27,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <arch/x64/timer.h>
 #include <arch/x64/apic.h>
 #include <arch/x64/idt.h>

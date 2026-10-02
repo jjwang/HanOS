@@ -14,6 +14,7 @@
  **-----------------------------------------------------------------------------
  */
 #pragma once
+#include <stdint.h>
 
 #include <proc/process.h>
 #include <lib/time.h>

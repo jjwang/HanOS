@@ -73,14 +73,14 @@ typedef struct {
 } vfs_dyn_t;
 
 static vfs_ent_t ents[VFS_MAX_ENTS];
-static int ent_count;
+static int32_t ent_count;
 
 static vfs_dyn_t dyns[VFS_MAX_DYN];
 
 static struct {
     bool in_use;
     bool is_dir;
-    int ent;                    /* resolved index (static or dynamic) */
+    int32_t ent;                    /* resolved index (static or dynamic) */
     uint64_t off;               /* read offset for files */
     uint64_t dir_idx;           /* readdir cursor for directories */
     char dir[VFS_PATH_MAX];     /* normalized directory path */
@@ -89,11 +89,11 @@ static struct {
 
 static bootinfo_t bi;
 
-static uint64_t oct2bin(const uint8_t *p, int n)
+static uint64_t oct2bin(const uint8_t *p, int32_t n)
 {
     uint64_t v = 0;
 
-    for (int i = 0; i < n; i++) {
+    for (int32_t i = 0; i < n; i++) {
         if (p[i] < '0' || p[i] > '7')
             break;
         v = v * 8 + (uint64_t) (p[i] - '0');
@@ -219,7 +219,7 @@ static bool fat_rel(const char *abs, char *rel, uint64_t relsz)
 /* Split "cwd\0path\0" read from the request buffer. */
 static void split_cwd_path(const uint8_t *buf, char *cwd, char *path)
 {
-    int i = 0;
+    int32_t i = 0;
 
     while (i < VFS_PATH_MAX - 1 && buf[i] != '\0') {
         cwd[i] = (char) buf[i];
@@ -232,7 +232,7 @@ static void split_cwd_path(const uint8_t *buf, char *cwd, char *path)
     }
     i++;
 
-    int j = 0;
+    int32_t j = 0;
 
     while (i < VFS_PATH_MAX - 1 && buf[i] != '\0')
         path[j++] = (char) buf[i++];
@@ -253,7 +253,7 @@ static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size)
         return;
 
     vfs_ent_t *e = &ents[ent_count];
-    int i = 0;
+    int32_t i = 0;
 
     while (i < VFS_NAME_MAX && hdr[i] != '\0') {
         e->name[i] = (char) hdr[i];
@@ -291,12 +291,12 @@ static void parse_initrd(void)
     }
 }
 
-static bool idx_is_dyn(int i)
+static bool idx_is_dyn(int32_t i)
 {
     return i >= ent_count;
 }
 
-static bool idx_is_dir(int i)
+static bool idx_is_dir(int32_t i)
 {
     if (i == ROOT_INDEX)
         return true;
@@ -305,14 +305,14 @@ static bool idx_is_dir(int i)
     return ents[i].is_dir;
 }
 
-static uint64_t idx_size(int i)
+static uint64_t idx_size(int32_t i)
 {
     if (idx_is_dyn(i))
         return dyns[i - ent_count].size;
     return ents[i].size;
 }
 
-static const char *idx_name(int i)
+static const char *idx_name(int32_t i)
 {
     if (idx_is_dyn(i))
         return dyns[i - ent_count].name;
@@ -320,7 +320,7 @@ static const char *idx_name(int i)
 }
 
 /* Resolve an absolute path to an index, ROOT_INDEX for the root, or -1. */
-static int resolve(const char *path)
+static int32_t resolve(const char *path)
 {
     while (*path == '/')
         path++;
@@ -328,14 +328,14 @@ static int resolve(const char *path)
     if (*path == '\0')
         return ROOT_INDEX;
 
-    for (int i = 0; i < ent_count; i++) {
+    for (int32_t i = 0; i < ent_count; i++) {
         if (ents[i].deleted)
             continue;
         if (strcmp(ents[i].name, path) == 0)
             return i;
     }
 
-    for (int i = 0; i < VFS_MAX_DYN; i++) {
+    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
         if (dyns[i].used && strcmp(dyns[i].name, path) == 0)
             return ent_count + i;
     }
@@ -343,9 +343,9 @@ static int resolve(const char *path)
 }
 
 /* Create a runtime file (path already normalized). Returns the index or -1. */
-static int dyn_create(const char *path)
+static int32_t dyn_create(const char *path)
 {
-    for (int i = 0; i < VFS_MAX_DYN; i++) {
+    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
         if (dyns[i].used)
             continue;
 
@@ -370,7 +370,7 @@ static int dyn_create(const char *path)
 }
 
 /* Fill a stat for a resolved index. */
-static void fill_stat(int e, void *out)
+static void fill_stat(int32_t e, void *out)
 {
     stat_t *st = (stat_t *) out;
 
@@ -406,9 +406,9 @@ static uint8_t *map_buf(int64_t memh)
     return (uint8_t *) VFS_BUF_VADDR;
 }
 
-static int fd_alloc(void)
+static int32_t fd_alloc(void)
 {
-    for (int i = 0; i < VFS_MAX_FDS; i++) {
+    for (int32_t i = 0; i < VFS_MAX_FDS; i++) {
         if (!fds[i].in_use) {
             memset(&fds[i], 0, sizeof(fds[i]));
             fds[i].in_use = true;
@@ -459,7 +459,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         char rel[VFS_PATH_MAX];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
-        int e;
+        int32_t e;
 
         if (buf == NULL) {
             if (memh != 0)
@@ -490,7 +490,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_FSTAT) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
 
@@ -517,7 +517,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t flags = m->words[0];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
-        int e;
+        int32_t e;
 
         if (buf == NULL) {
             if (memh != 0)
@@ -552,7 +552,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
-        int fd = fd_alloc();
+        int32_t fd = fd_alloc();
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
             sys_mem_unmap(memh, VFS_BUF_VADDR);
@@ -576,7 +576,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_READ) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         uint64_t len = m->words[1];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
@@ -584,7 +584,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
         } else {
-            int e = fds[fd - 1].ent;
+            int32_t e = fds[fd - 1].ent;
             uint64_t off = fds[fd - 1].off;
             uint64_t fsize = idx_size(e);
             uint64_t n = (off < fsize) ? fsize - off : 0;
@@ -617,7 +617,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_WRITE) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         uint64_t len = m->words[1];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
@@ -660,7 +660,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_READDIR) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
         if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
@@ -674,9 +674,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         const char *dir = fds[fd - 1].dir;
         uint64_t wanted = fds[fd - 1].dir_idx;
         uint64_t seen = 0;
-        int found = -1;
+        int32_t found = -1;
 
-        for (int i = 0; i < ent_count && found < 0; i++) {
+        for (int32_t i = 0; i < ent_count && found < 0; i++) {
             if (ents[i].deleted)
                 continue;
             if (is_child(ents[i].name, dir)) {
@@ -687,7 +687,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 seen++;
             }
         }
-        for (int i = 0; i < VFS_MAX_DYN && found < 0; i++) {
+        for (int32_t i = 0; i < VFS_MAX_DYN && found < 0; i++) {
             if (dyns[i].used && is_child(dyns[i].name, dir)) {
                 if (seen == wanted) {
                     found = ent_count + i;
@@ -719,8 +719,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             memset(de, 0, sizeof(*de));
             de->d_ino = (uint64_t) found + 1;
             de->d_type = idx_is_dir(found) ? DT_DIR : DT_REG;
-            int k = 0;
-            while (base[k] != '\0' && k < (int) sizeof(de->d_name) - 1) {
+            int32_t k = 0;
+            while (base[k] != '\0' && k < (int32_t) sizeof(de->d_name) - 1) {
                 de->d_name[k] = base[k];
                 k++;
             }
@@ -736,7 +736,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_CLOSE) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
 
         if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
             if (fds[fd - 1].refs > 0)
@@ -751,7 +751,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_FD_FORK) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
 
         if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
             fds[fd - 1].refs++;
@@ -763,7 +763,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_SEEK) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         int64_t pos = (int64_t) m->words[1];
         int64_t whence = (int64_t) m->words[2];
 
@@ -804,7 +804,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         char rel[VFS_PATH_MAX];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
-        int e;
+        int32_t e;
 
         if (buf == NULL) {
             if (memh != 0)
@@ -840,7 +840,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */

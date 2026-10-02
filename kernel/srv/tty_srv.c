@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -57,7 +58,7 @@ static void tty_spawn_attach(process_t * tc)
     bi->console_ep = hc;
     tc->bootinfo = bi;
 
-    klogi("tty: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("tty: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool tty_server_start(void)

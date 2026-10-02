@@ -35,9 +35,9 @@ typedef struct[[gnu::packed]] {
     uint8_t subclass;
     uint8_t device_class;
     uint8_t prog_if;
-    int multifunction;
+    int32_t multifunction;
     uint8_t irq_pin;
-    int has_prt;
+    int32_t has_prt;
     uint32_t gsi;
     uint16_t gsi_flags;
 } pci_device_t;

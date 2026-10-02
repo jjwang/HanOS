@@ -112,7 +112,7 @@ static void send_key(uint64_t key_ep, uint64_t ch)
     sys_ipc_send((int64_t) key_ep, &m);
 }
 
-static void send_mouse(uint64_t key_ep, int dx, int dy)
+static void send_mouse(uint64_t key_ep, int32_t dx, int32_t dy)
 {
     sys_ipc_msg_t m = { 0 };
     m.tag = INPUT_MOUSE_TAG;
@@ -124,7 +124,7 @@ static void send_mouse(uint64_t key_ep, int dx, int dy)
 /* Three-byte PS/2 mouse packet: flags, X delta, Y delta. */
 static uint8_t mouse_cycle;
 static uint8_t mouse_flags;
-static int mouse_dx;
+static int32_t mouse_dx;
 
 static void mouse_byte(uint64_t key_ep, uint8_t data)
 {
@@ -137,12 +137,12 @@ static void mouse_byte(uint64_t key_ep, uint8_t data)
         mouse_cycle = 1;
         break;
     case 1:
-        mouse_dx = (mouse_flags & 0x10) ? (int) data - 256 : (int) data;
+        mouse_dx = (mouse_flags & 0x10) ? (int32_t) data - 256 : (int32_t) data;
         mouse_cycle = 2;
         break;
     default:
     {
-        int dy = (mouse_flags & 0x20) ? (int) data - 256 : (int) data;
+        int32_t dy = (mouse_flags & 0x20) ? (int32_t) data - 256 : (int32_t) data;
         mouse_cycle = 0;
         /* PS/2 Y grows upward; screen Y grows downward. */
         send_mouse(key_ep, mouse_dx, -dy);
@@ -237,7 +237,7 @@ static void serial_init_rx(void)
     outb(serial_base + UART_IER, ier | 0x01);
 }
 
-int main(void)
+int32_t main(void)
 {
     bootinfo_t bi;
 

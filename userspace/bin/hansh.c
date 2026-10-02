@@ -47,14 +47,14 @@ static command_help_t help_msg[] = {
  * @brief Base header for a parsed shell command
  */
 typedef struct {
-    int type;
+    int32_t type;
 } cmd_t;
 
 /**
  * @brief A simple command with its argument vectors
  */
 typedef struct {
-    int type;
+    int32_t type;
     char *argv[MAXARGS];
     char *eargv[MAXARGS];
 } execcmd_t;
@@ -63,19 +63,19 @@ typedef struct {
  * @brief A command with I/O redirection
  */
 typedef struct {
-    int type;
+    int32_t type;
     cmd_t *cmd;
     char *file;
     char *efile;
-    int mode;
-    int fd;
+    int32_t mode;
+    int32_t fd;
 } redircmd_t;
 
 /**
  * @brief Two commands joined by a pipe
  */
 typedef struct {
-    int type;
+    int32_t type;
     cmd_t *left;
     cmd_t *right;
 } pipecmd_t;
@@ -84,7 +84,7 @@ typedef struct {
  * @brief Two commands run in sequence
  */
 typedef struct {
-    int type;
+    int32_t type;
     cmd_t *left;
     cmd_t *right;
 } listcmd_t;
@@ -93,17 +93,17 @@ typedef struct {
  * @brief A command run in the background
  */
 typedef struct {
-    int type;
+    int32_t type;
     cmd_t *cmd;
 } backcmd_t;
 
-int fork1(void);                /* Fork but panics on failure. */
+int32_t fork1(void);                /* Fork but panics on failure. */
 cmd_t *parsecmd(char *);
 
 /* Execute cmd.  Never returns. */
 void runcmd(cmd_t * cmd)
 {
-    int p[2] = { 0 };
+    int32_t p[2] = { 0 };
     char pathname[CMD_MAX_LEN] = { 0 };
     backcmd_t *bcmd;
     execcmd_t *ecmd;
@@ -175,31 +175,31 @@ void runcmd(cmd_t * cmd)
 }
 
 static char inbuf[CMD_MAX_LEN];
-static int inpos;
-static int inlen;
+static int32_t inpos;
+static int32_t inlen;
 
 /* Return the next buffered input byte, or -1. Fills the buffer with one read
  * so a whole command line usually costs a single IPC. */
-static int input_byte(void)
+static int32_t input_byte(void)
 {
     if (inpos >= inlen) {
-        int n = sys_read(STDIN, inbuf, sizeof(inbuf));
+        int32_t n = sys_read(STDIN, inbuf, sizeof(inbuf));
 
         if (n <= 0)
             return -1;
         inlen = n;
         inpos = 0;
     }
-    return (unsigned char) inbuf[inpos++];
+    return (uint8_t) inbuf[inpos++];
 }
 
-int getcmd(char *buf, int nbuf)
+int32_t getcmd(char *buf, int32_t nbuf)
 {
-    int i;
+    int32_t i;
     sys_write(STDOUT, CMD_PROMPT, strlen(CMD_PROMPT));
     memset(buf, 0, nbuf);
     for (i = 0;;) {
-        int c = input_byte();
+        int32_t c = input_byte();
 
         if (c < 0) {
             break;
@@ -228,10 +228,10 @@ int getcmd(char *buf, int nbuf)
     return 0;
 }
 
-int main(void)
+int32_t main(void)
 {
     char *buf = (char *) sys_malloc(CMD_MAX_LEN);
-    int fd;
+    int32_t fd;
 
     /* TODO: Ensure that three file descriptors are open. */
 
@@ -278,9 +278,9 @@ int main(void)
     return 0;
 }
 
-int fork1(void)
+int32_t fork1(void)
 {
-    int pid;
+    int32_t pid;
 
     pid = sys_fork();
     if (pid == -1)
@@ -300,7 +300,7 @@ cmd_t *execcmd(void)
     return (cmd_t *) cmd;
 }
 
-cmd_t *redircmd(cmd_t * subcmd, char *file, char *efile, int mode, int fd)
+cmd_t *redircmd(cmd_t * subcmd, char *file, char *efile, int32_t mode, int32_t fd)
 {
     redircmd_t *cmd;
 
@@ -355,10 +355,10 @@ cmd_t *backcmd(cmd_t * subcmd)
 char whitespace[] = " \t\r\n\v";
 char symbols[] = "<|>&;()";
 
-int gettoken(char **ps, char *es, char **q, char **eq)
+int32_t gettoken(char **ps, char *es, char **q, char **eq)
 {
     char *s;
-    int ret;
+    int32_t ret;
 
     s = *ps;
     while (s < es && strchr(whitespace, *s))
@@ -402,7 +402,7 @@ int gettoken(char **ps, char *es, char **q, char **eq)
     return ret;
 }
 
-int peek(char **ps, char *es, char *toks)
+int32_t peek(char **ps, char *es, char *toks)
 {
     char *s;
 
@@ -464,7 +464,7 @@ cmd_t *parsepipe(char **ps, char *es)
 
 cmd_t *parseredirs(cmd_t * cmd, char **ps, char *es)
 {
-    int tok;
+    int32_t tok;
     char *q, *eq;
     while (peek(ps, es, "<>")) {
         tok = gettoken(ps, es, 0, 0);
@@ -504,7 +504,7 @@ cmd_t *parseblock(char **ps, char *es)
 cmd_t *parseexec(char **ps, char *es)
 {
     char *q, *eq;
-    int tok, argc;
+    int32_t tok, argc;
     execcmd_t *cmd;
     cmd_t *ret;
 
@@ -536,7 +536,7 @@ cmd_t *parseexec(char **ps, char *es)
 /* NUL-terminate all the counted strings. */
 cmd_t *nulterminate(cmd_t * cmd)
 {
-    int i;
+    int32_t i;
     backcmd_t *bcmd;
     execcmd_t *ecmd;
     listcmd_t *lcmd;

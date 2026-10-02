@@ -17,6 +17,7 @@ followed
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <stddef.h>
 
 #include <string.h>
@@ -28,9 +29,9 @@ static command_help_t help_msg[] = {
 };
 /* *INDENT-ON* */
 
-int main(int argc, char *argv[])
+int32_t main(int32_t argc, char *argv[])
 {
-    int i;
+    int32_t i;
     char msg[3] = { 0 };
 
     for (i = 1; i < argc; i++) {

@@ -12,6 +12,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <bootinfo.h>
 #include <protocol.h>
@@ -64,13 +65,13 @@ static void vfs_spawn_attach(process_t * tc)
         bi->initrd_vaddr = VFS_INITRD_VADDR;
         bi->initrd_size = isize;
         klogi("vfs: mapped initrd 0x%lx (%ld bytes) for pid %ld\n",
-              (unsigned long) VFS_INITRD_VADDR, (unsigned long) isize,
-              (long) tc->pid);
+              (uint64_t) VFS_INITRD_VADDR, (uint64_t) isize,
+              (int64_t) tc->pid);
     }
 
     tc->bootinfo = bi;
 
-    klogi("vfs: attached service endpoint to pid %ld\n", (long) tc->pid);
+    klogi("vfs: attached service endpoint to pid %ld\n", (int64_t) tc->pid);
 }
 
 bool vfs_server_start(void)
@@ -159,7 +160,7 @@ void vfs_server_probe(void)
 
         if (vfs_stat_path("/", "/bin", &st) == 0)
             klogi("vfs: STAT /bin mode 0x%x size %ld\n", st.st_mode,
-                  (long) st.st_size);
+                  (int64_t) st.st_size);
         else
             klogw("vfs: STAT /bin failed\n");
     }

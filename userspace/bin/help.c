@@ -14,6 +14,7 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <stdint.h>
 #include <string.h>
 #include <userspace/help.h>
 
@@ -28,9 +29,9 @@ const command_help_t _shell_helptab[] = {
     { "", "" }
 };
 
-void main(int argc, char *argv[])
+void main(int32_t argc, char *argv[])
 {
-    for (int i = 0;; i++) {
+    for (int32_t i = 0;; i++) {
         if (strlen(_shell_helptab[i].command) == 0)
             break;
         printf("%s\t%s\n", &(_shell_helptab[i].command[7]),

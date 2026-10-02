@@ -49,7 +49,7 @@ typedef struct {
  */
 typedef struct {
     bool used;
-    int pipe;
+    int32_t pipe;
     bool is_write;
     uint32_t refs;              /* forks sharing this end */
 } end_t;
@@ -62,7 +62,7 @@ static bootinfo_t bi;
  * becomes available, then answered. */
 typedef struct {
     bool used;
-    int pipe;
+    int32_t pipe;
     bool is_write;
     bool inline_data;
     int64_t reply;              /* reply endpoint handle */
@@ -74,9 +74,9 @@ typedef struct {
 static pipe_wait_t waits[PIPE_WAIT_MAX];
 static bool msg_deferred;
 
-static int end_alloc(int pipe_idx, bool is_write)
+static int32_t end_alloc(int32_t pipe_idx, bool is_write)
 {
-    for (int i = 0; i < PIPE_END_MAX; i++) {
+    for (int32_t i = 0; i < PIPE_END_MAX; i++) {
         if (ends[i].used)
             continue;
         ends[i].used = true;
@@ -88,17 +88,17 @@ static int end_alloc(int pipe_idx, bool is_write)
     return -1;
 }
 
-static int pipe_create(int *rfh, int *wfh)
+static int32_t pipe_create(int32_t *rfh, int32_t *wfh)
 {
-    for (int p = 0; p < PIPE_MAX; p++) {
+    for (int32_t p = 0; p < PIPE_MAX; p++) {
         if (pipes[p].used)
             continue;
 
         memset(&pipes[p], 0, sizeof(pipes[p]));
         pipes[p].used = true;
 
-        int r = end_alloc(p, false);
-        int w = end_alloc(p, true);
+        int32_t r = end_alloc(p, false);
+        int32_t w = end_alloc(p, true);
         if (r < 0 || w < 0) {
             if (r >= 0)
                 ends[r - 1].used = false;
@@ -117,7 +117,7 @@ static int pipe_create(int *rfh, int *wfh)
     return -1;
 }
 
-static void end_close(int fd)
+static void end_close(int32_t fd)
 {
     end_t *e = &ends[fd - 1];
     pipe_t *p = &pipes[e->pipe];
@@ -236,14 +236,14 @@ static bool pipe_resolve(pipe_wait_t * w)
 
 /* Answer every held request on the pipe that can now make progress. A write
  * may unblock a reader, a read may unblock a writer, so repeat until steady. */
-static void pipe_flush(int pi)
+static void pipe_flush(int32_t pi)
 {
     bool progress = true;
 
     while (progress) {
         progress = false;
 
-        for (int i = 0; i < PIPE_WAIT_MAX; i++) {
+        for (int32_t i = 0; i < PIPE_WAIT_MAX; i++) {
             if (waits[i].used && waits[i].pipe == pi && pipe_resolve(&waits[i]))
                 progress = true;
         }
@@ -252,10 +252,10 @@ static void pipe_flush(int pi)
 
 /* Hold a request that cannot make progress. Returns 0, or -1 when no slot is
  * free. */
-static int queue_wait(sys_ipc_msg_t * m, int pi, bool is_write,
+static int32_t queue_wait(sys_ipc_msg_t * m, int32_t pi, bool is_write,
                       bool inline_data, int64_t memh, uint64_t len)
 {
-    for (int i = 0; i < PIPE_WAIT_MAX; i++) {
+    for (int32_t i = 0; i < PIPE_WAIT_MAX; i++) {
         if (waits[i].used)
             continue;
 
@@ -280,7 +280,7 @@ static int queue_wait(sys_ipc_msg_t * m, int pi, bool is_write,
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == PIPE_CREATE) {
-        int rfh = 0, wfh = 0;
+        int32_t rfh = 0, wfh = 0;
 
         if (pipe_create(&rfh, &wfh) != 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
@@ -293,13 +293,13 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == PIPE_CLOSE) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
 
         if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
-        int pi = ends[fd - 1].pipe;
+        int32_t pi = ends[fd - 1].pipe;
 
         end_close(fd);
         pipe_flush(pi);
@@ -308,7 +308,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_FD_FORK) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
 
         if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;
@@ -320,7 +320,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == PIPE_READ || m->tag == PIPE_WRITE) {
-        int fd = (int) m->words[0];
+        int32_t fd = (int32_t) m->words[0];
         uint64_t len = m->words[1];
         bool is_write = (m->tag == PIPE_WRITE);
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
@@ -335,7 +335,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
-        int pi = ends[fd - 1].pipe;
+        int32_t pi = ends[fd - 1].pipe;
         pipe_t *p = &pipes[pi];
 
         if (len == 0) {
@@ -451,7 +451,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
-int main(void)
+int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
         /* The kernel sets the bootinfo before the process is runnable. */
