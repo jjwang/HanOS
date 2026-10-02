@@ -143,6 +143,7 @@
 #define SYSCALL_SENDTO          74
 #define SYSCALL_RECVFROM        75
 #define SYSCALL_SOCKET_CLOSE    76
+#define SYSCALL_MEM_PHYS        77
 
 void sys_libc_log(const char *message)
 {
@@ -510,4 +511,11 @@ int sys_socket_close(int sock)
     int64_t ret, errno;
     SYSCALL1(SYSCALL_SOCKET_CLOSE, sock);
     return (int) ret;
+}
+
+int64_t sys_mem_phys(int64_t handle, uint64_t offset)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_MEM_PHYS, handle, offset);
+    return ret;
 }

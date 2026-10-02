@@ -71,6 +71,10 @@ $(C_OBJS): %.o: %.c
 	$(CC) -MM -I. -I../libc/include -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
+# LTO emits 32-bit absolute relocations against .bss for the network server,
+# which do not fit the userspace load address; build it without LTO.
+servers/net.o: LC_FLAGS := $(filter-out -flto,$(LC_FLAGS))
+
 -include $(LIBC_DEPS)
 $(LIBC_OBJS): %.u.o: %.c 
 	@echo Compiling $^ ...

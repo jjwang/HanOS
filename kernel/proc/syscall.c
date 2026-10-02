@@ -1896,6 +1896,23 @@ int64_t k_mem_unmap(int64_t handle, uint64_t vaddr)
     return 0;
 }
 
+/* Physical address of a mapped memory object at a byte offset. Used by device
+ * servers that program DMA. */
+int64_t k_mem_phys(int64_t handle, uint64_t offset)
+{
+    process_t *t = sched_get_current_process();
+    memobj_t *m = k_mem_resolve(handle, HANDLE_RIGHT_MAP);
+
+    if (t == NULL || m == NULL || offset >= memobj_size(m)) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    cpu_set_errno(0);
+    return (int64_t) (memobj_page(m, offset / PAGE_SIZE)
+                      + (offset & (PAGE_SIZE - 1)));
+}
+
 int64_t k_handle_dup(int64_t handle)
 {
     process_t *t = sched_get_current_process();
@@ -1903,7 +1920,6 @@ int64_t k_handle_dup(int64_t handle)
         cpu_set_errno(EINVAL);
         return -1;
     }
-
     handle_t h = handle_dup(&t->handles, (handle_t) handle);
     if (h == HANDLE_INVALID) {
         cpu_set_errno(EBADF);
@@ -2195,7 +2211,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start,        /* 73 */
     [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,                /* 74 */
     [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,            /* 75 */
-    [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close     /* 76 */
+    [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,    /* 76 */
+    [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys             /* 77 */
 };
 
 void syscall_init(void)

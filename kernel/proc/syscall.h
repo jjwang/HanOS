@@ -89,6 +89,7 @@
 #define SYSCALL_SENDTO          74
 #define SYSCALL_RECVFROM        75
 #define SYSCALL_SOCKET_CLOSE    76
+#define SYSCALL_MEM_PHYS        77
 
 /* Standard I/O devices */
 #define STDIN               0

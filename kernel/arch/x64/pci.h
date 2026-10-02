@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define PCI_MAKE_ID(b, d, f)    ((b) << 16) | ((d) << 11) | ((f) << 8)
 #define PCI_MAKE_DEVICE_ID(dev) ((((dev)->bus) << 16) |       \
@@ -53,6 +54,9 @@ typedef struct {
 void pci_init(void);
 void pci_list(void);
 const char *pci_device_id_to_string(pci_device_t * device);
+
+/* Find the first device with the given vendor and device id. */
+bool pci_find(uint16_t vendor_id, uint16_t device_id, pci_device_t * out);
 
 uint8_t pci_inb(uint32_t id, uint32_t offset);
 void pci_outb(uint32_t id, uint32_t offset, uint8_t data);

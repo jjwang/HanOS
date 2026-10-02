@@ -75,4 +75,13 @@ typedef struct {
     /* Initrd (ustar archive) granted to the VFS server, mapped read-only. */
     uint64_t initrd_vaddr;
     uint64_t initrd_size;
+
+    /* NIC MMIO window granted to the network server. */
+    uint64_t net_mmio_vaddr;
+    uint64_t net_mmio_size;
+
+    /* Physically contiguous DMA region granted to the network server. */
+    uint64_t net_dma_vaddr;
+    uint64_t net_dma_phys;
+    uint64_t net_dma_size;
 } bootinfo_t;

@@ -27,12 +27,74 @@
 #include <router/router.h>
 #include <srv/net_srv.h>
 #include <proc/sched.h>
+#include <arch/x64/pci.h>
 
 #define NET_IO_BUF_SIZE     VFS_IO_BUF_SIZE
+
+/* Where the NIC MMIO window is mapped in the network server's address space. */
+#define NET_MMIO_VADDR      0x30000000UL
+#define NET_DMA_VADDR       0x40000000UL
+#define NET_DMA_SIZE        (256 * 1024)
 
 static endpoint_t *net_ep = NULL;
 static pid_t net_spawner = PID_MAX;
 static bool net_active = false;
+
+/* Grant the NIC's MMIO window to the server. Returns false when no supported
+ * controller is present, in which case the server keeps only loopback. */
+static bool net_grant_nic(process_t * tc, bootinfo_t * bi)
+{
+    pci_device_t dev;
+    const uint16_t vendors[] = { 0x8086, 0x8086, 0x8086 };
+    const uint16_t devices[] = { 0x10d3, 0x100e, 0x100f };
+    bool found = false;
+
+    for (uint64_t i = 0; i < sizeof(devices) / sizeof(devices[0]); i++) {
+        if (pci_find(vendors[i], devices[i], &dev)) {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+        return false;
+
+    uint32_t id = PCI_MAKE_ID(dev.bus, dev.device, dev.func);
+
+    /* Bus master + memory space. */
+    pci_outw(id, PCI_CONFIG_COMMAND, pci_inw(id, PCI_CONFIG_COMMAND) | 0x6);
+
+    pci_bar_t bar;
+
+    pci_get_bar(&bar, id, 0);
+    if (bar.u.address == NULL || bar.size == 0)
+        return false;
+
+    vmm_map(tc->addrspace, NET_MMIO_VADDR, (uint64_t) bar.u.address,
+            NUM_PAGES(bar.size), VMM_FLAGS_MMIO | VMM_FLAG_USER);
+
+    bi->net_mmio_vaddr = NET_MMIO_VADDR;
+    bi->net_mmio_size = bar.size;
+
+    /* Contiguous DMA memory the server programs into the NIC rings. */
+    void *dma = kmalloc_chunk(NET_DMA_SIZE, __func__, __LINE__);
+
+    if (dma != NULL) {
+        uint64_t dma_phys = VIRT_TO_PHYS((uint64_t) dma);
+
+        vmm_map(tc->addrspace, NET_DMA_VADDR, dma_phys,
+                NUM_PAGES(NET_DMA_SIZE), VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
+        bi->net_dma_vaddr = NET_DMA_VADDR;
+        bi->net_dma_phys = dma_phys;
+        bi->net_dma_size = NET_DMA_SIZE;
+        klogi("net: granted DMA 0x%lx (%ld bytes) at 0x%lx\n", dma_phys,
+              (long) NET_DMA_SIZE, (long) NET_DMA_VADDR);
+    }
+
+    klogi("net: granted NIC %04x:%04x BAR0 0x%lx (%ld bytes) at 0x%lx\n",
+          dev.vendor_id, dev.device_id, (uint64_t) bar.u.address, bar.size,
+          NET_MMIO_VADDR);
+    return true;
+}
 
 static void net_spawn_attach(process_t * tc)
 {
@@ -51,6 +113,9 @@ static void net_spawn_attach(process_t * tc)
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
     bi->service_ep = h;
+
+    net_grant_nic(tc, bi);
+
     tc->bootinfo = bi;
 
     klogi("net: attached service endpoint to pid %ld\n", (long) tc->pid);

@@ -329,3 +329,17 @@ void pci_list(void)
                 dev.device_id, pci_device_id_to_string(&dev));
     }
 }
+
+bool pci_find(uint16_t vendor_id, uint16_t device_id, pci_device_t * out)
+{
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
+        pci_device_t dev = vec_at(&pci_devices, i);
+
+        if (dev.vendor_id == vendor_id && dev.device_id == device_id) {
+            if (out != NULL)
+                *out = dev;
+            return true;
+        }
+    }
+    return false;
+}
