@@ -4,24 +4,26 @@
 
 ## Abstract
 
-HanOS is an operating system for x86-64 written in C. It keeps the classic POSIX syscall ABI while moving the filesystem, block device, terminal, pipe and file-descriptor subsystems into ring-3 servers. The kernel retains scheduling, virtual memory, IPC, interrupt routing and the syscall entry points. Servers communicate over a small capability-based IPC layer built on endpoints and handle transfer. This document describes the kernel primitives, the service router, and the implementation of each server.
+HanOS is an operating system for x86-64 written in C. It keeps the classic POSIX syscall ABI while moving the filesystem, block device, terminal, pipe, file-descriptor and network subsystems into ring-3 servers. The kernel keeps scheduling, virtual memory, IPC, interrupt routing and the syscall entry points. Servers communicate over a capability-based IPC layer built on endpoints and handle transfer. This document describes the kernel primitives, the IPC mechanism, the service router, and the implementation of each server.
 
-## 1. Why a hybrid microkernel
+## 1. Design
 
-A monolithic kernel runs every subsystem in ring 0. A bug in the filesystem can corrupt scheduler state or the page tables. A pure microkernel moves every driver and service to ring 3 but forces a large redesign of the ABI and of device access. HanOS takes the middle path.
+A monolithic kernel runs every subsystem in ring 0. A bug in the filesystem corrupts scheduler state or the page tables. A pure microkernel moves every driver and service to ring 3 but forces a large redesign of the ABI and of device access. HanOS takes the middle path.
 
-- Keep the syscall numbers and names that userspace already uses.
-- Move a subsystem to a server when it has a bounded interface and its state can live in ring 3.
-- Keep an in-kernel implementation of the same interface. A syscall uses the server when the service is registered and the in-kernel path otherwise. This makes the migration incremental and keeps the system bootable at every step.
+- Keep the syscall numbers and names userspace already uses.
+- Move a subsystem to a server when its interface is bounded and its state can live in ring 3.
+- Keep scheduling, address spaces, IPC, interrupts and the bootstrap loader in the kernel.
 
-The result is a kernel that still owns address spaces, process creation, IPC and interrupts, plus a set of cooperative servers that own file descriptors, filesystem state, pipes, the console and the input devices.
+The kernel bootstraps the first servers from the boot initrd image. It builds no filesystem in ring 0. Once the VFS server registers, every file path goes through a server.
+
+The result is a kernel that owns address spaces, process creation, IPC and interrupts, plus a set of cooperative servers that own file descriptors, filesystem state, pipes, the console, input devices and the network.
 
 ## 2. System overview
 
 The system has three layers.
 
 - The kernel runs in ring 0. It provides scheduling, virtual memory, the kernel object and handle model, IPC endpoints, interrupt objects, the service router and the syscall table.
-- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the ATA disk, a FAT32 volume, the initrd VFS, pipes, or the per-process file descriptor table.
+- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the ATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, or the network.
 - The programs run in ring 3 and use the libc, which issues syscalls.
 
 Services are addressed by a service id. The kernel's router maps a service id to the endpoint of the owning server.
@@ -31,7 +33,7 @@ Services are addressed by a service id. The kernel's router maps a service id to
 | SVC_MM | 0 | in-kernel (memory) |
 | SVC_FS | 1 | `/bin/vfs` |
 | SVC_PROC | 2 | `/bin/process` |
-| SVC_NET | 3 | reserved |
+| SVC_NET | 3 | `/bin/net` |
 | SVC_MISC | 4 | reserved |
 | SVC_PIPE | 5 | `/bin/pipe` |
 | SVC_TTY | 6 | `/bin/tty` |
@@ -41,22 +43,22 @@ Services are addressed by a service id. The kernel's router maps a service id to
 
 ### 3.1 Privilege model and boot
 
-Limine loads the kernel ELF, the initrd and a configuration into memory and jumps to `kmain`. The kernel brings up the serial port, the ACPI tables, the local APIC, the HPET, the SMP cores, the page tables and the memory allocators. It builds an in-kernel ramfs over the initrd, then creates `kshell`, a kernel process that starts the servers and finally execs the shell program.
+Limine loads the kernel ELF, the initrd and a configuration into memory and jumps to `kmain`. The kernel brings up the serial port, the ACPI tables, the local APIC, the HPET, the SMP cores, the page tables and the memory allocators. It records the initrd image and reads ACPI tables on demand. It creates no filesystem in ring 0. It then creates `kshell`, a kernel process that starts the servers and finally execs the shell program.
 
-A server is created with `sched_execve` and receives a `bootinfo_t` block. The block holds handles to the endpoints the server needs, its granted interrupt line, I/O-port ranges, and the framebuffer or initrd mapping. A server reads it with the `bootinfo` syscall before it does anything else.
+A server is created with `sched_execve` and receives a `bootinfo_t` block. The block holds handles to the endpoints the server needs, its granted interrupt line, I/O-port ranges, and the framebuffer, initrd or NIC mapping. A server reads it with the `bootinfo` syscall before it does anything else.
 
 ### 3.2 Kernel objects and handles
 
-An endpoint and a memory object are both `kernel_object_t`. The base header holds a type, an atomic reference count, a pointer to the implementation and a destroy function. Reference counting frees an object when the last reference drops.
+An endpoint, a memory object and an interrupt object are all `kernel_object_t`. The base header holds a type, an atomic reference count, a pointer to the implementation and a destroy function. Reference counting frees an object when the last reference drops.
 
-User space reaches objects only through handles in a per-process handle table. A handle packs a 16-bit slot index and a 16-bit generation. The generation increments on every allocation, so a recycled slot can never alias a stale handle. Each slot also stores access rights.
+User space reaches objects only through handles in a per-process handle table. A handle packs a 16-bit slot index and a 16-bit generation. The generation increments on every allocation, so a recycled slot never aliases a stale handle. Each slot also stores access rights.
 
 - `handle_alloc` finds a free slot, bumps the generation and takes a reference.
 - `handle_get` checks the index, the generation and the requested rights.
 - `handle_close` clears the slot and drops the reference.
 - `handle_dup` copies a handle with the same rights.
 
-Handles move between processes when a message carries them in the `xfer[]` array. The router takes the object from the sender's table and moves it into the receiver with a restricted right set.
+Handles move between processes when a message carries them in the `xfer[]` array. The kernel takes the object from the sender's table and moves it into the receiver with a restricted right set. Section 4 describes the transfer.
 
 ### 3.3 Endpoints and message passing
 
@@ -66,19 +68,11 @@ An endpoint is a kernel object that holds a FIFO of up to 64 messages. A message
 - `ipc_recv` blocks until a message is available.
 - `ipc_recv_timeout` blocks with a deadline and returns on timeout.
 
-Waking is explicit. `sched_wake_key` marks a sleeping process ready and, when the process lives on another core, sends a reschedule IPI to that core. Without the IPI a woken process would wait for the target core's timer tick.
+Waking is explicit. `sched_wake_key` marks a sleeping process ready and, when the process lives on another core, sends a reschedule IPI to that core. Without the IPI a woken process would wait for the target core's timer tick. Section 4 gives the full mechanism.
 
 ### 3.4 The service router
 
-The router holds an endpoint pointer and an owner pid per service id. A server registers its endpoint after it starts. A syscall that needs a service calls `router_forward`:
-
-1. Create an ephemeral reply endpoint.
-2. Move the reply endpoint in `xfer[0]` and the request's own handles after it.
-3. Send the request to the service endpoint.
-4. Block on the reply endpoint with a timeout.
-5. Unref the reply endpoint and return the reply.
-
-The callee replies on the reply endpoint and closes it. If a service id has no endpoint yet, `router_lookup` returns NULL and the caller runs the in-kernel implementation. This is the fallback that keeps the system bootable before the servers start and if a server is disabled.
+The router holds an endpoint pointer and an owner pid per service id. A server registers its endpoint after it starts. A syscall that needs a service calls `router_forward`: it creates a reply endpoint, moves it into the request, sends the request, and blocks on the reply. If a service id has no endpoint, `router_lookup` returns NULL and the caller reports the unreachable service. Section 4.8 describes the router.
 
 ### 3.5 Memory objects and user-copy safety
 
@@ -88,84 +82,244 @@ Inside the kernel, copies between the kernel and a process address space use the
 
 ### 3.6 Scheduling
 
-Each core owns a run queue and a current process. A 1 ms APIC timer drives the time slice; each core installs the context-switch entry on its own timer vector. A process that blocks is put on the queue with a wakeup deadline. The switch code promotes expired sleepers to ready before it picks the next process, so a perpetually runnable process cannot starve timed sleepers. Wakeups use the reschedule IPI described in Section 3.3.
+Each core owns a run queue and a current process. A 1 ms APIC timer drives the time slice; each core installs the context-switch entry on its own timer vector. A process that blocks is put on the queue with a wakeup deadline. The switch code promotes expired sleepers to ready before it picks the next process, so a perpetually runnable process cannot starve timed sleepers. Wakeups use the reschedule IPI described in Section 4.4.
 
-## 4. System servers
+### 3.7 Memory layout
+
+- The kernel direct map covers RAM only. `vmm_init` maps the usable entries, the bootloader and ACPI reclaimable regions, the kernel image and the framebuffer. It does not map the MMIO holes.
+- ACPI tables live in reserved memory. `acpi_init` maps each table before it reads it.
+- User programs link at `0x0000400000000000`, so the kernel and user mappings never share the HHDM range.
+- The process server owns the per-pid file descriptor table; the kernel resolves a fd to a server descriptor on demand.
+
+## 4. The IPC mechanism
+
+Every request between a client and a server travels as a message on an endpoint. A pointer to user memory never crosses the boundary. This section describes the message, the endpoint, handle transfer, the reply pattern, blocking, deferred replies, bulk data, the router and interrupt delivery.
+
+### 4.1 Endpoint
+
+An endpoint is a kernel object that holds a spinlock and a FIFO of 64 messages.
+
+```c
+#define IPC_WORDS 6
+#define IPC_QUEUE_LEN 64
+
+struct endpoint {
+    kernel_object_t obj;
+    spinlock_t lock;
+    ipc_queue_entry_t msgs[IPC_QUEUE_LEN];
+    uint32_t head;
+    uint32_t tail;
+    uint32_t count;
+};
+```
+
+The queue is a ring buffer. `ipc_send` appends at `tail`; `ipc_try_recv` pops at `head`. The spinlock guards the head, the tail and the count across cores. A full queue rejects the send.
+
+### 4.2 Message
+
+```c
+#define IPC_WORDS 6
+
+struct ipc_msg {
+    uint64_t tag;
+    uint64_t words[IPC_WORDS];
+    handle_t xfer[2];
+    uint8_t  xfer_count;
+};
+```
+
+- The tag names the request. Each service defines its own tag space (`VFS_*`, `PIPE_*`, `PROC_*`, `NET_*`, `TTY_*`, `FAT_*`).
+- Six inline words carry small arguments and small replies. A reply puts a status or a negative errno in `words[0]`.
+- `xfer[]` moves up to two handles with the message. A path or a bulk buffer travels as a memory object; a reply endpoint travels as an endpoint object.
+- `xfer_count` names how many entries of `xfer[]` the sender set. The receiver reads them after the copy.
+
+### 4.3 Handle transfer
+
+A handle is a per-process reference to a kernel object. The table packs a 16-bit slot and a 16-bit generation; the generation changes on reuse, so a stale handle never resolves.
+
+```c
+handle_t handle_alloc(handle_table_t *ht, kernel_object_t *o, uint32_t rights);
+kernel_object_t *handle_get(handle_table_t *ht, handle_t h, uint32_t rights);
+int handle_close(handle_table_t *ht, handle_t h);
+```
+
+Rights are `READ`, `WRITE`, `SEND`, `RECV`, `MAP` and `TRANSFER`. A sender hands over an object only when its handle carries `TRANSFER`. The kernel moves the object out of the sender's table into the queued message, then into the receiver's table with a restricted right set:
+
+- memory object → `READ | WRITE | MAP`
+- endpoint → `SEND | RECV`
+- interrupt object → `READ`
+
+The transfer is a move: the sender's handle closes when the message is queued. A received handle has no `TRANSFER` right, so a server cannot relay it onward.
+
+### 4.4 Send, receive and wake
+
+```c
+int ipc_send(endpoint_t *ep, const ipc_msg_t *msg);
+int ipc_recv(endpoint_t *ep, ipc_msg_t *msg);
+int ipc_recv_timeout(endpoint_t *ep, ipc_msg_t *msg, time_t ms);
+int ipc_recv_nb(endpoint_t *ep, ipc_msg_t *msg);
+```
+
+- `ipc_send` enqueues and calls `sched_wake_key(ep)`.
+- `ipc_recv` blocks through `sched_wait_key_begin` and `sched_wait_key_commit`. The wait key is the endpoint pointer.
+- `sched_wake_key` marks the sleeping process ready. When that process runs on another core, the waker sends a reschedule IPI, so the receiver runs on its own core without waiting for a timer tick.
+
+The wake is not lost. `sched_wait_key_begin` arms the process before it checks the queue; `sched_wait_key_commit` sleeps only when the queue was empty. A wake delivered in the window marks the process ready, and the receive loop observes it.
+
+### 4.5 The reply pattern
+
+A caller that needs an answer uses `router_forward`. The kernel creates an ephemeral reply endpoint and moves it into the request.
+
+1. Create a reply endpoint.
+2. Move the reply endpoint into `xfer[0]`; move the request's own handles after it in `xfer[1..]`.
+3. Send the request to the service endpoint.
+4. Block on the reply endpoint with a deadline.
+5. Drop the reply endpoint and return the reply message.
+
+The server reads the reply endpoint from `xfer[0]`, handles the request, and sends the reply on it. The server then closes the reply endpoint; the kernel drops its own reference on return. The reply path is one-way: a server never needs the caller's endpoint.
+
+### 4.6 Deferred replies
+
+A server that cannot answer at once keeps the reply endpoint and answers later. The reply endpoint is a handle, so holding it is enough. This is how the system blocks without polling.
+
+- tty read with no key: the server stores the reply endpoint and the length, and answers on the next key.
+- pipe read with no data, or write with no room: the server stores the reply endpoint and the memory object, and answers when the other end moves data or closes.
+- datagram or stream receive with no data: the server stores the reply endpoint and the buffer, and answers when a segment arrives.
+- `accept` with no pending connection: the server stores the reply endpoint and answers when a connection completes.
+
+Each server holds at most a few deferred requests, so the memory cost is bounded.
+
+### 4.7 Bulk data
+
+A path or a file buffer never travels in the six inline words for large sizes. The caller creates a memory object (`mem_alloc`), maps it, fills it, and moves its handle in `xfer[1]`. The server maps it with `mem_map`, copies in or out, and unmaps it. The kernel never passes a user pointer across the boundary.
+
+The VFS server uses one buffer for a path and a stat result: the path at offset 0, the result at `VFS_IO_DATA_OFF`. The pipe server keeps small transfers inline (up to 32 bytes) and uses a memory object above that. The network server moves packet bytes through a memory object.
+
+### 4.8 The service router
+
+The router is a directory from service id to endpoint.
+
+```c
+typedef enum {
+    SVC_MM, SVC_FS, SVC_PROC, SVC_NET, SVC_MISC, SVC_PIPE, SVC_TTY, SVC_FAT,
+    SVC_COUNT
+} service_id_t;
+
+void router_register(service_id_t id, endpoint_t *ep, pid_t owner);
+endpoint_t *router_lookup(service_id_t id);
+bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep);
+bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
+                            ipc_msg_t *rep, time_t timeout_ms);
+```
+
+A server registers its endpoint after it starts. A syscall looks up the service and forwards. `router_lookup` returns NULL when no service is registered; the caller then reports the unreachable service. Only the initrd reader and the in-kernel device drivers remain in ring 0.
+
+### 4.9 Interrupts as messages
+
+An interrupt object (`OBJ_IRQ`) is created for a line. `irq_bind` attaches an endpoint. When the line fires, `irq_deliver` sends an `IRQ_NOTIFY_TAG` message to that endpoint; the ISR path skips the in-kernel handler for a bound line. The driver acknowledges with `irq_ack`. A hardware event reaches a server through the same message path as a syscall.
+
+### 4.10 A file read end to end
+
+1. libc issues `SYSCALL_READ(fd, buf, len)`.
+2. The kernel resolves `fd` through the process server into `(svc, server_fd)`.
+3. The kernel creates a memory object for `buf` and builds `VFS_READ`.
+4. `router_forward` moves a reply endpoint and the memory object, and sends to the FS endpoint.
+5. The VFS server maps the object, copies the bytes, replies with the count, and closes the reply endpoint.
+6. The kernel copies the object back into `buf` and returns the count.
+
+## 5. System servers
 
 Each server is a process that receives on `service_ep`, handles a request, and replies on the endpoint the kernel moved in `xfer[0]`. Bulk payloads use a memory object in `xfer[1]`.
 
-### 4.1 console
+### 5.1 console
 
 The console server owns the framebuffer. The kernel grants it a mapping of the scan-out with write-combining attributes and an endpoint for console bytes. The server keeps a back buffer and renders text with the shared gohufont glyphs. It tracks dirty rows and copies only those to the framebuffer.
 
 The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server decodes a minimal SGR subset (colours) and a newline, carriage return, backspace and tab. When the queue is idle it blinks a block cursor. The server starts from a cleared screen, so it does not inherit the boot splash.
 
-### 4.2 input
+### 5.2 input
 
 The input server owns the PS/2 controller, its IRQ lines and COM1. The kernel grants it IRQ1 (keyboard), IRQ12 (mouse) and IRQ4 (serial), the PS/2 ports `0x60` and `0x64`, and the COM1 range `0x3F8` to `0x3FF`. All port access goes through the range-checked `ioport_access` syscall.
 
 On an interrupt notification the server drains the PS/2 controller. The status byte says whether the byte came from the keyboard or the mouse. Keyboard scancodes are decoded through the shared keycode table; the mouse packets are three-byte deltas. The server also drains any COM1 bytes, so a serial console works without a PS/2 keyboard. Decoded keys and mouse deltas are sent to the kernel as `INPUT_KEY_TAG` and `INPUT_MOUSE_TAG` messages.
 
-### 4.3 tty
+### 5.3 tty
 
 The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. The kernel relays each decoded key to the server as a `TTY_KEY` message.
 
-Reads are event-driven. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when the next key arrives. The kernel blocks in `tty_server_read` on that reply instead of polling, so an idle shell makes no requests and is woken by the reply's reschedule IPI.
+Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when a line is complete or the requested length is buffered. The kernel blocks in `tty_server_read` on that reply instead of polling. A reader that asks for few bytes stays unbuffered.
 
-### 4.4 block
+### 5.4 block
 
 The block server owns the ATA PIO ports. It answers `BLOCK_GET_INFO`, `BLOCK_READ` and `BLOCK_WRITE`. Reads and writes carry a memory object in `xfer[1]` holding the sectors and use 28-bit LBA addressing. The server probes the primary master with `IDENTIFY`, reports the geometry, and never dereferences a client pointer. A bounded poll fails fast when the device is absent.
 
-### 4.5 fat32
+### 5.5 fat32
 
 The FAT32 server is a read-only client of the block server. At start it reads the boot sector, validates the FAT32 signature and records the geometry. It walks directories with 8.3 names and follows a file's cluster chain.
 
 Descriptors are server state. `FAT_OPEN` parses a path and returns a descriptor; `FAT_READ` advances its offset; `FAT_SEEK` repositions it; `FAT_FSTAT` reports size and directory flag; `FAT_READDIR` lists one entry. `FAT_STAT` reports a path without opening it. Paths travel at offset 0 of a buffer memory object and file data at `VFS_IO_DATA_OFF`.
 
-### 4.6 vfs
+### 5.6 vfs
 
-The VFS server serves the initrd. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories and sizes. It also keeps a small set of files created at runtime in RAM.
+The VFS server serves the initrd namespace. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories and sizes. It also keeps a small set of files created at runtime in RAM.
+
+The server owns path resolution and the FAT mount. A path request carries the process working directory and the path; the server joins and normalizes them. When the result is under `/fat`, the server writes the mount-relative path back and replies `VFS_REDIRECT_FAT`; the kernel then issues the request to the FAT server. The kernel builds no path.
 
 The protocol covers `VFS_OPENAT`, `VFS_READ`, `VFS_WRITE`, `VFS_SEEK`, `VFS_CLOSE`, `VFS_READDIR`, `VFS_FSTAT`, `VFS_FSTATAT`, `VFS_FACCESSAT`, `VFS_UNLINK` and `VFS_FD_FORK`. A request that carries a path or a data buffer puts it in a memory object in `xfer[1]`; the server maps it, reads or fills it, and unmaps it. `VFS_FD_FORK` adds a reference so a forked child shares the open file description.
 
-The kernel's VFS layer holds only the per-CPU transient descriptor that names a server file, resolved from the process server by fd.
+### 5.7 pipe
 
-### 4.7 pipe
+The pipe server owns a small set of byte-stream pipes. `PIPE_CREATE` returns a read end and a write end. Reads and writes move data inline up to 32 bytes or through a memory object in `xfer[1]`. A read with no data whose write end is open, or a write with no room, is held: the server keeps the reply endpoint and the object, and answers when the other end moves data or closes. A read returns 0 once the write end closes. `VFS_FD_FORK` bumps the end reference count so a forked child shares the pipe.
 
-The pipe server owns a small set of byte-stream pipes. `PIPE_CREATE` returns a read end and a write end. Reads and writes move data inline up to 32 bytes or through a memory object in `xfer[1]`. A read with no data whose write end is open, or a write with no room, returns `PIPE_EAGAIN` and the kernel retries. A read returns 0 once the write end closes. `VFS_FD_FORK` bumps the end reference count so a forked child shares the pipe.
+### 5.8 process
 
-### 4.8 process
+The process server owns the per-process file descriptor table and the process tree. Each fd request names a pid and a fd.
 
-The process server owns the per-process file-descriptor table. Each request names a pid and a fd. `PROC_FD_OPEN` registers a descriptor that names a server and a server fd; `PROC_FD_GET` resolves it; `PROC_FD_CLOSE` removes it and returns the server fd so the caller can close the server side; `PROC_FD_DUP` copies a descriptor; `PROC_FD_SEEK` updates the offset; `PROC_FD_FORK` clones a parent's table for a child; `PROC_FD_EXIT` closes the descriptors of an exiting process.
+- `PROC_FD_OPEN` registers a descriptor that names a service and a server fd; `PROC_FD_GET` resolves it; `PROC_FD_CLOSE` removes it and returns the server fd; `PROC_FD_DUP` copies it; `PROC_FD_FORK` clones a parent's table for a child; `PROC_FD_EXIT` closes the descriptors of an exiting process.
+- `PROC_FD_FCNTL` reads and writes the close-on-exec flag. exec closes marked descriptors in the child.
+- `PROC_EXEC` loads an ELF: the kernel packs the path, the working directory, the argv and the image into one memory object, and the server maps the segments, builds the stack, and starts the child.
+- `PROC_EXIT` records an exit status; `PROC_WAIT` returns a dead child, blocks while a child is live, or reports `ECHILD`. A process counts as exited only after it exits and all its children are gone.
 
-The kernel no longer keeps a file table per process. A read, write, seek, close or stat on a server-backed fd resolves the fd through the process server into a per-CPU transient descriptor. Redirecting standard input and output uses the same table: `dup3` records an alias, and reads and writes on fds 0, 1 and 2 use the alias when one exists and the tty otherwise.
+The kernel resolves a fd through the process server into a per-CPU transient descriptor. Redirecting standard input and output uses the same table: `dup3` records an alias, and reads and writes on fds 0, 1 and 2 use the alias when one exists and the tty otherwise.
 
-## 5. Boot sequence and fallback
+### 5.9 net
+
+The network server owns the socket layer and the NIC. It serves AF_INET datagram and stream sockets.
+
+- Datagram: `sendto` to the loopback address is delivered in the server; a real address resolves ARP and emits a UDP/IP/Ethernet frame. A received datagram matches a bound socket.
+- Stream: `connect` runs the SYN/SYN-ACK/ACK handshake; `send` emits a PSH segment; `recv` buffers incoming data; `close` sends FIN. `listen` and `accept` accept an incoming connection.
+- The server drives the e1000e: the kernel grants the MMIO BAR and a physically contiguous DMA region; the server programs the rings, reads its MAC and polls.
+- An ARP cache backs address lookups. An RX dispatcher handles ARP, ICMP echo, UDP and TCP. The server pings the gateway at start.
+
+## 6. Boot sequence
 
 `kshell` starts the servers in dependency order.
 
 1. console, so kernel output has a destination.
 2. input and tty, so the terminal works.
 3. block, then fat32 as its client.
-4. vfs for the initrd.
+4. vfs for the initrd namespace.
 5. pipe.
-6. process, which owns file descriptors.
+6. process, which owns file descriptors and the process tree.
+7. net, which owns the NIC.
 
 It then execs `/bin/init`, which execs the shell. Each start registers the service endpoint with the router and probes the server with a ping.
 
-Before a service registers, and if a server is disabled in `kconfig.h`, the router returns NULL and the syscall uses the in-kernel implementation. The kernel keeps in-kernel paths for the ramfs, the block device, pipes and the terminal, so the system boots and runs with no servers at all.
+The kernel loads the first servers from the initrd image with `vfs_load_file`. Once the VFS server registers, every file path goes through a server. No in-kernel filesystem remains; the kernel keeps only the initrd reader.
 
-## 6. Limitations
+## 7. Limitations
 
-- There is a single instance of each service; a crash of a server stops that domain. The in-kernel fallback covers the case where a server never starts, not the case where it dies.
+- There is a single instance of each service; a crash of a server stops that domain.
 - The FAT32 server is read-only and handles 8.3 names.
 - The block server uses ATA PIO polling, not DMA.
-- NET and MISC service ids are reserved but unused.
-- Device servers poll their queues with a timeout; the tty read path is event-driven but the other servers are not.
+- SVC_MM and SVC_MISC are reserved but unused.
+- TCP is a minimal implementation: no retransmission, no out-of-order handling, a fixed window, and a client and a server only.
+- The NIC is polled, not interrupt-driven.
+- VFS runtime files live in RAM and do not persist.
 
-## 7. Conclusion
+## 8. Conclusion
 
-HanOS keeps address spaces, processes, IPC and interrupts in the kernel and moves filesystem, block, terminal, pipe and file-descriptor state into ring-3 servers. A capability-based handle model, endpoint IPC with handle transfer, a service router with an in-kernel fallback, and memory objects for bulk data together give a working hybrid microkernel without breaking the POSIX syscall ABI.
+HanOS keeps address spaces, processes, IPC and interrupts in the kernel and moves filesystem, block, terminal, pipe, file-descriptor and network state into ring-3 servers. A capability-based handle model, endpoint IPC with handle transfer, a service router, deferred replies, and memory objects for bulk data together give a working hybrid microkernel without breaking the POSIX syscall ABI.
 
 ## References
 
