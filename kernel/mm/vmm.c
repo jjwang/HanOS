@@ -346,29 +346,11 @@ void vmm_init(struct limine_memmap_response *map,
     klogd("VMM: PML4 of kernel address space - 0x%016lx\n", kaddrspace.PML4);
     memset(kaddrspace.PML4, 0, PAGE_SIZE * 8);
 
-    /* We only need to map all memories as below for kernel process, so we do not
-     * call vmm_map() function.
-     *
-     * - For ENABLE_MEM_DEBUG definition
-     *
-     * For memory debuging purpose, we totally map 1GB memory for all processes
-     * to access these memories. If we map all physical memories, there will be
-     * #PF (page fault) exception when forking 2 or more processes.
-     * 
-     * - For UEFI mode
-     *
-     * But we also open this memory region map to resolve #PF exception when
-     * booting from UEFI mode.
-     *
-     * TODO: Need to locate the root cause of the UEFI booting issue.
-     *
-     */
-    uint64_t np = NUM_PAGES(kmem_info.phys_limit);
-    for (uint64_t i = 0; i < np * PAGE_SIZE; i += PAGE_SIZE) {
-        map_page(NULL, MEM_VIRT_OFFSET + i, i, VMM_FLAGS_DEFAULT);
-    }
-    klogi("Mapped %ld bytes memory to 0x%016lx\n",
-          kmem_info.phys_limit, MEM_VIRT_OFFSET);
+    /* Map the direct map (HHDM) only over memory that is RAM. Mapping the whole
+     * span up to phys_limit would also map the MMIO holes in between; drivers
+     * map their device windows separately. Low 1 MiB holds the BIOS, the EBDA
+     * and the ACPI RSDP; ACPI tables in reserved memory are mapped on demand. */
+    vmm_map(NULL, PHYS_TO_VIRT(0), 0, NUM_PAGES(0x100000), VMM_FLAGS_DEFAULT);
 
     for (uint64_t i = 0; i < map->entry_count; i++) {
         struct limine_memmap_entry *entry = map->entries[i];
@@ -389,9 +371,10 @@ void vmm_init(struct limine_memmap_response *map,
                   entry->base, PHYS_TO_VIRT(entry->base), entry->length,
                   i);
             fb_set_wc(entry->base, entry->length);
-        } else if (entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
-            /* vmm_map: do nothing */
-        } else if (entry->type == LIMINE_MEMMAP_USABLE) {
+        } else if (entry->type == LIMINE_MEMMAP_USABLE
+                   || entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE
+                   || entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE
+                   || entry->type == LIMINE_MEMMAP_ACPI_NVS) {
             bool is_mem_bitmap_loc = false;
             if (VIRT_TO_PHYS(kmem_info.bitmap) >= entry->base
                 && VIRT_TO_PHYS(kmem_info.bitmap) <

@@ -470,6 +470,8 @@ void usb_hid_init(void)
 
     pci_get_bar(&bar, id, 0);
     mmio = (volatile uint8_t *) PHYS_TO_VIRT(bar.u.address);
+    vmm_map(NULL, (uint64_t) mmio, (uint64_t) bar.u.address,
+            NUM_PAGES(bar.size ? bar.size : PAGE_SIZE), VMM_FLAGS_MMIO);
 
     uint8_t caplen = mmio[CAP_CAPLENGTH];
     uint32_t hcs1 = mmio_rd(CAP_HCSPARAMS1);
