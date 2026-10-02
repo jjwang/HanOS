@@ -29,9 +29,95 @@ static command_help_t help_msg[] = {
 /* *INDENT-ON* */
 
 #define NET_TEST_PORT   4444
+#define GW_IP           0x0a000202U     /* 10.0.2.2, the QEMU gateway */
+#define UDP_ECHO_PORT   9999
+#define TCP_ECHO_PORT   9998
+
+static int udp_nic_test(void)
+{
+    int s = sys_socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (s < 0) {
+        printf("nettest: udp socket FAIL\n");
+        return 1;
+    }
+
+    const char *m = "udp-hello";
+    int64_t n = sys_sendto(s, GW_IP, UDP_ECHO_PORT, m, strlen(m));
+
+    printf("nettest: udp sent %ld\n", (long) n);
+    if (n != (int64_t) strlen(m))
+        return 1;
+
+    char buf[64];
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    int64_t r = sys_recvfrom(s, buf, sizeof(buf) - 1, &ip, &port);
+
+    if (r <= 0) {
+        printf("nettest: udp recv FAIL %ld\n", (long) r);
+        return 1;
+    }
+    buf[r] = '\0';
+    printf("nettest: udp recv %ld: %s\n", (long) r, buf);
+
+    sys_socket_close(s);
+    return strcmp(buf, m) == 0 ? 0 : 1;
+}
+
+static int tcp_nic_test(void)
+{
+    int s = sys_socket(AF_INET, SOCK_STREAM, 0);
+
+    if (s < 0) {
+        printf("nettest: tcp socket FAIL\n");
+        return 1;
+    }
+    if (sys_connect(s, GW_IP, TCP_ECHO_PORT) < 0) {
+        printf("nettest: tcp connect FAIL\n");
+        return 1;
+    }
+    printf("nettest: tcp connected\n");
+
+    const char *m = "tcp-hello";
+    int64_t n = sys_sendto(s, 0, 0, m, strlen(m));
+
+    printf("nettest: tcp sent %ld\n", (long) n);
+    if (n != (int64_t) strlen(m))
+        return 1;
+
+    char buf[64];
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    int64_t r = sys_recvfrom(s, buf, sizeof(buf) - 1, &ip, &port);
+
+    if (r <= 0) {
+        printf("nettest: tcp recv FAIL %ld\n", (long) r);
+        return 1;
+    }
+    buf[r] = '\0';
+    printf("nettest: tcp recv %ld: %s\n", (long) r, buf);
+
+    sys_socket_close(s);
+    return strcmp(buf, m) == 0 ? 0 : 1;
+}
 
 int main(int argc, char *argv[])
 {
+    if (argc > 1 && strcmp(argv[1], "udp") == 0) {
+        int rc = udp_nic_test();
+
+        printf("nettest: udp %s\n", rc == 0 ? "PASS" : "FAIL");
+        sys_exit(rc);
+    }
+
+    if (argc > 1 && strcmp(argv[1], "tcp") == 0) {
+        int rc = tcp_nic_test();
+
+        printf("nettest: tcp %s\n", rc == 0 ? "PASS" : "FAIL");
+        sys_exit(rc);
+    }
+
     (void) argc;
     (void) argv;
 

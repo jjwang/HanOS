@@ -2141,6 +2141,17 @@ int64_t k_socket_close(int64_t sock)
     return 0;
 }
 
+int64_t k_connect(int64_t sock, int64_t ip, int64_t port)
+{
+    cpu_set_errno(0);
+
+    if (net_connect((int) sock, (uint32_t) ip, (uint16_t) port) < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
@@ -2212,7 +2223,8 @@ syscall_ptr_t syscall_funcs[] = {
     [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,                /* 74 */
     [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,            /* 75 */
     [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,    /* 76 */
-    [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys             /* 77 */
+    [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys,            /* 77 */
+    [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect               /* 78 */
 };
 
 void syscall_init(void)

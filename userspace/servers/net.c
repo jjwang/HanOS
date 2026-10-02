@@ -33,6 +33,7 @@
 typedef struct {
     bool used;
     bool bound;
+    bool stream;                /* SOCK_STREAM (TCP) when true */
     uint32_t ip;
     uint16_t port;
     uint8_t rbuf[NET_RBUF];
@@ -44,6 +45,15 @@ typedef struct {
     int64_t wait_reply;
     int64_t wait_memh;
     uint32_t wait_len;
+    /* TCP state. */
+    int tstate;                 /* 0 closed, 1 syn sent, 2 established */
+    uint32_t snd_nxt;
+    uint32_t snd_una;
+    uint32_t rcv_nxt;
+    uint32_t peer_ip;
+    uint16_t peer_port;
+    bool got_ack;
+    bool got_fin;
 } net_sock_t;
 
 static net_sock_t socks[NET_MAX_SOCKS];
@@ -142,6 +152,45 @@ typedef struct[[gnu::packed]] {
     uint32_t tpa;
 } arp_hdr_t;
 
+typedef struct[[gnu::packed]] {
+    uint16_t src;
+    uint16_t dst;
+    uint16_t len;
+    uint16_t csum;
+} udp_hdr_t;
+
+typedef struct[[gnu::packed]] {
+    uint16_t src;
+    uint16_t dst;
+    uint32_t seq;
+    uint32_t ack;
+    uint8_t off;
+    uint8_t flags;
+    uint16_t win;
+    uint16_t csum;
+    uint16_t urg;
+} tcp_hdr_t;
+
+#define TCP_FIN     0x01
+#define TCP_SYN     0x02
+#define TCP_RST     0x04
+#define TCP_PSH     0x08
+#define TCP_ACK     0x10
+
+#define ARP_CACHE_N 8
+
+typedef struct {
+    bool used;
+    uint32_t ip;
+    uint8_t mac[6];
+} arp_entry_t;
+
+static arp_entry_t arp_cache[ARP_CACHE_N];
+static uint16_t ip_id;
+static uint32_t icmp_last_seq;
+static bool icmp_got_reply;
+
+
 #define DMA_VADDR       0x40000000
 #define DMA_SIZE        (RX_COUNT * 16 + TX_COUNT * 16 \
                          + RX_COUNT * NIC_BUF + TX_COUNT * NIC_BUF)
@@ -172,6 +221,13 @@ static void net_log(const char *s)
 static void nic_barrier(void)
 {
     asm volatile ("mfence" ::: "memory");
+}
+
+/* Approximate a short delay while polling for a host round trip. */
+static void net_delay(void)
+{
+    for (volatile uint32_t i = 0; i < 1000000; i++)
+        ;
 }
 
 static void nic_write(uint32_t reg, uint32_t val)
@@ -321,7 +377,8 @@ static bool nic_init(void)
     nic_write(E1000_TDT, 0);
 
     nic_write(E1000_TIPG, 0x0060200aU);
-    nic_write(E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_UPE | E1000_RCTL_BAM);
+    nic_write(E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_UPE | E1000_RCTL_BAM
+              | 0x04000000U);   /* SECRC: strip the FCS */
     nic_write(E1000_TCTL, E1000_TCTL_VAL);
 
     rx_cur = 0;
@@ -330,8 +387,59 @@ static bool nic_init(void)
     return true;
 }
 
-static bool arp_resolve(uint32_t ip, uint8_t *out)
+static void net_rx_frame(uint8_t * pkt, int n);
+static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
+                    uint32_t plen);
+
+static void arp_store(uint32_t ip, const uint8_t * m)
 {
+    for (int i = 0; i < ARP_CACHE_N; i++) {
+        if (arp_cache[i].used && arp_cache[i].ip == ip) {
+            memcpy(arp_cache[i].mac, m, 6);
+            return;
+        }
+    }
+    for (int i = 0; i < ARP_CACHE_N; i++) {
+        if (!arp_cache[i].used) {
+            arp_cache[i].used = true;
+            arp_cache[i].ip = ip;
+            memcpy(arp_cache[i].mac, m, 6);
+            return;
+        }
+    }
+}
+
+static bool arp_lookup(uint32_t ip, uint8_t * out)
+{
+    for (int i = 0; i < ARP_CACHE_N; i++) {
+        if (arp_cache[i].used && arp_cache[i].ip == ip) {
+            memcpy(out, arp_cache[i].mac, 6);
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Drain the RX ring and dispatch each frame. Bounded so a retransmit storm
+ * cannot starve the request loop. */
+static void net_poll_once(void)
+{
+    uint8_t rx[NIC_BUF];
+
+    for (int i = 0; i < 16; i++) {
+        int n = nic_poll(rx);
+
+        if (n <= 0)
+            break;
+        net_rx_frame(rx, n);
+    }
+}
+
+static bool arp_resolve(uint32_t ip, uint8_t * out)
+{
+    if (arp_lookup(ip, out))
+        return true;
+
     uint8_t pkt[64];
     eth_hdr_t *e = (eth_hdr_t *) pkt;
     arp_hdr_t *a = (arp_hdr_t *) (pkt + 14);
@@ -340,7 +448,6 @@ static bool arp_resolve(uint32_t ip, uint8_t *out)
     memset(e->dst, 0xff, 6);
     memcpy(e->src, mac, 6);
     e->type = ntohs(0x0806);
-
     a->htype = ntohs(1);
     a->ptype = ntohs(0x0800);
     a->hlen = 6;
@@ -354,79 +461,36 @@ static bool arp_resolve(uint32_t ip, uint8_t *out)
         return false;
 
     for (int i = 0; i < 4000000; i++) {
-        uint8_t rx[NIC_BUF];
-        int n = nic_poll(rx);
-
-        if (n < 42)
-            continue;
-        eth_hdr_t *re = (eth_hdr_t *) rx;
-        arp_hdr_t *ra = (arp_hdr_t *) (rx + 14);
-
-        if (ntohs(re->type) == 0x0806 && ntohs(ra->op) == 2
-            && ntohl(ra->spa) == ip) {
-            memcpy(out, ra->sha, 6);
+        net_poll_once();
+        if (arp_lookup(ip, out))
             return true;
-        }
     }
     return false;
 }
 
-static bool icmp_ping(uint32_t ip, const uint8_t *dst_mac, uint16_t seq)
+static bool icmp_ping(uint32_t ip, uint16_t seq)
 {
-    uint8_t pkt[64];
+    uint8_t seg[64];
     const char *payload = "hanos-ping";
     uint32_t plen = strlen(payload);
     uint32_t icmp_len = sizeof(icmp_hdr_t) + plen;
-    uint32_t total = 14 + sizeof(ip_hdr_t) + icmp_len;
-
-    memset(pkt, 0, sizeof(pkt));
-    eth_hdr_t *e = (eth_hdr_t *) pkt;
-    ip_hdr_t *ip4 = (ip_hdr_t *) (pkt + 14);
-    icmp_hdr_t *ic = (icmp_hdr_t *) (pkt + 14 + sizeof(ip_hdr_t));
-
-    memcpy(e->dst, dst_mac, 6);
-    memcpy(e->src, mac, 6);
-    e->type = ntohs(0x0800);
-
-    ip4->ver_ihl = 0x45;
-    ip4->tot_len = ntohs((uint16_t) (sizeof(ip_hdr_t) + icmp_len));
-    ip4->id = ntohs(seq);
-    ip4->frag = 0;
-    ip4->ttl = 64;
-    ip4->proto = 1;
-    ip4->src = ntohl(MY_IP);
-    ip4->dst = ntohl(ip);
-    ip4->csum = 0;
-    ip4->csum = ntohs(inet_csum(ip4, sizeof(ip_hdr_t)));
+    icmp_hdr_t *ic = (icmp_hdr_t *) seg;
 
     ic->type = 8;
     ic->code = 0;
     ic->id = ntohs(0x1234);
     ic->seq = ntohs(seq);
-    memcpy((uint8_t *) ic + sizeof(icmp_hdr_t), payload, plen);
+    memcpy(seg + sizeof(icmp_hdr_t), payload, plen);
     ic->csum = 0;
     ic->csum = ntohs(inet_csum(ic, icmp_len));
 
-    if (!nic_send(pkt, total))
+    icmp_got_reply = false;
+    if (!ip_send(ip, 1, seg, icmp_len))
         return false;
 
     for (int i = 0; i < 4000000; i++) {
-        uint8_t rx[NIC_BUF];
-        int n = nic_poll(rx);
-
-        if (n < 42)
-            continue;
-        eth_hdr_t *re = (eth_hdr_t *) rx;
-
-        if (ntohs(re->type) != 0x0800)
-            continue;
-        ip_hdr_t *rip = (ip_hdr_t *) (rx + 14);
-
-        if (rip->proto != 1)
-            continue;
-        icmp_hdr_t *ric = (icmp_hdr_t *) (rx + 14 + sizeof(ip_hdr_t));
-
-        if (ric->type == 0 && ntohs(ric->seq) == seq)
+        net_poll_once();
+        if (icmp_got_reply && icmp_last_seq == seq)
             return true;
     }
     return false;
@@ -449,7 +513,7 @@ static void nic_selftest(void)
     }
     net_log("net: ARP gateway ok\n");
 
-    if (icmp_ping(GW_IP, gw_mac, 1))
+    if (icmp_ping(GW_IP, 1))
         net_log("net: ping 10.0.2.2 ok\n");
     else
         net_log("net: ping 10.0.2.2 FAIL\n");
@@ -540,6 +604,290 @@ static void sock_flush(net_sock_t * s)
     s->wait_memh = 0;
 }
 
+static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
+                    uint32_t plen)
+{
+    uint8_t dmac[6];
+
+    if (!arp_resolve(dst, dmac))
+        return false;
+    if (plen > 1400)
+        return false;
+
+    uint8_t pkt[14 + 20 + 1500];
+    eth_hdr_t *e = (eth_hdr_t *) pkt;
+    ip_hdr_t *ip4 = (ip_hdr_t *) (pkt + 14);
+
+    memcpy(e->dst, dmac, 6);
+    memcpy(e->src, mac, 6);
+    e->type = ntohs(0x0800);
+    ip4->ver_ihl = 0x45;
+    ip4->tos = 0;
+    ip4->tot_len = ntohs((uint16_t) (20 + plen));
+    ip4->id = ntohs(++ip_id);
+    ip4->frag = 0;
+    ip4->ttl = 64;
+    ip4->proto = proto;
+    ip4->src = ntohl(MY_IP);
+    ip4->dst = ntohl(dst);
+    ip4->csum = 0;
+    ip4->csum = ntohs(inet_csum(ip4, 20));
+    memcpy(pkt + 34, payload, plen);
+    nic_barrier();
+    return nic_send(pkt, 14 + 20 + plen);
+}
+
+static bool udp_send(net_sock_t * s, uint32_t dst, uint16_t dport,
+                     const uint8_t * data, uint32_t len)
+{
+    if (len > 1400)
+        return false;
+
+    uint8_t seg[8 + 1500];
+    udp_hdr_t *u = (udp_hdr_t *) seg;
+    uint16_t sport;
+
+    if (!s->bound) {
+        s->bound = true;
+        s->port = (uint16_t) (40000 + (s - socks));
+    }
+    sport = s->port;
+
+    u->src = ntohs(sport);
+    u->dst = ntohs(dport);
+    u->len = ntohs((uint16_t) (8 + len));
+    u->csum = 0;
+    memcpy(seg + 8, data, len);
+    return ip_send(dst, 17, seg, 8 + len);
+}
+
+/* Send one TCP segment. The pseudo-header is prepended for the checksum. */
+static bool tcp_send_seg(net_sock_t * s, uint8_t flags, const uint8_t * data,
+                         uint32_t len)
+{
+    uint8_t buf[12 + 20 + 1400];
+    tcp_hdr_t *t = (tcp_hdr_t *) (buf + 12);
+    uint16_t sport = s->bound ? s->port : (uint16_t) (40000 + (s - socks));
+    uint32_t mybe = ntohl(MY_IP);
+    uint32_t pbe = ntohl(s->peer_ip);
+    uint16_t total = (uint16_t) (20 + len);
+    uint16_t total_be = ntohs(total);
+
+    memcpy(buf + 0, &mybe, 4);
+    memcpy(buf + 4, &pbe, 4);
+    buf[8] = 0;
+    buf[9] = 6;
+    memcpy(buf + 10, &total_be, 2);
+
+    memset(t, 0, 20);
+    t->src = ntohs(sport);
+    t->dst = ntohs(s->peer_port);
+    t->seq = ntohl(s->snd_nxt);
+    t->ack = ntohl(s->rcv_nxt);
+    t->off = 5 << 4;
+    t->flags = flags;
+    t->win = ntohs(2048);
+    if (len > 0)
+        memcpy(buf + 12 + 20, data, len);
+
+    t->csum = 0;
+    t->csum = ntohs(inet_csum(buf, 12 + 20 + len));
+    return ip_send(s->peer_ip, 6, (const uint8_t *) t, 20 + len);
+}
+
+static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
+{
+    s->peer_ip = ip;
+    s->peer_port = port;
+    s->bound = true;
+    s->port = (uint16_t) (40000 + (s - socks));
+    s->snd_nxt = 1000 + (uint32_t) (s - socks) * 100;
+    s->snd_una = s->snd_nxt;
+    s->rcv_nxt = 0;
+    s->tstate = 1;
+
+    if (!tcp_send_seg(s, TCP_SYN, NULL, 0))
+        return false;
+    s->snd_nxt++;
+
+    for (int i = 0; i < 3000; i++) {
+        net_poll_once();
+        if (s->tstate == 2) {
+            tcp_send_seg(s, TCP_ACK, NULL, 0);
+            return true;
+        }
+        if (s->tstate < 0)
+            return false;
+        net_delay();
+    }
+    return false;
+}
+
+static int tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
+{
+    if (s->tstate != 2)
+        return -1;
+    if (len > 1400)
+        len = 1400;
+    if (!tcp_send_seg(s, TCP_ACK | TCP_PSH, data, len))
+        return -1;
+
+    s->snd_nxt += len;
+    return (int) len;
+}
+
+/* Dispatch one received Ethernet frame: ARP, ICMP, UDP and TCP. */
+static void net_rx_frame(uint8_t * pkt, int n)
+{
+    if (n < 14)
+        return;
+
+    eth_hdr_t *e = (eth_hdr_t *) pkt;
+    uint16_t type = ntohs(e->type);
+
+    if (type == 0x0806 && n >= 42) {
+        arp_hdr_t *a = (arp_hdr_t *) (pkt + 14);
+
+        if (ntohs(a->op) == 2) {
+            arp_store(ntohl(a->spa), a->sha);
+        } else if (ntohs(a->op) == 1 && ntohl(a->tpa) == MY_IP) {
+            uint8_t r[42];
+            eth_hdr_t *re = (eth_hdr_t *) r;
+            arp_hdr_t *ra = (arp_hdr_t *) (r + 14);
+
+            memcpy(re->dst, a->sha, 6);
+            memcpy(re->src, mac, 6);
+            re->type = ntohs(0x0806);
+            ra->htype = ntohs(1);
+            ra->ptype = ntohs(0x0800);
+            ra->hlen = 6;
+            ra->plen = 4;
+            ra->op = ntohs(2);
+            memcpy(ra->sha, mac, 6);
+            ra->spa = ntohl(MY_IP);
+            memcpy(ra->tha, a->sha, 6);
+            ra->tpa = a->spa;
+            nic_send(r, 42);
+        }
+        return;
+    }
+
+    if (type != 0x0800 || n < 34)
+        return;
+
+    ip_hdr_t *ip4 = (ip_hdr_t *) (pkt + 14);
+    uint32_t src = ntohl(ip4->src);
+    uint32_t ihl = (uint32_t) (ip4->ver_ihl & 0xf) * 4;
+    uint32_t iptot = ntohs(ip4->tot_len);
+
+    if (ip4->proto == 1 && ihl >= 20 && n >= 14 + (int) ihl
+        + (int) sizeof(icmp_hdr_t)) {
+        icmp_hdr_t *ic = (icmp_hdr_t *) (pkt + 14 + ihl);
+
+        if (ic->type == 8) {
+            uint32_t icmp_len = (14 + iptot > (uint32_t) n)
+                ? (uint32_t) n - 14 - ihl : iptot - ihl;
+
+            if (icmp_len > 64)
+                icmp_len = 64;
+
+            uint8_t seg[64];
+
+            memcpy(seg, ic, icmp_len);
+            icmp_hdr_t *ric = (icmp_hdr_t *) seg;
+
+            ric->type = 0;
+            ric->csum = 0;
+            ric->csum = ntohs(inet_csum(ric, icmp_len));
+            ip_send(src, 1, seg, icmp_len);
+        } else if (ic->type == 0) {
+            icmp_last_seq = ntohs(ic->seq);
+            icmp_got_reply = true;
+        }
+        return;
+    }
+
+    if (ip4->proto == 17 && ihl >= 20
+        && n >= 14 + (int) ihl + (int) sizeof(udp_hdr_t)) {
+        udp_hdr_t *u = (udp_hdr_t *) (pkt + 14 + ihl);
+        uint16_t dport = ntohs(u->dst);
+        uint16_t sport = ntohs(u->src);
+        uint32_t ulen = ntohs(u->len) >= 8 ? ntohs(u->len) - 8 : 0;
+
+        if (14 + ihl + 8 + ulen > (uint32_t) n)
+            ulen = (uint32_t) n - 14 - ihl - 8;
+
+        for (int i = 0; i < NET_MAX_SOCKS; i++) {
+            if (addr_match(&socks[i], MY_IP, dport)) {
+                sock_push(&socks[i], pkt + 14 + ihl + 8, ulen, src, sport);
+                sock_flush(&socks[i]);
+                break;
+            }
+        }
+        return;
+    }
+
+    if (ip4->proto == 6 && ihl >= 20
+        && n >= 14 + (int) ihl + (int) sizeof(tcp_hdr_t)) {
+        tcp_hdr_t *t = (tcp_hdr_t *) (pkt + 14 + ihl);
+        uint16_t dport = ntohs(t->dst);
+        uint32_t seq = ntohl(t->seq);
+        uint32_t ack = ntohl(t->ack);
+        uint32_t tcp_off = (uint32_t) ((t->off >> 4) & 0xf) * 4;
+        uint32_t poff = 14 + ihl + tcp_off;
+        uint32_t plen = (iptot > ihl + tcp_off)
+            ? iptot - ihl - tcp_off : 0;
+        net_sock_t *s = NULL;
+
+        if (n < (int) poff)
+            plen = 0;
+        else if (poff + plen > (uint32_t) n)
+            plen = (uint32_t) n - poff;
+
+        for (int i = 0; i < NET_MAX_SOCKS; i++) {
+            if (socks[i].used && socks[i].stream && socks[i].bound
+                && socks[i].port == dport) {
+                s = &socks[i];
+                break;
+            }
+        }
+        if (s == NULL)
+            return;
+
+
+        if (t->flags & TCP_RST) {
+            s->tstate = -1;
+            return;
+        }
+        if ((t->flags & TCP_SYN) && (t->flags & TCP_ACK)
+            && s->tstate == 1) {
+            s->rcv_nxt = seq + 1;
+            s->snd_una = ack;
+            s->tstate = 2;
+            return;
+        }
+        if (t->flags & TCP_ACK) {
+            if (ack > s->snd_una) {
+                s->snd_una = ack;
+            }
+        }
+        if (plen > 0) {
+            if (seq == s->rcv_nxt) {
+                sock_push(s, pkt + poff, plen, src, ntohs(t->src));
+                s->rcv_nxt = seq + plen;
+                sock_flush(s);
+            }
+            tcp_send_seg(s, TCP_ACK, NULL, 0);
+        }
+        if (t->flags & TCP_FIN) {
+            s->rcv_nxt = seq + 1;
+            tcp_send_seg(s, TCP_ACK, NULL, 0);
+            s->got_fin = true;
+        }
+        return;
+    }
+}
+
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == NET_PING) {
@@ -548,17 +896,39 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_SOCKET) {
-        if (m->words[0] != AF_INET || m->words[1] != SOCK_DGRAM) {
+        uint64_t type = m->words[1];
+
+        if (m->words[0] != AF_INET
+            || (type != SOCK_DGRAM && type != SOCK_STREAM)) {
             rep->words[0] = (uint64_t) (int64_t) -97;   /* -EAFNOSUPPORT */
             return;
         }
         int fd = sock_alloc();
+
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
             return;
         }
+        socks[fd - 1].stream = (type == SOCK_STREAM);
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) fd;
+        return;
+    }
+
+    if (m->tag == NET_CONNECT) {
+        net_sock_t *s = sock_get((int) m->words[0]);
+
+        if (s == NULL || !s->stream) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            return;
+        }
+        if (!nic_ok
+            || !tcp_connect(s, (uint32_t) m->words[1],
+                            (uint16_t) m->words[2])) {
+            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+            return;
+        }
+        rep->words[0] = 0;
         return;
     }
 
@@ -592,7 +962,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t pkt[NET_RBUF];
 
-        if (s == NULL || memh == 0 || len > NET_RBUF || !is_loopback(ip)) {
+        if (s == NULL || memh == 0 || len > NET_RBUF) {
             if (memh != 0)
                 sys_handle_close(memh);
             rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
@@ -609,12 +979,28 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
         sys_handle_close(memh);
 
-        for (int i = 0; i < NET_MAX_SOCKS; i++) {
-            if (addr_match(&socks[i], ip, port)) {
-                sock_push(&socks[i], pkt, len, s->ip, s->port);
-                sock_flush(&socks[i]);
-                break;
+        if (s->stream) {
+            int n = tcp_send(s, pkt, len);
+
+            if (n < 0) {
+                rep->words[0] = (uint64_t) (int64_t) -5;        /* -EIO */
+                return;
             }
+            rep->words[0] = 0;
+            rep->words[1] = (uint64_t) n;
+            return;
+        }
+
+        if (is_loopback(ip)) {
+            for (int i = 0; i < NET_MAX_SOCKS; i++) {
+                if (addr_match(&socks[i], ip, port)) {
+                    sock_push(&socks[i], pkt, len, s->ip, s->port);
+                    sock_flush(&socks[i]);
+                    break;
+                }
+            }
+        } else if (nic_ok) {
+            udp_send(s, ip, port, pkt, len);
         }
 
         rep->words[0] = 0;
@@ -664,6 +1050,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -9;
             return;
         }
+        if (s->stream && s->tstate == 2) {
+            tcp_send_seg(s, TCP_FIN | TCP_ACK, NULL, 0);
+            s->snd_nxt++;
+        }
         if (s->wait_reply != 0) {
             sys_ipc_msg_t rr;
 
@@ -692,9 +1082,11 @@ int main(void)
     nic_selftest();
 
     for (;;) {
+        net_poll_once();
+
         sys_ipc_msg_t m;
 
-        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0)
+        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 10) != 0)
             continue;
 
         sys_ipc_msg_t rep;

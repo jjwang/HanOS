@@ -239,6 +239,22 @@ int64_t net_bind(int sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
+int64_t net_connect(int sock, uint32_t ip, uint16_t port)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_CONNECT;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = (uint64_t) ip;
+    req.words[2] = (uint64_t) port;
+
+    if (!router_forward_timeout(SVC_NET, &req, &rep, 30 * 1000))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
 int64_t net_sendto(int sock, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len)
 {

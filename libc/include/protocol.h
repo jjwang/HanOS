@@ -140,6 +140,7 @@
  * the reply endpoint is xfer[0]. A recvfrom with no data is held and answered
  * when a datagram arrives. */
 #define AF_INET             2
+#define SOCK_STREAM         1
 #define SOCK_DGRAM          2
 #define NET_IP_LOOPBACK     0x7f000001U /* 127.0.0.1 */
 #define NET_PING            0x90
@@ -153,6 +154,8 @@
                                            out words[1]=n, words[2]=src ip,
                                            words[3]=src port */
 #define NET_CLOSE           0x95        /* words[0]=sock */
+#define NET_CONNECT         0x96        /* words[0]=sock, words[1]=ip, words[2]=port;
+                                           out words[0]=status */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */
