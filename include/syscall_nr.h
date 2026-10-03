@@ -49,6 +49,7 @@
 #define SYSCALL_GETPPID         110
 #define SYSCALL_GETDENTS64      217
 #define SYSCALL_CLOCK_GETTIME   228
+#define SYSCALL_EXIT_GROUP      231
 #define SYSCALL_OPENAT          257
 #define SYSCALL_MKDIRAT         258
 #define SYSCALL_NEWFSTATAT      262

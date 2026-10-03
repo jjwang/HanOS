@@ -1180,6 +1180,25 @@ void k_exit(int64_t status)
     sched_exit(status);
 }
 
+void k_exit_group(int64_t status)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL) {
+        klogi("k_exit_group: group %ld exit with status %ld\n", t->tgid,
+              status);
+        /* Stop the other threads of the group first. */
+        sched_kill_group(t->tgid, t->pid);
+
+        if (!t->is_thread) {
+            process_fd_exit((int32_t) t->pid);
+            process_exit_notify(status);
+        }
+    }
+
+    sched_exit(status);
+}
+
 int32_t k_getcwd(char *buffer, uint64_t size)
 {
     process_t *t = sched_get_current_process();
@@ -2285,6 +2304,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_FORK] = (syscall_ptr_t) k_fork,
     [SYSCALL_EXECVE] = (syscall_ptr_t) k_execve,
     [SYSCALL_EXIT] = (syscall_ptr_t) k_exit,
+    [SYSCALL_EXIT_GROUP] = (syscall_ptr_t) k_exit_group,
     [SYSCALL_WAIT4] = (syscall_ptr_t) k_waitpid,
     [SYSCALL_UNAME] = (syscall_ptr_t) k_uname,
     [SYSCALL_FCNTL] = (syscall_ptr_t) k_fcntl,

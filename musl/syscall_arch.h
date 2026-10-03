@@ -34,6 +34,7 @@
 #define H_FCNTL      72
 #define H_WAITPID    61
 #define H_EXIT       60
+#define H_EXIT_GROUP 231
 #define H_READDIR    217
 #define H_MUNMAP     11
 #define H_GETCWD     79
@@ -334,8 +335,9 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_gettid:
         return __hanos_raw(H_GETPID, 0, 0, 0, 0, 0, 0);
     case L_exit:
-    case L_exit_group:
         return __hanos_raw(H_EXIT, a1, 0, 0, 0, 0, 0);
+    case L_exit_group:
+        return __hanos_raw(H_EXIT_GROUP, a1, 0, 0, 0, 0, 0);
     case L_wait4:
         return __hanos_raw(H_WAITPID, a1, a2, a3, 0, 0, 0);
     case L_open:
