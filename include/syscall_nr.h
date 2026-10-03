@@ -18,6 +18,7 @@
 #define SYSCALL_READ            0
 #define SYSCALL_WRITE           1
 #define SYSCALL_CLOSE           3
+#define SYSCALL_POLL            7
 #define SYSCALL_FSTAT           5
 #define SYSCALL_LSEEK           8
 #define SYSCALL_MMAP            9
@@ -25,6 +26,7 @@
 #define SYSCALL_RT_SIGACTION    13
 #define SYSCALL_RT_SIGPROCMASK  14
 #define SYSCALL_IOCTL           16
+#define SYSCALL_SELECT          23
 #define SYSCALL_PIPE            22
 #define SYSCALL_SCHED_YIELD     24
 #define SYSCALL_NANOSLEEP       35
@@ -59,6 +61,7 @@
 #define SYSCALL_MKDIRAT         258
 #define SYSCALL_NEWFSTATAT      262
 #define SYSCALL_FACCESSAT       269
+#define SYSCALL_PSELECT6        270
 #define SYSCALL_DUP3            292
 #define SYSCALL_GETRANDOM       318
 #define SYSCALL_PRLIMIT64       302

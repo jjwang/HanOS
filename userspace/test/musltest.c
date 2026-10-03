@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <poll.h>
+#include <sys/select.h>
 
 static void *thread_fn(void *arg)
 {
@@ -81,6 +83,25 @@ int main(void)
             printf("clock_nanosleep ok\n");
         else
             printf("clock_nanosleep FAIL errno=%d\n", errno);
+    }
+
+    {
+        struct pollfd pf = { 1, POLLOUT, 0 };
+        int r = poll(&pf, 1, 0);
+
+        printf("poll r=%d revents=0x%x\n", r, pf.revents);
+    }
+
+    {
+        fd_set wf;
+        struct timeval tv = { 0, 0 };
+
+        FD_ZERO(&wf);
+        FD_SET(1, &wf);
+
+        int r = select(2, NULL, &wf, NULL, &tv);
+
+        printf("select r=%d isset=%d\n", r, FD_ISSET(1, &wf) ? 1 : 0);
     }
 
     struct stat st;

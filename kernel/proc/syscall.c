@@ -1064,6 +1064,179 @@ int64_t k_fsync(int64_t fd)
     return 0;
 }
 
+#define POLLIN      0x001
+#define POLLOUT     0x004
+#define POLLNVAL    0x020
+
+/* Readiness is not tracked, so every valid descriptor is reported ready.
+ * A blocking read still waits in the server. */
+static bool fd_is_valid(int32_t fd)
+{
+    if (fd < 0)
+        return false;
+    if (fd < 3)
+        return true;
+    return process_fd_get(fd, NULL, NULL, NULL, NULL, NULL) == 0;
+}
+
+int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
+{
+    struct pollfd_k {
+        int32_t fd;
+        int16_t events;
+        int16_t revents;
+    };
+
+    cpu_set_errno(0);
+
+    if (fds == NULL || nfds > 1024) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    int32_t ready = 0;
+
+    for (uint64_t i = 0; i < nfds; i++) {
+        struct pollfd_k p;
+        uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
+
+        if (copy_from_user(&p, slot, sizeof(p)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+
+        int16_t rev = 0;
+
+        if (p.fd < 0) {
+            rev = 0;
+        } else if (fd_is_valid(p.fd)) {
+            if (p.events & POLLIN)
+                rev |= POLLIN;
+            if (p.events & POLLOUT)
+                rev |= POLLOUT;
+        } else {
+            rev = POLLNVAL;
+        }
+
+        p.revents = rev;
+
+        if (copy_to_user(slot, &p, sizeof(p)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        if (rev)
+            ready++;
+    }
+
+    if (ready == 0 && timeout > 0)
+        sched_sleep(timeout);
+
+    return ready;
+}
+
+static int64_t select_common(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
+                             uint8_t * efds, int64_t timeout_ms)
+{
+    uint8_t in[3][128] = { {0} };
+    uint8_t out[3][128] = { {0} };
+    uint8_t *sets[3] = { rfds, wfds, efds };
+    uint64_t bytes;
+
+    cpu_set_errno(0);
+
+    if (nfds < 0 || nfds > 1024) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    bytes = ((uint64_t) nfds + 7) / 8;
+
+    for (int32_t s = 0; s < 3; s++) {
+        if (sets[s] != NULL && bytes > 0
+            && copy_from_user(in[s], sets[s], bytes) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+    }
+
+    int32_t ready = 0;
+
+    for (int32_t fd = 0; fd < nfds; fd++) {
+        int32_t bit = fd / 8;
+        uint8_t mask = (uint8_t) (1 << (fd % 8));
+        bool any = false;
+
+        if (!fd_is_valid(fd))
+            continue;
+
+        for (int32_t s = 0; s < 3; s++) {
+            if (sets[s] != NULL && (in[s][bit] & mask)) {
+                out[s][bit] |= mask;
+                any = true;
+            }
+        }
+        if (any)
+            ready++;
+    }
+
+    for (int32_t s = 0; s < 3; s++) {
+        if (sets[s] != NULL && bytes > 0
+            && copy_to_user(sets[s], out[s], bytes) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+    }
+
+    if (ready == 0 && timeout_ms > 0)
+        sched_sleep(timeout_ms);
+
+    return ready;
+}
+
+int64_t k_select(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
+                 uint8_t * efds, void *tv)
+{
+    int64_t ms = 0;
+
+    cpu_set_errno(0);
+
+    if (tv != NULL) {
+        struct {
+            int64_t sec;
+            int64_t usec;
+        } ktv;
+
+        if (copy_from_user(&ktv, tv, sizeof(ktv)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        ms = ktv.sec * 1000 + (ktv.usec + 999) / 1000;
+    }
+
+    return select_common(nfds, rfds, wfds, efds, ms);
+}
+
+int64_t k_pselect6(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
+                   uint8_t * efds, void *tsp, void *sigmask)
+{
+    int64_t ms = 0;
+
+    (void)sigmask;
+    cpu_set_errno(0);
+
+    if (tsp != NULL) {
+        vfs_timespec_t ts = { 0, 0 };
+
+        if (copy_from_user(&ts, tsp, sizeof(ts)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        ms = ts.tv_sec * 1000 + (ts.tv_nsec + 999999) / 1000000;
+    }
+
+    return select_common(nfds, rfds, wfds, efds, ms);
+}
+
 int64_t k_sched_yield(void)
 {
     cpu_set_errno(0);
@@ -2401,6 +2574,9 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_SCHED_YIELD] = (syscall_ptr_t) k_sched_yield,
     [SYSCALL_FSYNC] = (syscall_ptr_t) k_fsync,
     [SYSCALL_FDATASYNC] = (syscall_ptr_t) k_fsync,
+    [SYSCALL_POLL] = (syscall_ptr_t) k_poll,
+    [SYSCALL_SELECT] = (syscall_ptr_t) k_select,
+    [SYSCALL_PSELECT6] = (syscall_ptr_t) k_pselect6,
     [SYSCALL_GETPID] = (syscall_ptr_t) k_getpid,
     [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
     [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,

@@ -38,6 +38,9 @@
 #define H_SCHED_YIELD 24
 #define H_FSYNC      74
 #define H_FDATASYNC  75
+#define H_POLL       7
+#define H_SELECT     23
+#define H_PSELECT6   270
 #define H_UNLINK     87
 #define H_PRLIMIT64  302
 #define H_WAITPID    61
@@ -66,6 +69,7 @@
 #define L_fstat       5
 #define L_lstat       6
 #define L_lseek       8
+#define L_poll        7
 #define L_mmap        9
 #define L_mprotect    10
 #define L_munmap      11
@@ -79,6 +83,7 @@
 #define L_writev      20
 #define L_getdents    78
 #define L_pipe        22
+#define L_select      23
 #define L_sched_yield 24
 #define L_madvise     28
 #define L_getpid      39
@@ -103,6 +108,7 @@
 #define L_newfstatat  262
 #define L_unlinkat    263
 #define L_faccessat   269
+#define L_pselect6    270
 #define L_prlimit64   302
 #define L_set_robust_list 273
 #define L_set_tid_address 218
@@ -512,6 +518,12 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_FDATASYNC, a1, 0, 0, 0, 0, 0);
     case L_clock_nanosleep:
         return __hanos_raw(H_CLOCK_NANOSLEEP, a1, a2, a3, a4, 0, 0);
+    case L_poll:
+        return __hanos_raw(H_POLL, a1, a2, a3, 0, 0, 0);
+    case L_select:
+        return __hanos_raw(H_SELECT, a1, a2, a3, a4, a5, 0);
+    case L_pselect6:
+        return __hanos_raw(H_PSELECT6, a1, a2, a3, a4, a5, a6);
     case L_mprotect:
     case L_madvise:
     case L_set_robust_list:
