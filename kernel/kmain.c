@@ -155,6 +155,25 @@ _Noreturn void kshell(pid_t pid)
                 self_info.actual_res_x, self_info.actual_res_y);
     }
 
+    {
+        pci_device_t gpu;
+
+        if (pci_find_class(PCI_CLASS_DISPLAY, 0x00, &gpu)
+            || pci_find_class(PCI_CLASS_DISPLAY, 0x80, &gpu)) {
+            kprintf("\033[36mGPU        \033[0m: %s\n",
+                    pci_device_id_to_string(&gpu));
+        }
+    }
+
+    {
+        pci_device_t nic;
+
+        if (pci_find_class(PCI_CLASS_NETWORK, 0x00, &nic)) {
+            kprintf("\033[36mNIC        \033[0m: %s\n",
+                    pci_device_id_to_string(&nic));
+        }
+    }
+
     /* Start all programs. Boot order: console -> input -> tty -> block ->
      * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
      * console endpoint, fat32 on the block server) is up first. */

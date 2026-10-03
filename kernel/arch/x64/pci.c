@@ -272,6 +272,9 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
         device.multifunction = has_multi_func;
         device.device_id = pci_read_device_id(&device);
         device.vendor_id = pci_read_vendor_id(&device);
+        device.device_class = pci_read_class(&device);
+        device.subclass = pci_read_subclass(&device);
+        device.prog_if = pci_read_prog_if(&device);
 
         klogi("PCI:\t%02x:%02x.%01x - %04x:%04x %s\n",
               device.bus, device.device, device.func,
@@ -289,6 +292,9 @@ static void pci_scan_device(uint8_t bus_id, uint8_t dev_id)
                 if (pci_func_exist(&device2)) {
                     device2.device_id = pci_read_device_id(&device2);
                     device2.vendor_id = pci_read_vendor_id(&device2);
+                    device2.device_class = pci_read_class(&device2);
+                    device2.subclass = pci_read_subclass(&device2);
+                    device2.prog_if = pci_read_prog_if(&device2);
 
                     klogi("PCI:\t%02x:%02x.%01x - %04x:%04x %s\n",
                           device2.bus, device2.device, device2.func,
@@ -336,6 +342,20 @@ bool pci_find(uint16_t vendor_id, uint16_t device_id, pci_device_t * out)
         pci_device_t dev = vec_at(&pci_devices, i);
 
         if (dev.vendor_id == vendor_id && dev.device_id == device_id) {
+            if (out != NULL)
+                *out = dev;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool pci_find_class(uint8_t device_class, uint8_t subclass, pci_device_t * out)
+{
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
+        pci_device_t dev = vec_at(&pci_devices, i);
+
+        if (dev.device_class == device_class && dev.subclass == subclass) {
             if (out != NULL)
                 *out = dev;
             return true;
