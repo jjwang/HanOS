@@ -169,7 +169,7 @@ _Noreturn void kshell(pid_t pid)
         pci_device_t nic;
 
         if (pci_find_class(PCI_CLASS_NETWORK, 0x00, &nic)) {
-            kprintf("\033[36mNetwork Card\033[0m: %s\n",
+            kprintf("\033[36mNet Card    \033[0m: %s\n",
                     pci_device_id_to_string(&nic));
         }
     }
