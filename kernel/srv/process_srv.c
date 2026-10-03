@@ -116,19 +116,16 @@ void process_server_probe(void)
 
 /* --- Kernel-side fd calls into the process server ------------------------ */
 
-static int64_t proc_call(uint64_t tag, uint64_t w1, uint64_t w2, uint64_t w3,
-                         uint64_t w4, ipc_msg_t *rep_out)
+static int64_t proc_call_pid(int32_t pid, uint64_t tag, uint64_t w1,
+                             uint64_t w2, uint64_t w3, uint64_t w4,
+                             ipc_msg_t * rep_out)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
 
-    process_t *t = sched_get_current_process();
-    if (t == NULL)
-        return -1;
-
     memset(&req, 0, sizeof(req));
     req.tag = tag;
-    req.words[0] = (uint64_t) t->pid;
+    req.words[0] = (uint64_t) (int64_t) pid;
     req.words[1] = w1;
     req.words[2] = w2;
     req.words[3] = w3;
@@ -142,11 +139,34 @@ static int64_t proc_call(uint64_t tag, uint64_t w1, uint64_t w2, uint64_t w3,
     return (int64_t) rep.words[0];
 }
 
+/* Process lifecycle calls are keyed by pid. */
+static int64_t proc_call(uint64_t tag, uint64_t w1, uint64_t w2, uint64_t w3,
+                         uint64_t w4, ipc_msg_t * rep_out)
+{
+    process_t *t = sched_get_current_process();
+    if (t == NULL)
+        return -1;
+
+    return proc_call_pid(t->pid, tag, w1, w2, w3, w4, rep_out);
+}
+
+/* File descriptors belong to the thread group, so fd calls are keyed by tgid
+ * and every thread of the group shares one fd table. */
+static int64_t proc_call_group(uint64_t tag, uint64_t w1, uint64_t w2,
+                               uint64_t w3, uint64_t w4, ipc_msg_t * rep_out)
+{
+    process_t *t = sched_get_current_process();
+    if (t == NULL)
+        return -1;
+
+    return proc_call_pid(t->tgid, tag, w1, w2, w3, w4, rep_out);
+}
+
 int64_t process_fd_open(int32_t svc, int64_t server_fd, uint64_t size,
                         int64_t mode)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_OPEN, (uint64_t) svc, (uint64_t) server_fd,
+    int64_t r = proc_call_group(PROC_FD_OPEN, (uint64_t) svc, (uint64_t) server_fd,
                           size, (uint64_t) mode, &rep);
 
     return (r < 0) ? r : (int64_t) rep.words[1];
@@ -156,7 +176,7 @@ int64_t process_fd_get(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_
                        uint64_t *size, uint64_t *seek_pos)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_GET, (uint64_t) fd, 0, 0, 0, &rep);
+    int64_t r = proc_call_group(PROC_FD_GET, (uint64_t) fd, 0, 0, 0, &rep);
 
     if (r < 0)
         return r;
@@ -176,7 +196,7 @@ int64_t process_fd_get(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_
 int64_t process_fd_close(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_fd)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_CLOSE, (uint64_t) fd, 0, 0, 0, &rep);
+    int64_t r = proc_call_group(PROC_FD_CLOSE, (uint64_t) fd, 0, 0, 0, &rep);
 
     if (r < 0)
         return r;
@@ -192,7 +212,7 @@ int64_t process_fd_close(int32_t fd, int32_t *kind, int32_t *svc, int64_t *serve
 int64_t process_fd_dup(int32_t fd, int32_t newfd)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_DUP, (uint64_t) fd, (uint64_t) newfd, 0, 0,
+    int64_t r = proc_call_group(PROC_FD_DUP, (uint64_t) fd, (uint64_t) newfd, 0, 0,
                           &rep);
 
     return (r < 0) ? r : (int64_t) rep.words[1];
@@ -201,7 +221,7 @@ int64_t process_fd_dup(int32_t fd, int32_t newfd)
 int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_SEEK, (uint64_t) fd, pos, (uint64_t) whence,
+    int64_t r = proc_call_group(PROC_FD_SEEK, (uint64_t) fd, pos, (uint64_t) whence,
                           0, &rep);
 
     return (r < 0) ? r : (int64_t) rep.words[1];
@@ -210,7 +230,7 @@ int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence)
 int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg)
 {
     ipc_msg_t rep;
-    int64_t r = proc_call(PROC_FD_FCNTL, (uint64_t) fd, (uint64_t) (int64_t) cmd,
+    int64_t r = proc_call_group(PROC_FD_FCNTL, (uint64_t) fd, (uint64_t) (int64_t) cmd,
                           (uint64_t) arg, 0, &rep);
 
     return (r < 0) ? r : (int64_t) rep.words[1];
@@ -221,14 +241,14 @@ int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg)
 void process_fd_fork(int32_t parent, int32_t child)
 {
     (void) parent;
-    proc_call(PROC_FD_FORK, (uint64_t) child, 0, 0, 0, NULL);
+    proc_call_group(PROC_FD_FORK, (uint64_t) child, 0, 0, 0, NULL);
 }
 
 void process_fd_exit(int32_t pid)
 {
     /* Close the process's descriptors before it is reaped. Runs in the exiting
      * process's context (not under the run-queue lock), so it may block. */
-    proc_call(PROC_FD_EXIT, (uint64_t) pid, 0, 0, 0, NULL);
+    proc_call_group(PROC_FD_EXIT, (uint64_t) pid, 0, 0, 0, NULL);
 }
 
 /* Tell the server that the current process exited with status. The server

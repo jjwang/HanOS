@@ -12,6 +12,8 @@
 static void *thread_fn(void *arg)
 {
     (void) arg;
+    /* Exercise the shared fd table: write to stdout from the thread. */
+    write(1, "thread-io\n", 10);
     return (void *) 42;
 }
 
