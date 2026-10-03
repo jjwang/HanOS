@@ -425,11 +425,11 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     return (uint64_t) NULL;
 }
 
-int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
+int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 {
     /* "mode" is always zero */
     (void) mode;
-    (void) dirfh;
+    (void) dirfd;
     cpu_set_errno(0);
 
     /* Copy the user path into the kernel before touching it. */
@@ -446,18 +446,18 @@ int64_t k_openat(int64_t dirfh, char *path, int64_t flags, int64_t mode)
 
     /* The VFS server owns the namespace and resolves cwd+path; it redirects
      * paths under the FAT mount to the FAT server. */
-    vfs_handle_t sfh = vfs_open_path(cwd, path, (int32_t) flags, &svc);
+    vfs_fd_t nfd = vfs_open_path(cwd, path, (int32_t) flags, &svc);
 
-    if (sfh == VFS_INVALID_HANDLE) {
+    if (nfd == VFS_INVALID_FD) {
         cpu_set_errno(ENOENT);
         return -1;
     }
 
     if (flags & O_CLOEXEC)
-        process_fd_fcntl((int32_t) sfh, F_SETFD, FD_CLOEXEC);
+        process_fd_fcntl((int32_t) nfd, F_SETFD, FD_CLOEXEC);
 
     cpu_set_errno(0);
-    return sfh;
+    return nfd;
 }
 
 int64_t k_chmod(char *path, int64_t flags)
@@ -492,46 +492,46 @@ int64_t k_unlink(char *path)
     return 0;
 }
 
-int64_t k_seek(int64_t fh, int64_t offset, int64_t whence)
+int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
 {
     cpu_set_errno(0);
 
-    if (fh >= 0 && fh < 3) {
+    if (fd >= 0 && fd < 3) {
         int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
         /* Standard streams are not seekable unless a dup redirected them. */
-        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) != 0) {
-            klogv("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld\n",
-                  fh, fh, offset, whence);
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, &size, &seek) != 0) {
+            klogv("k_seek: fd %ld(0x%016lx), offset %ld, whence %ld\n",
+                  fd, fd, offset, whence);
             return 0;
         }
     }
 
-    int64_t ret = vfs_seek(fh, offset, whence);
+    int64_t ret = vfs_seek(fd, offset, whence);
 
-    klogd("k_seek: fh %ld(0x%016lx), offset %ld, whence %ld and return %ld\n",
-          fh, fh, offset, whence, ret);
+    klogd("k_seek: fd %ld(0x%016lx), offset %ld, whence %ld and return %ld\n",
+          fd, fd, offset, whence, ret);
     if (ret < 0)
         cpu_set_errno(EINVAL);
 
     return ret;
 }
 
-int64_t k_close(int64_t fh)
+int64_t k_close(int64_t fd)
 {
     process_t *t = sched_get_current_process();
     cpu_set_errno(0);
 
-    klogd("k_close: close file handle %ld\n", fh);
+    klogd("k_close: close fd %ld\n", fd);
 
-    if (fh >= 0 && fh < 3) {
+    if (fd >= 0 && fd < 3) {
         /* Closing a standard fd only drops any redirection to a file. */
         int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
 
-        process_fd_close((int32_t) fh, &kind, &svc, &sfd);
+        process_fd_close((int32_t) fd, &kind, &svc, &sfd);
         return 0;
     }
 
@@ -540,10 +540,10 @@ int64_t k_close(int64_t fh)
         return -1;
     }
 
-    return vfs_close(fh);
+    return vfs_close(fd);
 }
 
-int64_t k_read(int64_t fh, void *buf, uint64_t count)
+int64_t k_read(int64_t fd, void *buf, uint64_t count)
 {
     process_t *t = sched_get_current_process();
     cpu_set_errno(0);
@@ -553,27 +553,27 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
         return -1;
     }
 
-    klogd("k_read: read %ld from file handle %ld\n", count, fh);
+    klogd("k_read: read %ld from fd %ld\n", count, fd);
 
-    if (fh >= 0 && fh < 3) {
+    if (fd >= 0 && fd < 3) {
         /* Standard input is the tty unless a dup redirected the fd. */
         int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
-        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) == 0)
-            return vfs_read(fh, count, buf);
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, &size, &seek) == 0)
+            return vfs_read(fd, count, buf);
 
-        if (fh == STDIN)
+        if (fd == STDIN)
             return tty_server_read(buf, count);
 
         cpu_set_errno(EBADF);
         return -1;
-    } else if (fh >= VFS_MIN_HANDLE) {
-        int64_t len = vfs_read(fh, count, buf);
+    } else if (fd >= VFS_MIN_FD) {
+        int64_t len = vfs_read(fd, count, buf);
         klogd
             ("k_read: try to read %ld bytes from file %ld and return %ld bytes\n",
-             count, fh, len);
+             count, fd, len);
         return len;
     } else {
         cpu_set_errno(EBADF);
@@ -581,7 +581,7 @@ int64_t k_read(int64_t fh, void *buf, uint64_t count)
     }
 }
 
-int64_t k_write(int64_t fh, const void *buf, uint64_t count)
+int64_t k_write(int64_t fd, const void *buf, uint64_t count)
 {
     process_t *t = sched_get_current_process();
 
@@ -592,23 +592,23 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
         return -1;
     }
 
-    if (fh >= 0 && fh < 3) {
+    if (fd >= 0 && fd < 3) {
         /* Standard output is the tty unless a dup redirected the fd. */
         int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
         uint64_t size = 0, seek = 0;
 
-        if (process_fd_get((int32_t) fh, &kind, &svc, &sfd, &size, &seek) == 0)
-            return vfs_write(fh, count, buf);
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, &size, &seek) == 0)
+            return vfs_write(fd, count, buf);
 
-        if (fh == STDOUT || fh == STDERR)
+        if (fd == STDOUT || fd == STDERR)
             return tty_server_write(buf, count);
 
         cpu_set_errno(EBADF);
         return -1;
     }
 
-    return vfs_write(fh, count, buf);
+    return vfs_write(fd, count, buf);
 }
 
 int64_t k_set_fs_base(uint64_t val)
@@ -635,10 +635,10 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
     return -1;
 }
 
-int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
+int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf,
                   int64_t flags)
 {
-    (void) dirfh;
+    (void) dirfd;
     (void) flags;
 
     char kpath[VFS_MAX_PATH_LEN] = { 0 };
@@ -664,9 +664,9 @@ int64_t k_fstatat(int64_t dirfh, const char *path, int64_t statbuf,
     return 0;
 }
 
-int64_t k_fstat(int64_t handle, int64_t statbuf)
+int64_t k_fstat(int64_t fd, int64_t statbuf)
 {
-    if (handle == STDIN || handle == STDOUT || handle == STDERR) {
+    if (fd == STDIN || fd == STDOUT || fd == STDERR) {
         /*
          * Set the file stat buffer to zero. If we do nothing here, maybe it
          * will cause crash in some apps, e.g., cat in coreutils.
@@ -675,30 +675,30 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
             cpu_set_errno(EFAULT);
             return -1;
         }
-        klogd("k_fstat: success with file handle %ld\n", handle);
+        klogd("k_fstat: success with fd %ld\n", fd);
         return 0;
     }
 
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
     cpu_set_errno(0);
 
-    if (fd != NULL && fd->server) {
+    if (desc != NULL && desc->server) {
         vfs_stat_t st;
 
         memset(&st, 0, sizeof(st));
 
-        if (fd->svc == SVC_FAT) {
+        if (desc->svc == SVC_FAT) {
             uint64_t size = 0;
             bool is_dir = false;
 
-            if (fat32_fstat_fd(fd->server_fd, &size, &is_dir) < 0) {
+            if (fat32_fstat_fd(desc->server_fd, &size, &is_dir) < 0) {
                 cpu_set_errno(ENOENT);
                 return -1;
             }
             st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
             st.st_nlink = 1;
             st.st_size = size;
-        } else if (vfs_server_fstat(fd->server_fd, &st) < 0) {
+        } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
         }
@@ -710,16 +710,16 @@ int64_t k_fstat(int64_t handle, int64_t statbuf)
         return 0;
     }
 
-    kloge("k_fstat: fail with file handle %ld\n", handle);
+    kloge("k_fstat: fail with fd %ld\n", fd);
     cpu_set_errno(EINVAL);
     return -1;
 }
 
 /* TODO: Currently ignoring the flags parameter. */
-int64_t k_faccessat(int64_t dirfh, const char *path, uint64_t mode,
+int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
                     uint64_t flags)
 {
-    (void) dirfh;
+    (void) dirfd;
     (void) flags;
 
     cpu_set_errno(0);
@@ -857,38 +857,38 @@ int64_t k_chdir(char *dir)
     return -1;
 }
 
-int64_t k_readdir(int64_t handle, uint64_t buff)
+int64_t k_readdir(int64_t fd, uint64_t buff)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
     int64_t errno = 0;
 
     cpu_set_errno(errno);
 
-    if (fd == NULL) {
+    if (desc == NULL) {
         errno = EINVAL;
         goto err_exit;
     }
 
-    if (fd->server) {
+    if (desc->server) {
         dirent_t de;
 
         memset(&de, 0, sizeof(de));
 
-        if (fd->svc == SVC_FAT) {
+        if (desc->svc == SVC_FAT) {
             char name[256];
             uint64_t size = 0;
             bool is_dir = false;
 
-            if (fat32_readdir_fd(fd->server_fd, fd->curr_dir_idx, name,
+            if (fat32_readdir_fd(desc->server_fd, desc->curr_dir_idx, name,
                                  sizeof(name), &size, &is_dir) != 0) {
                 cpu_set_errno(0);
                 return 0;       /* end of directory */
             }
-            de.d_ino = fd->curr_dir_idx + 1;
+            de.d_ino = desc->curr_dir_idx + 1;
             de.d_type = is_dir ? DT_DIR : DT_REG;
             strncpy(de.d_name, name, sizeof(de.d_name) - 1);
-            fd->curr_dir_idx++;
-        } else if (vfs_server_readdir(handle, &de) < 0) {
+            desc->curr_dir_idx++;
+        } else if (vfs_server_readdir(fd, &de) < 0) {
             /* End of directory or a server error. */
             cpu_set_errno(0);
             return 0;
@@ -929,7 +929,7 @@ int64_t k_meminfo()
     return -1;
 }
 
-int64_t k_pipe(int32_t * fh, uint32_t flags)
+int64_t k_pipe(int32_t * fd, uint32_t flags)
 {
     (void) flags;
 
@@ -959,27 +959,27 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
             return -1;
         }
 
-        vfs_handle_t rfh = vfs_open_server_svc((int64_t) rep.words[1],
-                                               "/dev/pipe", VFS_MODE_READ, 0,
-                                               SVC_PIPE);
-        vfs_handle_t wfh = vfs_open_server_svc((int64_t) rep.words[2],
-                                               "/dev/pipe", VFS_MODE_WRITE, 0,
-                                               SVC_PIPE);
+        vfs_fd_t rfd = vfs_open_server_svc((int64_t) rep.words[1],
+                                           "/dev/pipe", VFS_MODE_READ, 0,
+                                           SVC_PIPE);
+        vfs_fd_t wfd = vfs_open_server_svc((int64_t) rep.words[2],
+                                           "/dev/pipe", VFS_MODE_WRITE, 0,
+                                           SVC_PIPE);
 
-        if (rfh == VFS_INVALID_HANDLE || wfh == VFS_INVALID_HANDLE) {
+        if (rfd == VFS_INVALID_FD || wfd == VFS_INVALID_FD) {
             cpu_set_errno(ENOMEM);
             return -1;
         }
 
-        int32_t kfh[2] = { (int32_t) rfh, (int32_t) wfh };
+        int32_t kfds[2] = { (int32_t) rfd, (int32_t) wfd };
 
-        if (fh == NULL || copy_to_user(fh, kfh, sizeof(kfh)) != 0) {
+        if (fd == NULL || copy_to_user(fd, kfds, sizeof(kfds)) != 0) {
             cpu_set_errno(EFAULT);
             return -1;
         }
 
-        klogi("k_pipe: server pipe read %ld write %ld\n", (int64_t) rfh,
-              (int64_t) wfh);
+        klogi("k_pipe: server pipe read %ld write %ld\n", (int64_t) rfd,
+              (int64_t) wfd);
         return 0;
     }
 
@@ -1441,10 +1441,10 @@ int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
     return 0;
 }
 
-int64_t k_readlink(int64_t dirfh, const char *path, void *buffer,
+int64_t k_readlink(int64_t dirfd, const char *path, void *buffer,
                    uint64_t max_size)
 {
-    (void) dirfh;
+    (void) dirfd;
     (void) path;
     (void) buffer;
     (void) max_size;
@@ -1456,7 +1456,7 @@ void k_uname(void)
 {
 }
 
-int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
+int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
 {
     process_t *t = sched_get_current_process();
     cpu_set_errno(0);
@@ -1466,13 +1466,13 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
         return -1;
     }
 
-    klogd("k_dup3: pid %ld fh %ld <- newfh %ld, flags 0x%016lx\n",
-          t->pid, fh, newfh, flags);
+    klogd("k_dup3: pid %ld oldfd %ld newfd %ld, flags 0x%016lx\n",
+          t->pid, oldfd, newfd, flags);
 
-    /* Make fh refer to newfh's open file description so that a program can
+    /* Make oldfd refer to newfd's open file description so that a program can
      * redirect standard input and output in the process server.
      */
-    if (process_fd_dup((int32_t) newfh, (int32_t) fh) < 0) {
+    if (process_fd_dup((int32_t) newfd, (int32_t) oldfd) < 0) {
         cpu_set_errno(EBADF);
         return -1;
     }

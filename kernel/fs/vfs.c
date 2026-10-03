@@ -6,7 +6,7 @@
  @details
  @verbatim
 
-   The kernel keeps no filesystem. It resolves a handle to the server-side
+   The kernel keeps no filesystem. It resolves a fd to the server-side
    descriptor through the process server, then forwards reads, writes, seeks,
    stats, directory scans and unlinks to the VFS, FAT and pipe servers. While
    the VFS server is still coming up, the ELF loader reads the boot initrd
@@ -42,11 +42,11 @@
 #define VFS_IO_AGAIN        (-2)
 
 /* Per-CPU scratch descriptor. The fd table lives in the process server, so a
- * handle is resolved there and copied here just for the current operation. */
+ * fd is resolved there and copied here just for the current operation. */
 static vfs_node_desc_t transient_fd[CPU_MAX];
 
-/* Return the node descriptor for a handle */
-vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
+/* Return the node descriptor for a fd */
+vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func)
 {
     process_t *t = sched_get_current_process();
     if (t == NULL)
@@ -56,22 +56,22 @@ vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func)
     int64_t sfd = 0;
     uint64_t size = 0, seek = 0;
 
-    if (process_fd_get((int32_t) handle, &kind, &svc, &sfd, &size, &seek) != 0) {
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, &size, &seek) != 0) {
         klogw
             ("VFS: %s() cannot locate %ld (0x%016lx) in file list of process %ld\n",
-             func, (int64_t) handle, (int64_t) handle, (int64_t) t->pid);
+             func, (int64_t) fd, (int64_t) fd, (int64_t) t->pid);
         return NULL;
     }
 
-    vfs_node_desc_t *fd = &transient_fd[smp_get_current_cpu_id()];
+    vfs_node_desc_t *desc = &transient_fd[smp_get_current_cpu_id()];
 
-    memset(fd, 0, sizeof(*fd));
-    fd->server = true;
-    fd->svc = svc;
-    fd->server_fd = sfd;
-    fd->server_size = size;
-    fd->seek_pos = seek;
-    return fd;
+    memset(desc, 0, sizeof(*desc));
+    desc->server = true;
+    desc->svc = svc;
+    desc->server_fd = sfd;
+    desc->server_size = size;
+    desc->seek_pos = seek;
+    return desc;
 }
 
 /* Move a memory object's contents to/from a kernel buffer. */
@@ -111,7 +111,7 @@ static void memobj_copy_in(memobj_t * mo, const void *src, uint64_t len,
     }
 }
 
-/* Allocate a memory object of len bytes with a transferable handle in the
+/* Allocate a memory object of len bytes with a transferable fd in the
  * current process. The caller keeps the creation reference for its own use. */
 static memobj_t *server_memobj(uint64_t len, handle_t * out)
 {
@@ -437,14 +437,14 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
 }
 
 /* Open a path; fills *svc with the service that owns the returned fd. */
-vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
-                           int32_t *svc)
+vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
+                       int32_t *svc)
 {
     handle_t mh;
     memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
-        return VFS_INVALID_HANDLE;
+        return VFS_INVALID_FD;
 
     memobj_pack_cwd_path(mo, cwd, path);
 
@@ -459,7 +459,7 @@ vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
 
     if (!router_forward(SVC_FS, &req, &rep)) {
         memobj_unref(mo);
-        return VFS_INVALID_HANDLE;
+        return VFS_INVALID_FD;
     }
 
     int64_t rc = (int64_t) rep.words[0];
@@ -474,7 +474,7 @@ vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         int64_t ffd = fat32_open_path(rel, &size);
 
         if (ffd < 0)
-            return VFS_INVALID_HANDLE;
+            return VFS_INVALID_FD;
         if (svc != NULL)
             *svc = SVC_FAT;
         return vfs_open_server_svc(ffd, rel, VFS_MODE_READ, size, SVC_FAT);
@@ -482,7 +482,7 @@ vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
 
     if (rc < 0) {
         memobj_unref(mo);
-        return VFS_INVALID_HANDLE;
+        return VFS_INVALID_FD;
     }
 
     int64_t sfd = (int64_t) rep.words[1];
@@ -525,11 +525,11 @@ int64_t vfs_server_fstat(int64_t sfd, void *out)
 
 /* Read the next directory entry of a server-backed directory fd. out must be a
  * kernel buffer of at least sizeof(dirent_t). */
-int64_t vfs_server_readdir(vfs_handle_t handle, void *out)
+int64_t vfs_server_readdir(vfs_fd_t fd, void *out)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
 
-    if (fd == NULL || !fd->server)
+    if (desc == NULL || !desc->server)
         return -1;
 
     handle_t mh;
@@ -543,7 +543,7 @@ int64_t vfs_server_readdir(vfs_handle_t handle, void *out)
 
     memset(&req, 0, sizeof(req));
     req.tag = VFS_READDIR;
-    req.words[0] = (uint64_t) fd->server_fd;
+    req.words[0] = (uint64_t) desc->server_fd;
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
@@ -589,17 +589,17 @@ void vfs_server_ref_fd(int32_t svc, int64_t sfd)
     router_forward(svc, &req, &rep);
 }
 
-int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
+int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
-    if (!fd || !fd->server)
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
+    if (!desc || !desc->server)
         return 0;
 
-    if (fd->svc == SVC_PIPE)
-        return vfs_pipe_rw(fd->server_fd, PIPE_READ, len, buff);
-    if (fd->svc == SVC_FAT) {
+    if (desc->svc == SVC_PIPE)
+        return vfs_pipe_rw(desc->server_fd, PIPE_READ, len, buff);
+    if (desc->svc == SVC_FAT) {
         /* The FAT server keeps its own offset. */
-        return fat32_read_fd(fd->server_fd, len, buff);
+        return fat32_read_fd(desc->server_fd, len, buff);
     }
 
     /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a caller
@@ -607,7 +607,7 @@ int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff)
     uint64_t done = 0;
 
     while (done < len) {
-        int64_t n = vfs_server_read(fd->server_fd, len - done,
+        int64_t n = vfs_server_read(desc->server_fd, len - done,
                                     (uint8_t *) buff + done);
 
         if (n <= 0)
@@ -659,43 +659,43 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
     return 0;
 }
 
-int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff)
+int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
-    if (!fd || !fd->server)
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
+    if (!desc || !desc->server)
         return 0;
 
-    if (fd->svc == SVC_PIPE)
-        return vfs_pipe_rw(fd->server_fd, PIPE_WRITE, len, (void *) buff);
-    return vfs_server_write(fd->server_fd, len, buff);
+    if (desc->svc == SVC_PIPE)
+        return vfs_pipe_rw(desc->server_fd, PIPE_WRITE, len, (void *) buff);
+    return vfs_server_write(desc->server_fd, len, buff);
 }
 
-int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence)
+int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
-    if (!fd || !fd->server)
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
+    if (!desc || !desc->server)
         return -1;
 
-    if (fd->svc == SVC_PIPE)
+    if (desc->svc == SVC_PIPE)
         return -1;              /* pipes are not seekable */
-    if (fd->svc == SVC_FAT)
-        return fat32_seek_fd(fd->server_fd, pos, whence);
-    return vfs_server_seek(fd->server_fd, pos, whence);
+    if (desc->svc == SVC_FAT)
+        return fat32_seek_fd(desc->server_fd, pos, whence);
+    return vfs_server_seek(desc->server_fd, pos, whence);
 }
 
-vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
-                                 vfs_openmode_t mode, uint64_t size, int32_t svc)
+vfs_fd_t vfs_open_server_svc(int64_t server_fd, const char *path,
+                             vfs_openmode_t mode, uint64_t size, int32_t svc)
 {
     (void) path;
 
     /* The process server owns the fd table; it allocates the fd. */
     int64_t fd = process_fd_open(svc, server_fd, size, (int64_t) mode);
 
-    return (fd < 0) ? VFS_INVALID_HANDLE : (vfs_handle_t) fd;
+    return (fd < 0) ? VFS_INVALID_FD : (vfs_fd_t) fd;
 }
 
-vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
-                             vfs_openmode_t mode, uint64_t size)
+vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,
+                         vfs_openmode_t mode, uint64_t size)
 {
     return vfs_open_server_svc(server_fd, path, mode, size, SVC_FS);
 }
@@ -766,25 +766,25 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len)
     return initrd_load(path, out_buf, out_len);
 }
 
-uint64_t vfs_tell(vfs_handle_t handle)
+uint64_t vfs_tell(vfs_fd_t fd)
 {
-    vfs_node_desc_t *fd = vfs_handle_to_fd(handle, __func__);
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
 
-    if (!fd) {
-        kloge("VFS: cannot get fd for file %ld\n", handle);
+    if (!desc) {
+        kloge("VFS: cannot get fd for file %ld\n", fd);
         return 0;
     }
-    return fd->server_size;
+    return desc->server_size;
 }
 
-int64_t vfs_close(vfs_handle_t handle)
+int64_t vfs_close(vfs_fd_t fd)
 {
     int32_t kind = 0, svc = 0;
     int64_t sfd = 0;
 
     /* The process server removes the fd and returns where it lived so the
      * owning server can drop its open file description. */
-    if (process_fd_close((int32_t) handle, &kind, &svc, &sfd) != 0)
+    if (process_fd_close((int32_t) fd, &kind, &svc, &sfd) != 0)
         return -1;
 
     if (svc == SVC_FAT)

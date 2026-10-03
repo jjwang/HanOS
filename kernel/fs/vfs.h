@@ -29,10 +29,10 @@
 
 /* Some definitions */
 #define VFS_FDCWD           -100
-#define VFS_INVALID_HANDLE  -1
+#define VFS_INVALID_FD  -1
 /* fds 0..2 are stdin/stdout/stderr; the process server allocates the rest
  * starting at 3. */
-#define VFS_MIN_HANDLE      3
+#define VFS_MIN_FD      3
 
 /* Options for file seek */
 #define SEEK_CUR            1
@@ -75,7 +75,7 @@ typedef struct {
 } dirent_t;
 
 /* VFS data structure definitions */
-typedef int64_t vfs_handle_t;
+typedef int64_t vfs_fd_t;
 
 typedef enum {
     VFS_NODE_FILE,
@@ -164,9 +164,9 @@ typedef struct {
 } vfs_dirent_t;
 
 /**
- * @brief Open file description backing a VFS handle
+ * @brief Open file description backing a VFS fd
  *
- * The fd table lives in the process server. A handle is resolved there and the
+ * The fd table lives in the process server. A fd is resolved there and the
  * result is copied into a per-CPU scratch descriptor for the current call.
  */
 typedef struct {
@@ -181,24 +181,24 @@ typedef struct {
 
 int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir);
 
-/* Resolve a handle to its server-side descriptor via the process server. The
+/* Resolve a fd to its server-side descriptor via the process server. The
  * result is a per-CPU scratch descriptor valid until the next call. */
-vfs_node_desc_t *vfs_handle_to_fd(vfs_handle_t handle, const char *func);
+vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func);
 
 /* Path operations. The VFS server resolves cwd+path and redirects paths under
  * the FAT mount to the FAT server. */
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out);
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
 int64_t vfs_unlink_path(const char *cwd, const char *path);
-vfs_handle_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
-                           int32_t *svc);
+vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
+                       int32_t *svc);
 
 /* Register a descriptor owned by the userspace VFS server. */
-vfs_handle_t vfs_open_server(int64_t server_fd, const char *path,
-                             vfs_openmode_t mode, uint64_t size);
+vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,
+                         vfs_openmode_t mode, uint64_t size);
 /* Same, but for any service (e.g. the pipe server). */
-vfs_handle_t vfs_open_server_svc(int64_t server_fd, const char *path,
-                                 vfs_openmode_t mode, uint64_t size, int32_t svc);
+vfs_fd_t vfs_open_server_svc(int64_t server_fd, const char *path,
+                             vfs_openmode_t mode, uint64_t size, int32_t svc);
 
 /* Read a whole file into a freshly kmalloc_chunk()'d kernel buffer without
  * touching the process fd table. Used by the ELF loader, which falls back to
@@ -208,12 +208,12 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len);
 
 /* Stat an open server fd. `out` is a kernel vfs_stat_t buffer. */
 int64_t vfs_server_fstat(int64_t sfd, void *out);
-int64_t vfs_server_readdir(vfs_handle_t handle, void *out);
+int64_t vfs_server_readdir(vfs_fd_t fd, void *out);
 /* Take a reference on a server fd, so a description inherited across fork or
  * execve stays open. */
 void vfs_server_ref_fd(int32_t svc, int64_t sfd);
-int64_t vfs_close(vfs_handle_t handle);
-uint64_t vfs_tell(vfs_handle_t handle);
-int64_t vfs_seek(vfs_handle_t handle, uint64_t pos, int64_t whence);
-int64_t vfs_read(vfs_handle_t handle, uint64_t len, void *buff);
-int64_t vfs_write(vfs_handle_t handle, uint64_t len, const void *buff);
+int64_t vfs_close(vfs_fd_t fd);
+uint64_t vfs_tell(vfs_fd_t fd);
+int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence);
+int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff);
+int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff);

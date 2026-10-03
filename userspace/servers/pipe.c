@@ -88,7 +88,7 @@ static int32_t end_alloc(int32_t pipe_idx, bool is_write)
     return -1;
 }
 
-static int32_t pipe_create(int32_t *rfh, int32_t *wfh)
+static int32_t pipe_create(int32_t *rfd, int32_t *wfd)
 {
     for (int32_t p = 0; p < PIPE_MAX; p++) {
         if (pipes[p].used)
@@ -110,8 +110,8 @@ static int32_t pipe_create(int32_t *rfh, int32_t *wfh)
 
         pipes[p].r_refs = 1;
         pipes[p].w_refs = 1;
-        *rfh = r;
-        *wfh = w;
+        *rfd = r;
+        *wfd = w;
         return 0;
     }
     return -1;
@@ -280,15 +280,15 @@ static int32_t queue_wait(sys_ipc_msg_t * m, int32_t pi, bool is_write,
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == PIPE_CREATE) {
-        int32_t rfh = 0, wfh = 0;
+        int32_t rfd = 0, wfd = 0;
 
-        if (pipe_create(&rfh, &wfh) != 0) {
+        if (pipe_create(&rfd, &wfd) != 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
             return;
         }
         rep->words[0] = 0;
-        rep->words[1] = (uint64_t) rfh;
-        rep->words[2] = (uint64_t) wfh;
+        rep->words[1] = (uint64_t) rfd;
+        rep->words[2] = (uint64_t) wfd;
         return;
     }
 
