@@ -429,6 +429,9 @@ static void net_poll_once(void)
 {
     uint8_t rx[NIC_BUF];
 
+    if (!nic_ok)
+        return;
+
     for (int32_t i = 0; i < 16; i++) {
         int32_t n = nic_poll(rx);
 
