@@ -176,13 +176,24 @@ int32_t ipc_recv_timeout_objs(endpoint_t *ep, ipc_msg_t *msg,
     if (timeout_ms == 0)
         return ipc_try_recv_objs(ep, msg, objs, rights, count);
 
-    uint64_t deadline = hpet_get_nanos() + MILLIS_TO_NANOS(timeout_ms);
+    /* A negative timeout waits until a message arrives. A blocking read that
+     * has no input must not give up and let the caller fail. */
+    bool forever = (timeout_ms == (time_t) -1);
+    uint64_t deadline = 0;
+
+    if (!forever)
+        deadline = hpet_get_nanos() + MILLIS_TO_NANOS(timeout_ms);
 
     for (;;) {
         sched_wait_key_begin(ep);
         if (ipc_try_recv_objs(ep, msg, objs, rights, count) == 0) {
             sched_wait_key_cancel();
             return 0;
+        }
+
+        if (forever) {
+            sched_wait_key_commit_infinite();
+            continue;
         }
 
         uint64_t now = hpet_get_nanos();

@@ -103,20 +103,28 @@ static void flush_deferred(void)
     uint64_t n = (wait_len < kcount) ? wait_len : kcount;
     uint8_t tmp[TTY_INLINE_MAX];
 
+    if (n > TTY_INLINE_MAX)
+        n = TTY_INLINE_MAX;
+
+    for (uint64_t i = 0; i < n; i++)
+        tmp[i] = keys[(ktail + i) % TTY_KEY_MAX];
+
     memset(&rr, 0, sizeof(rr));
     rr.tag = TTY_READ;
-    for (uint64_t i = 0; i < n; i++) {
-        tmp[i] = keys[ktail];
-        ktail = (ktail + 1) % TTY_KEY_MAX;
-    }
-    kcount -= (uint32_t) n;
-    memcpy(&rr.words[2], tmp, n);
     rr.words[0] = 0;
     rr.words[1] = n;
+    memcpy(&rr.words[2], tmp, n);
 
-    sys_ipc_send(wait_reply, &rr);
-    sys_handle_close(wait_reply);
+    /* Consume the keys only when the reply reaches the reader, so a stale
+     * reply endpoint cannot drop input. */
+    int64_t reply = wait_reply;
+
     wait_reply = 0;
+    if (sys_ipc_send(reply, &rr) == 0) {
+        ktail = (uint32_t) ((ktail + n) % TTY_KEY_MAX);
+        kcount -= (uint32_t) n;
+    }
+    sys_handle_close(reply);
 }
 
 /* A deferred read is answered once the line is complete, so a shell gets a

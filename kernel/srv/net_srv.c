@@ -389,7 +389,7 @@ int64_t net_accept(int32_t fd)
     req.tag = NET_ACCEPT;
     req.words[0] = (uint64_t) sock;
 
-    if (!router_forward_timeout(SVC_NET, &req, &rep, 3600 * 1000)
+    if (!router_forward_timeout(SVC_NET, &req, &rep, -1)
         || (int64_t) rep.words[0] < 0)
         return -1;
     return net_register((int64_t) rep.words[1]);
@@ -470,7 +470,7 @@ int64_t net_recvfrom(int32_t fd, void *buf, uint64_t len, uint32_t *ip,
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!router_forward_timeout(SVC_NET, &req, &rep, 3600 * 1000)
+    if (!router_forward_timeout(SVC_NET, &req, &rep, -1)
         || (int64_t) rep.words[0] < 0) {
         memobj_unref(mo);
         return -1;
