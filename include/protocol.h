@@ -158,6 +158,8 @@
                                            out words[0]=status */
 #define NET_LISTEN          0x97        /* words[0]=sock */
 #define NET_ACCEPT          0x98        /* words[0]=sock; out words[1]=new sock fd */
+#define NET_GETSOCKNAME     0x99        /* words[0]=sock; out words[1]=ip, words[2]=port */
+#define NET_GETPEERNAME     0x9A        /* words[0]=sock; out words[1]=ip, words[2]=port */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

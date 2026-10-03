@@ -36,8 +36,13 @@
 #define SYSCALL_ACCEPT          43
 #define SYSCALL_SENDTO          44
 #define SYSCALL_RECVFROM        45
+#define SYSCALL_SHUTDOWN        48
 #define SYSCALL_BIND            49
 #define SYSCALL_LISTEN          50
+#define SYSCALL_GETSOCKNAME     51
+#define SYSCALL_GETPEERNAME     52
+#define SYSCALL_SETSOCKOPT      54
+#define SYSCALL_GETSOCKOPT      55
 #define SYSCALL_CLONE           56
 #define SYSCALL_FORK            57
 #define SYSCALL_EXECVE          59

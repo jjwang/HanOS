@@ -1046,6 +1046,32 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == NET_GETSOCKNAME) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        rep->words[0] = 0;
+        rep->words[1] = s->ip;
+        rep->words[2] = s->port;
+        return;
+    }
+
+    if (m->tag == NET_GETPEERNAME) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        rep->words[0] = 0;
+        rep->words[1] = s->peer_ip;
+        rep->words[2] = s->peer_port;
+        return;
+    }
+
     if (m->tag == NET_SENDTO) {
         net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t ip = (uint32_t) m->words[1];

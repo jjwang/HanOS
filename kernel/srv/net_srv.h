@@ -30,3 +30,5 @@ int64_t net_sendto(int32_t sock, uint32_t ip, uint16_t port, const void *buf,
 int64_t net_recvfrom(int32_t sock, void *buf, uint64_t len, uint32_t *ip,
                      uint16_t *port);
 int64_t net_close(int32_t sock);
+int64_t net_getsockname(int32_t sock, uint32_t *ip, uint16_t *port);
+int64_t net_getpeername(int32_t sock, uint32_t *ip, uint16_t *port);

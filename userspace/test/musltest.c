@@ -11,6 +11,9 @@
 #include <time.h>
 #include <poll.h>
 #include <sys/select.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 static void *thread_fn(void *arg)
 {
@@ -90,6 +93,34 @@ int main(void)
         int r = poll(&pf, 1, 0);
 
         printf("poll r=%d revents=0x%x\n", r, pf.revents);
+    }
+
+    printf("isatty=%d\n", isatty(1));
+
+    {
+        int s = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if (s >= 0) {
+            struct sockaddr_in sa;
+            struct sockaddr_in got;
+            socklen_t gl = sizeof(got);
+
+            memset(&sa, 0, sizeof(sa));
+            sa.sin_family = AF_INET;
+            sa.sin_port = htons(12345);
+            sa.sin_addr.s_addr = htonl(0x7f000001);
+
+            if (bind(s, (struct sockaddr *) &sa, sizeof(sa)) == 0
+                && getsockname(s, (struct sockaddr *) &got, &gl) == 0) {
+                printf("sock port=%d ip=%08x\n", ntohs(got.sin_port),
+                       ntohl(got.sin_addr.s_addr));
+            } else {
+                printf("socket FAIL errno=%d\n", errno);
+            }
+            close(s);
+        } else {
+            printf("socket FAIL errno=%d\n", errno);
+        }
     }
 
     {

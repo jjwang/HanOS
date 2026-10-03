@@ -41,6 +41,18 @@
 #define H_POLL       7
 #define H_SELECT     23
 #define H_PSELECT6   270
+#define H_SOCKET     41
+#define H_CONNECT    42
+#define H_ACCEPT     43
+#define H_SENDTO     44
+#define H_RECVFROM   45
+#define H_SHUTDOWN   48
+#define H_BIND       49
+#define H_LISTEN     50
+#define H_GETSOCKNAME 51
+#define H_GETPEERNAME 52
+#define H_SETSOCKOPT 54
+#define H_GETSOCKOPT 55
 #define H_UNLINK     87
 #define H_PRLIMIT64  302
 #define H_WAITPID    61
@@ -118,6 +130,18 @@
 #define L_pipe2       293
 #define L_dup3        292
 #define L_fcntl       72
+#define L_socket      41
+#define L_connect     42
+#define L_accept      43
+#define L_sendto      44
+#define L_recvfrom    45
+#define L_shutdown    48
+#define L_bind        49
+#define L_listen      50
+#define L_getsockname 51
+#define L_getpeername 52
+#define L_setsockopt  54
+#define L_getsockopt  55
 
 #define L_CLONE_VM    0x100
 
@@ -237,6 +261,44 @@ static __inline void __hanos_fill_kstat(struct hanos_stat *h,
     k->__unused[0] = 0;
     k->__unused[1] = 0;
     k->__unused[2] = 0;
+}
+
+#define AF_INET_K 2
+
+struct hanos_sockaddr_in {
+    uint16_t sin_family;
+    uint16_t sin_port;          /* network order */
+    uint32_t sin_addr;          /* network order */
+    uint8_t sin_zero[8];
+};
+
+static __inline int __hanos_sockaddr_get(const void *addr, long len,
+                                         uint32_t *ip, uint16_t *port)
+{
+    const struct hanos_sockaddr_in *sa =
+        (const struct hanos_sockaddr_in *) addr;
+
+    if (addr == 0 || len < 8 || sa->sin_family != AF_INET_K)
+        return -1;
+    *ip = __builtin_bswap32(sa->sin_addr);
+    *port = __builtin_bswap16(sa->sin_port);
+    return 0;
+}
+
+static __inline void __hanos_sockaddr_put(void *addr, long *len, uint32_t ip,
+                                          uint16_t port)
+{
+    struct hanos_sockaddr_in *sa = (struct hanos_sockaddr_in *) addr;
+
+    if (addr == 0)
+        return;
+    sa->sin_family = AF_INET_K;
+    sa->sin_port = __builtin_bswap16(port);
+    sa->sin_addr = __builtin_bswap32(ip);
+    for (int i = 0; i < 8; i++)
+        sa->sin_zero[i] = 0;
+    if (len != 0 && *len >= (long) sizeof(*sa))
+        *len = sizeof(*sa);
 }
 
 #define ARCH_SET_FS   0x1002
@@ -524,6 +586,90 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_SELECT, a1, a2, a3, a4, a5, 0);
     case L_pselect6:
         return __hanos_raw(H_PSELECT6, a1, a2, a3, a4, a5, a6);
+    case L_socket:
+        return __hanos_raw(H_SOCKET, a1, a2, a3, 0, 0, 0);
+    case L_bind:{
+            uint32_t ip;
+            uint16_t port;
+
+            if (__hanos_sockaddr_get((const void *) a2, a3, &ip, &port) != 0)
+                return -97;     /* -EAFNOSUPPORT */
+            return __hanos_raw(H_BIND, a1, ip, port, 0, 0, 0);
+        }
+    case L_connect:{
+            uint32_t ip;
+            uint16_t port;
+
+            if (__hanos_sockaddr_get((const void *) a2, a3, &ip, &port) != 0)
+                return -97;
+            return __hanos_raw(H_CONNECT, a1, ip, port, 0, 0, 0);
+        }
+    case L_listen:
+        return __hanos_raw(H_LISTEN, a1, a2, 0, 0, 0, 0);
+    case L_accept:{
+            long fd = __hanos_raw(H_ACCEPT, a1, 0, 0, 0, 0, 0);
+
+            if (fd < 0)
+                return fd;
+            if (a2 != 0) {
+                uint32_t ip = 0;
+                uint16_t port = 0;
+
+                if (__hanos_raw(H_GETPEERNAME, fd, (long) &ip, (long) &port,
+                                0, 0, 0) == 0)
+                    __hanos_sockaddr_put((void *) a2, (long *) a3, ip, port);
+            }
+            return fd;
+        }
+    case L_sendto:{
+            uint32_t ip = 0;
+            uint16_t port = 0;
+
+            if (a5 != 0
+                && __hanos_sockaddr_get((const void *) a5, a6, &ip, &port) != 0)
+                return -97;
+            return __hanos_raw(H_SENDTO, a1, ip, port, a2, a3, 0);
+        }
+    case L_recvfrom:{
+            uint32_t ip = 0;
+            uint16_t port = 0;
+            long r = __hanos_raw(H_RECVFROM, a1, a2, a3, (long) &ip,
+                                 (long) &port, 0);
+
+            if (r < 0)
+                return r;
+            if (a5 != 0)
+                __hanos_sockaddr_put((void *) a5, (long *) a6, ip, port);
+            return r;
+        }
+    case L_getsockname:{
+            uint32_t ip = 0;
+            uint16_t port = 0;
+            long r = __hanos_raw(H_GETSOCKNAME, a1, (long) &ip, (long) &port,
+                                 0, 0, 0);
+
+            if (r < 0)
+                return r;
+            __hanos_sockaddr_put((void *) a2, (long *) a3, ip, port);
+            return 0;
+        }
+    case L_getpeername:{
+            uint32_t ip = 0;
+            uint16_t port = 0;
+            long r = __hanos_raw(H_GETPEERNAME, a1, (long) &ip, (long) &port,
+                                 0, 0, 0);
+
+            if (r < 0)
+                return r;
+            __hanos_sockaddr_put((void *) a2, (long *) a3, ip, port);
+            return 0;
+        }
+    case L_shutdown:
+        return __hanos_raw(H_SHUTDOWN, a1, a2, 0, 0, 0, 0);
+    case L_setsockopt:
+        return __hanos_raw(H_SETSOCKOPT, a1, a2, a3, a4, a5, 0);
+    case L_getsockopt:
+        return __hanos_raw(H_GETSOCKOPT, a1, a2, a3, a4, a5, 0);
     case L_mprotect:
     case L_madvise:
     case L_set_robust_list:

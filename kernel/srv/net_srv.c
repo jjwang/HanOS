@@ -240,6 +240,37 @@ int64_t net_bind(int32_t sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
+static int64_t net_name(int32_t sock, uint64_t tag, uint32_t *ip,
+                        uint16_t *port)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = tag;
+    req.words[0] = (uint64_t) sock;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return (int64_t) rep.words[0];
+    if (ip != NULL)
+        *ip = (uint32_t) rep.words[1];
+    if (port != NULL)
+        *port = (uint16_t) rep.words[2];
+    return 0;
+}
+
+int64_t net_getsockname(int32_t sock, uint32_t *ip, uint16_t *port)
+{
+    return net_name(sock, NET_GETSOCKNAME, ip, port);
+}
+
+int64_t net_getpeername(int32_t sock, uint32_t *ip, uint16_t *port)
+{
+    return net_name(sock, NET_GETPEERNAME, ip, port);
+}
+
 int64_t net_connect(int32_t sock, uint32_t ip, uint16_t port)
 {
     ipc_msg_t req;

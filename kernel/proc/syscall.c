@@ -627,12 +627,29 @@ int64_t k_set_fs_base(uint64_t val)
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
-    (void) fd;
-    (void) request;
-    (void) arg;
+#define TIOCGWINSZ_K 0x5413
 
-    /* The userspace tty server does not implement terminal ioctls yet. */
-    cpu_set_errno(EINVAL);
+    cpu_set_errno(0);
+
+    /* Report a terminal size for the standard descriptors, so isatty() and
+     * programs that query the window size work. */
+    if (request == TIOCGWINSZ_K) {
+        struct {
+            uint16_t row;
+            uint16_t col;
+            uint16_t xpixel;
+            uint16_t ypixel;
+        } ws = { 25, 80, 0, 0 };
+
+        if (fd < 0 || fd > 2 || arg == 0
+            || copy_to_user((void *) arg, &ws, sizeof(ws)) != 0) {
+            cpu_set_errno(ENOTTY);
+            return -1;
+        }
+        return 0;
+    }
+
+    cpu_set_errno(ENOTTY);
     return -1;
 }
 
@@ -2557,6 +2574,82 @@ int64_t k_accept(int64_t sock)
     return fd;
 }
 
+int64_t k_getsockname(int32_t sock, uint32_t * uip, uint16_t * uport)
+{
+    uint32_t ip = 0;
+    uint16_t port = 0;
+
+    cpu_set_errno(0);
+
+    if (net_getsockname(sock, &ip, &port) < 0) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+    if (uip != NULL && copy_to_user(uip, &ip, sizeof(ip)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (uport != NULL && copy_to_user(uport, &port, sizeof(port)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_getpeername(int32_t sock, uint32_t * uip, uint16_t * uport)
+{
+    uint32_t ip = 0;
+    uint16_t port = 0;
+
+    cpu_set_errno(0);
+
+    if (net_getpeername(sock, &ip, &port) < 0) {
+        cpu_set_errno(ENOTCONN);
+        return -1;
+    }
+    if (uip != NULL && copy_to_user(uip, &ip, sizeof(ip)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (uport != NULL && copy_to_user(uport, &port, sizeof(port)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_shutdown(int32_t sock, int32_t how)
+{
+    (void)sock;
+    (void)how;
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_setsockopt(int32_t sock, int32_t level, int32_t optname,
+                     const void *optval, uint64_t optlen)
+{
+    (void)sock;
+    (void)level;
+    (void)optname;
+    (void)optval;
+    (void)optlen;
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_getsockopt(int32_t sock, int32_t level, int32_t optname,
+                     void *optval, uint64_t *optlen)
+{
+    (void)sock;
+    (void)level;
+    (void)optname;
+    (void)optval;
+    (void)optlen;
+    cpu_set_errno(ENOPROTOOPT);
+    return -1;
+}
+
 syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
@@ -2581,6 +2674,11 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
     [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,
     [SYSCALL_ACCEPT] = (syscall_ptr_t) k_accept,
+    [SYSCALL_GETSOCKNAME] = (syscall_ptr_t) k_getsockname,
+    [SYSCALL_GETPEERNAME] = (syscall_ptr_t) k_getpeername,
+    [SYSCALL_SHUTDOWN] = (syscall_ptr_t) k_shutdown,
+    [SYSCALL_SETSOCKOPT] = (syscall_ptr_t) k_setsockopt,
+    [SYSCALL_GETSOCKOPT] = (syscall_ptr_t) k_getsockopt,
     [SYSCALL_SENDTO] = (syscall_ptr_t) k_sendto,
     [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,
     [SYSCALL_BIND] = (syscall_ptr_t) k_bind,
