@@ -4,13 +4,13 @@
 
 ## 摘要
 
-HanOS 是面向 x86-64、用 C 编写的操作系统。它保留经典 POSIX 系统调用接口。文件系统、块设备、终端迁到 ring 3 服务。管道、文件描述符与网络也迁到 ring 3 服务。内核保留调度、虚拟内存、IPC、中断路由与系统调用入口。服务之间通过基于句柄的能力 IPC 通信。本文描述内核原语、IPC 机制、服务路由器，以及每个服务的实现。
+HanOS 是面向 x86-64、用 C 编写的操作系统。它对齐 Linux x86-64 系统调用接口。文件系统、块设备、终端、管道、文件描述符与网络迁到 ring 3 服务。用户态链接 musl。内核保留调度、虚拟内存、IPC、中断路由与系统调用入口。服务之间通过基于句柄的能力 IPC 通信。线程共享地址空间，在 futex 上阻塞。本文描述内核原语、IPC 机制、服务路由器、线程与各服务的实现。
 
 ## 1. 设计
 
 单体内核把每个子系统放进 ring 0。文件系统的一个缺陷会破坏调度状态或页表。纯微内核把驱动与服务全移到 ring 3，代价是重做接口与设备访问。HanOS 走中间路线。
 
-- 保留用户态已在用的系统调用编号与名称。
+- 对齐 Linux x86-64 系统调用接口。POSIX 调用沿用 Linux 编号。HanOS 独有调用用 `0x400` 以上。出错时 `RAX` 返回负 errno。`O_*` 与 `MAP_*` 用 Linux 取值。musl 只需薄后端。
 - 子系统接口有界、状态能放进 ring 3 时，才迁到服务。
 - 内核只留调度、地址空间、IPC、中断与引导加载。
 
@@ -24,7 +24,7 @@ HanOS 是面向 x86-64、用 C 编写的操作系统。它保留经典 POSIX 系
 
 - 内核运行在 ring 0。它提供调度、虚拟内存与内核对象模型。它还提供 IPC endpoint、中断对象、服务路由器与系统调用表。
 - 服务作为普通进程运行在 ring 3。每个服务负责一个资源域。域含帧缓冲、PS/2 与串口输入、终端。也含 ATA 磁盘、FAT32 卷、initrd 命名空间。还含管道、每进程文件描述符表与网络。
-- 用户程序运行在 ring 3，通过 libc 发起系统调用。
+- 用户程序运行在 ring 3，链接 musl；由 musl 发起系统调用。
 
 服务用服务 id 寻址。内核路由器把服务 id 映射到负责服务的 endpoint。
 
@@ -90,6 +90,18 @@ endpoint 是保存 64 条消息 FIFO 的内核对象。消息含一个 tag、六
 - ACPI 表放在保留内存。`acpi_init` 读表前先映射该表。
 - 用户程序链接在 `0x0000400000000000`，内核与用户映射不再共用 HHDM 区间。
 - process 服务保存每 pid 文件描述符表；内核按需把 fd 解析为服务描述符。
+
+### 3.8 线程与 futex
+
+线程是一个 `process_t`，与线程组共享地址空间。带 `CLONE_VM` 的 `clone` 创建它。内核给地址空间计数（`addrspace_t.refs`），映射表也存在地址空间里，最后一个线程负责释放。线程携带线程组 id `tgid`；组长的 `pid == tgid`。
+
+`process_clone` 分配内核栈，并在其上构造子线程的用户态返回帧。系统调用入口跑在用户栈上，线程不能复用父栈。帧把 `rax` 置 0，`rip` 指向 `syscall` 之后，`rsp` 指向 `clone` 传入的栈。`CLONE_SETTLS` 设置子线程 `fs_base`。`CLONE_PARENT_SETTID` 与 `CLONE_CHILD_SETTID` 写入 tid。`CLONE_CHILD_CLEARTID` 记下退出时要清零并唤醒的地址。
+
+`exit` 结束一个线程。`exit_group` 把本组其余线程标死，交给 idle 回收者释放，再退出调用者。
+
+futex 阻塞在一个用户字上。`k_futex_wait` 武装等待键后再读该字，窗口内到达的唤醒不会被漏掉。`k_futex_wake` 最多唤醒 `nr` 个等待者。二者都建立在 IPC 等待键机制上，唤醒会向等待者所在核发重调度 IPI。
+
+内核按 `tgid` 索引文件描述符调用，因此同组线程共享组长的 fd 表。
 
 ## 4. IPC 机制
 
@@ -220,7 +232,7 @@ bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
 
 ### 4.10 一次文件读的全程
 
-1. libc 发起 `SYSCALL_READ(fd, buf, len)`。
+1. musl 以 `(fd, buf, len)` 发起 Linux `read` 系统调用（0）。
 2. 内核经 process 服务把 `fd` 解析为 `(svc, server_fd)`。
 3. 内核为 `buf` 创建内存对象，组装 `VFS_READ`。
 4. `router_forward` 移入应答 endpoint 与内存对象，发到 FS endpoint。
@@ -248,6 +260,8 @@ input 服务负责 PS/2 控制器、其中断线与 COM1。内核授予它 IRQ1�
 tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台。内核把每个解码按键以 `TTY_KEY` 转发给服务。
 
 读是事件驱动的，按行缓冲。`TTY_READ` 有时返回现成字节。`TTY_READ` 无键时挂起：服务保存应答 endpoint，在整行或请求长度到齐时答复。内核在 `tty_server_read` 里阻塞等该应答，不轮询。请求字节少的读保持非缓冲。
+
+对 fd 0 的 `poll` 经 `TTY_POLL` 问服务待读键数。无键时它阻塞在一个内核等待键上，tty 中转收到键时唤醒它，于是轮询者睡眠而非自旋。有服务后端的描述符直接报就绪，不做真正就绪查询；`select` 与 `pselect6` 共用该路径。
 
 ### 5.4 block
 
@@ -280,7 +294,7 @@ process 服务保存每进程文件描述符表与进程树。每个 fd 请求�
 - `PROC_EXEC` 加载 ELF：内核把路径、工作目录、argv 与镜像打包进一个内存对象；服务映射各段、建栈、启动子进程。
 - `PROC_EXIT` 记录退出状态；`PROC_WAIT` 返回已死子进程，子进程存活时阻塞，否则报 `ECHILD`。进程退出且其子进程全部退出后，才算已退出。
 
-内核经 process 服务把 fd 解析为每 CPU 临时描述符。标准输入输出重定向用同一张表：`dup3` 记录别名，fd 0、1、2 的读写有别名时用别名，否则用 tty。
+内核经 process 服务把 fd 解析为每 CPU 临时描述符。内核按 `tgid` 索引 fd 调用，同组线程共享组长那张表。`dup3` 复制 fd 0、1、2 时用 tty 服务做后端，因为标准描述符留内核；副本上的读写直达 tty。
 
 ### 5.9 net
 
@@ -316,6 +330,9 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 - TCP 实现精简：无重传、无乱序处理、固定窗口，只提供客户端与服务器。
 - 网卡用轮询，不用中断。
 - VFS 运行时文件放在 RAM，不持久。
+- 信号不投递：`rt_sigaction` 与 `rt_sigprocmask` 只存状态，内核不跑处理函数，也没实现 `rt_sigreturn`。
+- `poll` 只在 tty 上阻塞；其它服务后端的描述符直接报就绪，不做就绪查询。
+- 一批系统调用仍返回 `ENOSYS`，例如 `mkdirat`、`renameat`、`eventfd`、`epoll`。
 
 ## 8. 结论
 
@@ -323,8 +340,11 @@ HanOS 把地址空间、进程、IPC 与中断留在内核，把文件系统、�
 
 ## 参考资料
 
-- 源码：`kernel/`、`libc/`、`userspace/servers/`。
-- 接口头文件：`libc/include/protocol.h`、`libc/include/bootinfo.h`、`libc/include/sysfunc.h`。
+- 源码：`kernel/`、`userspace/`、`musl/`。
+- 内核 C 库：`kernel/libc/`。
+- 共享线协议头：`include/protocol.h`、`include/bootinfo.h`、`include/syscall_nr.h`。
+- 用户态运行时：`userspace/runtime/`、`userspace/include/`。
+- musl 移植：`musl/syscall_arch.h`、`musl/__set_thread_area.s`、`musl/linker.ld`、`musl/build.sh`。
 - 内核 IPC 与对象：`kernel/ipc/{ipc.c,object.c,irq.c}`。
 - 路由器：`kernel/router/router.c`。
 - 服务：`userspace/servers/`。

@@ -4,13 +4,13 @@
 
 ## Abstract
 
-HanOS is an operating system for x86-64 written in C. It keeps the classic POSIX syscall ABI while moving the filesystem, block device, terminal, pipe, file-descriptor and network subsystems into ring-3 servers. The kernel keeps scheduling, virtual memory, IPC, interrupt routing and the syscall entry points. Servers communicate over a capability-based IPC layer built on endpoints and handle transfer. This document describes the kernel primitives, the IPC mechanism, the service router, and the implementation of each server.
+HanOS is an operating system for x86-64 written in C. It follows the Linux x86-64 syscall ABI while moving the filesystem, block device, terminal, pipe, file-descriptor and network subsystems into ring-3 servers. User space links musl. The kernel keeps scheduling, virtual memory, IPC, interrupt routing and the syscall entry points. Servers communicate over a capability-based IPC layer built on endpoints and handle transfer. Threads share an address space and block on a futex. This document describes the kernel primitives, the IPC mechanism, the service router, threads, and the implementation of each server.
 
 ## 1. Design
 
 A monolithic kernel runs every subsystem in ring 0. A bug in the filesystem corrupts scheduler state or the page tables. A pure microkernel moves every driver and service to ring 3 but forces a large redesign of the ABI and of device access. HanOS takes the middle path.
 
-- Keep the syscall numbers and names userspace already uses.
+- Follow the Linux x86-64 syscall ABI: POSIX calls keep their Linux numbers, HanOS-only calls use `0x400` and above, an error returns a negative errno in `RAX`, and `O_*` / `MAP_*` use the Linux values. musl runs on a thin backend.
 - Move a subsystem to a server when its interface is bounded and its state can live in ring 3.
 - Keep scheduling, address spaces, IPC, interrupts and the bootstrap loader in the kernel.
 
@@ -24,7 +24,7 @@ The system has three layers.
 
 - The kernel runs in ring 0. It provides scheduling, virtual memory, the kernel object and handle model, IPC endpoints, interrupt objects, the service router and the syscall table.
 - The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the ATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, or the network.
-- The programs run in ring 3 and use the libc, which issues syscalls.
+- The programs run in ring 3 and link musl; musl issues the syscalls.
 
 Services are addressed by a service id. The kernel's router maps a service id to the endpoint of the owning server.
 
@@ -90,6 +90,18 @@ Each core owns a run queue and a current process. A 1 ms APIC timer drives the t
 - ACPI tables live in reserved memory. `acpi_init` maps each table before it reads it.
 - User programs link at `0x0000400000000000`, so the kernel and user mappings never share the HHDM range.
 - The process server owns the per-pid file descriptor table; the kernel resolves a fd to a server descriptor on demand.
+
+### 3.8 Threads and futex
+
+A thread is a `process_t` that shares its address space with the group. `clone` with `CLONE_VM` creates one. The kernel refcounts the address space (`addrspace_t.refs`) and keeps the mapping list in the address space, so the last thread frees it. A thread carries the group id `tgid`; `pid == tgid` for the leader.
+
+`process_clone` allocates a kernel stack and builds the child's user-mode return frame on it. The syscall entry runs on the user stack, so a thread must not reuse the parent's. The frame sets `rax = 0`, `rip` to the instruction after `syscall`, and `rsp` to the stack `clone` passed. `CLONE_SETTLS` sets the child `fs_base`. `CLONE_PARENT_SETTID` and `CLONE_CHILD_SETTID` write the tid. `CLONE_CHILD_CLEARTID` records the address to clear and wake on thread exit.
+
+`exit` ends one thread. `exit_group` marks every other thread of the group dead, lets the idle reaper free them, then exits the caller.
+
+A futex blocks on a user word. `k_futex_wait` re-reads the word after it arms the wait key, so the loop still observes a wake delivered in the window. `k_futex_wake` wakes up to `nr` waiters. Both build on the IPC wait-key mechanism, so a wake sends a reschedule IPI to the waiter's core.
+
+The kernel keys file-descriptor calls by `tgid`, so every thread of a group shares the leader's fd table.
 
 ## 4. The IPC mechanism
 
@@ -220,7 +232,7 @@ An interrupt object (`OBJ_IRQ`) is created for a line. `irq_bind` attaches an en
 
 ### 4.10 A file read end to end
 
-1. libc issues `SYSCALL_READ(fd, buf, len)`.
+1. musl issues the Linux `read` syscall (0) with `(fd, buf, len)`.
 2. The kernel resolves `fd` through the process server into `(svc, server_fd)`.
 3. The kernel creates a memory object for `buf` and builds `VFS_READ`.
 4. `router_forward` moves a reply endpoint and the memory object, and sends to the FS endpoint.
@@ -248,6 +260,8 @@ On an interrupt notification the server drains the PS/2 controller. The status b
 The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. The kernel relays each decoded key to the server as a `TTY_KEY` message.
 
 Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when a line is complete or the requested length is buffered. The kernel blocks in `tty_server_read` on that reply instead of polling. A reader that asks for few bytes stays unbuffered.
+
+`poll` on fd 0 asks the server for the pending key count through `TTY_POLL`. With no key it blocks on a kernel wait key that the tty relay wakes when a key arrives, so a poller sleeps instead of spinning. A descriptor backed by a server reports ready without a true readiness query; `select` and `pselect6` share that path.
 
 ### 5.4 block
 
@@ -280,7 +294,7 @@ The process server owns the per-process file descriptor table and the process tr
 - `PROC_EXEC` loads an ELF: the kernel packs the path, the working directory, the argv and the image into one memory object, and the server maps the segments, builds the stack, and starts the child.
 - `PROC_EXIT` records an exit status; `PROC_WAIT` returns a dead child, blocks while a child is live, or reports `ECHILD`. A process counts as exited only after it exits and all its children are gone.
 
-The kernel resolves a fd through the process server into a per-CPU transient descriptor. Redirecting standard input and output uses the same table: `dup3` records an alias, and reads and writes on fds 0, 1 and 2 use the alias when one exists and the tty otherwise.
+The kernel resolves a fd through the process server into a per-CPU transient descriptor. The kernel keys fd calls by `tgid`, so every thread of a group shares the leader's table. `dup3` of fd 0, 1 or 2 backs the new descriptor with the tty server, because the standard descriptors live in the kernel; reads and writes on the duplicate reach the tty.
 
 ### 5.9 net
 
@@ -316,6 +330,9 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 - TCP is a minimal implementation: no retransmission, no out-of-order handling, a fixed window, and a client and a server only.
 - The NIC is polled, not interrupt-driven.
 - VFS runtime files live in RAM and do not persist.
+- Signals are not delivered: `rt_sigaction` and `rt_sigprocmask` store state, but the kernel runs no handler and implements no `rt_sigreturn`.
+- `poll` blocks on the tty; a descriptor backed by another server reports ready without a readiness query.
+- A set of syscalls still returns `ENOSYS`, for example `mkdirat`, `renameat`, `eventfd` and `epoll`.
 
 ## 8. Conclusion
 
@@ -323,8 +340,11 @@ HanOS keeps address spaces, processes, IPC and interrupts in the kernel and move
 
 ## References
 
-- Source: `kernel/`, `libc/`, `userspace/servers/`.
-- Interface headers: `libc/include/protocol.h`, `libc/include/bootinfo.h`, `libc/include/sysfunc.h`.
+- Source: `kernel/`, `userspace/`, `musl/`.
+- Kernel C library: `kernel/libc/`.
+- Shared wire headers: `include/protocol.h`, `include/bootinfo.h`, `include/syscall_nr.h`.
+- Userspace runtime: `userspace/runtime/`, `userspace/include/`.
+- musl port: `musl/syscall_arch.h`, `musl/__set_thread_area.s`, `musl/linker.ld`, `musl/build.sh`.
 - Kernel IPC and objects: `kernel/ipc/{ipc.c,object.c,irq.c}`.
 - Router: `kernel/router/router.c`.
 - Servers: `userspace/servers/`.
