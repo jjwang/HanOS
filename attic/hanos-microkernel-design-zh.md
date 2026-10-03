@@ -111,6 +111,10 @@ futex 阻塞在一个用户字上。`k_futex_wait` 武装等待键后再读该�
 
 帧位于 `kernel/proc/signal.c`；`syscall_post` 在 `kernel/proc/syscall.c` 中调用 `signal_deliver`。
 
+### 3.10 中断控制器
+
+内核启用本地 APIC，并编程 I/O APIC，让设备线在物理机上到达 CPU。它解析 MADT 的中断源覆盖项，映射第一个 I/O APIC。每条启用的 ISA 线对应一个重定向表项，把与 PIC 兼容的向量（`0x20 + IRQ`）送往引导核。有 I/O APIC 时，`irq_clear_mask` 走 I/O APIC，同时把 8259 线屏蔽；没有 I/O APIC 的机器仍走 8259。级联线 IRQ2 不改路由，因为覆盖项可能把它的 GSI 映射到别的线。中断返回时，若中断由 I/O APIC 投递则发本地 APIC EOI，否则发 PIC EOI。
+
 ## 4. IPC 机制
 
 客户端与服务之间的每个请求都以消息形式走在 endpoint 上。用户内存指针不跨边界。本节描述消息、endpoint、句柄转移、应答模式、阻塞、挂起应答、大块数据、路由器与中断投递。

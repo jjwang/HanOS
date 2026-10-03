@@ -111,6 +111,10 @@ The syscall entry saves the user register frame on the user stack. After the han
 
 The frame belongs to `kernel/proc/signal.c`; `signal_deliver` runs from `syscall_post` in `kernel/proc/syscall.c`.
 
+### 3.10 Interrupt controllers
+
+The kernel enables the local APIC and programs the I/O APIC, so a device line reaches the CPU on real hardware. It parses the MADT interrupt source overrides and maps the first I/O APIC. Each enabled ISA line gets a redirection entry that carries the PIC-compatible vector (`0x20 + IRQ`) to the boot core. `irq_clear_mask` routes through the I/O APIC when one is present and keeps the 8259 line masked; the 8259 path remains for a machine without an I/O APIC. The cascade line (IRQ2) is not routed, because an override may map its GSI to another line. The interrupt return sends a local-APIC EOI when the I/O APIC delivered the interrupt, and a PIC EOI otherwise.
+
 ## 4. The IPC mechanism
 
 Every request between a client and a server travels as a message on an endpoint. A pointer to user memory never crosses the boundary. This section describes the message, the endpoint, handle transfer, the reply pattern, blocking, deferred replies, bulk data, the router and interrupt delivery.
