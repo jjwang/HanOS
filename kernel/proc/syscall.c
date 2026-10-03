@@ -1096,14 +1096,67 @@ static bool fd_is_valid(int32_t fd)
     return process_fd_get(fd, NULL, NULL, NULL, NULL, NULL) == 0;
 }
 
+struct pollfd_k {
+    int32_t fd;
+    int16_t events;
+    int16_t revents;
+};
+
+/* Report readiness once. Returns the ready count, or -1 on a bad pointer. Set
+ * *want_tty when a polled stdin needs the tty to wake a blocking caller. */
+static int32_t poll_check(void *fds, uint64_t nfds, bool *want_tty)
+{
+    int32_t ready = 0;
+
+    if (want_tty != NULL)
+        *want_tty = false;
+
+    for (uint64_t i = 0; i < nfds; i++) {
+        struct pollfd_k p;
+        uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
+
+        if (copy_from_user(&p, slot, sizeof(p)) != 0)
+            return -1;
+
+        int16_t rev = 0;
+
+        if (p.fd < 0) {
+            rev = 0;
+        } else if (p.fd == 0) {
+            if (p.events & POLLIN) {
+                if (want_tty != NULL)
+                    *want_tty = true;
+                if (tty_server_pending() > 0)
+                    rev |= POLLIN;
+            }
+            if (p.events & POLLOUT)
+                rev |= POLLOUT;
+        } else if (p.fd <= 2) {
+            if (p.events & POLLOUT)
+                rev |= POLLOUT;
+        } else if (fd_is_valid(p.fd)) {
+            if (p.events & POLLIN)
+                rev |= POLLIN;
+            if (p.events & POLLOUT)
+                rev |= POLLOUT;
+        } else {
+            rev = POLLNVAL;
+        }
+
+        p.revents = rev;
+
+        if (copy_to_user(slot, &p, sizeof(p)) != 0)
+            return -1;
+        if (rev)
+            ready++;
+    }
+
+    return ready;
+}
+
 int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
 {
-    struct pollfd_k {
-        int32_t fd;
-        int16_t events;
-        int16_t revents;
-    };
-    uint64_t start;
+    int64_t start_ms = (int64_t) (hpet_get_nanos() / 1000000);
 
     cpu_set_errno(0);
 
@@ -1112,67 +1165,43 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         return -1;
     }
 
-    start = hpet_get_nanos();
-
     for (;;) {
-        int32_t ready = 0;
+        bool want_tty = false;
+        int32_t ready = poll_check(fds, nfds, &want_tty);
 
-        for (uint64_t i = 0; i < nfds; i++) {
-            struct pollfd_k p;
-            uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
-
-            if (copy_from_user(&p, slot, sizeof(p)) != 0) {
-                cpu_set_errno(EFAULT);
-                return -1;
-            }
-
-            int16_t rev = 0;
-
-            if (p.fd < 0) {
-                rev = 0;
-            } else if (p.fd == 0) {
-                if (p.events & POLLIN) {
-                    int64_t n = tty_server_pending();
-
-                    if (n > 0)
-                        rev |= POLLIN;
-                }
-                if (p.events & POLLOUT)
-                    rev |= POLLOUT;
-            } else if (p.fd <= 2) {
-                if (p.events & POLLOUT)
-                    rev |= POLLOUT;
-            } else if (fd_is_valid(p.fd)) {
-                if (p.events & POLLIN)
-                    rev |= POLLIN;
-                if (p.events & POLLOUT)
-                    rev |= POLLOUT;
-            } else {
-                rev = POLLNVAL;
-            }
-
-            p.revents = rev;
-
-            if (copy_to_user(slot, &p, sizeof(p)) != 0) {
-                cpu_set_errno(EFAULT);
-                return -1;
-            }
-            if (rev)
-                ready++;
+        if (ready < 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
         }
-
         if (ready > 0 || timeout == 0)
             return ready;
 
-        if (timeout > 0) {
-            int64_t elapsed = (int64_t) ((hpet_get_nanos() - start) / 1000000);
+        if (want_tty) {
+            int64_t rem = -1;
 
-            if (elapsed >= timeout)
-                return 0;
+            if (timeout > 0) {
+                int64_t elapsed =
+                    (int64_t) (hpet_get_nanos() / 1000000) - start_ms;
+
+                if (elapsed >= timeout)
+                    return 0;
+                rem = timeout - elapsed;
+            }
+
+            /* Arm and block. The re-check above and the arm are close, so a
+             * wake in between is rare; the next poll catches it. */
+            sched_wait_key_begin(tty_server_poll_key());
+
+            if (timeout < 0)
+                sched_wait_key_commit_infinite();
+            else
+                sched_wait_key_commit(rem);
+        } else if (timeout < 0) {
+            /* Nothing pollable is pending; do not spin. */
+            sched_sleep(1000);
+        } else {
+            return 0;
         }
-
-        /* Re-check after a short sleep. */
-        sched_sleep(10);
     }
 }
 

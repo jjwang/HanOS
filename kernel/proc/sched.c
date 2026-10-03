@@ -425,6 +425,7 @@ void sched_wait_key_begin(void *key)
         curr->wakeup_event.type = EVENT_IPC;
         curr->wakeup_event.para = 0;
         curr->wakeup_key = key;
+        curr->wakeup_pending = false;
     }
 
     spinlock_release(&run_queue_lock[cpu_id]);

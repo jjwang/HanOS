@@ -93,7 +93,7 @@ int main(void)
 
     {
         struct pollfd pf = { 0, POLLIN, 0 };
-        int r = poll(&pf, 1, 0);
+        int r = poll(&pf, 1, 50);
 
         printf("poll stdin r=%d\n", r);
     }

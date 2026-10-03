@@ -98,7 +98,20 @@ bool tty_server_deliver_key(uint8_t key)
     memset(&m, 0, sizeof(m));
     m.tag = TTY_KEY;
     m.words[0] = key;
-    return ipc_send(tty_ep, &m) == 0;
+
+    bool ok = ipc_send(tty_ep, &m) == 0;
+
+    if (ok)
+        sched_wake_key(tty_server_poll_key());
+    return ok;
+}
+
+/* Key a blocking poll waits on; the relay above wakes it. */
+static int tty_poll_key;
+
+void *tty_server_poll_key(void)
+{
+    return &tty_poll_key;
 }
 
 int64_t tty_server_pending(void)
