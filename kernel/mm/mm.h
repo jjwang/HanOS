@@ -38,6 +38,10 @@
 #define NUM_PAGES(num)          (((num) + PAGE_SIZE - 1) / PAGE_SIZE)
 #define PAGE_ALIGN_UP(num)      (NUM_PAGES(num) * PAGE_SIZE)
 
+#define KB                      ((uint64_t) 1024)
+#define MB                      (1024 * KB)
+#define GB                      (1024 * MB)
+
 #define MAX_MEM_TOTAL_SIZE      (1024 * GB)
 #define MAX_MEM_BMP_SIZE        (NUM_PAGES(MAX_MEM_TOTAL_SIZE) / BMP_PAGES_PER_BYTE)
 /* Upper bound on RAM the kernel hands to the allocator. Address spaces share

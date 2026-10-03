@@ -17,8 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <ctype.h>
-
 typedef enum {
     OCT,
     DEC

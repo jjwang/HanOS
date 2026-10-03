@@ -127,16 +127,6 @@
 typedef void (*out_fct_type)(char character, void* buffer, uint64_t idx, uint64_t maxlen);
 
 
-/**
- * @brief Output callback and its argument, used as a printf buffer
- */
-// wrapper (used as buffer) for output function type
-typedef struct {
-  void  (*fct)(char character, void* arg);
-  void* arg;
-} out_fct_wrap_t;
-
-
 // internal buffer output
 static inline void _out_buffer(char character, void* buffer, uint64_t idx, uint64_t maxlen)
 {
@@ -159,17 +149,6 @@ static inline void _out_char(char character, void* buffer, uint64_t idx, uint64_
   (void)buffer; (void)idx; (void)maxlen;
   if (character) {
     _putchar(character);
-  }
-}
-
-
-// internal output function wrapper
-static inline void _out_fct(char character, void* buffer, uint64_t idx, uint64_t maxlen)
-{
-  (void)idx; (void)maxlen;
-  if (character) {
-    // buffer is the output fct pointer
-    ((out_fct_wrap_t*)buffer)->fct(character, ((out_fct_wrap_t*)buffer)->arg);
   }
 }
 
@@ -890,17 +869,6 @@ int32_t snprintf_(char* buffer, uint64_t count, const char* format, ...)
 int32_t vsnprintf_(char* buffer, uint64_t count, const char* format, va_list va)
 {
   return _vsnprintf(_out_buffer, buffer, count, format, va);
-}
-
-
-int32_t fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...)
-{
-  va_list va;
-  va_start(va, format);
-  const out_fct_wrap_t out_fct_wrap = { out, arg };
-  const int32_t ret = _vsnprintf(_out_fct, (char*)(uintptr_t)&out_fct_wrap, (uint64_t)-1, format, va);
-  va_end(va);
-  return ret;
 }
 
 /* *INDENT-ON* */

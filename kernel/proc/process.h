@@ -37,7 +37,6 @@
 
 #include <lib/time.h>
 #include <lib/vector.h>
-#include <lib/hash.h>
 #include <arch/x64/smp.h>
 #include <mm/mm.h>
 #include <fs/vfs.h>

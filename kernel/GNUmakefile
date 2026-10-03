@@ -6,7 +6,7 @@ NASM         := nasm
 INDENT       := indent -kr -i4 -nut
 
 LC_FLAGS     :=             \
-    -I. -I.. -I../include -Ilibc -Wall -Wextra  \
+    -I. -I.. -I../include -Ilib -Wall -Wextra  \
     -DKERNEL_BUILD          \
     -DVERSION_STRING=\"$(shell sh ../scripts/version.sh)\" \
     -mcmodel=kernel         \
@@ -103,7 +103,7 @@ $(BOOT_DIR)/limine.h:
 
 $(C_OBJS): %.o: %.c $(BOOT_DIR)/limine.h
 	@echo Compiling $< to $@ ...
-	$(CC) -MM -I. -I../include -Ilibc -MT $@ -MF $(patsubst %.o, %.d, $@) $<
+	$(CC) -MM -I. -I../include -Ilib -MT $@ -MF $(patsubst %.o, %.d, $@) $<
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 $(AS_OBJS): %.o: %.s

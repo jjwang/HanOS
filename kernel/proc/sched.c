@@ -28,7 +28,6 @@
 #include <lib/time.h>
 #include <lib/kmalloc.h>
 #include <lib/vector.h>
-#include <lib/hash.h>
 #include <proc/sched.h>
 #include <proc/elf.h>
 #include <arch/x64/smp.h>

@@ -116,12 +116,3 @@ void localtime(const time_t * timep, tm_t * _timevalue)
         }
     }
 }
-
-time_t mktime(tm_t * tm)
-{
-    return
-        secs_of_years(tm->year + 1900) +
-        secs_of_month(tm->mon, tm->year + 1900) +
-        (tm->mday - 1) * 86400 +
-        (tm->hour) * 3600 + (tm->min) * 60 + (tm->sec);
-}
