@@ -25,6 +25,7 @@
 #include <arch/x64/timer.h>
 #include <proc/sched.h>
 #include <proc/process.h>
+#include <proc/syscall.h>
 #include <ipc/irq.h>
 #include <mm/uaccess.h>
 
@@ -67,6 +68,50 @@ static char *exceptions[] = {
 };
 
 static volatile exc_handler_t handlers[256] = { 0 };
+
+/* Signal for a CPU exception that reached user mode, or 0 when the exception
+ * has no process context. */
+static int32_t fault_signal(uint64_t excno)
+{
+    switch (excno) {
+    case 0:
+        return SIGFPE;
+    case 6:
+        return SIGILL;
+    case 7:
+    case 16:
+    case 19:
+        return SIGFPE;
+    case 17:
+        return SIGBUS;
+    case 13:
+    case 14:
+        return SIGSEGV;
+    default:
+        return 0;
+    }
+}
+
+/* A user-mode exception kills the process instead of the core. */
+static _Noreturn void kill_faulting_process(uint64_t excno, exception_regs_t * tr)
+{
+    int32_t sig = fault_signal(excno);
+    const char *name = "Unknown";
+
+    if (sig == 0)
+        sig = SIGSEGV;
+
+    if (excno < sizeof(exceptions) / sizeof(exceptions[0]) && exceptions[excno])
+        name = exceptions[excno];
+
+    kloge("User exception %s (%ld) at RIP 0x%016lx, pid %ld: killing process\n",
+          name, excno, tr->rip, sched_get_pid());
+
+    k_exit_group(128 + sig);
+
+    for (;;)
+        asm volatile ("hlt");
+}
 
 /* End an external interrupt at the controller that delivered it. An I/O APIC
  * entry needs a local-APIC EOI; the 8259 path needs a PIC EOI. */
@@ -114,6 +159,12 @@ void exc_handler_proc(
 
         uint64_t cr2val;
         read_cr("cr2", &cr2val);
+
+        if ((tr->cs & 3) == 3) {
+            kloge("User page fault at RIP 0x%016lx, addr 0x%016lx\n",
+                  tr->rip, cr2val);
+            kill_faulting_process(excno, tr);
+        }
 
         asm volatile("cli");    /* Disable to prevent nested interrupts */
         apic_timer_stop();      /* Mask APIC timer IRQ on current CPU */
@@ -169,6 +220,11 @@ void exc_handler_proc(
         handler();
         irq_eoi(excno);
         return;
+    }
+
+    /* A user-mode exception with no handler kills the process, not the core. */
+    if ((tr->cs & 3) == 3) {
+        kill_faulting_process(excno, tr);
     }
 
     uint64_t cr2val;

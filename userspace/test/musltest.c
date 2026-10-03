@@ -327,6 +327,25 @@ int main(void)
         printf("signal unblocked got=%d\n", (int) got_sig);
     }
 
+    {
+        pid_t pid = fork();
+
+        if (pid == 0) {
+            /* Write an unmapped address. The kernel kills this process and
+             * the parent keeps running. */
+            *(volatile unsigned long *) 0x12345000UL = 1;
+            _exit(0);
+        } else if (pid > 0) {
+            int st = 0;
+
+            waitpid(pid, &st, 0);
+            printf("faultkill signaled=%d sig=%d\n", WIFSIGNALED(st),
+                   WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+        } else {
+            printf("faultkill FAIL errno=%d\n", errno);
+        }
+    }
+
     printf("mustest: done\n");
     return 0;
 }

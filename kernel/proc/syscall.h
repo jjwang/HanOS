@@ -134,6 +134,11 @@ typedef struct {
  */
 void syscall_init(void);
 
+/* Terminate every thread of the current group with status and switch away.
+ * Used by the exit syscalls and by a user-mode fault that must kill the
+ * process. Does not return. */
+void k_exit_group(int64_t status);
+
 /*
  * The maximum number of syscall arguments is 5. Other arguments should be put
  * on the stack.
