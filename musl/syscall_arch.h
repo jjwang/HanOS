@@ -34,6 +34,10 @@
 #define H_FCNTL      72
 #define H_DUP3       292
 #define H_NANOSLEEP  35
+#define H_CLOCK_NANOSLEEP 230
+#define H_SCHED_YIELD 24
+#define H_FSYNC      74
+#define H_FDATASYNC  75
 #define H_UNLINK     87
 #define H_PRLIMIT64  302
 #define H_WAITPID    61
@@ -69,6 +73,8 @@
 #define L_rt_sigaction 13
 #define L_rt_sigprocmask 14
 #define L_ioctl       16
+#define L_fsync       74
+#define L_fdatasync   75
 #define L_readv       19
 #define L_writev      20
 #define L_getdents    78
@@ -91,6 +97,7 @@
 #define L_futex       202
 #define L_getdents64  217
 #define L_clock_gettime 228
+#define L_clock_nanosleep 230
 #define L_exit_group  231
 #define L_openat      257
 #define L_newfstatat  262
@@ -497,9 +504,16 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         if (a2 == HANOS_FUTEX_WAKE)
             return __hanos_raw(H_FUTEX_WAKE, a1, a3, 0, 0, 0, 0);
         return 0;
+    case L_sched_yield:
+        return __hanos_raw(H_SCHED_YIELD, 0, 0, 0, 0, 0, 0);
+    case L_fsync:
+        return __hanos_raw(H_FSYNC, a1, 0, 0, 0, 0, 0);
+    case L_fdatasync:
+        return __hanos_raw(H_FDATASYNC, a1, 0, 0, 0, 0, 0);
+    case L_clock_nanosleep:
+        return __hanos_raw(H_CLOCK_NANOSLEEP, a1, a2, a3, a4, 0, 0);
     case L_mprotect:
     case L_madvise:
-    case L_sched_yield:
     case L_set_robust_list:
         return 0;
     case L_brk:

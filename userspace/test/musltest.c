@@ -74,6 +74,15 @@ int main(void)
             printf("nanosleep FAIL errno=%d\n", errno);
     }
 
+    {
+        struct timespec ts = { 0, 1000000 };
+
+        if (clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL) == 0)
+            printf("clock_nanosleep ok\n");
+        else
+            printf("clock_nanosleep FAIL errno=%d\n", errno);
+    }
+
     struct stat st;
 
     errno = 0;

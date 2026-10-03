@@ -26,6 +26,7 @@
 #define SYSCALL_RT_SIGPROCMASK  14
 #define SYSCALL_IOCTL           16
 #define SYSCALL_PIPE            22
+#define SYSCALL_SCHED_YIELD     24
 #define SYSCALL_NANOSLEEP       35
 #define SYSCALL_GETPID          39
 #define SYSCALL_SOCKET          41
@@ -42,6 +43,8 @@
 #define SYSCALL_WAIT4           61
 #define SYSCALL_UNAME           63
 #define SYSCALL_FCNTL           72
+#define SYSCALL_FSYNC           74
+#define SYSCALL_FDATASYNC       75
 #define SYSCALL_GETCWD          79
 #define SYSCALL_CHDIR           80
 #define SYSCALL_UNLINK          87
@@ -50,6 +53,7 @@
 #define SYSCALL_GETPPID         110
 #define SYSCALL_GETDENTS64      217
 #define SYSCALL_CLOCK_GETTIME   228
+#define SYSCALL_CLOCK_NANOSLEEP 230
 #define SYSCALL_EXIT_GROUP      231
 #define SYSCALL_OPENAT          257
 #define SYSCALL_MKDIRAT         258

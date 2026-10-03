@@ -53,6 +53,7 @@
 #define MMAP_ANON_BASE      0x80000000000
 
 extern int64_t syscall_handler();
+int32_t k_getclock(void *_ignored, int64_t which, vfs_timespec_t * out);
 
 typedef int64_t(*syscall_ptr_t) (void);
 
@@ -1015,6 +1016,58 @@ int64_t k_nanosleep(vfs_timespec_t * req, vfs_timespec_t * rem)
     int64_t ms = kreq.tv_sec * 1000 + (kreq.tv_nsec + 999999) / 1000000;
 
     sched_sleep(ms);
+    return 0;
+}
+
+int64_t k_clock_nanosleep(int32_t clockid, int32_t flags,
+                          vfs_timespec_t * req, vfs_timespec_t * rem)
+{
+    vfs_timespec_t kreq = { 0, 0 };
+
+    (void)rem;
+    cpu_set_errno(0);
+
+    if (req == NULL || copy_from_user(&kreq, req, sizeof(kreq)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (kreq.tv_nsec < 0 || kreq.tv_nsec >= 1000000000LL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (flags & 1) {            /* TIMER_ABSTIME */
+        vfs_timespec_t now = { 0, 0 };
+        int64_t ns;
+
+        k_getclock(NULL, clockid, &now);
+        ns = (kreq.tv_sec - now.tv_sec) * 1000000000LL
+            + (kreq.tv_nsec - now.tv_nsec);
+        if (ns <= 0)
+            return 0;
+        kreq.tv_sec = ns / 1000000000LL;
+        kreq.tv_nsec = ns % 1000000000LL;
+    } else if (kreq.tv_sec < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    sched_sleep(kreq.tv_sec * 1000 + (kreq.tv_nsec + 999999) / 1000000);
+    return 0;
+}
+
+int64_t k_fsync(int64_t fd)
+{
+    (void)fd;
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_sched_yield(void)
+{
+    cpu_set_errno(0);
+    sched_sleep(0);
     return 0;
 }
 
@@ -2344,6 +2397,10 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_IOCTL] = (syscall_ptr_t) k_ioctl,
     [SYSCALL_PIPE] = (syscall_ptr_t) k_pipe,
     [SYSCALL_NANOSLEEP] = (syscall_ptr_t) k_nanosleep,
+    [SYSCALL_CLOCK_NANOSLEEP] = (syscall_ptr_t) k_clock_nanosleep,
+    [SYSCALL_SCHED_YIELD] = (syscall_ptr_t) k_sched_yield,
+    [SYSCALL_FSYNC] = (syscall_ptr_t) k_fsync,
+    [SYSCALL_FDATASYNC] = (syscall_ptr_t) k_fsync,
     [SYSCALL_GETPID] = (syscall_ptr_t) k_getpid,
     [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
     [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,
