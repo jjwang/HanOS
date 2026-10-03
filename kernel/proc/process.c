@@ -89,6 +89,22 @@ process_t *process_lookup(pid_t pid)
     return t;
 }
 
+/* Replace the process working directory with a copy of cwd (or "/"). */
+void process_set_cwd(process_t * t, const char *cwd)
+{
+    char *dup;
+
+    if (cwd == NULL)
+        cwd = "/";
+    dup = kmalloc(strlen(cwd) + 1);
+    if (dup == NULL)
+        return;
+    strcpy(dup, cwd);
+    if (t->cwd != NULL)
+        kmfree(t->cwd);
+    t->cwd = dup;
+}
+
 process_t *process_make(const char *name, void (*entry)(pid_t),
                   process_priority_t priority, process_mode_t mode,
                   addrspace_t * pas)
@@ -198,7 +214,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     nproc->last_tick = 0;
     nproc->status = PROC_READY;
 
-    strcpy(nproc->cwd, "/");
+    process_set_cwd(nproc, "/");
     strncpy(nproc->name, name, sizeof(nproc->name));
 
     handle_table_init(&nproc->handles);
@@ -231,6 +247,8 @@ process_t *process_fork(process_t * tp)
     memcpy(tc, tp, sizeof(process_t));
 
     handle_table_init(&tc->handles);
+    tc->cwd = NULL;
+    process_set_cwd(tc, tp->cwd);
 
     pid_t new_pid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
 
@@ -317,6 +335,9 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
         return NULL;
 
     memcpy(tc, tp, sizeof(process_t));
+
+    tc->cwd = NULL;
+    process_set_cwd(tc, tp->cwd);
 
     pid_t tid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
     if (tid >= PID_MAX) {
@@ -414,6 +435,9 @@ void process_free(process_t * t)
     }
 
     handle_table_destroy(&t->handles);
+
+    if (t->cwd != NULL)
+        kmfree(t->cwd);
 
     if (t->bootinfo != NULL)
         kmfree(t->bootinfo);

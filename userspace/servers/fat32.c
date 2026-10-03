@@ -17,6 +17,7 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <bootinfo.h>
 #include <protocol.h>
@@ -462,15 +463,21 @@ static bool fd_ok(int32_t fd)
 }
 
 /* Read a NUL-terminated path from the mapped request buffer. */
-static void read_path(const uint8_t * buf, char *path)
+/* Copy the request path into a fresh buffer. The caller frees it. */
+static char *read_path(const uint8_t * buf)
 {
-    int32_t i = 0;
+    uint64_t i = 0;
+    char *path;
 
-    while (i < 255 && buf[i] != '\0') {
-        path[i] = (char) buf[i];
+    while (i < VFS_IO_DATA_OFF && buf[i] != '\0')
         i++;
-    }
+
+    path = malloc(i + 1);
+    if (path == NULL)
+        return NULL;
+    memcpy(path, buf, i);
     path[i] = '\0';
+    return path;
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
@@ -511,15 +518,20 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     switch (m->tag) {
     case FAT_OPEN:
     case FAT_STAT: {
-        char path[256];
+        char *path = read_path(buf);
 
-        read_path(buf, path);
+        if (path == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+            break;
+        }
         if (find_path(path, &cluster, &size, &is_dir) != 0) {
+            free(path);
             rep->words[0] = (uint64_t) (int64_t) -2;
             break;
         }
 
         if (m->tag == FAT_STAT) {
+            free(path);
             rep->words[0] = 0;
             rep->words[1] = size;
             rep->words[2] = is_dir ? 1 : 0;
@@ -528,6 +540,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         int32_t nfd = fd_alloc();
         if (nfd < 0) {
+            free(path);
             rep->words[0] = (uint64_t) (int64_t) -24;
             break;
         }
@@ -539,6 +552,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) nfd;
         rep->words[2] = size;
+        free(path);
         break;
     }
 

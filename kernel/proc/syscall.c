@@ -59,13 +59,29 @@ typedef int64_t(*syscall_ptr_t) (void);
 
 static bool debug_info = false;
 
-/* Copy a user path into a kernel buffer. Returns false on a bad pointer or a
- * path that is not NUL-terminated within ksize. */
-static bool copy_user_path(const char *upath, char *kpath, uint64_t ksize)
+/* Copy a user path into a fresh kernel buffer sized to the path. Returns NULL
+ * on a bad pointer or a path longer than VFS_MAX_PATH_LEN. */
+static char *copy_user_path_alloc(const char *upath)
 {
+    int64_t n;
+    char *kpath;
+
     if (upath == NULL)
-        return false;
-    return strncpy_from_user(kpath, upath, ksize) >= 0;
+        return NULL;
+
+    n = strnlen_user(upath, VFS_MAX_PATH_LEN);
+    if (n < 0)
+        return NULL;
+
+    kpath = kmalloc((uint64_t) n + 1);
+    if (kpath == NULL)
+        return NULL;
+
+    if (strncpy_from_user(kpath, upath, (uint64_t) n + 1) < 0) {
+        kmfree(kpath);
+        return NULL;
+    }
+    return kpath;
 }
 
 #define EXEC_MAX_ARGS   32
@@ -434,12 +450,11 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
     cpu_set_errno(0);
 
     /* Copy the user path into the kernel before touching it. */
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (path == NULL || strncpy_from_user(kpath, path, sizeof(kpath)) < 0) {
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
-    path = kpath;
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
@@ -447,7 +462,9 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 
     /* The VFS server owns the namespace and resolves cwd+path; it redirects
      * paths under the FAT mount to the FAT server. */
-    vfs_fd_t nfd = vfs_open_path(cwd, path, (int32_t) flags, &svc);
+    vfs_fd_t nfd = vfs_open_path(cwd, kpath, (int32_t) flags, &svc);
+
+    kmfree(kpath);
 
     if (nfd == VFS_INVALID_FD) {
         cpu_set_errno(ENOENT);
@@ -473,19 +490,22 @@ int64_t k_unlink(char *path)
 {
     cpu_set_errno(0);
 
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
-    path = kpath;
 
-    klogi("k_unlink: %s\n", path);
+    klogi("k_unlink: %s\n", kpath);
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
 
-    if (vfs_unlink_path(cwd, path) < 0) {
+    int64_t r = vfs_unlink_path(cwd, kpath);
+
+    kmfree(kpath);
+
+    if (r < 0) {
         cpu_set_errno(ENOENT);
         return -1;
     }
@@ -659,18 +679,21 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf,
     (void) dirfd;
     (void) flags;
 
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
-    path = kpath;
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
     vfs_stat_t st;
 
-    if (vfs_stat_path(cwd, path, &st) < 0) {
+    int64_t r = vfs_stat_path(cwd, kpath, &st);
+
+    kmfree(kpath);
+
+    if (r < 0) {
         cpu_set_errno(ENOENT);
         return -1;
     }
@@ -742,19 +765,22 @@ int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
 
     cpu_set_errno(0);
 
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(path, kpath, sizeof(kpath))) {
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
-    path = kpath;
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
 
-    klogi("k_faccessat: access \"%s\" at mode 0x%016lx\n", path, mode);
+    klogi("k_faccessat: access \"%s\" at mode 0x%016lx\n", kpath, mode);
 
-    if (vfs_access_path(cwd, path, mode) < 0) {
+    int64_t r = vfs_access_path(cwd, kpath, mode);
+
+    kmfree(kpath);
+
+    if (r < 0) {
         cpu_set_errno(ENOENT);
         return -1;
     }
@@ -781,16 +807,21 @@ int64_t k_getpid()
 int64_t k_chdir(char *dir)
 {
     process_t *t = sched_get_current_process();
+    char *kdir = NULL;
+    char *fullpath = NULL;
+    char *parent = NULL;
+    char *currdir = NULL;
+    uint64_t max;
+
     cpu_set_errno(0);
 
-    char kdir[VFS_MAX_PATH_LEN] = { 0 };
-    if (!copy_user_path(dir, kdir, sizeof(kdir))) {
+    kdir = copy_user_path_alloc(dir);
+    if (kdir == NULL) {
         cpu_set_errno(EFAULT);
         goto err_exit;
     }
     dir = kdir;
 
-    /* TODO: Need to add a bounds check. */
     while (*dir == ' ') {
         dir++;
     }
@@ -810,9 +841,17 @@ int64_t k_chdir(char *dir)
         goto err_exit;
     }
 
-    char fullpath[VFS_MAX_PATH_LEN] = { 0 };
-    char parent[VFS_MAX_PATH_LEN] = { 0 };
-    char currdir[VFS_MAX_PATH_LEN] = { 0 };
+    max = strlen(dir) + strlen(t->cwd) + 2;
+    fullpath = kmalloc(max);
+    parent = kmalloc(max);
+    currdir = kmalloc(max);
+    if (fullpath == NULL || parent == NULL || currdir == NULL) {
+        cpu_set_errno(ENOMEM);
+        goto err_exit;
+    }
+    fullpath[0] = '\0';
+    parent[0] = '\0';
+    currdir[0] = '\0';
 
     uint64_t k = 0;
     uint64_t len = strlen(dir);
@@ -843,11 +882,12 @@ int64_t k_chdir(char *dir)
             strcpy(fullpath, "/");
         } else {
             uint64_t fpl = strlen(fullpath);
+
             if (fpl > 0) {
                 if (fullpath[fpl - 1] != '/')
-                    strncat(fullpath, "/", sizeof(fullpath));
+                    strncat(fullpath, "/", max - fpl - 1);
             }
-            strncat(fullpath, currdir, sizeof(fullpath));
+            strncat(fullpath, currdir, max - strlen(fullpath) - 1);
         }
 
         /* Set "currdir" to zero length */
@@ -869,9 +909,22 @@ int64_t k_chdir(char *dir)
         }
     }
 
-    strcpy(t->cwd, fullpath);
+    process_set_cwd(t, fullpath);
+
+    kmfree(kdir);
+    kmfree(fullpath);
+    kmfree(parent);
+    kmfree(currdir);
     return 0;
   err_exit:
+    if (kdir != NULL)
+        kmfree(kdir);
+    if (fullpath != NULL)
+        kmfree(fullpath);
+    if (parent != NULL)
+        kmfree(parent);
+    if (currdir != NULL)
+        kmfree(currdir);
     return -1;
 }
 
@@ -1713,8 +1766,8 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     if (t != NULL)
         cwd = t->cwd;
 
-    char kpath[VFS_MAX_PATH_LEN] = { 0 };
-    if (path == NULL || strncpy_from_user(kpath, path, sizeof(kpath)) < 0) {
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
@@ -1726,6 +1779,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         || copy_exec_argv(envp, kenvp) != 0) {
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
+        kmfree(kpath);
         cpu_set_errno(EFAULT);
         return -1;
     }
@@ -1760,6 +1814,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 
     free_exec_argv(kargv);
     free_exec_argv(kenvp);
+    kmfree(kpath);
     cpu_set_errno(EINVAL);
     return -1;
 }
@@ -2424,7 +2479,7 @@ int64_t k_proc_spawn(int64_t parent_pid, const char *name)
 
     if (parent != NULL) {
         tc->ppid = parent->pid;
-        strcpy(tc->cwd, parent->cwd);
+        process_set_cwd(tc, parent->cwd);
     }
 
     return (int64_t) tc->pid;

@@ -170,7 +170,6 @@ typedef struct {
  * result is copied into a per-CPU scratch descriptor for the current call.
  */
 typedef struct {
-    char path[VFS_MAX_PATH_LEN];
     bool server;
     int64_t server_fd;
     uint64_t server_size;       /* file size reported by the server on open */

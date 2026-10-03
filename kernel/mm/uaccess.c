@@ -240,6 +240,20 @@ int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max)
     return -1;
 }
 
+int64_t strnlen_user(const char *usrc, uint64_t max)
+{
+    uint8_t c;
+
+    for (uint64_t i = 0; i < max; i++) {
+        if (__uaccess_get1(&c, usrc + i))
+            return -1;
+        if (c == '\0')
+            return (int64_t) i;
+    }
+
+    return -1;
+}
+
 uint64_t copy_from_process(process_t * t, void *kdst, const void *usrc,
                         uint64_t len)
 {

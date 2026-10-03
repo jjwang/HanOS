@@ -260,7 +260,7 @@ typedef struct process {
     vec_struct(mem_map_t) mmap_list;
     uint64_t fs_base;
 
-    char cwd[VFS_MAX_PATH_LEN];
+    char *cwd;
     char name[64];
 
     signal_state_t signals;
@@ -283,6 +283,9 @@ process_t *process_lookup(pid_t pid);
 /* Create a thread sharing tp's address space. frame is tp's syscall frame. */
 process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
                          uint64_t tls, int32_t * ctid, void *frame);
+
+/* Replace the process working directory with a copy of cwd. */
+void process_set_cwd(process_t * t, const char *cwd);
 
 process_t *process_make(const char *name, void (*entry)(pid_t),
                   process_priority_t priority, process_mode_t mode,

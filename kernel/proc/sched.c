@@ -791,7 +791,7 @@ process_t *sched_execve(const char *path, const char *argv[],
     uint64_t *stack = (uint64_t *) PHYS_TO_VIRT(tc->context);
 
     if (cwd != NULL)
-        strcpy(tc->cwd, cwd);
+        process_set_cwd(tc, cwd);
 
     uint8_t *sa = (uint8_t *) tc->context;
     uint64_t nenv = 0, nargs = 0;

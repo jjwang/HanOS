@@ -34,6 +34,10 @@ uint64_t clear_user(void *udst, uint64_t len);
  * success or -1 when the range faults or is not terminated within max. */
 int64_t strncpy_from_user(char *kdst, const char *usrc, uint64_t max);
 
+/* Length of a user string, excluding the NUL, or -1 on a bad pointer or when
+ * it exceeds max. */
+int64_t strnlen_user(const char *usrc, uint64_t max);
+
 /* Cross-process copy used by IPC, where the kernel is not running on either
  * process's page tables. Translate through vmm_get_paddr() and the kernel HHDM. */
 uint64_t copy_from_process(process_t * t, void *kdst, const void *usrc,

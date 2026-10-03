@@ -306,11 +306,25 @@ static void memobj_pack_cwd_path(memobj_t * mo, const char *cwd,
         memobj_copy_in(mo, path, plen, clen);
 }
 
-/* Read the server-provided path (a redirect) from the start of the buffer. */
-static void memobj_read_path(memobj_t * mo, char *out, uint64_t outsz)
+/* Read the redirect path into a buffer sized to the string. The caller frees
+ * it with kmfree(). */
+static char *memobj_read_path_alloc(memobj_t * mo)
 {
-    memobj_copy_out(mo, out, outsz - 1, 0);
-    out[outsz - 1] = '\0';
+    char *tmp = kmalloc(VFS_IO_DATA_OFF);
+    char *out;
+    uint64_t n;
+
+    if (tmp == NULL)
+        return NULL;
+    memobj_copy_out(mo, tmp, VFS_IO_DATA_OFF - 1, 0);
+    tmp[VFS_IO_DATA_OFF - 1] = '\0';
+
+    n = strlen(tmp);
+    out = kmalloc(n + 1);
+    if (out != NULL)
+        memcpy(out, tmp, n + 1);
+    kmfree(tmp);
+    return out;
 }
 
 /* Stat a path. The VFS server resolves cwd+path; when the path is under the FAT
@@ -341,13 +355,17 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
     int64_t rc = (int64_t) rep.words[0];
 
     if (rc == VFS_REDIRECT_FAT) {
-        char rel[VFS_MAX_PATH_LEN];
+        char *rel = memobj_read_path_alloc(mo);
         uint64_t size = 0;
         bool is_dir = false;
 
-        memobj_read_path(mo, rel, sizeof(rel));
         memobj_unref(mo);
-        if (fat32_stat_path(rel, &size, &is_dir) < 0)
+        if (rel == NULL)
+            return -1;
+        int64_t r = fat32_stat_path(rel, &size, &is_dir);
+
+        kmfree(rel);
+        if (r < 0)
             return -1;
         memset(out, 0, sizeof(*out));
         out->st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
@@ -393,13 +411,17 @@ int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
     int64_t rc = (int64_t) rep.words[0];
 
     if (rc == VFS_REDIRECT_FAT) {
-        char rel[VFS_MAX_PATH_LEN];
+        char *rel = memobj_read_path_alloc(mo);
         uint64_t size = 0;
         bool is_dir = false;
+        int64_t r;
 
-        memobj_read_path(mo, rel, sizeof(rel));
         memobj_unref(mo);
-        return (fat32_stat_path(rel, &size, &is_dir) == 0) ? 0 : -1;
+        if (rel == NULL)
+            return -1;
+        r = (fat32_stat_path(rel, &size, &is_dir) == 0) ? 0 : -1;
+        kmfree(rel);
+        return r;
     }
 
     memobj_unref(mo);
@@ -466,19 +488,26 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
     int64_t rc = (int64_t) rep.words[0];
 
     if (rc == VFS_REDIRECT_FAT) {
-        char rel[VFS_MAX_PATH_LEN];
+        char *rel = memobj_read_path_alloc(mo);
         uint64_t size = 0;
+        int64_t ffd;
 
-        memobj_read_path(mo, rel, sizeof(rel));
         memobj_unref(mo);
-
-        int64_t ffd = fat32_open_path(rel, &size);
-
-        if (ffd < 0)
+        if (rel == NULL)
             return VFS_INVALID_FD;
+
+        ffd = fat32_open_path(rel, &size);
+
+        if (ffd < 0) {
+            kmfree(rel);
+            return VFS_INVALID_FD;
+        }
         if (svc != NULL)
             *svc = SVC_FAT;
-        return vfs_open_server_svc(ffd, rel, VFS_MODE_READ, size, SVC_FAT);
+        vfs_fd_t fd = vfs_open_server_svc(ffd, rel, VFS_MODE_READ, size,
+                                          SVC_FAT);
+        kmfree(rel);
+        return fd;
     }
 
     if (rc < 0) {
