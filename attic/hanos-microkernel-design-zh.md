@@ -103,6 +103,14 @@ futex 阻塞在一个用户字上。`k_futex_wait` 武装等待键后再读该�
 
 内核按 `tgid` 索引文件描述符调用，因此同组线程共享组长的 fd 表。
 
+### 3.9 信号
+
+系统调用入口把用户寄存器帧保存在用户栈。处理函数返回后，内核检查当前进程的信号状态。若有未屏蔽的待处理信号且装了处理函数，内核在用户栈压入信号帧，把返回 RIP 指向处理函数，用第一个参数寄存器传出信号号，再经 `sysret` 返回。动作自带的恢复例程执行 `rt_sigreturn`；它读回该帧，恢复被打断的寄存器组，继续原系统调用。系统调用结果保存在帧里。
+
+`kill`、`tkill`、`tgkill` 排入信号并唤醒目标。未装处理函数时内核执行默认动作：忽略，或终止进程。处理函数执行期间屏蔽自身信号，`SA_NODEFER` 除外，并叠加动作掩码。`SIGKILL` 绕过掩码与处理函数。
+
+帧位于 `kernel/proc/signal.c`；`syscall_post` 在 `kernel/proc/syscall.c` 中调用 `signal_deliver`。
+
 ## 4. IPC 机制
 
 客户端与服务之间的每个请求都以消息形式走在 endpoint 上。用户内存指针不跨边界。本节描述消息、endpoint、句柄转移、应答模式、阻塞、挂起应答、大块数据、路由器与中断投递。
@@ -261,7 +269,7 @@ tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台�
 
 读是事件驱动的，按行缓冲。`TTY_READ` 有时返回现成字节。`TTY_READ` 无键时挂起：服务保存应答 endpoint，在整行或请求长度到齐时答复。内核在 `tty_server_read` 里阻塞等该应答，不轮询。请求字节少的读保持非缓冲。
 
-对 fd 0 的 `poll` 经 `TTY_POLL` 问服务待读键数。无键时它阻塞在一个内核等待键上，tty 中转收到键时唤醒它，于是轮询者睡眠而非自旋。有服务后端的描述符直接报就绪，不做真正就绪查询；`select` 与 `pselect6` 共用该路径。
+对 fd 0 的 `poll` 经 `TTY_POLL` 问服务待读键数。无键时它阻塞在一个内核等待键上，tty 中转收到键时唤醒它，于是轮询者睡眠而非自旋。`select` 与 `pselect6` 共用就绪判定。管道与套接字的就绪查询见 5.7、5.9。
 
 ### 5.4 block
 
@@ -279,11 +287,13 @@ VFS 服务提供 initrd 命名空间。启动时它解析内核只读映射的 u
 
 服务负责路径解析与 FAT 挂载。路径请求带进程工作目录与路径，服务拼接并归一。结果落在 `/fat` 下时，服务写回挂载内相对路径，回复 `VFS_REDIRECT_FAT`；内核随后把请求发给 FAT 服务。内核不拼接路径。
 
-协议覆盖 `VFS_OPENAT`、`VFS_READ`、`VFS_WRITE`、`VFS_SEEK`、`VFS_CLOSE`、`VFS_READDIR`、`VFS_FSTAT`、`VFS_FSTATAT`、`VFS_FACCESSAT`、`VFS_UNLINK` 与 `VFS_FD_FORK`。带路径或数据缓冲的请求把它放进 `xfer[1]` 的内存对象；服务映射、读取或填充、再解除映射。`VFS_FD_FORK` 增加一个引用，fork 的子进程共享打开文件描述。
+协议覆盖 `VFS_OPENAT`、`VFS_READ`、`VFS_WRITE`、`VFS_SEEK`、`VFS_CLOSE`、`VFS_READDIR`、`VFS_FSTAT`、`VFS_FSTATAT`、`VFS_FACCESSAT`、`VFS_UNLINK`、`VFS_MKDIRAT`、`VFS_SYMLINKAT`、`VFS_RENAMEAT`、`VFS_READLINK` 与 `VFS_FD_FORK`。带路径或数据缓冲的请求把它放进 `xfer[1]` 的内存对象；服务映射、读取或填充、再解除映射。`VFS_FD_FORK` 增加一个引用，fork 的子进程共享打开文件描述。
+
+`VFS_MKDIRAT` 建运行时目录。`VFS_SYMLINKAT` 建运行时符号链接并保存目标。`VFS_READLINK` 返回该目标。`VFS_RENAMEAT` 重命名运行时条目，并改写被重命名目录子项的路径前缀。三者遇到只读 FAT 挂载下的路径时回应 `VFS_REDIRECT_FAT`，内核报 `EROFS`。
 
 ### 5.7 pipe
 
-pipe 服务保存少量字节流管道。`PIPE_CREATE` 返回读端与写端。读写以最多 32 字节内联传输，或经 `xfer[1]` 的内存对象。读端无数据而写端未关，或写端无空间，服务挂起请求：保存应答 endpoint 与对象，对端搬数据或关闭时答复。写端关闭后读返回 0。`VFS_FD_FORK` 递增端引用计数，fork 的子进程共享管道。
+pipe 服务保存少量字节流管道。`PIPE_CREATE` 返回读端与写端。读写以最多 32 字节内联传输，或经 `xfer[1]` 的内存对象。读端无数据而写端未关，或写端无空间，服务挂起请求：保存应答 endpoint 与对象，对端搬数据或关闭时答复。写端关闭后读返回 0。`PIPE_POLL` 报告端是否可读（有数据或 EOF）与可写。`VFS_FD_FORK` 递增端引用计数，fork 的子进程共享管道。
 
 ### 5.8 process
 
@@ -294,7 +304,7 @@ process 服务保存每进程文件描述符表与进程树。每个 fd 请求�
 - `PROC_EXEC` 加载 ELF：内核把路径、工作目录、argv 与镜像打包进一个内存对象；服务映射各段、建栈、启动子进程。
 - `PROC_EXIT` 记录退出状态；`PROC_WAIT` 返回已死子进程，子进程存活时阻塞，否则报 `ECHILD`。进程退出且其子进程全部退出后，才算已退出。
 
-内核经 process 服务把 fd 解析为每 CPU 临时描述符。内核按 `tgid` 索引 fd 调用，同组线程共享组长那张表。`dup3` 复制 fd 0、1、2 时用 tty 服务做后端，因为标准描述符留内核；副本上的读写直达 tty。
+内核经 process 服务把 fd 解析为每 CPU 临时描述符。内核按 `tgid` 索引 fd 调用，同组线程共享组长那张表。`dup3` 复制 fd 0、1、2 时用 tty 服务做后端，因为标准描述符留内核；副本上的读写直达 tty。套接字也注册进程 fd，`poll`、`select`、`epoll` 经同一解析到达它。`eventfd` 与 `epoll` 对象留内核，用内核服务 id 注册进程 fd；对它们的 `read`、`write`、`close` 留在 ring 0。
 
 ### 5.9 net
 
@@ -302,6 +312,7 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 
 - 数据报：发往回环地址的 `sendto` 在服务内投递；真实地址先解析 ARP，再发 UDP/IP/以太网帧。收到的数据报按绑定套接字匹配。
 - 流：`connect` 走 SYN/SYN-ACK/ACK 握手；`send` 发 PSH 段；`recv` 缓冲到达数据；`close` 发 FIN。`listen` 与 `accept` 接受入连接。
+- `NET_POLL` 报告套接字是否有待读数据报、待接受连接或已关闭的流（可读），以及流是否已建立（可写）。套接字注册进程 fd，`poll` 与 `epoll` 因此到达它。
 - 服务驱动 e1000e：内核授予 MMIO（内存映射 I/O）基址寄存器（BAR）与一段物理连续 DMA（直接内存访问）区；服务配置环形队列、读取 MAC、轮询。
 - ARP 缓存放地址查询。RX 分发器处理 ARP、ICMP 回显、UDP 与 TCP。服务启动时 ping 网关。
 
@@ -330,9 +341,10 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 - TCP 实现精简：无重传、无乱序处理、固定窗口，只提供客户端与服务器。
 - 网卡用轮询，不用中断。
 - VFS 运行时文件放在 RAM，不持久。
-- 信号不投递：`rt_sigaction` 与 `rt_sigprocmask` 只存状态，内核不跑处理函数，也没实现 `rt_sigreturn`。
-- `poll` 只在 tty 上阻塞；其它服务后端的描述符直接报就绪，不做就绪查询。
-- 一批系统调用仍返回 `ENOSYS`，例如 `mkdirat`、`renameat`、`eventfd`、`epoll`。
+- 信号在系统调用返回时投递给用户态；进程在用户态自旋时收到的信号要等下一次系统调用或定时路径。
+- `poll` 与 `epoll` 靠短定时器反复查询就绪；只有 tty 有真正的唤醒键。
+- `mkdirat`、`symlinkat`、`renameat` 只建运行时条目；initrd 与 FAT 挂载保持只读。
+- 一批系统调用仍返回 `ENOSYS`，例如 FAT 挂载上的 `symlinkat`、`signalfd`。
 
 ## 8. 结论
 

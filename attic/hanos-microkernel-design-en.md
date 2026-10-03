@@ -103,6 +103,14 @@ A futex blocks on a user word. `k_futex_wait` re-reads the word after it arms th
 
 The kernel keys file-descriptor calls by `tgid`, so every thread of a group shares the leader's fd table.
 
+### 3.9 Signals
+
+The syscall entry saves the user register frame on the user stack. After the handler runs, the kernel checks the signal state of the current process. A pending, unblocked signal with a handler makes the kernel push a signal frame on the user stack, point the return RIP at the handler, pass the signal number in the first argument register, and return through `sysret`. The restorer the action carries runs `rt_sigreturn`, which reads the frame back, restores the interrupted register set, and resumes the syscall. The syscall result survives in the frame.
+
+`kill`, `tkill` and `tgkill` queue a signal and wake the target. With no handler the kernel applies the default action: ignore, or terminate the process. The handler blocks its own signal unless `SA_NODEFER`, plus the action mask. `SIGKILL` bypasses the mask and the handler.
+
+The frame belongs to `kernel/proc/signal.c`; `signal_deliver` runs from `syscall_post` in `kernel/proc/syscall.c`.
+
 ## 4. The IPC mechanism
 
 Every request between a client and a server travels as a message on an endpoint. A pointer to user memory never crosses the boundary. This section describes the message, the endpoint, handle transfer, the reply pattern, blocking, deferred replies, bulk data, the router and interrupt delivery.
@@ -261,7 +269,7 @@ The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. 
 
 Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when a line is complete or the requested length is buffered. The kernel blocks in `tty_server_read` on that reply instead of polling. A reader that asks for few bytes stays unbuffered.
 
-`poll` on fd 0 asks the server for the pending key count through `TTY_POLL`. With no key it blocks on a kernel wait key that the tty relay wakes when a key arrives, so a poller sleeps instead of spinning. A descriptor backed by a server reports ready without a true readiness query; `select` and `pselect6` share that path.
+`poll` on fd 0 asks the server for the pending key count through `TTY_POLL`. With no key it blocks on a kernel wait key that the tty relay wakes when a key arrives, so a poller sleeps instead of spinning. `select` and `pselect6` share the readiness helper. Section 5.7 and section 5.9 describe the pipe and socket readiness queries.
 
 ### 5.4 block
 
@@ -279,11 +287,13 @@ The VFS server serves the initrd namespace. At start it parses the ustar archive
 
 The server owns path resolution and the FAT mount. A path request carries the process working directory and the path; the server joins and normalizes them. When the result is under `/fat`, the server writes the mount-relative path back and replies `VFS_REDIRECT_FAT`; the kernel then issues the request to the FAT server. The kernel builds no path.
 
-The protocol covers `VFS_OPENAT`, `VFS_READ`, `VFS_WRITE`, `VFS_SEEK`, `VFS_CLOSE`, `VFS_READDIR`, `VFS_FSTAT`, `VFS_FSTATAT`, `VFS_FACCESSAT`, `VFS_UNLINK` and `VFS_FD_FORK`. A request that carries a path or a data buffer puts it in a memory object in `xfer[1]`; the server maps it, reads or fills it, and unmaps it. `VFS_FD_FORK` adds a reference so a forked child shares the open file description.
+The protocol covers `VFS_OPENAT`, `VFS_READ`, `VFS_WRITE`, `VFS_SEEK`, `VFS_CLOSE`, `VFS_READDIR`, `VFS_FSTAT`, `VFS_FSTATAT`, `VFS_FACCESSAT`, `VFS_UNLINK`, `VFS_MKDIRAT`, `VFS_SYMLINKAT`, `VFS_RENAMEAT`, `VFS_READLINK` and `VFS_FD_FORK`. A request that carries a path or a data buffer puts it in a memory object in `xfer[1]`; the server maps it, reads or fills it, and unmaps it. `VFS_FD_FORK` adds a reference so a forked child shares the open file description.
+
+`VFS_MKDIRAT` creates a runtime directory. `VFS_SYMLINKAT` creates a runtime symlink and stores the target. `VFS_READLINK` returns that target. `VFS_RENAMEAT` renames a runtime entry and rewrites the prefixes of a renamed directory's children. The three calls reply `VFS_REDIRECT_FAT` for a path under the read-only FAT mount, which the kernel reports as `EROFS`.
 
 ### 5.7 pipe
 
-The pipe server owns a small set of byte-stream pipes. `PIPE_CREATE` returns a read end and a write end. Reads and writes move data inline up to 32 bytes or through a memory object in `xfer[1]`. A read with no data whose write end is open, or a write with no room, is held: the server keeps the reply endpoint and the object, and answers when the other end moves data or closes. A read returns 0 once the write end closes. `VFS_FD_FORK` bumps the end reference count so a forked child shares the pipe.
+The pipe server owns a small set of byte-stream pipes. `PIPE_CREATE` returns a read end and a write end. Reads and writes move data inline up to 32 bytes or through a memory object in `xfer[1]`. A read with no data whose write end is open, or a write with no room, is held: the server keeps the reply endpoint and the object, and answers when the other end moves data or closes. A read returns 0 once the write end closes. `PIPE_POLL` reports whether an end is readable (data or EOF) and writable. `VFS_FD_FORK` bumps the end reference count so a forked child shares the pipe.
 
 ### 5.8 process
 
@@ -294,7 +304,7 @@ The process server owns the per-process file descriptor table and the process tr
 - `PROC_EXEC` loads an ELF: the kernel packs the path, the working directory, the argv and the image into one memory object, and the server maps the segments, builds the stack, and starts the child.
 - `PROC_EXIT` records an exit status; `PROC_WAIT` returns a dead child, blocks while a child is live, or reports `ECHILD`. A process counts as exited only after it exits and all its children are gone.
 
-The kernel resolves a fd through the process server into a per-CPU transient descriptor. The kernel keys fd calls by `tgid`, so every thread of a group shares the leader's table. `dup3` of fd 0, 1 or 2 backs the new descriptor with the tty server, because the standard descriptors live in the kernel; reads and writes on the duplicate reach the tty.
+The kernel resolves a fd through the process server into a per-CPU transient descriptor. The kernel keys fd calls by `tgid`, so every thread of a group shares the leader's table. `dup3` of fd 0, 1 or 2 backs the new descriptor with the tty server, because the standard descriptors live in the kernel; reads and writes on the duplicate reach the tty. A socket registers a process fd as well, so `poll`, `select` and `epoll` reach it by the same resolution. `eventfd` and `epoll` objects live in the kernel and register a process fd with a kernel service id; `read`, `write` and `close` on them stay in ring 0.
 
 ### 5.9 net
 
@@ -302,6 +312,7 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 
 - Datagram: `sendto` to the loopback address is delivered in the server; a real address resolves ARP and emits a UDP/IP/Ethernet frame. A received datagram matches a bound socket.
 - Stream: `connect` runs the SYN/SYN-ACK/ACK handshake; `send` emits a PSH segment; `recv` buffers incoming data; `close` sends FIN. `listen` and `accept` accept an incoming connection.
+- `NET_POLL` reports whether a socket has a buffered datagram, a completed connection, or a closed stream (readable) and whether a stream is established (writable). A socket registers a process fd, so `poll` and `epoll` reach it.
 - The server drives the e1000e: the kernel grants the MMIO BAR and a physically contiguous DMA region; the server programs the rings, reads its MAC and polls.
 - An ARP cache backs address lookups. An RX dispatcher handles ARP, ICMP echo, UDP and TCP. The server pings the gateway at start.
 
@@ -330,9 +341,10 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 - TCP is a minimal implementation: no retransmission, no out-of-order handling, a fixed window, and a client and a server only.
 - The NIC is polled, not interrupt-driven.
 - VFS runtime files live in RAM and do not persist.
-- Signals are not delivered: `rt_sigaction` and `rt_sigprocmask` store state, but the kernel runs no handler and implements no `rt_sigreturn`.
-- `poll` blocks on the tty; a descriptor backed by another server reports ready without a readiness query.
-- A set of syscalls still returns `ENOSYS`, for example `mkdirat`, `renameat`, `eventfd` and `epoll`.
+- Signals are delivered in user space on syscall return; a signal raised while a process spins in user mode waits for the next syscall or timer path.
+- `poll` and `epoll` wait by re-querying readiness on a short timer; only the tty has a true wake key.
+- `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT mounts stay read-only.
+- A set of syscalls still returns `ENOSYS`, for example `symlinkat` on the FAT mount and `signalfd`.
 
 ## 8. Conclusion
 
