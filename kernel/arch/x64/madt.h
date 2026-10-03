@@ -87,3 +87,7 @@ uint32_t madt_get_num_lapic();
 madt_record_ioapic_t **madt_get_ioapics();
 madt_record_lapic_t **madt_get_lapics();
 uint64_t madt_get_lapic_base();
+uint8_t madt_get_bsp_apic_id();
+
+/* Map an ISA IRQ to a GSI and its override flags. */
+void madt_isa_to_gsi(uint8_t irq, uint32_t *gsi, uint16_t *flags);

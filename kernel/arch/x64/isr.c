@@ -19,6 +19,8 @@
 #include <arch/x64/isr_base.h>
 #include <arch/x64/panic.h>
 #include <arch/x64/cpu.h>
+#include <arch/x64/apic.h>
+#include <arch/x64/ioapic.h>
 #include <arch/x64/serial.h>
 #include <arch/x64/timer.h>
 #include <proc/sched.h>
@@ -65,6 +67,23 @@ static char *exceptions[] = {
 };
 
 static volatile exc_handler_t handlers[256] = { 0 };
+
+/* End an external interrupt at the controller that delivered it. An I/O APIC
+ * entry needs a local-APIC EOI; the 8259 path needs a PIC EOI. */
+static void irq_eoi(uint64_t excno)
+{
+    if (ioapic_available()) {
+        apic_send_eoi();
+        return;
+    }
+
+    if (excno >= IRQ0 + 8 && excno < IRQ128) {
+        port_outb(PIC1, PIC_EOI);
+        port_outb(PIC2, PIC_EOI);
+    } else {
+        port_outb(PIC1, PIC_EOI);
+    }
+}
 
 void exc_register_handler(uint64_t id, exc_handler_t handler)
 {
@@ -139,12 +158,7 @@ void exc_handler_proc(
      * let the driver service the device instead of running the in-kernel
      * handler. */
     if (excno >= IRQ0 && excno < IRQ0 + 16 && irq_deliver(excno - IRQ0)) {
-        if (excno >= IRQ0 + 8 && excno < IRQ128) {
-            port_outb(PIC1, PIC_EOI);
-            port_outb(PIC2, PIC_EOI);
-        } else {
-            port_outb(PIC1, PIC_EOI);
-        }
+        irq_eoi(excno);
         return;
     }
 
@@ -153,16 +167,7 @@ void exc_handler_proc(
 
     if (handler != 0) {
         handler();
-        /* If the IRQ came from the Master PIC, it is sufficient to issue EOI
-         * command only to the Master PIC; however if the IRQ came from the
-         * Slave PIC, it is necessary to issue EOI to both PIC chips.
-         */
-        if (excno >= IRQ0 + 8 && excno < IRQ128) {
-            port_outb(PIC1, PIC_EOI);
-            port_outb(PIC2, PIC_EOI);
-        } else {
-            port_outb(PIC1, PIC_EOI);
-        }
+        irq_eoi(excno);
         return;
     }
 

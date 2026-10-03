@@ -23,6 +23,7 @@
 #include <lib/klog.h>
 #include <arch/x64/isr_base.h>
 #include <arch/x64/idt.h>
+#include <arch/x64/ioapic.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/panic.h>
 
@@ -57,7 +58,7 @@ uint8_t idt_get_available_vector(void)
     return available_vector;
 }
 
-void irq_set_mask(uint8_t line)
+static void pic_mask(uint8_t line, bool masked)
 {
     uint16_t port;
     uint8_t value;
@@ -68,27 +69,33 @@ void irq_set_mask(uint8_t line)
         port = PIC2_DATA;
         line -= 8;
     }
-    value = port_inb(port) | (1 << line);
+    value = port_inb(port);
+    if (masked)
+        value |= (1 << line);
+    else
+        value &= ~(1 << line);
     port_outb(port, value);
     klogv("IRQ: Send %s with 0x%02x\n",
           (port == PIC1_DATA ? "PIC1_DATA" : "PIC2_DATA"), value);
 }
 
+void irq_set_mask(uint8_t line)
+{
+    if (ioapic_available())
+        ioapic_set_line(line, true);
+    pic_mask(line, true);
+}
+
 void irq_clear_mask(uint8_t line)
 {
-    uint16_t port;
-    uint8_t value;
-
-    if (line < 8) {
-        port = PIC1_DATA;
-    } else {
-        port = PIC2_DATA;
-        line -= 8;
+    if (ioapic_available()) {
+        /* Route the line through the I/O APIC and keep the 8259 line masked so
+         * it does not deliver the same vector twice. */
+        ioapic_set_line(line, false);
+        pic_mask(line, true);
+        return;
     }
-    value = port_inb(port) & ~(1 << line);
-    port_outb(port, value);
-    klogv("IRQ: Send %s with 0x%02x\n",
-          (port == PIC1_DATA ? "PIC1_DATA" : "PIC2_DATA"), value);
+    pic_mask(line, false);
 }
 
 void idt_init()

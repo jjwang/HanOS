@@ -45,6 +45,7 @@
 #include <arch/x64/serial.h>
 #include <arch/x64/acpi.h>
 #include <arch/x64/apic.h>
+#include <arch/x64/ioapic.h>
 #include <arch/x64/hpet.h>
 #include <arch/x64/panic.h>
 #include <arch/x64/pci.h>
@@ -323,6 +324,11 @@ void kmain(void)
 
     klogi("Init APIC...\n");
     apic_init();
+
+    /* Route the legacy lines through the I/O APIC now that the local APIC is
+     * up, and move the PIT line off the 8259. */
+    ioapic_init();
+    irq_clear_mask(0);
 
     klogi("Init syscall...\n");
     syscall_init();

@@ -27,6 +27,9 @@ static madt_record_lapic_t *lapics[CPU_MAX];
 static uint64_t num_ioapic = 0;
 static madt_record_ioapic_t *io_apics[4];
 
+static uint64_t num_iso = 0;
+static madt_record_iso_t *isos[16];
+
 uint32_t madt_get_num_ioapic()
 {
     return num_ioapic;
@@ -45,6 +48,28 @@ madt_record_ioapic_t **madt_get_ioapics()
 madt_record_lapic_t **madt_get_lapics()
 {
     return lapics;
+}
+
+uint8_t madt_get_bsp_apic_id()
+{
+    if (num_lapic == 0)
+        return 0;
+    return lapics[0]->apic_id;
+}
+
+/* Map an ISA IRQ to a GSI and its override flags. Without an override the GSI
+ * equals the IRQ and the flags are the bus defaults. */
+void madt_isa_to_gsi(uint8_t irq, uint32_t *gsi, uint16_t *flags)
+{
+    for (uint64_t i = 0; i < num_iso; i++) {
+        if (isos[i]->irq_src == irq) {
+            *gsi = isos[i]->gsi;
+            *flags = isos[i]->flags;
+            return;
+        }
+    }
+    *gsi = irq;
+    *flags = 0;
 }
 
 uint64_t madt_get_lapic_base()
@@ -80,7 +105,13 @@ void madt_init()
                 io_apics[num_ioapic++] = ioapic;
             }
             break;
-            /* TODO: Handle MADT_RECORD_TYPE_ISO and MADT_RECORD_TYPE_NMI */
+        case MADT_RECORD_TYPE_ISO:{
+                if (num_iso >= 16)
+                    break;
+                isos[num_iso++] = (madt_record_iso_t *) rec;
+            }
+            break;
+            /* TODO: Handle MADT_RECORD_TYPE_NMI */
         }
         i += rec->len;
     }
