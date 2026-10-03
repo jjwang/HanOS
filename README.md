@@ -34,7 +34,7 @@ make run-uefi   # boots under UEFI (downloads OVMF first)
 ## Layout
 
 ```
-kernel/     the kernel (arch/x64, mm, proc, fs, ipc, router, srv) and its C library (libc/)
+kernel/     the kernel (arch/x64, mm, proc, fs, ipc, router, srv) and its C library (lib/)
 userspace/  the programs (servers/, bin/, test/) and the HanOS runtime
 include/    wire headers shared by the kernel and userspace
 musl/       the musl build and the HanOS port layer

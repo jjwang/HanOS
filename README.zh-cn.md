@@ -34,7 +34,7 @@ make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 ## 目录结构
 
 ```
-kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（libc/）
+kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（lib/）
 userspace/  用户态程序（servers/、bin/、test/）与 HanOS 运行时
 include/    内核与用户态共享的线协议头
 musl/       musl 构建与 HanOS 移植层
