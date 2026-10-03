@@ -476,7 +476,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 rep->words[0] = VFS_REDIRECT_FAT;
             } else if (abs != NULL) {
                 rep->words[0] =
-                    (resolve(abs) >= 0) ? 0 : (uint64_t) (int64_t) -2;
+                    (resolve(abs) != -1) ? 0 : (uint64_t) (int64_t) -2;
             } else {
                 rep->words[0] = (uint64_t) (int64_t) -12;   /* -ENOMEM */
             }
@@ -517,7 +517,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else {
                 int32_t e = resolve(abs);
 
-                if (e < 0) {
+                if (e == -1) {
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else {
                     fill_stat(e, buf + VFS_IO_DATA_OFF);
@@ -593,7 +593,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         e = resolve(abs);
 
-        if (e < 0 && (flags & O_CREAT)) {
+        if (e == -1 && (flags & O_CREAT)) {
             char *norm = norm_dir(abs);
 
             if (norm != NULL && norm[0] != '\0')
@@ -601,7 +601,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             free(norm);
         }
 
-        if (e < 0) {
+        if (e == -1) {
             rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
             goto openat_out;
         }
@@ -882,7 +882,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else if (abs != NULL) {
                 int32_t e = resolve(abs);
 
-                if (e < 0 || idx_is_dir(e)) {
+                if (e == -1 || idx_is_dir(e)) {
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
                     dyns[e - ent_count].used = false;
