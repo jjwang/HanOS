@@ -17,6 +17,7 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +33,7 @@
 
 #define MAXARGS 10
 
-#define CMD_MAX_LEN     100
+#define INPUT_CHUNK     256
 #define CMD_PROMPT      "\033[36m$ \033[0m"
 
 /* *INDENT-OFF* */
@@ -103,7 +104,6 @@ cmd_t *parsecmd(char *);
 void runcmd(cmd_t * cmd)
 {
     int32_t p[2] = { 0 };
-    char pathname[CMD_MAX_LEN] = { 0 };
     backcmd_t *bcmd;
     execcmd_t *ecmd;
     listcmd_t *lcmd;
@@ -118,17 +118,25 @@ void runcmd(cmd_t * cmd)
     default:
         sys_panic("runcmd");
 
-    case EXEC:
-        ecmd = (execcmd_t *) cmd;
-        if (ecmd->argv[0] == 0)
-            sys_exit(1);
-        snprintf(pathname, sizeof(pathname), "%s%s",
-                 (pathname[0] != '/') ? "/bin/" : "", ecmd->argv[0]);
-        sys_libc_log("hansh: start to execute process for current process\n");
-        if (sys_exec(pathname, ecmd->argv) < 0) {
-            dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
+    case EXEC:{
+            int32_t plen;
+            char *pathname;
+
+            ecmd = (execcmd_t *) cmd;
+            if (ecmd->argv[0] == 0)
+                sys_exit(1);
+            plen = strlen(ecmd->argv[0]) + 6;
+            pathname = sys_malloc(plen);
+            if (pathname == NULL)
+                sys_exit(1);
+            snprintf(pathname, plen, "/bin/%s", ecmd->argv[0]);
+            sys_libc_log
+                ("hansh: start to execute process for current process\n");
+            if (sys_exec(pathname, ecmd->argv) < 0) {
+                dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
+            }
+            break;
         }
-        break;
 
     case PIPE:
         pcmd = (pipecmd_t *) cmd;
@@ -173,7 +181,7 @@ void runcmd(cmd_t * cmd)
     sys_exit(0);
 }
 
-static char inbuf[CMD_MAX_LEN];
+static char inbuf[INPUT_CHUNK];
 static int32_t inpos;
 static int32_t inlen;
 
@@ -192,17 +200,47 @@ static int32_t input_byte(void)
     return (uint8_t) inbuf[inpos++];
 }
 
-int32_t getcmd(char *buf, int32_t nbuf)
+/* Read one command line. The line buffer grows as needed, so no input length
+ * limit applies. Returns the line, or NULL on end of input. */
+static char *getcmd(void)
 {
-    int32_t i;
-    sys_write(STDOUT, CMD_PROMPT, strlen(CMD_PROMPT));
-    memset(buf, 0, nbuf);
-    for (i = 0;;) {
-        int32_t c = input_byte();
+    static char *line;
+    static int32_t cap;
+    char *buf;
+    int32_t i, limit;
+    bool got = false;
 
-        if (c < 0) {
-            break;
+    if (line == NULL) {
+        cap = INPUT_CHUNK;
+        line = sys_malloc(cap);
+        if (line == NULL)
+            return NULL;
+    }
+
+    buf = line;
+    limit = cap;
+    memset(buf, 0, limit);
+    sys_write(STDOUT, CMD_PROMPT, strlen(CMD_PROMPT));
+
+    for (i = 0;;) {
+        int32_t c;
+
+        if (i >= limit - 1) {
+            int32_t ncap = limit * 2;
+            char *nbuf = sys_malloc(ncap);
+
+            if (nbuf == NULL)
+                break;
+            memset(nbuf, 0, ncap);
+            memcpy(nbuf, buf, limit);
+            buf = nbuf;
+            limit = ncap;
         }
+
+        c = input_byte();
+        if (c < 0)
+            break;
+        got = true;
         buf[i] = (char) c;
         if (buf[i] == '\b') {
             if (i > 0) {
@@ -212,30 +250,30 @@ int32_t getcmd(char *buf, int32_t nbuf)
             buf[i] = '\0';
             continue;
         }
-        if (i >= nbuf - 1)
-            break;
-        if (buf[i] == (char) EOF)
-            break;
         if (buf[i] == '\n') {
             buf[i] = '\0';
             break;
         }
         i++;
     }
-    if (buf[0] == (char) EOF)
-        return -1;
-    return 0;
+
+    if (!got)
+        return NULL;
+
+    line = buf;
+    cap = limit;
+    return buf;
 }
 
 int32_t main(void)
 {
-    char *buf = (char *) sys_malloc(CMD_MAX_LEN);
+    char *buf;
     int32_t fd;
 
     /* TODO: Ensure that three file descriptors are open. */
 
     /* Read and run input commands. */
-    while (getcmd(buf, CMD_MAX_LEN) >= 0) {
+    while ((buf = getcmd()) != NULL) {
         if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') {
             /* Chdir must be called by the parent, not the child. */
             if (buf[strlen(buf) - 1] == '\n') {
