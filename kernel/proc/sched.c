@@ -498,11 +498,11 @@ static bool sched_wake_one(process_t *t, void *key)
     if (t->status == PROC_SLEEPING) {
         t->wakeup_time = 0;
         t->status = PROC_READY;
-        return true;
+    } else {
+        t->wakeup_pending = true;
     }
 
-    t->wakeup_pending = true;
-    return false;
+    return true;
 }
 
 /* Block the current process on the armed key with no timeout. */
@@ -535,27 +535,40 @@ void sched_wait_key_commit_infinite(void)
     force_context_switch();
 }
 
-/* Wake every process sleeping on the given key, on any core. */
-void sched_wake_key(void *key)
+/* Wake up to n processes sleeping on the given key, on any core. Returns the
+ * number woken. A process armed but not yet parked consumes a slot through its
+ * pending flag. */
+int64_t sched_wake_key_n(void *key, int64_t n)
 {
+    if (n <= 0)
+        return 0;
+
+    int64_t woken = 0;
     uint16_t cur = smp_get_current_cpu_id();
 
-    for (uint16_t c = 0; c < CPU_MAX; c++) {
+    for (uint16_t c = 0; c < CPU_MAX && n > 0; c++) {
         if (idle_process[c] == NULL && running_process[c] == NULL)
             continue;
 
         bool woke = false;
-        uint64_t n = 0;
 
         spinlock_acquire(&run_queue_lock[c]);
 
-        if (sched_wake_one(running_process[c], key))
+        if (sched_wake_one(running_process[c], key)) {
             woke = true;
+            woken++;
+            n--;
+        }
 
-        n = vec_length(&run_queues[c]);
-        for (uint64_t i = 0; i < n; i++)
-            if (sched_wake_one(vec_at(&run_queues[c], i), key))
+        uint64_t len = vec_length(&run_queues[c]);
+
+        for (uint64_t i = 0; i < len && n > 0; i++) {
+            if (sched_wake_one(vec_at(&run_queues[c], i), key)) {
                 woke = true;
+                woken++;
+                n--;
+            }
+        }
 
         spinlock_release(&run_queue_lock[c]);
 
@@ -564,6 +577,14 @@ void sched_wake_key(void *key)
         if (woke && c != cur && sched_ipi_vector != 0)
             apic_send_ipi(c, sched_ipi_vector, 0);
     }
+
+    return woken;
+}
+
+/* Wake every process sleeping on the given key, on any core. */
+void sched_wake_key(void *key)
+{
+    sched_wake_key_n(key, INT64_MAX);
 }
 
 /* Mark every thread of the group dead, except the caller. The idle reaper

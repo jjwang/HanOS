@@ -45,6 +45,7 @@ void sched_wait_key_commit(time_t ms);
 void sched_wait_key_commit_infinite(void);
 void sched_wait_key_cancel(void);
 void sched_wake_key(void *key);
+int64_t sched_wake_key_n(void *key, int64_t n);
 void sched_kill_group(pid_t tgid, pid_t except);
 void sched_mark_fds_ready(pid_t pid);
 void sched_wait_fds_ready(process_t *t);

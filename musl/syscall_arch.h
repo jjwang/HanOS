@@ -473,7 +473,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         if (a2 == HANOS_FUTEX_WAIT)
             return __hanos_raw(H_FUTEX_WAIT, a1, a4, a3, 0, 0, 0);
         if (a2 == HANOS_FUTEX_WAKE)
-            return __hanos_raw(H_FUTEX_WAKE, a1, 0, 0, 0, 0, 0);
+            return __hanos_raw(H_FUTEX_WAKE, a1, a3, 0, 0, 0, 0);
         return 0;
     case L_mprotect:
     case L_madvise:

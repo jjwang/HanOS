@@ -1550,7 +1550,7 @@ int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
     return 0;
 }
 
-int64_t k_futex_wake(int64_t * ptr)
+int64_t k_futex_wake(int64_t * ptr, int64_t nr)
 {
     cpu_set_errno(0);
 
@@ -1559,8 +1559,7 @@ int64_t k_futex_wake(int64_t * ptr)
         return -1;
     }
 
-    sched_wake_key(ptr);
-    return 0;
+    return sched_wake_key_n(ptr, nr);
 }
 
 /* ----- Microkernel: endpoints, IPC and handles ----- */
