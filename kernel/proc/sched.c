@@ -813,16 +813,17 @@ process_t *sched_execve(const char *path, const char *argv[],
     tc = process_make(tname, NULL, 0, PROC_USER_MODE,
                    tp == NULL ? NULL : tp->addrspace);
 
-    if (tp != NULL) {
-        /* The process server clones the parent's fd table for the new process;
-         * this kernel path is a fork+exec. */
-        process_fd_fork((int32_t) tp->pid, (int32_t) tc->pid);
-    }
-
     if (elf_load(tc, path, &entry, &aux)) {
         /* Need to release memory for process "tc" */
         process_free(tc);
         return NULL;
+    }
+
+    /* The process server clones the parent's fd table for the new process;
+     * this kernel path is a fork+exec. Register only after the image loaded,
+     * or a failed exec leaves a live child the parent waits on forever. */
+    if (tp != NULL) {
+        process_fd_fork((int32_t) tp->pid, (int32_t) tc->pid);
     }
 
     process_regs_t *tc_regs = (process_regs_t *) PHYS_TO_VIRT(tc->context);
