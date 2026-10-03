@@ -54,7 +54,7 @@ ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 HONOS_RT  := $(RUNTIME_OBJS)
 
-CELF      := servers/block servers/console servers/fat32 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest test/musltest
+CELF      := servers/block servers/console servers/fat32 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest test/musltest test/faulttest
 
 .PHONY: clean all musl
 
