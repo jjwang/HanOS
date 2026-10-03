@@ -990,6 +990,57 @@ int64_t k_pipe(int32_t * fd, uint32_t flags)
     return -1;
 }
 
+int64_t k_nanosleep(vfs_timespec_t * req, vfs_timespec_t * rem)
+{
+    vfs_timespec_t kreq = { 0 };
+
+    cpu_set_errno(0);
+
+    if (rem != NULL) {
+        vfs_timespec_t zero = { 0, 0 };
+
+        copy_to_user(rem, &zero, sizeof(zero));
+    }
+
+    if (req == NULL || copy_from_user(&kreq, req, sizeof(kreq)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (kreq.tv_sec < 0 || kreq.tv_nsec < 0 || kreq.tv_nsec >= 1000000000LL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    int64_t ms = kreq.tv_sec * 1000 + (kreq.tv_nsec + 999999) / 1000000;
+
+    sched_sleep(ms);
+    return 0;
+}
+
+int64_t k_prlimit64(int32_t pid, int32_t resource, void *newlim, void *oldlim)
+{
+    struct {
+        uint64_t cur;
+        uint64_t max;
+    } lim = { ~0ULL, ~0ULL };
+
+    /* Only reading is supported: report RLIM_INFINITY. */
+    (void)pid;
+    (void)resource;
+    (void)newlim;
+
+    cpu_set_errno(0);
+
+    if (oldlim != NULL
+        && copy_to_user(oldlim, &lim, sizeof(lim)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    return 0;
+}
+
 int64_t k_clone(uint64_t flags, uint64_t stack, int32_t * ptid,
                 int32_t * ctid, uint64_t tls)
 {
@@ -1485,18 +1536,19 @@ int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
         return -1;
     }
 
-    klogd("k_dup3: pid %ld oldfd %ld newfd %ld, flags 0x%016lx\n",
-          t->pid, oldfd, newfd, flags);
+    /* Linux dup3(oldfd, newfd, flags): make newfd refer to oldfd. newfd < 0
+     * means the caller wants the lowest free descriptor (dup). */
+    int64_t r = process_fd_dup((int32_t) oldfd, (int32_t) newfd);
 
-    /* Make oldfd refer to newfd's open file description so that a program can
-     * redirect standard input and output in the process server.
-     */
-    if (process_fd_dup((int32_t) newfd, (int32_t) oldfd) < 0) {
+    if (r < 0) {
         cpu_set_errno(EBADF);
         return -1;
     }
 
-    return 0;
+    if ((flags & O_CLOEXEC) && r >= 0)
+        process_fd_fcntl((int32_t) r, F_SETFD, FD_CLOEXEC);
+
+    return r;
 }
 
 /* TODO: Need to add a futex implementation. */
@@ -2291,6 +2343,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_RT_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,
     [SYSCALL_IOCTL] = (syscall_ptr_t) k_ioctl,
     [SYSCALL_PIPE] = (syscall_ptr_t) k_pipe,
+    [SYSCALL_NANOSLEEP] = (syscall_ptr_t) k_nanosleep,
     [SYSCALL_GETPID] = (syscall_ptr_t) k_getpid,
     [SYSCALL_SOCKET] = (syscall_ptr_t) k_socket,
     [SYSCALL_CONNECT] = (syscall_ptr_t) k_connect,
@@ -2319,6 +2372,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_NEWFSTATAT] = (syscall_ptr_t) k_fstatat,
     [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,
     [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
+    [SYSCALL_PRLIMIT64] = (syscall_ptr_t) k_prlimit64,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,

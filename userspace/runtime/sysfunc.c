@@ -240,10 +240,10 @@ int32_t sys_mkdirat(const char *path)
     return ret;
 }
 
-int32_t sys_dup(int32_t fd, int32_t flags, int32_t newfd)
+int32_t sys_dup(int32_t oldfd, int32_t flags, int32_t newfd)
 {
     int32_t errno, ret;
-    SYSCALL3(SYSCALL_DUP3, fd, newfd, flags);
+    SYSCALL3(SYSCALL_DUP3, oldfd, newfd, flags);
     return ret;
 }
 

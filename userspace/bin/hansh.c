@@ -147,7 +147,7 @@ void runcmd(cmd_t * cmd)
         if (fork1() == 0) {
             /* Child process */
             sys_close(p[0]);
-            sys_dup(STDOUT, 0, p[1]);
+            sys_dup(p[1], 0, STDOUT);
             runcmd(pcmd->left);
             sys_close(p[1]);
             /* Never run below code */
@@ -156,7 +156,7 @@ void runcmd(cmd_t * cmd)
         if (fork1() == 0) {
             /* Child process */
             sys_close(p[1]);
-            sys_dup(STDIN, 0, p[0]);
+            sys_dup(p[0], 0, STDIN);
             runcmd(pcmd->right);
             sys_close(p[0]);
             /* Never run below code */

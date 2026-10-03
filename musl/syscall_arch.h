@@ -32,6 +32,10 @@
 #define H_FSTATAT    262
 #define H_FSTAT      5
 #define H_FCNTL      72
+#define H_DUP3       292
+#define H_NANOSLEEP  35
+#define H_UNLINK     87
+#define H_PRLIMIT64  302
 #define H_WAITPID    61
 #define H_EXIT       60
 #define H_EXIT_GROUP 231
@@ -51,6 +55,9 @@
 #define L_write       1
 #define L_open        2
 #define L_close       3
+#define L_dup         32
+#define L_dup2        33
+#define L_nanosleep   35
 #define L_stat        4
 #define L_fstat       5
 #define L_lstat       6
@@ -87,13 +94,16 @@
 #define L_exit_group  231
 #define L_openat      257
 #define L_newfstatat  262
+#define L_unlinkat    263
 #define L_faccessat   269
+#define L_prlimit64   302
 #define L_set_robust_list 273
 #define L_set_tid_address 218
 #define L_getrandom   318
 #define L_statx       332
 #define L_rseq        334
 #define L_pipe2       293
+#define L_dup3        292
 #define L_fcntl       72
 
 #define L_CLONE_VM    0x100
@@ -323,6 +333,18 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_WRITE, a1, a2, a3, 0, 0, 0);
     case L_close:
         return __hanos_raw(H_CLOSE, a1, 0, 0, 0, 0, 0);
+    case L_dup:
+        return __hanos_raw(H_DUP3, a1, -1, 0, 0, 0, 0);
+    case L_dup2:
+        return __hanos_raw(H_DUP3, a1, a2, 0, 0, 0, 0);
+    case L_dup3:
+        return __hanos_raw(H_DUP3, a1, a2, a3, 0, 0, 0);
+    case L_nanosleep:
+        return __hanos_raw(H_NANOSLEEP, a1, a2, 0, 0, 0, 0);
+    case L_unlinkat:
+        return __hanos_raw(H_UNLINK, a2, 0, 0, 0, 0, 0);
+    case L_prlimit64:
+        return __hanos_raw(H_PRLIMIT64, a1, a2, a3, a4, 0, 0);
     case L_lseek:
         return __hanos_raw(H_SEEK, a1, a2, a3, 0, 0, 0);
     case L_mmap:

@@ -26,6 +26,7 @@
 #define SYSCALL_RT_SIGPROCMASK  14
 #define SYSCALL_IOCTL           16
 #define SYSCALL_PIPE            22
+#define SYSCALL_NANOSLEEP       35
 #define SYSCALL_GETPID          39
 #define SYSCALL_SOCKET          41
 #define SYSCALL_CONNECT         42
@@ -56,6 +57,7 @@
 #define SYSCALL_FACCESSAT       269
 #define SYSCALL_DUP3            292
 #define SYSCALL_GETRANDOM       318
+#define SYSCALL_PRLIMIT64       302
 
 /* HanOS microkernel calls. */
 #define SYSCALL_DEBUGLOG        0x400

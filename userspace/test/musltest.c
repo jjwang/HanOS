@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 
 static void *thread_fn(void *arg)
 {
@@ -46,6 +47,31 @@ int main(void)
         close(p[1]);
     } else {
         printf("pipe FAIL errno=%d\n", errno);
+    }
+
+    {
+        int f = open("/bin/hansh", O_RDONLY);
+
+        if (f >= 0) {
+            int d = dup(f);
+
+            if (d >= 0) {
+                printf("dup fd=%d\n", d);
+                close(d);
+            } else {
+                printf("dup FAIL errno=%d\n", errno);
+            }
+            close(f);
+        }
+    }
+
+    {
+        struct timespec ts = { 0, 2000000 };
+
+        if (nanosleep(&ts, NULL) == 0)
+            printf("nanosleep ok\n");
+        else
+            printf("nanosleep FAIL errno=%d\n", errno);
     }
 
     struct stat st;
