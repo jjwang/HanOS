@@ -363,3 +363,17 @@ bool pci_find_class(uint8_t device_class, uint8_t subclass, pci_device_t * out)
     }
     return false;
 }
+
+bool pci_find_class_any(uint8_t device_class, pci_device_t * out)
+{
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
+        pci_device_t dev = vec_at(&pci_devices, i);
+
+        if (dev.device_class == device_class) {
+            if (out != NULL)
+                *out = dev;
+            return true;
+        }
+    }
+    return false;
+}

@@ -175,6 +175,33 @@ _Noreturn void kshell(pid_t pid)
         }
     }
 
+    {
+        pci_device_t snd;
+
+        if (pci_find_class_any(PCI_CLASS_MULTIMEDIA, &snd)) {
+            kprintf("\033[36mSound Card  \033[0m: %s\n",
+                    pci_device_id_to_string(&snd));
+        }
+    }
+
+    {
+        pci_device_t disk;
+
+        if (pci_find_class_any(PCI_CLASS_STORAGE, &disk)) {
+            kprintf("\033[36mHard Disk   \033[0m: %s\n",
+                    pci_device_id_to_string(&disk));
+        }
+    }
+
+    {
+        pci_device_t usb;
+
+        if (pci_find_class(PCI_CLASS_SERIAL_BUS, 0x03, &usb)) {
+            kprintf("\033[36mU-Disk      \033[0m: %s\n",
+                    pci_device_id_to_string(&usb));
+        }
+    }
+
     /* Start all programs. Boot order: console -> input -> tty -> block ->
      * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
      * console endpoint, fat32 on the block server) is up first. */

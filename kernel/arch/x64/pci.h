@@ -61,6 +61,9 @@ bool pci_find(uint16_t vendor_id, uint16_t device_id, pci_device_t * out);
 /* Find the first device with the given class and subclass. */
 bool pci_find_class(uint8_t device_class, uint8_t subclass, pci_device_t * out);
 
+/* Find the first device whose class matches, whatever the subclass. */
+bool pci_find_class_any(uint8_t device_class, pci_device_t * out);
+
 uint8_t pci_inb(uint32_t id, uint32_t offset);
 void pci_outb(uint32_t id, uint32_t offset, uint8_t data);
 uint16_t pci_inw(uint32_t id, uint32_t offset);
