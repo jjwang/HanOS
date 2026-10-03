@@ -1,0 +1,11 @@
+<map id="kernel/ipc/object.h" name="kernel/ipc/object.h">
+<area shape="rect" id="Node000001" title="Kernel object and per&#45;process handle model." alt="" coords="27,5,168,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,152,88,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="78,33,53,53,33,80,29,94,30,109,37,139,32,140,24,110,24,94,28,78,49,49,75,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="133,152,203,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="119,29,145,49,166,78,174,108,174,138,169,138,169,109,162,80,141,53,116,33"/>
+<area shape="rect" id="Node000004" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="43,79,151,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="100,31,100,65,95,65,95,31"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="91,106,65,142,61,139,87,103"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="111,102,149,140,145,144,107,106"/>
+</map>

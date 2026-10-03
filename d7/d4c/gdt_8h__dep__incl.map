@@ -1,0 +1,9 @@
+<map id="kernel/arch/x64/gdt.h" name="kernel/arch/x64/gdt.h">
+<area shape="rect" id="Node000001" title="Definition of GDT related data structures." alt="" coords="192,5,351,31"/>
+<area shape="rect" id="Node000002" href="$de/d68/gdt_8c.html" title="Implementation of GDT related functions." alt="" coords="5,79,164,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="230,38,116,81,114,76,228,33"/>
+<area shape="rect" id="Node000003" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="189,79,354,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="274,44,274,79,269,79,269,44"/>
+<area shape="rect" id="Node000004" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="379,79,497,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="312,34,412,76,410,81,310,38"/>
+</map>

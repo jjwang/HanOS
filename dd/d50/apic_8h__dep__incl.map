@@ -1,0 +1,17 @@
+<map id="kernel/arch/x64/apic.h" name="kernel/arch/x64/apic.h">
+<area shape="rect" id="Node000001" title="Definition of APIC (Advanced Programmable Interrupt Controller) related data structures." alt="" coords="555,5,721,31"/>
+<area shape="rect" id="Node000002" href="$d7/d00/apic_8c.html" title="Implementation of APIC (Advanced Programmable Interrupt Controller) functions." alt="" coords="5,79,169,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="541,34,170,82,169,77,541,29"/>
+<area shape="rect" id="Node000003" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="194,79,359,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="567,36,336,81,335,76,566,31"/>
+<area shape="rect" id="Node000004" href="$df/d41/timer_8c.html" title="Implementation of APIC timer related functions." alt="" coords="383,79,554,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="599,38,497,81,495,76,597,34"/>
+<area shape="rect" id="Node000005" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="579,79,697,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="641,44,641,79,635,79,635,44"/>
+<area shape="rect" id="Node000006" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="721,79,880,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="678,34,775,76,773,81,676,39"/>
+<area shape="rect" id="Node000007" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="905,79,1051,104"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="706,31,923,76,922,81,705,36"/>
+<area shape="rect" id="Node000008" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="1075,79,1230,104"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="735,30,1076,77,1075,82,734,35"/>
+</map>

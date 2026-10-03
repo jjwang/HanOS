@@ -1,0 +1,22 @@
+<map id="userspace/servers/console.c" name="userspace/servers/console.c">
+<area shape="rect" id="Node000001" title="Userspace framebuffer console server." alt="" coords="46,5,251,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="29,152,111,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="140,32,121,54,103,80,89,110,79,140,74,138,84,108,99,77,117,50,136,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="256,225,327,251"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="128,33,84,59,38,95,21,115,11,135,9,156,19,176,33,187,55,197,114,213,181,224,242,231,242,236,180,229,113,219,53,202,30,192,15,179,4,157,6,134,17,112,35,91,81,55,125,28"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="285,152,373,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="165,29,305,141,302,145,162,33"/>
+<area shape="rect" id="Node000005" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="113,79,184,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="151,31,151,65,146,65,146,31"/>
+<area shape="rect" id="Node000007" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="333,79,417,104"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="186,28,326,72,325,77,184,33"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="138,106,95,145,91,141,134,102"/>
+<area shape="poly" id="edge7_Node000005_Node000003" title=" " alt="" coords="152,104,158,139,165,158,176,176,208,202,244,220,242,225,205,207,172,179,161,161,153,140,147,105"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="186,152,261,177"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="163,102,203,141,200,144,159,106"/>
+<area shape="poly" id="edge9_Node000007_Node000003" title=" " alt="" coords="413,102,444,115,473,132,489,153,490,166,484,179,454,207,417,225,378,235,341,239,341,234,377,230,415,220,451,202,480,176,485,165,484,155,469,136,442,119,411,107"/>
+<area shape="poly" id="edge12_Node000007_Node000004" title=" " alt="" coords="370,106,346,142,342,139,366,103"/>
+<area shape="rect" id="Node000008" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="397,152,471,177"/>
+<area shape="poly" id="edge10_Node000007_Node000008" title=" " alt="" coords="387,103,418,140,414,143,383,106"/>
+<area shape="poly" id="edge11_Node000008_Node000003" title=" " alt="" coords="412,180,328,221,326,217,410,175"/>
+</map>

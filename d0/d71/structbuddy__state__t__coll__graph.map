@@ -1,0 +1,5 @@
+<map id="buddy_state_t" name="buddy_state_t">
+<area shape="rect" id="Node000001" title="Global state of the buddy physical memory allocator." alt="" coords="5,93,120,119"/>
+<area shape="rect" id="Node000002" href="$d9/dda/structspinlock__t.html" title="Interrupt&#45;safe spinlock holding the lock state and owner&#39;s RFLAGS." alt="" coords="19,5,107,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="65,45,65,93,60,93,60,45"/>
+</map>

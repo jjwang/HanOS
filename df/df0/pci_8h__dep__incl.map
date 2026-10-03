@@ -1,0 +1,29 @@
+<map id="kernel/arch/x64/pci.h" name="kernel/arch/x64/pci.h">
+<area shape="rect" id="Node000001" title="Definition of PCI related data structures and functions." alt="" coords="746,5,903,31"/>
+<area shape="rect" id="Node000002" href="$d1/de8/pci_8c.html" title="Implementation of PCI related functions." alt="" coords="5,86,161,111"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="732,28,483,47,332,62,181,81,138,89,137,83,180,76,331,57,482,42,732,22"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="373,255,533,295"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="733,31,598,48,445,76,372,94,309,116,259,141,240,154,227,168,218,187,220,204,232,218,253,231,309,250,373,262,372,267,308,255,250,235,229,222,215,206,212,187,222,165,237,150,256,136,307,111,371,89,443,71,597,43,732,25"/>
+<area shape="rect" id="Node000004" href="$d8/dd5/gfx_8h.html" title="Graphics device handling definitions." alt="" coords="674,79,834,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="807,43,773,80,769,77,803,39"/>
+<area shape="rect" id="Node000006" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="834,255,994,295"/>
+<area shape="poly" id="edge12_Node000001_Node000006" title=" " alt="" coords="917,28,983,44,1053,71,1087,89,1118,110,1146,135,1170,165,1179,190,1174,211,1157,229,1132,242,1066,261,995,271,994,266,1065,256,1130,237,1154,224,1169,209,1174,190,1165,168,1142,139,1115,114,1084,93,1051,75,982,49,916,33"/>
+<area shape="rect" id="Node000007" href="$d0/d15/xhci_8c.html" title="Minimal xHCI host controller and USB HID pointer support." alt="" coords="237,174,415,199"/>
+<area shape="poly" id="edge13_Node000001_Node000007" title=" " alt="" coords="778,38,361,176,360,171,776,33"/>
+<area shape="rect" id="Node000008" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="859,174,977,199"/>
+<area shape="poly" id="edge14_Node000001_Node000008" title=" " alt="" coords="840,41,914,173,909,175,835,44"/>
+<area shape="rect" id="Node000009" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="1001,174,1155,199"/>
+<area shape="poly" id="edge15_Node000001_Node000009" title=" " alt="" coords="855,36,1062,172,1059,176,852,40"/>
+<area shape="rect" id="Node000011" href="$d1/de9/net__srv_8c.html" title="Spawn the userspace network server." alt="" coords="1231,86,1379,111"/>
+<area shape="poly" id="edge16_Node000001_Node000011" title=" " alt="" coords="917,30,1212,76,1250,83,1249,89,1211,81,916,35"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="661,115,553,136,509,151,480,169,466,188,459,211,454,255,449,254,453,210,462,186,476,165,506,146,552,131,660,109"/>
+<area shape="rect" id="Node000005" href="$d2/d93/skl__display_8h.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="490,167,650,207"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="702,127,611,169,609,164,700,122"/>
+<area shape="poly" id="edge8_Node000004_Node000007" title=" " alt="" coords="661,121,384,177,383,171,660,116"/>
+<area shape="poly" id="edge9_Node000004_Node000008" title=" " alt="" coords="803,123,897,172,895,176,801,127"/>
+<area shape="poly" id="edge10_Node000004_Node000009" title=" " alt="" coords="839,120,1036,171,1034,177,838,125"/>
+<area shape="rect" id="Node000010" href="$dc/d70/input__srv_8c.html" title="Spawn and drive the userspace input server." alt="" coords="674,174,834,199"/>
+<area shape="poly" id="edge11_Node000004_Node000010" title=" " alt="" coords="757,133,757,174,751,174,751,133"/>
+<area shape="poly" id="edge6_Node000005_Node000003" title=" " alt="" coords="534,217,480,257,477,252,531,213"/>
+<area shape="poly" id="edge7_Node000005_Node000006" title=" " alt="" coords="659,207,839,252,838,257,658,213"/>
+</map>

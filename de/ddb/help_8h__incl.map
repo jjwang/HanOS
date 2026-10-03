@@ -1,0 +1,13 @@
+<map id="userspace/help.h" name="userspace/help.h">
+<area shape="rect" id="Node000001" title="Definition of help command related data structures." alt="" coords="5,5,137,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="47,225,117,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="75,31,83,211,78,211,69,31"/>
+<area shape="rect" id="Node000003" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="92,79,176,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="84,29,117,66,113,70,80,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="131,105,110,153,91,213,86,211,105,151,126,103"/>
+<area shape="rect" id="Node000004" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="120,152,193,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="140,104,151,138,146,140,135,105"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="218,152,306,177"/>
+<area shape="poly" id="edge6_Node000003_Node000005" title=" " alt="" coords="156,102,230,143,228,147,153,106"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="147,179,106,218,102,214,143,175"/>
+</map>

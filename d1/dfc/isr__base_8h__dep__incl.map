@@ -1,0 +1,15 @@
+<map id="kernel/arch/x64/isr_base.h" name="kernel/arch/x64/isr_base.h">
+<area shape="rect" id="Node000001" title="Definition of ISR related data structures." alt="" coords="446,5,589,45"/>
+<area shape="rect" id="Node000002" href="$d5/d05/idt_8c.html" title="Implementation of idt related functions." alt="" coords="5,93,160,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="432,45,147,96,146,91,431,39"/>
+<area shape="rect" id="Node000003" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="184,93,336,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="443,52,298,96,297,91,442,47"/>
+<area shape="rect" id="Node000004" href="$d6/dbf/pit_8c.html" title="Implementation of PIT related functions." alt="" coords="360,93,515,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="490,57,451,95,447,91,486,53"/>
+<area shape="rect" id="Node000005" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="539,93,658,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="549,53,588,91,585,95,545,57"/>
+<area shape="rect" id="Node000006" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="683,93,829,119"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="588,47,722,91,720,96,586,52"/>
+<area shape="rect" id="Node000007" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="853,93,1008,119"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="603,40,871,91,870,96,602,45"/>
+</map>

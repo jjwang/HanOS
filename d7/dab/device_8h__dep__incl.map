@@ -1,0 +1,7 @@
+<map id="kernel/device/device.h" name="kernel/device/device.h">
+<area shape="rect" id="Node000001" title="Generic device interface for HanOS device drivers." alt="" coords="79,5,247,31"/>
+<area shape="rect" id="Node000002" href="$db/d9a/block__device_8h.html" title="Block device interface for HanOS storage drivers." alt="" coords="5,79,153,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="143,42,101,80,98,77,139,38"/>
+<area shape="rect" id="Node000003" href="$d7/d59/char__device_8h.html" title="Character device interface for HanOS drivers." alt="" coords="178,79,319,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="188,38,230,77,226,80,184,42"/>
+</map>

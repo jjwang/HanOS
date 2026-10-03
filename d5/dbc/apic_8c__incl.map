@@ -1,0 +1,64 @@
+<map id="kernel/arch/x64/apic.c" name="kernel/arch/x64/apic.c">
+<area shape="rect" id="Node000001" title="Implementation of APIC (Advanced Programmable Interrupt Controller) functions." alt="" coords="379,5,543,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="600,372,671,397"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="379,31,269,50,222,64,192,81,176,99,169,117,167,163,167,239,170,259,176,274,186,285,199,293,275,321,358,350,443,367,522,376,587,380,586,385,522,382,442,372,356,355,273,327,197,298,183,289,172,276,164,260,162,239,162,163,164,116,172,96,188,77,220,59,268,45,378,26"/>
+<area shape="rect" id="Node000003" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="253,152,375,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="449,33,396,81,336,143,332,139,392,77,445,29"/>
+<area shape="rect" id="Node000005" href="$da/d41/apic_8h.html" title="Definition of APIC (Advanced Programmable Interrupt Controller) related data structures." alt="" coords="5,152,127,177"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="379,24,325,29,265,39,204,56,147,81,110,110,83,143,79,139,107,106,145,76,203,51,264,34,324,24,378,18"/>
+<area shape="rect" id="Node000006" href="$df/de9/madt_8h.html" title="Definition of ACPI MADT (Multiple APIC Description Table) related data structures." alt="" coords="202,79,330,104"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="430,33,311,76,310,71,428,28"/>
+<area shape="rect" id="Node000007" href="$dc/da7/cpu_8h.html" title="Definition of CPU related data structures and macros." alt="" coords="673,225,790,251"/>
+<area shape="poly" id="edge10_Node000001_Node000007" title=" " alt="" coords="477,29,708,214,704,218,473,33"/>
+<area shape="rect" id="Node000010" href="$d4/d35/idt_8h.html" title="Definition of IDT related data structures." alt="" coords="405,79,516,104"/>
+<area shape="poly" id="edge14_Node000001_Node000010" title=" " alt="" coords="463,31,463,65,458,65,458,31"/>
+<area shape="rect" id="Node000011" href="$df/d1f/panic_8h.html" title="Definition of panic related data structures." alt="" coords="1092,152,1221,177"/>
+<area shape="poly" id="edge16_Node000001_Node000011" title=" " alt="" coords="543,19,669,25,817,36,955,52,1011,63,1054,76,1079,89,1102,106,1139,139,1135,143,1099,110,1076,94,1052,81,1010,68,954,57,816,41,669,30,543,24"/>
+<area shape="rect" id="Node000013" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="1193,225,1275,251"/>
+<area shape="poly" id="edge44_Node000001_Node000013" title=" " alt="" coords="543,21,835,40,984,56,1092,76,1175,98,1207,116,1236,151,1243,166,1245,182,1243,212,1238,212,1240,182,1237,167,1232,153,1204,120,1173,102,1091,81,983,61,834,45,543,26"/>
+<area shape="rect" id="Node000015" href="$df/d61/mm_8h.html" title="Definition of memory management related data structures." alt="" coords="950,79,1041,104"/>
+<area shape="poly" id="edge27_Node000001_Node000015" title=" " alt="" coords="543,28,937,80,936,85,543,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="313,178,305,207,300,246,303,287,309,305,320,322,337,335,364,347,435,363,516,374,587,379,586,384,515,379,434,369,362,352,335,340,316,326,304,308,298,288,294,246,300,206,307,177"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="375,225,547,251"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="339,175,426,217,423,222,336,180"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="71,177,78,207,92,247,115,288,130,307,147,322,182,338,230,351,352,369,481,378,586,380,586,386,481,383,351,374,228,356,180,343,145,326,126,310,111,291,87,249,73,209,65,178"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="262,105,252,127,243,153,241,179,245,207,263,261,286,303,300,322,321,334,350,344,428,361,513,372,587,378,586,383,512,377,427,366,349,350,318,339,296,326,281,306,259,263,240,208,236,179,238,151,247,125,257,103"/>
+<area shape="poly" id="edge9_Node000006_Node000003" title=" " alt="" coords="276,103,301,139,296,142,272,106"/>
+<area shape="poly" id="edge12_Node000007_Node000002" title=" " alt="" coords="726,253,653,362,648,359,721,250"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="1017,299,1091,324"/>
+<area shape="poly" id="edge11_Node000007_Node000008" title=" " alt="" coords="784,248,1004,296,1003,301,783,253"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="1085,372,1167,397"/>
+<area shape="poly" id="edge13_Node000007_Node000009" title=" " alt="" coords="764,248,1083,365,1081,370,762,253"/>
+<area shape="poly" id="edge15_Node000010_Node000002" title=" " alt="" coords="453,106,404,166,380,200,366,226,362,238,366,249,386,276,411,299,440,319,470,335,532,359,587,373,586,378,530,364,468,340,437,323,408,303,382,280,361,252,357,238,361,224,375,197,400,163,449,103"/>
+<area shape="poly" id="edge17_Node000011_Node000002" title=" " alt="" coords="1159,178,1157,208,1150,248,1133,291,1121,310,1105,326,1073,344,1027,358,972,368,910,376,786,384,684,386,684,381,786,379,910,370,971,363,1026,352,1071,339,1102,322,1117,306,1129,288,1144,247,1152,207,1154,177"/>
+<area shape="poly" id="edge18_Node000011_Node000008" title=" " alt="" coords="1150,179,1072,289,1068,286,1146,176"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="1351,299,1426,324"/>
+<area shape="poly" id="edge19_Node000011_Node000012" title=" " alt="" coords="1189,175,1237,195,1289,223,1333,255,1369,287,1366,291,1329,259,1286,228,1235,200,1187,180"/>
+<area shape="poly" id="edge20_Node000011_Node000013" title=" " alt="" coords="1171,175,1213,214,1209,218,1167,179"/>
+<area shape="poly" id="edge23_Node000013_Node000002" title=" " alt="" coords="1228,253,1197,290,1175,310,1150,326,1111,340,1058,352,928,369,793,379,684,384,684,379,792,374,928,363,1057,346,1109,335,1148,322,1172,306,1194,287,1224,249"/>
+<area shape="poly" id="edge22_Node000013_Node000008" title=" " alt="" coords="1206,253,1097,296,1095,291,1204,248"/>
+<area shape="poly" id="edge21_Node000013_Node000012" title=" " alt="" coords="1260,248,1352,290,1350,295,1258,253"/>
+<area shape="rect" id="Node000014" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="1219,299,1327,324"/>
+<area shape="poly" id="edge24_Node000013_Node000014" title=" " alt="" coords="1243,250,1262,285,1258,288,1238,252"/>
+<area shape="poly" id="edge26_Node000014_Node000002" title=" " alt="" coords="1219,324,1200,327,908,360,685,382,684,376,907,355,1199,321,1218,319"/>
+<area shape="poly" id="edge25_Node000014_Node000009" title=" " alt="" coords="1250,326,1163,368,1161,364,1248,322"/>
+<area shape="poly" id="edge30_Node000015_Node000002" title=" " alt="" coords="950,98,880,109,796,131,753,147,711,169,673,195,640,227,630,242,624,258,620,293,623,328,630,358,625,359,618,329,614,293,619,256,626,239,636,224,670,191,708,164,751,143,794,126,879,103,949,93"/>
+<area shape="poly" id="edge32_Node000015_Node000004" title=" " alt="" coords="950,95,878,98,786,107,685,125,587,154,531,185,485,218,482,214,528,180,585,150,684,120,785,102,877,93,949,90"/>
+<area shape="poly" id="edge29_Node000015_Node000008" title=" " alt="" coords="1006,103,1019,125,1031,151,1048,223,1055,285,1050,285,1043,224,1026,153,1014,127,1001,106"/>
+<area shape="poly" id="edge31_Node000015_Node000009" title=" " alt="" coords="1041,90,1096,94,1163,103,1234,121,1302,150,1352,179,1388,209,1416,245,1440,298,1445,312,1440,326,1422,340,1397,351,1328,368,1251,378,1181,384,1181,378,1251,373,1327,363,1395,346,1420,335,1436,322,1440,312,1436,300,1411,248,1384,212,1349,184,1299,154,1233,126,1162,109,1096,99,1041,96"/>
+<area shape="poly" id="edge28_Node000015_Node000012" title=" " alt="" coords="1041,91,1091,95,1150,104,1211,122,1269,150,1306,180,1338,217,1362,254,1380,285,1375,288,1358,257,1333,220,1303,184,1266,154,1209,127,1148,109,1090,100,1041,96"/>
+<area shape="poly" id="edge33_Node000015_Node000014" title=" " alt="" coords="1041,92,1085,97,1135,108,1187,124,1235,150,1256,166,1271,181,1290,225,1292,257,1286,286,1280,285,1287,256,1285,226,1266,184,1253,170,1233,154,1185,129,1134,113,1084,103,1041,97"/>
+<area shape="rect" id="Node000016" href="$d6/d68/vector_8h.html" title="vector &#45; fundamental data structure, variable length array" alt="" coords="921,152,1016,177"/>
+<area shape="poly" id="edge34_Node000015_Node000016" title=" " alt="" coords="993,105,980,140,975,138,988,103"/>
+<area shape="poly" id="edge35_Node000016_Node000002" title=" " alt="" coords="922,171,853,177,776,188,706,204,680,215,663,227,643,257,634,293,632,328,634,358,629,359,627,328,629,292,639,255,659,223,678,210,705,199,775,183,853,172,921,166"/>
+<area shape="poly" id="edge40_Node000016_Node000013" title=" " alt="" coords="1012,175,1180,219,1178,225,1011,180"/>
+<area shape="rect" id="Node000017" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="945,225,1016,251"/>
+<area shape="poly" id="edge36_Node000016_Node000017" title=" " alt="" coords="973,177,979,211,974,212,968,178"/>
+<area shape="rect" id="Node000018" href="$d4/d03/kmalloc_8h.html" title="Definition of memory allocation related functions." alt="" coords="814,225,921,251"/>
+<area shape="poly" id="edge41_Node000016_Node000018" title=" " alt="" coords="954,180,897,219,894,215,951,175"/>
+<area shape="poly" id="edge39_Node000017_Node000002" title=" " alt="" coords="954,253,676,369,674,364,952,248"/>
+<area shape="poly" id="edge38_Node000017_Node000008" title=" " alt="" coords="995,249,1034,287,1030,291,991,253"/>
+<area shape="poly" id="edge37_Node000017_Node000009" title=" " alt="" coords="984,251,989,286,996,305,1007,322,1037,348,1073,366,1071,370,1034,352,1003,326,991,307,984,287,978,252"/>
+<area shape="poly" id="edge43_Node000018_Node000002" title=" " alt="" coords="850,253,667,367,665,362,847,249"/>
+<area shape="poly" id="edge42_Node000018_Node000008" title=" " alt="" coords="898,248,1012,291,1010,296,896,253"/>
+</map>

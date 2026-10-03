@@ -1,0 +1,7 @@
+<map id="kernel/ipc/selftest.h" name="kernel/ipc/selftest.h">
+<area shape="rect" id="Node000001" title="Kernel&#45;side self&#45;test for the IPC/handle layer." alt="" coords="83,5,233,31"/>
+<area shape="rect" id="Node000002" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="5,79,153,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="137,42,94,80,90,76,133,38"/>
+<area shape="rect" id="Node000003" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="177,79,296,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="183,38,226,76,222,80,179,42"/>
+</map>

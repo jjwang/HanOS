@@ -1,0 +1,37 @@
+<map id="kernel/arch/x64/pit.c" name="kernel/arch/x64/pit.c">
+<area shape="rect" id="Node000001" title="Implementation of PIT related functions." alt="" coords="370,5,525,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="507,299,577,324"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="455,30,502,151,539,284,534,286,497,153,450,32"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="34,299,117,324"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="370,27,269,44,215,59,164,81,110,110,70,138,39,173,11,226,9,244,16,260,29,276,45,289,42,293,25,279,11,263,4,244,6,225,35,170,67,134,108,106,162,76,214,54,268,38,369,21"/>
+<area shape="rect" id="Node000004" href="$dd/da4/pit_8h.html" title="Definition of PIT related data structures." alt="" coords="563,152,673,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="471,29,507,49,545,77,577,108,604,140,599,143,573,112,542,81,504,54,469,33"/>
+<area shape="rect" id="Node000005" href="$dc/da7/cpu_8h.html" title="Definition of CPU related data structures and macros." alt="" coords="370,152,487,177"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="448,31,435,139,429,138,443,31"/>
+<area shape="rect" id="Node000007" href="$d4/d35/idt_8h.html" title="Definition of IDT related data structures." alt="" coords="613,79,724,104"/>
+<area shape="poly" id="edge9_Node000001_Node000007" title=" " alt="" coords="484,28,621,72,619,77,482,33"/>
+<area shape="rect" id="Node000008" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="748,79,877,104"/>
+<area shape="poly" id="edge11_Node000001_Node000008" title=" " alt="" coords="506,28,741,73,740,79,505,33"/>
+<area shape="rect" id="Node000009" href="$d4/d6f/isr__base_8h.html" title="Definition of ISR related data structures." alt="" coords="211,79,359,104"/>
+<area shape="poly" id="edge13_Node000001_Node000009" title=" " alt="" coords="422,33,325,75,323,71,420,28"/>
+<area shape="rect" id="Node000010" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="254,152,337,177"/>
+<area shape="poly" id="edge23_Node000001_Node000010" title=" " alt="" coords="440,33,372,106,324,146,320,142,368,102,436,29"/>
+<area shape="rect" id="Node000012" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="21,225,129,251"/>
+<area shape="poly" id="edge22_Node000001_Node000012" title=" " alt="" coords="370,27,284,44,240,60,199,81,163,111,132,147,89,214,85,211,128,144,159,107,196,76,238,55,283,39,369,22"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="617,178,606,212,588,252,563,289,558,286,584,249,601,210,612,177"/>
+<area shape="poly" id="edge7_Node000005_Node000002" title=" " alt="" coords="443,176,487,224,530,286,526,289,483,227,439,180"/>
+<area shape="poly" id="edge8_Node000005_Node000003" title=" " alt="" coords="438,176,451,212,451,233,443,252,421,269,389,282,306,299,212,308,130,312,130,307,212,303,305,294,388,276,418,264,439,249,446,232,445,213,433,178"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="354,225,429,251"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="425,179,406,215,401,212,420,176"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="677,103,689,137,691,158,687,178,666,215,637,247,605,274,576,294,573,289,602,269,633,244,661,212,682,176,686,158,684,138,672,105"/>
+<area shape="poly" id="edge12_Node000008_Node000002" title=" " alt="" coords="806,106,749,173,708,214,662,253,624,277,585,296,583,291,621,272,659,249,704,210,745,169,802,103"/>
+<area shape="poly" id="edge14_Node000009_Node000002" title=" " alt="" coords="270,106,237,134,204,171,191,191,185,211,185,231,195,249,214,264,244,276,324,293,414,302,492,306,492,312,414,308,324,298,242,281,211,268,191,252,180,232,179,211,187,189,199,168,234,130,267,102"/>
+<area shape="poly" id="edge15_Node000009_Node000010" title=" " alt="" coords="289,104,294,138,289,139,284,105"/>
+<area shape="poly" id="edge18_Node000010_Node000002" title=" " alt="" coords="301,177,316,213,328,232,344,249,379,271,418,287,458,297,493,303,492,309,456,302,417,292,377,276,340,253,324,235,311,215,296,179"/>
+<area shape="poly" id="edge17_Node000010_Node000006" title=" " alt="" coords="312,175,366,215,363,219,309,180"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="205,225,279,251"/>
+<area shape="poly" id="edge16_Node000010_Node000011" title=" " alt="" coords="289,179,261,216,257,213,284,176"/>
+<area shape="poly" id="edge19_Node000010_Node000012" title=" " alt="" coords="261,180,124,224,123,219,259,175"/>
+<area shape="poly" id="edge21_Node000012_Node000002" title=" " alt="" coords="130,245,149,248,493,300,492,305,148,253,129,250"/>
+<area shape="poly" id="edge20_Node000012_Node000003" title=" " alt="" coords="78,251,78,285,73,285,73,251"/>
+</map>
