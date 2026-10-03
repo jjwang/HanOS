@@ -36,8 +36,12 @@
 #include <proc/sched.h>
 #include <arch/x64/smp.h>
 
-/* Maximum one VFS request reads/writes. */
-#define VFS_SERVER_IO_MAX   4096
+/* Maximum one VFS request reads/writes. A large file reaches the caller in a
+ * few requests instead of one per page. */
+#define VFS_SERVER_IO_MAX   (4 * 1024 * 1024)
+
+/* The pipe buffer is 4 KiB, so a larger transfer only wastes a mapping. */
+#define VFS_PIPE_IO_MAX     4096
 
 /* Internal sentinel: the pipe server would block; the caller retries. */
 #define VFS_IO_AGAIN        (-2)
@@ -227,8 +231,8 @@ static int64_t vfs_server_close(int32_t svc, int64_t sfd)
 static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
                              void *buff)
 {
-    if (len > VFS_SERVER_IO_MAX)
-        len = VFS_SERVER_IO_MAX;
+    if (len > VFS_PIPE_IO_MAX)
+        len = VFS_PIPE_IO_MAX;
 
     bool inline_data = (len <= PIPE_INLINE_MAX);
     handle_t mh = 0;

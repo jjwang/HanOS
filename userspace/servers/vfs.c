@@ -738,8 +738,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     : (const uint8_t *) bi.initrd_vaddr + ents[e].off + off;
                 uint8_t *buf = (uint8_t *) VFS_BUF_VADDR;
 
-                for (uint64_t i = 0; i < n; i++)
-                    buf[i] = src[i];
+                memcpy(buf, src, n);
                 sys_mem_unmap(memh, VFS_BUF_VADDR);
             } else {
                 n = 0;
@@ -779,8 +778,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 && sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
                 const uint8_t *src = (const uint8_t *) VFS_BUF_VADDR;
 
-                for (uint64_t i = 0; i < n; i++)
-                    d->data[off + i] = (char) src[i];
+                memcpy(d->data + off, src, n);
                 sys_mem_unmap(memh, VFS_BUF_VADDR);
             } else {
                 n = 0;
