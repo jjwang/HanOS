@@ -137,21 +137,21 @@ _Noreturn void kshell(pid_t pid)
 
     char *cpu_model_name = cpu_get_model_name();
     if (strlen(cpu_model_name) > 0) {
-        kprintf("\033[36mCPU Model  \033[0m: %s\n", cpu_model_name);
+        kprintf("\033[36mCPU Model   \033[0m: %s\n", cpu_model_name);
     }
 
     {
-        kprintf("\033[36mMemory     \033[0m: %d MB\n",
+        kprintf("\033[36mMemory      \033[0m: %d MB\n",
                 pmm_get_total_memory());
     }
 
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
-        kprintf("\033[36mMonitor    \033[0m: %d x %d cm\n",
+        kprintf("\033[36mMonitor     \033[0m: %d x %d cm\n",
                 self_info.screen_hor_size, self_info.screen_ver_size);
     }
 
     if (self_info.actual_res_x > 0 && self_info.actual_res_y > 0) {
-        kprintf("\033[36mResolution \033[0m: %d x %d Pixels\n",
+        kprintf("\033[36mResolution  \033[0m: %d x %d Pixels\n",
                 self_info.actual_res_x, self_info.actual_res_y);
     }
 
@@ -160,7 +160,7 @@ _Noreturn void kshell(pid_t pid)
 
         if (pci_find_class(PCI_CLASS_DISPLAY, 0x00, &gpu)
             || pci_find_class(PCI_CLASS_DISPLAY, 0x80, &gpu)) {
-            kprintf("\033[36mGPU        \033[0m: %s\n",
+            kprintf("\033[36mVideo Card  \033[0m: %s\n",
                     pci_device_id_to_string(&gpu));
         }
     }
@@ -169,7 +169,7 @@ _Noreturn void kshell(pid_t pid)
         pci_device_t nic;
 
         if (pci_find_class(PCI_CLASS_NETWORK, 0x00, &nic)) {
-            kprintf("\033[36mNIC        \033[0m: %s\n",
+            kprintf("\033[36mNetwork Card\033[0m: %s\n",
                     pci_device_id_to_string(&nic));
         }
     }
