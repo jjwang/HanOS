@@ -427,6 +427,7 @@ addrspace_t *create_addrspace(void)
         as->PML4[i] = kaddrspace.PML4[i];
 
     as->initialized = true;
+    as->refs = 1;
     klogd("VMM: creating address space 0x%016lx finished\n", as);
 
     return as;

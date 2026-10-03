@@ -42,6 +42,7 @@ void sched_wait_child(time_t ms);
  * block. sched_wake_key() delivers to the armed process. */
 void sched_wait_key_begin(void *key);
 void sched_wait_key_commit(time_t ms);
+void sched_wait_key_commit_infinite(void);
 void sched_wait_key_cancel(void);
 void sched_wake_key(void *key);
 void sched_mark_fds_ready(pid_t pid);

@@ -370,7 +370,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
         klogi
             ("k_vm_map: pid %ld #%ld 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
              "pages, prot 0x%016lx, flags 0x%016lx\n", t->pid,
-             vec_length(&t->mmap_list), as, as->PML4, phys_ptr, ptr, np,
+             vec_length(&t->addrspace->mmap_list), as, as->PML4, phys_ptr, ptr, np,
              prot, flags);
     }
 
@@ -381,7 +381,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     m.np = NUM_PAGES(length);
     m.flags = pf;
 
-    vec_push_back(&t->mmap_list, m);
+    vec_push_back(&t->addrspace->mmap_list, m);
 
     return ptr;
 
@@ -611,14 +611,17 @@ int64_t k_write(int64_t fh, const void *buf, uint64_t count)
     return vfs_write(fh, count, buf);
 }
 
-void k_set_fs_base(uint64_t val)
+int64_t k_set_fs_base(uint64_t val)
 {
     process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
     klogd("k_set_fs_base: process #%ld set to 0x%016lx\n",
           t == NULL ? 0 : t->pid, val);
     write_msr(MSR_FS_BASE, val);
     if (t != NULL)
         t->fs_base = val;
+    return 0;
 }
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
@@ -987,6 +990,48 @@ int64_t k_pipe(int32_t * fh, uint32_t flags)
     return -1;
 }
 
+int64_t k_clone(uint64_t flags, uint64_t stack, int32_t * ptid,
+                int32_t * ctid, uint64_t tls)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+
+    if (t == NULL || t->mode != PROC_USER_MODE || t->addrspace == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    /* Only thread creation shares the address space. */
+    if (!(flags & CLONE_VM)) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL || cpu->syscall_frame == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    process_t *tc = process_clone(t, flags, stack, tls, ctid,
+                                  cpu->syscall_frame);
+    if (tc == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    pid_t tid = tc->pid;
+
+    if ((flags & CLONE_PARENT_SETTID) && ptid != NULL)
+        copy_to_user(ptid, &tid, sizeof(tid));
+    if ((flags & CLONE_CHILD_SETTID) && ctid != NULL)
+        copy_to_user(ctid, &tid, sizeof(tid));
+
+    sched_add(tc);
+    return tid;
+}
+
 int64_t k_fork()
 {
     process_t *t = sched_get_current_process();
@@ -1111,12 +1156,24 @@ void k_exit(int64_t status)
 {
     process_t *t = sched_get_current_process();
     if (t != NULL) {
-        klogi("k_exit: process %ld exit with status %ld\n", t->pid, status);
-        /* The process server owns the fd table and closes the server side of
-         * every descriptor the process held. */
-        process_fd_exit((int32_t) t->pid);
-        /* Record the exit status so the parent's wait can collect it. */
-        process_exit_notify(status);
+        if (t->is_thread) {
+            klogi("k_exit: thread %ld in group %ld exit\n", t->pid, t->tgid);
+            /* CLONE_CHILD_CLEARTID: release the joiner. */
+            if (t->clear_child_tid != NULL) {
+                int32_t zero = 0;
+
+                copy_to_user(t->clear_child_tid, &zero, sizeof(zero));
+                sched_wake_key((void *) t->clear_child_tid);
+            }
+        } else {
+            klogi("k_exit: process %ld exit with status %ld\n", t->pid,
+                  status);
+            /* The process server owns the fd table and closes the server side
+             * of every descriptor the process held. */
+            process_fd_exit((int32_t) t->pid);
+            /* Record the exit status so the parent's wait can collect it. */
+            process_exit_notify(status);
+        }
     }
 
     /* Exit from scheduler */
@@ -1427,36 +1484,63 @@ int64_t k_dup3(int64_t fh, int64_t newfh, int64_t flags)
 int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
 {
     int64_t val = 0;
-    vfs_timespec_t ktv = { 0 };
+    int64_t millis = 0;
+
+    cpu_set_errno(0);
 
     if (ptr == NULL || copy_from_user(&val, ptr, sizeof(val)) != 0) {
         cpu_set_errno(EFAULT);
         return -1;
     }
 
-    if (tv != NULL
-        && copy_from_user(&ktv, tv, sizeof(ktv)) != 0) {
-        cpu_set_errno(EFAULT);
+    if (val != expected) {
+        cpu_set_errno(EAGAIN);
         return -1;
     }
 
-    klogi("k_futex_wait: time spec (%ld, %ld) with ptr 0x%016lx, val %ld and "
-          "expected %ld\n", ktv.tv_sec, ktv.tv_nsec, ptr, val, expected);
+    if (tv != NULL) {
+        vfs_timespec_t ktv = { 0 };
+
+        if (copy_from_user(&ktv, tv, sizeof(ktv)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        millis = ktv.tv_sec * 1000 + ktv.tv_nsec / 1000000;
+    }
+
+    sched_wait_key_begin(ptr);
+
+    /* Re-check after arming: a wake between the first check and the arm must
+     * not be lost. */
+    if (copy_from_user(&val, ptr, sizeof(val)) != 0) {
+        sched_wait_key_cancel();
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (val != expected) {
+        sched_wait_key_cancel();
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    if (tv == NULL)
+        sched_wait_key_commit_infinite();
+    else
+        sched_wait_key_commit(millis);
 
     return 0;
 }
 
 int64_t k_futex_wake(int64_t * ptr)
 {
-    int64_t val = 0;
+    cpu_set_errno(0);
 
-    if (ptr == NULL || copy_from_user(&val, ptr, sizeof(val)) != 0) {
+    if (ptr == NULL) {
         cpu_set_errno(EFAULT);
         return -1;
     }
 
-    klogi("k_futex_wake: ptr 0x%016lx and val %ld\n", ptr, val);
-
+    sched_wake_key(ptr);
     return 0;
 }
 
@@ -2007,7 +2091,7 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
             .np = 1,
             .flags = pf,
         };
-        vec_push_back(&t->mmap_list, mm);
+        vec_push_back(&t->addrspace->mmap_list, mm);
     }
 
     return 0;
@@ -2197,6 +2281,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_RECVFROM] = (syscall_ptr_t) k_recvfrom,
     [SYSCALL_BIND] = (syscall_ptr_t) k_bind,
     [SYSCALL_LISTEN] = (syscall_ptr_t) k_listen,
+    [SYSCALL_CLONE] = (syscall_ptr_t) k_clone,
     [SYSCALL_FORK] = (syscall_ptr_t) k_fork,
     [SYSCALL_EXECVE] = (syscall_ptr_t) k_execve,
     [SYSCALL_EXIT] = (syscall_ptr_t) k_exit,

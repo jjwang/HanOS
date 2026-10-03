@@ -93,7 +93,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(elf_buff);
     m.np = NUM_PAGES(elf_len);
 
-    vec_push_back(&process->mmap_list, m);
+    vec_push_back(&process->addrspace->mmap_list, m);
 
     elf_hdr_t hdr = { 0 };
     memcpy(&hdr, elf_buff, sizeof(elf_hdr_t));
@@ -132,7 +132,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(phdr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(elf_phdr_t));
 
-    vec_push_back(&process->mmap_list, m);
+    vec_push_back(&process->addrspace->mmap_list, m);
 
     phaddr =
         (uint64_t *) kmalloc_chunk(hdr.phnum * sizeof(uint64_t), __func__,
@@ -145,7 +145,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(phaddr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(uint64_t));
 
-    vec_push_back(&process->mmap_list, m);
+    vec_push_back(&process->addrspace->mmap_list, m);
 
     for (uint64_t i = 0; i < hdr.phnum; i++) {
         phaddr[i] = (uint64_t) NULL;
@@ -248,7 +248,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
         m1.np = page_count;
         m1.flags = pf;
 
-        vec_push_back(&process->mmap_list, m1);
+        vec_push_back(&process->addrspace->mmap_list, m1);
 
         memcpy((void *) PHYS_TO_VIRT(addr + misalign),
                elf_buff + phdr[i].offset, phdr[i].filesz);
@@ -271,7 +271,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.paddr = VIRT_TO_PHYS(shdr);
     m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
 
-    vec_push_back(&process->mmap_list, m);
+    vec_push_back(&process->addrspace->mmap_list, m);
 
     aux->shdr = (uint64_t) shdr;
     memcpy(shdr, elf_buff + hdr.shoff, hdr.shnum * sizeof(elf_shdr_t));

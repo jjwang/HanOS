@@ -26,6 +26,7 @@ syscall_handler:
     mov rbx, [rax * 8 + syscall_funcs]
     test rbx, rbx
     jz .enosys
+    mov [gs:8], rsp         ; expose the saved register frame to the handler
     call rbx
     jmp .dispatched
 .enosys:

@@ -74,11 +74,12 @@ int main(void)
     void *rv = NULL;
 
     errno = 0;
-    if (pthread_create(&th, NULL, thread_fn, NULL) == 0) {
+    int rc = pthread_create(&th, NULL, thread_fn, NULL);
+    if (rc == 0) {
         pthread_join(th, &rv);
         printf("pthread rv=%ld\n", (long) rv);
     } else {
-        printf("pthread_create FAIL errno=%d\n", errno);
+        printf("pthread_create FAIL rc=%d\n", rc);
     }
 
     printf("mustest: done\n");

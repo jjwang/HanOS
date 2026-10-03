@@ -505,6 +505,36 @@ static bool sched_wake_one(process_t *t, void *key)
     return false;
 }
 
+/* Block the current process on the armed key with no timeout. */
+void sched_wait_key_commit_infinite(void)
+{
+    cpu_t *cpu = smp_get_current_cpu(false);
+    if (cpu == NULL)
+        return;
+
+    uint16_t cpu_id = cpu->cpu_id;
+    spinlock_acquire(&run_queue_lock[cpu_id]);
+
+    process_t *curr = running_process[cpu_id];
+    if (curr == NULL) {
+        spinlock_release(&run_queue_lock[cpu_id]);
+        return;
+    }
+
+    if (curr->wakeup_pending) {
+        curr->wakeup_pending = false;
+        spinlock_release(&run_queue_lock[cpu_id]);
+        return;
+    }
+
+    curr->wakeup_time = 0;
+    curr->status = PROC_SLEEPING;
+
+    spinlock_release(&run_queue_lock[cpu_id]);
+
+    force_context_switch();
+}
+
 /* Wake every process sleeping on the given key, on any core. */
 void sched_wake_key(void *key)
 {

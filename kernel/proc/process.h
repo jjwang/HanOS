@@ -229,6 +229,9 @@ typedef struct process {
     /* Identity and scheduling state. */
     pid_t pid;
     pid_t ppid;
+    pid_t tgid;                 /* thread group id; equals pid for a leader */
+    bool is_thread;
+    int32_t *clear_child_tid;   /* CLONE_CHILD_CLEARTID target */
     pid_t fork_retval;          /* set by do_context_switch for fork */
     process_priority_t priority;
     uint64_t last_tick;
@@ -263,8 +266,23 @@ typedef struct process {
     signal_state_t signals;
 } process_t;
 
+/* clone() flags (Linux values). */
+#define CLONE_VM             0x00000100
+#define CLONE_FS             0x00000200
+#define CLONE_FILES          0x00000400
+#define CLONE_SIGHAND        0x00000800
+#define CLONE_THREAD         0x00010000
+#define CLONE_SETTLS         0x00080000
+#define CLONE_PARENT_SETTID  0x00100000
+#define CLONE_CHILD_CLEARTID 0x00200000
+#define CLONE_CHILD_SETTID   0x01000000
+
 /* Look a process up in the global process table by pid, or NULL if not found. */
 process_t *process_lookup(pid_t pid);
+
+/* Create a thread sharing tp's address space. frame is tp's syscall frame. */
+process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
+                         uint64_t tls, int32_t * ctid, void *frame);
 
 process_t *process_make(const char *name, void (*entry)(pid_t),
                   process_priority_t priority, process_mode_t mode,

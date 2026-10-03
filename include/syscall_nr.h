@@ -34,6 +34,7 @@
 #define SYSCALL_RECVFROM        45
 #define SYSCALL_BIND            49
 #define SYSCALL_LISTEN          50
+#define SYSCALL_CLONE           56
 #define SYSCALL_FORK            57
 #define SYSCALL_EXECVE          59
 #define SYSCALL_EXIT            60

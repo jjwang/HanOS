@@ -103,6 +103,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     memset(nproc, 0, sizeof(process_t));
 
     nproc->pid = new_pid;
+    nproc->tgid = new_pid;
     nproc->forked = false;
 
     process_regs_t *nproc_regs = NULL;
@@ -148,7 +149,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         m.np = NUM_PAGES(STACK_SIZE);
         m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
 
-        vec_push_back(&nproc->mmap_list, m);
+        vec_push_back(&as->mmap_list, m);
 
         nproc_regs = (process_regs_t *)
             PHYS_TO_VIRT((uint64_t) nproc->ustack_top
@@ -229,7 +230,6 @@ process_t *process_fork(process_t * tp)
 
     memcpy(tc, tp, sizeof(process_t));
 
-    memset(&tc->mmap_list, 0, sizeof(tc->mmap_list));
     handle_table_init(&tc->handles);
 
     pid_t new_pid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
@@ -237,13 +237,13 @@ process_t *process_fork(process_t * tp)
     tc->forked = true;
     tc->addrspace = create_addrspace();
 
-    uint64_t len = vec_length(&(tp->mmap_list));
+    uint64_t len = vec_length(&(tp->addrspace->mmap_list));
     klogi("process_fork: totally %ld memory blocks (parent #%ld, child #%ld)\n",
           len, tp->pid, new_pid);
 
     uint64_t i;
     for (i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&(tp->mmap_list), i);
+        mem_map_t m = vec_at(&(tp->addrspace->mmap_list), i);
         uint64_t ptr =
             VIRT_TO_PHYS(kmalloc_chunk
                          (m.np * PAGE_SIZE, __func__, __LINE__));
@@ -262,11 +262,12 @@ process_t *process_fork(process_t * tp)
         vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
 
         m.paddr = ptr;
-        vec_push_back(&tc->mmap_list, m);
+        vec_push_back(&tc->addrspace->mmap_list, m);
     }
 
     tc->pid = new_pid;
     tc->ppid = tp->pid;
+    tc->tgid = new_pid;
     tc->status = PROC_READY;
     process_table_add(tc);
 
@@ -306,6 +307,67 @@ process_t *process_fork(process_t * tp)
     return tc;
 }
 
+/* Create a thread that shares tp's address space. frame points at tp's saved
+ * syscall register frame (rax first). */
+process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
+                         uint64_t tls, int32_t * ctid, void *frame)
+{
+    process_t *tc = (process_t *) kmalloc(sizeof(process_t));
+    if (tc == NULL)
+        return NULL;
+
+    memcpy(tc, tp, sizeof(process_t));
+
+    pid_t tid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
+    if (tid >= PID_MAX) {
+        kmfree(tc);
+        return NULL;
+    }
+
+    tc->pid = tid;
+    tc->ppid = tp->pid;
+    tc->tgid = tp->tgid;
+    tc->is_thread = true;
+    tc->forked = false;
+    tc->status = PROC_READY;
+    tc->fds_ready = true;
+
+    /* Share the address space. */
+    __atomic_fetch_add(&tp->addrspace->refs, 1, __ATOMIC_ACQ_REL);
+    tc->addrspace = tp->addrspace;
+
+    /* A thread gets fresh capability handles and no bootinfo. */
+    handle_table_init(&tc->handles);
+    tc->bootinfo = NULL;
+
+    tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+    tc->kstack_top = tc->kstack_limit + STACK_SIZE;
+
+    /* Build the child's user-mode return frame on its kernel stack. Layout
+     * matches pop_all + iretq: rax..r15, rip, cs, rflags, rsp, ss. */
+    uint64_t *f = (uint64_t *) ((uint64_t) tc->kstack_top - 20 * 8);
+    uint64_t *p = (uint64_t *) frame;
+    uint64_t i;
+
+    for (i = 0; i < 15; i++)
+        f[i] = p[i];
+    f[0] = 0;                   /* child returns 0 */
+    f[15] = p[15];              /* resume after the syscall */
+    f[16] = DEFAULT_UMODE_CODE;
+    f[17] = p[17];
+    f[18] = stack;
+    f[19] = DEFAULT_UMODE_DATA;
+    tc->context = f;
+
+    tc->fs_base = (flags & CLONE_SETTLS) ? tls : tp->fs_base;
+    tc->clear_child_tid = (flags & CLONE_CHILD_CLEARTID) ? ctid : NULL;
+
+    process_table_add(tc);
+    klogi("PROC: clone thread pid %ld in group %ld\n", tc->pid, tc->tgid);
+
+    return tc;
+}
+
 void process_free(process_t * t)
 {
     if (t->mode != PROC_USER_MODE) {
@@ -314,33 +376,42 @@ void process_free(process_t * t)
 
     process_table_remove(t);
 
-    uint64_t mmap_num = vec_length(&t->mmap_list);
-    for (uint64_t i = 0; i < mmap_num; i++) {
-        mem_map_t m = vec_at(&t->mmap_list, i);
-        vmm_unmap(t->addrspace, m.vaddr, m.np);
-        kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
-    }
-    vec_erase_all(&t->mmap_list);
-
     kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
 
-    uint64_t mem_num = vec_length(&t->addrspace->mem_list);
-    for (uint64_t i = 0; i < mem_num; i++) {
-        /*
-         * Maybe it was already freed in unmap(), but it is also
-         * harmless for calling pmm_free() in which it will check
-         * if the referenced physical page is valid and then
-         * do free. VMM_UNMAP() invokes pmm_free() for us, but it
-         * will not free the records represented by uint64_t type
-         * in mem_list.
-         */
-        uint64_t m = vec_at(&t->addrspace->mem_list, i);
-        pmm_free(m, 8, __func__, __LINE__);
-    }
-    vec_erase_all(&t->addrspace->mem_list);
+    /* Threads share the address space. Free it and its mappings only after the
+     * last thread leaves. */
+    if (t->addrspace != NULL
+        && __atomic_fetch_sub(&t->addrspace->refs, 1, __ATOMIC_ACQ_REL) == 1) {
+        uint64_t mmap_num = vec_length(&t->addrspace->mmap_list);
 
-    kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
-    kmfree((void *) t->addrspace);
+        for (uint64_t i = 0; i < mmap_num; i++) {
+            mem_map_t m = vec_at(&t->addrspace->mmap_list, i);
+
+            vmm_unmap(t->addrspace, m.vaddr, m.np);
+            kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
+        }
+        vec_erase_all(&t->addrspace->mmap_list);
+
+        uint64_t mem_num = vec_length(&t->addrspace->mem_list);
+
+        for (uint64_t i = 0; i < mem_num; i++) {
+            /*
+             * Maybe it was already freed in unmap(), but it is also
+             * harmless for calling pmm_free() in which it will check
+             * if the referenced physical page is valid and then
+             * do free. VMM_UNMAP() invokes pmm_free() for us, but it
+             * will not free the records represented by uint64_t type
+             * in mem_list.
+             */
+            uint64_t m = vec_at(&t->addrspace->mem_list, i);
+
+            pmm_free(m, 8, __func__, __LINE__);
+        }
+        vec_erase_all(&t->addrspace->mem_list);
+
+        kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
+        kmfree((void *) t->addrspace);
+    }
 
     handle_table_destroy(&t->handles);
 

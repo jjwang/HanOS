@@ -25,6 +25,7 @@
 #define H_SET_FS     0x401
 #define H_IOCTL      16
 #define H_GETPID     39
+#define H_CLONE      56
 #define H_FORK       57
 #define H_EXECVE     59
 #define H_FACCESSAT  269
@@ -436,10 +437,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
             return r < 0 ? r : a1;
         }
     case L_clone:
-        /* Threads are not supported; a fork-style clone maps to FORK. */
-        if (a1 & L_CLONE_VM)
-            return -ENOSYS_NUM;
-        return __hanos_raw(H_FORK, 0, 0, 0, 0, 0, 0);
+        return __hanos_raw(H_CLONE, a1, a2, a3, a4, a5, 0);
     case L_fork:
         return __hanos_raw(H_FORK, 0, 0, 0, 0, 0, 0);
     case L_execve:
