@@ -158,6 +158,12 @@ void apic_init()
 
     apic_enable();
 
+    /* Enable the local APIC turned LINT0 into a gate for the legacy 8259
+     * lines. Route LINT0 as ExtINT and LINT1 as NMI, or the PIC lines
+     * (keyboard, mouse, serial) stop reaching the CPU. */
+    apic_write_reg(APIC_REG_LVT_LINT0, APIC_LVT_EXTINT);
+    apic_write_reg(APIC_REG_LVT_LINT1, APIC_LVT_NMI);
+
     klogi("APIC version %08lx initialization finished\n",
           apic_read_reg(APIC_REG_VERSION));
 }

@@ -25,9 +25,16 @@
 #define APIC_REG_EOI            0xB0
 #define APIC_REG_ICR_LOW        0x300
 #define APIC_REG_ICR_HIGH       0x310
+#define APIC_REG_LVT_LINT0      0x350
+#define APIC_REG_LVT_LINT1      0x360
 
 #define APIC_SPURIOUS_VECTOR_NUM 0xFF
 #define APIC_FLAG_ENABLE        (1 << 8)
+
+/* LVT LINT1 is NMI; LINT0 is ExtINT so the legacy 8259 lines still reach the
+ * CPU once the local APIC is enabled. */
+#define APIC_LVT_NMI            0x00000400
+#define APIC_LVT_EXTINT         0x00000700
 
 #define APIC_IPI_TYPE_INIT      0b101
 #define APIC_IPI_TYPE_STARTUP   0b110

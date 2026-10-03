@@ -104,6 +104,23 @@ static void mouse_init(void)
     mouse_read();
 }
 
+/* Tell the keyboard to start scanning and drain its ACK. The firmware often
+ * leaves scanning off, so the controller delivers no scancode until this. */
+static void keyboard_init(void)
+{
+    mouse_wait(1);
+    outb(PORT_DATA, 0xF4);      /* enable scanning */
+
+    for (uint32_t t = 0; t < 100000; t++) {
+        uint8_t s = inb(PORT_CMD);
+
+        if (s & 0x01) {
+            inb(PORT_DATA);     /* ACK (0xFA) */
+            break;
+        }
+    }
+}
+
 static void send_key(uint64_t key_ep, uint64_t ch)
 {
     sys_ipc_msg_t m = { 0 };
@@ -247,6 +264,7 @@ int32_t main(void)
     }
 
     mouse_init();
+    keyboard_init();
 
     if (bi.io_port_count > 1)
         serial_base = (uint16_t) bi.io_ports[1].first;
