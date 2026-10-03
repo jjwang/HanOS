@@ -78,7 +78,7 @@ The router holds an endpoint pointer and an owner pid per service id. A server r
 
 A memory object (`memobj_t`) is a refcounted set of physical pages. The kernel creates one for a bulk transfer, moves its handle in `xfer[1]`, and the server maps it with `mem_map`, copies into it, and unmaps it. The kernel never passes a raw user pointer to a server.
 
-Inside the kernel, copies between the kernel and a process address space use the uaccess helpers. Each faulting load or store has an entry in an exception table (`__ex_table`). The page-fault handler looks up the faulting instruction and resumes at its fixup label, so a bad user pointer returns `-EFAULT` instead of killing the kernel.
+Inside the kernel, copies between the kernel and a process address space use the uaccess helpers. Each faulting load or store has an entry in an exception table (`__ex_table`). The page-fault handler looks up the faulting instruction and resumes at its fixup label, so a bad user pointer returns `-EFAULT` instead of killing the kernel. A fault that did not come from a uaccess fixup and reached user mode terminates the process group with the matching signal (SIGSEGV, SIGILL, SIGFPE, SIGBUS); the core keeps running. A kernel-mode fault without a fixup panics.
 
 ### 3.6 Scheduling
 
