@@ -189,6 +189,11 @@ vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func);
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out);
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
 int64_t vfs_unlink_path(const char *cwd, const char *path);
+int64_t vfs_mkdir_path(const char *cwd, const char *path);
+int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path);
+int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp);
+int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
+                          uint64_t outsz);
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc);
 
@@ -216,3 +221,7 @@ uint64_t vfs_tell(vfs_fd_t fd);
 int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence);
 int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff);
 int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff);
+
+/* Readiness of a pipe end: 1 when readable (data or EOF) and 1 when writable.
+ * Returns 0, or -1 on error. */
+int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable);

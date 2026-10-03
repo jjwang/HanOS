@@ -62,11 +62,14 @@ typedef struct {
 } vfs_ent_t;
 
 /**
- * @brief A file created at runtime with server-side storage
+ * @brief A file, directory or symlink created at runtime
  */
 typedef struct {
     bool used;
+    bool is_dir;
+    bool is_symlink;
     char *name;
+    char *target;               /* symlink target */
     char *data;
     uint64_t size;
     uint64_t cap;
@@ -333,14 +336,24 @@ static bool idx_is_dir(int32_t i)
     if (i == ROOT_INDEX)
         return true;
     if (idx_is_dyn(i))
-        return false;
+        return dyns[i - ent_count].is_dir;
     return ents[i].is_dir;
+}
+
+static bool idx_is_symlink(int32_t i)
+{
+    return idx_is_dyn(i) && dyns[i - ent_count].is_symlink;
 }
 
 static uint64_t idx_size(int32_t i)
 {
-    if (idx_is_dyn(i))
-        return dyns[i - ent_count].size;
+    if (idx_is_dyn(i)) {
+        vfs_dyn_t *d = &dyns[i - ent_count];
+
+        if (d->is_symlink)
+            return (d->target != NULL) ? strlen(d->target) : 0;
+        return d->size;
+    }
     return ents[i].size;
 }
 
@@ -374,28 +387,72 @@ static int32_t resolve(const char *path)
     return -1;
 }
 
-/* Create a runtime file (path already normalized). Returns the index or -1. */
-static int32_t dyn_create(const char *path)
+/* Allocate a runtime entry named path (already normalized). Returns the index
+ * or -1. */
+static int32_t dyn_alloc(const char *path)
 {
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
         if (dyns[i].used)
             continue;
 
-        char *data = (char *) sys_malloc(VFS_DYN_CAP);
-        if (data == NULL)
-            return -1;
-
         memset(&dyns[i], 0, sizeof(dyns[i]));
         dyns[i].used = true;
-        dyns[i].data = data;
-        dyns[i].cap = VFS_DYN_CAP;
         dyns[i].name = strdup(path);
-        if (dyns[i].name == NULL)
+        if (dyns[i].name == NULL) {
+            dyns[i].used = false;
             return -1;
-
+        }
         return ent_count + i;
     }
     return -1;
+}
+
+/* Create a runtime file (path already normalized). Returns the index or -1. */
+static int32_t dyn_create(const char *path)
+{
+    int32_t idx = dyn_alloc(path);
+
+    if (idx < 0)
+        return -1;
+
+    vfs_dyn_t *d = &dyns[idx - ent_count];
+
+    d->data = (char *) sys_malloc(VFS_DYN_CAP);
+    if (d->data == NULL) {
+        free(d->name);
+        d->used = false;
+        return -1;
+    }
+    d->cap = VFS_DYN_CAP;
+    return idx;
+}
+
+static int32_t dyn_create_dir(const char *path)
+{
+    int32_t idx = dyn_alloc(path);
+
+    if (idx >= 0)
+        dyns[idx - ent_count].is_dir = true;
+    return idx;
+}
+
+static int32_t dyn_create_symlink(const char *path, const char *target)
+{
+    int32_t idx = dyn_alloc(path);
+
+    if (idx < 0)
+        return -1;
+
+    vfs_dyn_t *d = &dyns[idx - ent_count];
+
+    d->is_symlink = true;
+    d->target = strdup(target);
+    if (d->target == NULL) {
+        free(d->name);
+        d->used = false;
+        return -1;
+    }
+    return idx;
 }
 
 /* Fill a stat for a resolved index. */
@@ -409,6 +466,10 @@ static void fill_stat(int32_t e, void *out)
     if (idx_is_dir(e)) {
         st->st_mode = S_IFDIR | 0755;
         st->st_ino = (e == ROOT_INDEX) ? 1 : (uint64_t) e + 1;
+    } else if (idx_is_symlink(e)) {
+        st->st_mode = S_IFLNK | 0777;
+        st->st_ino = (uint64_t) e + 1;
+        st->st_size = (int64_t) idx_size(e);
     } else {
         st->st_mode = S_IFREG | 0644;
         st->st_ino = (uint64_t) e + 1;
@@ -446,6 +507,26 @@ static int32_t fd_alloc(void)
         }
     }
     return -1;
+}
+
+/* Read the next NUL-terminated string from buf at *pos. Advances *pos. The
+ * caller frees the result. */
+static char *buf_read_str(const uint8_t *buf, uint64_t buflen, uint64_t * pos)
+{
+    uint64_t start = *pos;
+    uint64_t i = start;
+
+    while (i < buflen && buf[i] != '\0')
+        i++;
+
+    char *out = malloc(i - start + 1);
+
+    if (out == NULL)
+        return NULL;
+    memcpy(out, buf + start, i - start);
+    out[i - start] = '\0';
+    *pos = (i < buflen) ? i + 1 : i;
+    return out;
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
@@ -902,6 +983,245 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         free(path);
         free(abs);
         free(rel);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_MKDIRAT) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *path = NULL, *abs = NULL, *rel = NULL, *norm = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;    /* -EIO */
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+            rel = (abs != NULL) ? fat_rel(abs) : NULL;
+
+            if (rel != NULL)
+                rep->words[0] = VFS_REDIRECT_FAT;
+            else if (abs == NULL)
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            else if (resolve(abs) != -1)
+                rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
+            else {
+                norm = norm_dir(abs);
+                if (norm == NULL || norm[0] == '\0')
+                    rep->words[0] = (uint64_t) (int64_t) -22;
+                else if (dyn_create_dir(norm) < 0)
+                    rep->words[0] = (uint64_t) (int64_t) -28;       /* -ENOSPC */
+                else
+                    rep->words[0] = 0;
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(path);
+        free(abs);
+        free(rel);
+        free(norm);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_SYMLINKAT) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *path = NULL, *target = NULL;
+        char *abs = NULL, *rel = NULL, *norm = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        target = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && path != NULL && target != NULL) {
+            abs = join_path(cwd, path);
+            rel = (abs != NULL) ? fat_rel(abs) : NULL;
+
+            if (rel != NULL)
+                rep->words[0] = VFS_REDIRECT_FAT;
+            else if (abs == NULL)
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            else if (resolve(abs) != -1)
+                rep->words[0] = (uint64_t) (int64_t) -17;
+            else {
+                norm = norm_dir(abs);
+                if (norm == NULL || norm[0] == '\0')
+                    rep->words[0] = (uint64_t) (int64_t) -22;
+                else if (dyn_create_symlink(norm, target) < 0)
+                    rep->words[0] = (uint64_t) (int64_t) -28;
+                else
+                    rep->words[0] = 0;
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(path);
+        free(target);
+        free(abs);
+        free(rel);
+        free(norm);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_RENAMEAT) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *oldp = NULL, *newp = NULL;
+        char *oldabs = NULL, *newabs = NULL, *norm = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        oldp = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        newp = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && oldp != NULL && newp != NULL) {
+            oldabs = join_path(cwd, oldp);
+            newabs = join_path(cwd, newp);
+
+            int32_t e = (oldabs != NULL) ? resolve(oldabs) : -1;
+
+            if ((oldabs != NULL && fat_rel(oldabs) != NULL)
+                || (newabs != NULL && fat_rel(newabs) != NULL))
+                rep->words[0] = VFS_REDIRECT_FAT;
+            else if (oldabs == NULL || newabs == NULL)
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            else if (e == -1)
+                rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+            else if (!idx_is_dyn(e))
+                rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
+            else if (resolve(newabs) != -1)
+                rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
+            else {
+                norm = norm_dir(newabs);
+                if (norm == NULL || norm[0] == '\0') {
+                    rep->words[0] = (uint64_t) (int64_t) -22;
+                } else {
+                    vfs_dyn_t *d = &dyns[e - ent_count];
+                    uint64_t oldlen = strlen(d->name);
+
+                    /* Update children of a renamed directory. */
+                    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+                        if (!dyns[i].used || &dyns[i] == d)
+                            continue;
+                        if (strncmp(dyns[i].name, d->name, oldlen) == 0
+                            && dyns[i].name[oldlen] == '/') {
+                            char *suffix = strdup(dyns[i].name + oldlen);
+                            char *repl = NULL;
+
+                            if (suffix != NULL) {
+                                uint64_t rl = strlen(norm) + strlen(suffix) + 1;
+
+                                repl = malloc(rl);
+                                if (repl != NULL) {
+                                    strcpy(repl, norm);
+                                    strcat(repl, suffix);
+                                }
+                                free(suffix);
+                            }
+                            if (repl != NULL) {
+                                free(dyns[i].name);
+                                dyns[i].name = repl;
+                            }
+                        }
+                    }
+
+                    free(d->name);
+                    d->name = strdup(norm);
+                    rep->words[0] = (d->name != NULL) ? 0
+                        : (uint64_t) (int64_t) -12;
+                }
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(oldp);
+        free(newp);
+        free(oldabs);
+        free(newabs);
+        free(norm);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_READLINK) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *path = NULL, *abs = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+
+            int32_t e = (abs != NULL) ? resolve(abs) : -1;
+
+            if (e == -1)
+                rep->words[0] = (uint64_t) (int64_t) -2;
+            else if (!idx_is_symlink(e))
+                rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            else {
+                const char *t = dyns[e - ent_count].target;
+                uint64_t n = strlen(t);
+
+                if (n > VFS_IO_DATA_OFF - 1)
+                    n = VFS_IO_DATA_OFF - 1;
+                memcpy(buf + VFS_IO_DATA_OFF, t, n);
+                buf[VFS_IO_DATA_OFF + n] = '\0';
+                rep->words[0] = 0;
+                rep->words[1] = n;
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(path);
+        free(abs);
         sys_mem_unmap(memh, VFS_BUF_VADDR);
         sys_handle_close(memh);
         return;

@@ -47,6 +47,9 @@ void sched_wait_key_cancel(void);
 void sched_wake_key(void *key);
 int64_t sched_wake_key_n(void *key, int64_t n);
 void sched_kill_group(pid_t tgid, pid_t except);
+/* Make a sleeping process runnable, on whichever core holds it. Used to wake
+ * a process when a signal is queued on it. */
+void sched_wake_process(process_t * t);
 void sched_mark_fds_ready(pid_t pid);
 void sched_wait_fds_ready(process_t *t);
 process_t *sched_get_current_process(void);

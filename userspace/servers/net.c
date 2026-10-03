@@ -1072,6 +1072,25 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == NET_POLL) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+
+        bool readable = (s->count > 0)
+            || (s->accept_pending > 0)
+            || (s->stream && s->got_fin);
+        bool writable = s->stream ? (s->tstate == 2) : true;
+
+        rep->words[0] = 0;
+        rep->words[1] = readable ? 1 : 0;
+        rep->words[2] = writable ? 1 : 0;
+        return;
+    }
+
     if (m->tag == NET_SENDTO) {
         net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t ip = (uint32_t) m->words[1];

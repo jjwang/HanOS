@@ -54,6 +54,10 @@
 #define H_SETSOCKOPT 54
 #define H_GETSOCKOPT 55
 #define H_UNLINK     87
+#define H_MKDIRAT    258
+#define H_SYMLINKAT  266
+#define H_RENAMEAT   264
+#define H_READLINK   89
 #define H_PRLIMIT64  302
 #define H_WAITPID    61
 #define H_EXIT       60
@@ -68,6 +72,15 @@
 #define H_GETENTROPY 318
 #define H_SIGPROCMASK 14
 #define H_SIGACTION  13
+#define H_KILL       62
+#define H_TKILL      200
+#define H_TGKILL     234
+#define H_RT_SIGRETURN 15
+#define H_EVENTFD2   290
+#define H_EPOLL_CREATE1 291
+#define H_EPOLL_CTL  233
+#define H_EPOLL_WAIT 232
+#define H_EPOLL_PWAIT 281
 
 /* Linux syscall numbers musl uses. */
 #define L_read        0
@@ -88,6 +101,10 @@
 #define L_brk         12
 #define L_rt_sigaction 13
 #define L_rt_sigprocmask 14
+#define L_rt_sigreturn 15
+#define L_kill        62
+#define L_tkill       200
+#define L_tgkill      234
 #define L_ioctl       16
 #define L_fsync       74
 #define L_fdatasync   75
@@ -119,6 +136,21 @@
 #define L_openat      257
 #define L_newfstatat  262
 #define L_unlinkat    263
+#define L_mkdir       83
+#define L_mkdirat     258
+#define L_symlink     88
+#define L_symlinkat   266
+#define L_rename      82
+#define L_renameat    264
+#define L_readlink    89
+#define L_epoll_ctl   233
+#define L_epoll_wait  232
+#define L_epoll_pwait 281
+#define L_epoll_create 213
+#define L_epoll_create1 291
+#define L_eventfd     284
+#define L_eventfd2    290
+#define L_readlinkat  267
 #define L_faccessat   269
 #define L_pselect6    270
 #define L_prlimit64   302
@@ -418,6 +450,36 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_NANOSLEEP, a1, a2, 0, 0, 0, 0);
     case L_unlinkat:
         return __hanos_raw(H_UNLINK, a2, 0, 0, 0, 0, 0);
+    case L_mkdir:
+        return __hanos_raw(H_MKDIRAT, -100, a1, a2, 0, 0, 0);
+    case L_mkdirat:
+        return __hanos_raw(H_MKDIRAT, a1, a2, a3, 0, 0, 0);
+    case L_symlink:
+        return __hanos_raw(H_SYMLINKAT, a1, -100, a2, 0, 0, 0);
+    case L_symlinkat:
+        return __hanos_raw(H_SYMLINKAT, a1, a2, a3, 0, 0, 0);
+    case L_rename:
+        return __hanos_raw(H_RENAMEAT, -100, a1, -100, a2, 0, 0);
+    case L_renameat:
+        return __hanos_raw(H_RENAMEAT, a1, a2, a3, a4, 0, 0);
+    case L_readlink:
+        return __hanos_raw(H_READLINK, -100, a1, a2, a3, 0, 0);
+    case L_readlinkat:
+        return __hanos_raw(H_READLINK, a1, a2, a3, a4, 0, 0);
+    case L_eventfd:
+        return __hanos_raw(H_EVENTFD2, a1, 0, 0, 0, 0, 0);
+    case L_eventfd2:
+        return __hanos_raw(H_EVENTFD2, a1, a2, 0, 0, 0, 0);
+    case L_epoll_create:
+        return __hanos_raw(H_EPOLL_CREATE1, 0, 0, 0, 0, 0, 0);
+    case L_epoll_create1:
+        return __hanos_raw(H_EPOLL_CREATE1, a1, 0, 0, 0, 0, 0);
+    case L_epoll_ctl:
+        return __hanos_raw(H_EPOLL_CTL, a1, a2, a3, a4, 0, 0);
+    case L_epoll_wait:
+        return __hanos_raw(H_EPOLL_WAIT, a1, a2, a3, a4, 0, 0);
+    case L_epoll_pwait:
+        return __hanos_raw(H_EPOLL_PWAIT, a1, a2, a3, a4, a5, 0);
     case L_prlimit64:
         return __hanos_raw(H_PRLIMIT64, a1, a2, a3, a4, 0, 0);
     case L_lseek:
@@ -556,6 +618,13 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_SIGPROCMASK, a1, a2, a3, 0, 0, 0);
     case L_rt_sigaction:
         return __hanos_raw(H_SIGACTION, a1, a2, a3, 0, 0, 0);
+    case L_kill:
+    case L_tkill:
+    case L_tgkill:
+        /* HanOS numbers match the Linux numbers for these calls. */
+        return __hanos_raw(n, a1, a2, a3, a4, a5, a6);
+    case L_rt_sigreturn:
+        return __hanos_raw(H_RT_SIGRETURN, 0, 0, 0, 0, 0, 0);
     case L_arch_prctl:
         if (a1 == ARCH_SET_FS)
             return __hanos_raw(H_SET_FS, a2, 0, 0, 0, 0, 0);

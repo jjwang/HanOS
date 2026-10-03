@@ -208,6 +208,7 @@ typedef struct {
     spinlock_t lock;
     sigaction_t actions[NSIG];
     sigset_t mask;
+    sigset_t pending;
 } signal_state_t;
 
 /**

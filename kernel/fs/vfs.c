@@ -207,7 +207,12 @@ static int64_t vfs_server_close(int32_t svc, int64_t sfd)
     ipc_msg_t rep;
 
     memset(&req, 0, sizeof(req));
-    req.tag = (svc == SVC_PIPE) ? PIPE_CLOSE : VFS_CLOSE;
+    if (svc == SVC_PIPE)
+        req.tag = PIPE_CLOSE;
+    else if (svc == SVC_NET)
+        req.tag = NET_CLOSE;
+    else
+        req.tag = VFS_CLOSE;
     req.words[0] = (uint64_t) sfd;
 
     if (!router_forward(svc, &req, &rep))
@@ -459,6 +464,113 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
     return rc;
 }
 
+/* Pack "cwd\0a\0b\0" (b may be NULL) for the path calls. */
+static void memobj_pack_paths(memobj_t * mo, const char *cwd, const char *a,
+                              const char *b)
+{
+    const char *strs[3] = { cwd, a, b };
+    uint64_t off = 0;
+
+    for (int32_t i = 0; i < 3; i++) {
+        uint64_t n;
+
+        if (strs[i] == NULL)
+            continue;
+        n = strlen(strs[i]) + 1;
+        if (off + n > VFS_IO_DATA_OFF)
+            break;
+        memobj_copy_in(mo, strs[i], n, off);
+        off += n;
+    }
+}
+
+/* Forward a path-shaped request (mkdir, symlink, rename). */
+static int64_t vfs_path_cmd(uint64_t tag, const char *cwd, const char *a,
+                            const char *b)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_paths(mo, cwd, a, b);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = tag;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_FAT)
+        rc = -30;               /* -EROFS */
+    memobj_unref(mo);
+    return rc;
+}
+
+int64_t vfs_mkdir_path(const char *cwd, const char *path)
+{
+    return vfs_path_cmd(VFS_MKDIRAT, cwd, path, NULL);
+}
+
+int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path)
+{
+    return vfs_path_cmd(VFS_SYMLINKAT, cwd, path, target);
+}
+
+int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp)
+{
+    return vfs_path_cmd(VFS_RENAMEAT, cwd, oldp, newp);
+}
+
+int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
+                          uint64_t outsz)
+{
+    handle_t mh;
+    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_READLINK;
+    req.words[0] = outsz;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+    uint64_t n = 0;
+
+    if (rc == 0) {
+        n = rep.words[1];
+        if (n > outsz)
+            n = outsz;
+        if (out != NULL)
+            memobj_copy_out(mo, out, n, VFS_IO_DATA_OFF);
+    }
+    memobj_unref(mo);
+    return (rc == 0) ? (int64_t) n : rc;
+}
+
 /* Open a path; fills *svc with the service that owns the returned fd. */
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc)
@@ -704,9 +816,27 @@ int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
     return vfs_server_write(desc->server_fd, len, buff);
 }
 
-int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
+int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable)
 {
-    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = PIPE_POLL;
+    req.words[0] = (uint64_t) sfd;
+
+    if (!router_forward(SVC_PIPE, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    if (readable != NULL)
+        *readable = (int32_t) rep.words[1];
+    if (writable != NULL)
+        *writable = (int32_t) rep.words[2];
+    return 0;
+}
+
+int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
+{    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
     if (!desc || !desc->server)
         return -1;
 

@@ -25,6 +25,7 @@
 #define SYSCALL_MUNMAP          11
 #define SYSCALL_RT_SIGACTION    13
 #define SYSCALL_RT_SIGPROCMASK  14
+#define SYSCALL_RT_SIGRETURN    15
 #define SYSCALL_IOCTL           16
 #define SYSCALL_SELECT          23
 #define SYSCALL_PIPE            22
@@ -48,6 +49,7 @@
 #define SYSCALL_EXECVE          59
 #define SYSCALL_EXIT            60
 #define SYSCALL_WAIT4           61
+#define SYSCALL_KILL            62
 #define SYSCALL_UNAME           63
 #define SYSCALL_FCNTL           72
 #define SYSCALL_FSYNC           74
@@ -58,18 +60,30 @@
 #define SYSCALL_READLINK        89
 #define SYSCALL_GETRUSAGE       98
 #define SYSCALL_GETPPID         110
+#define SYSCALL_TKILL           200
 #define SYSCALL_GETDENTS64      217
+#define SYSCALL_SET_TID_ADDRESS 218
 #define SYSCALL_CLOCK_GETTIME   228
 #define SYSCALL_CLOCK_NANOSLEEP 230
 #define SYSCALL_EXIT_GROUP      231
+#define SYSCALL_EPOLL_WAIT      232
+#define SYSCALL_EPOLL_CTL       233
+#define SYSCALL_TGKILL          234
 #define SYSCALL_OPENAT          257
 #define SYSCALL_MKDIRAT         258
 #define SYSCALL_NEWFSTATAT      262
+#define SYSCALL_UNLINKAT        263
+#define SYSCALL_RENAMEAT        264
+#define SYSCALL_SYMLINKAT       266
 #define SYSCALL_FACCESSAT       269
 #define SYSCALL_PSELECT6        270
+#define SYSCALL_EPOLL_PWAIT     281
+#define SYSCALL_EVENTFD2        290
+#define SYSCALL_EPOLL_CREATE1   291
 #define SYSCALL_DUP3            292
-#define SYSCALL_GETRANDOM       318
 #define SYSCALL_PRLIMIT64       302
+#define SYSCALL_RENAMEAT2       316
+#define SYSCALL_GETRANDOM       318
 
 /* HanOS microkernel calls. */
 #define SYSCALL_DEBUGLOG        0x400

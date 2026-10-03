@@ -57,6 +57,51 @@ int32_t k_getclock(void *_ignored, int64_t which, vfs_timespec_t * out);
 
 typedef int64_t(*syscall_ptr_t) (void);
 
+/* Kernel-managed descriptors: eventfd and epoll objects. */
+#define EFD_SEMAPHORE       1
+#define EFD_NONBLOCK        0x800
+#define EVENTFD_MAX         16
+
+typedef struct {
+    bool used;
+    uint64_t counter;
+    bool semaphore;
+} eventfd_obj_t;
+
+static eventfd_obj_t eventfds[EVENTFD_MAX];
+
+#define EPOLL_MAX           16
+#define EPOLL_FD_MAX        32
+
+typedef struct {
+    int32_t fd;
+    uint32_t events;
+    uint64_t data;
+} epoll_item_t;
+
+typedef struct {
+    bool used;
+    int32_t count;
+    epoll_item_t items[EPOLL_FD_MAX];
+} epoll_obj_t;
+
+static epoll_obj_t epolls[EPOLL_MAX];
+static uint32_t kobj_lock;
+
+static void kobj_lock_acquire(void)
+{
+    while (__atomic_exchange_n(&kobj_lock, 1, __ATOMIC_ACQUIRE))
+        ;
+}
+
+static void kobj_lock_release(void)
+{
+    __atomic_store_n(&kobj_lock, 0, __ATOMIC_RELEASE);
+}
+
+static int64_t eventfd_read(int64_t id, void *buf, uint64_t count);
+static int64_t eventfd_write(int64_t id, const void *buf, uint64_t count);
+
 static bool debug_info = false;
 
 /* Copy a user path into a fresh kernel buffer sized to the path. Returns NULL
@@ -262,6 +307,95 @@ int64_t k_sigaction(int64_t s, sigaction_t * new, sigaction_t * old)
     }
 
     return 0;
+}
+
+int64_t k_kill(int32_t pid, int32_t sig)
+{
+    process_t *t;
+
+    cpu_set_errno(0);
+
+    if (pid == 0)
+        t = sched_get_current_process();
+    else if (pid > 0)
+        t = process_lookup((pid_t) pid);
+    else {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (t == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
+    }
+    if (sig == 0)
+        return 0;
+    if (sig < 1 || sig >= NSIG) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    signal_raise(t, sig);
+    return 0;
+}
+
+int64_t k_tkill(int32_t tid, int32_t sig)
+{
+    return k_kill(tid, sig);
+}
+
+int64_t k_tgkill(int32_t tgid, int32_t tid, int32_t sig)
+{
+    (void) tgid;
+    return k_kill(tid, sig);
+}
+
+int64_t k_set_tid_address(int32_t * tidptr)
+{
+    process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
+    }
+
+    t->clear_child_tid = tidptr;
+    return (int64_t) t->pid;
+}
+
+int64_t k_sigreturn(void)
+{
+    process_t *t = sched_get_current_process();
+    cpu_t *cpu = smp_get_current_cpu(false);
+    int64_t ret;
+
+    cpu_set_errno(0);
+
+    if (t == NULL || cpu == NULL || cpu->syscall_frame == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (signal_restore(t, (syscall_regs_t *) cpu->syscall_frame, &ret) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    return ret;
+}
+
+/* Called from the syscall stub after the handler. Gives a queued signal the
+ * chance to rewrite the return frame before it is restored to user mode. */
+int64_t syscall_post(int64_t ret, void *frame)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL && frame != NULL)
+        signal_deliver(t, (syscall_regs_t *) frame, ret);
+
+    return ret;
 }
 
 int64_t k_runcmd(char *cmd)
@@ -513,6 +647,157 @@ int64_t k_unlink(char *path)
     return 0;
 }
 
+int64_t k_mkdirat(int32_t dirfd, const char *path, int32_t mode)
+{
+    process_t *t = sched_get_current_process();
+
+    (void) dirfd;
+    (void) mode;
+    cpu_set_errno(0);
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t r = vfs_mkdir_path(cwd, kpath);
+
+    kmfree(kpath);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_symlinkat(const char *target, int32_t newdirfd, const char *linkpath)
+{
+    process_t *t = sched_get_current_process();
+
+    (void) newdirfd;
+    cpu_set_errno(0);
+
+    char *ktarget = copy_user_path_alloc(target);
+    char *klink = copy_user_path_alloc(linkpath);
+
+    if (ktarget == NULL || klink == NULL) {
+        if (ktarget != NULL)
+            kmfree(ktarget);
+        if (klink != NULL)
+            kmfree(klink);
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t r = vfs_symlink_path(cwd, ktarget, klink);
+
+    kmfree(ktarget);
+    kmfree(klink);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_renameat(int32_t olddirfd, const char *oldpath, int32_t newdirfd,
+                   const char *newpath)
+{
+    process_t *t = sched_get_current_process();
+
+    (void) olddirfd;
+    (void) newdirfd;
+    cpu_set_errno(0);
+
+    char *kold = copy_user_path_alloc(oldpath);
+    char *knew = copy_user_path_alloc(newpath);
+
+    if (kold == NULL || knew == NULL) {
+        if (kold != NULL)
+            kmfree(kold);
+        if (knew != NULL)
+            kmfree(knew);
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t r = vfs_rename_path(cwd, kold, knew);
+
+    kmfree(kold);
+    kmfree(knew);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_readlink(int64_t dirfd, const char *path, void *buffer,
+                   uint64_t max_size)
+{
+    process_t *t = sched_get_current_process();
+
+    (void) dirfd;
+    cpu_set_errno(0);
+
+    if (buffer == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (max_size == 0)
+        return 0;
+    if (max_size > VFS_MAX_PATH_LEN)
+        max_size = VFS_MAX_PATH_LEN;
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    char *kbuf = kmalloc(max_size);
+
+    if (kbuf == NULL) {
+        kmfree(kpath);
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t r = vfs_readlink_path(cwd, kpath, kbuf, max_size);
+
+    kmfree(kpath);
+
+    if (r < 0) {
+        kmfree(kbuf);
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+
+    int64_t n = (int64_t) r;
+
+    if (n > (int64_t) max_size)
+        n = (int64_t) max_size;
+
+    if (n > 0 && copy_to_user(buffer, kbuf, (uint64_t) n) != 0) {
+        kmfree(kbuf);
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    kmfree(kbuf);
+    return n;
+}
+
 int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
 {
     cpu_set_errno(0);
@@ -561,6 +846,21 @@ int64_t k_close(int64_t fd)
         return -1;
     }
 
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0
+        && (svc == SVC_EVENT || svc == SVC_EPOLL)) {
+        process_fd_close((int32_t) fd, NULL, NULL, NULL);
+        kobj_lock_acquire();
+        if (svc == SVC_EVENT)
+            eventfds[sfd - 1].used = false;
+        else
+            epolls[sfd - 1].used = false;
+        kobj_lock_release();
+        return 0;
+    }
+
     return vfs_close(fd);
 }
 
@@ -591,6 +891,18 @@ int64_t k_read(int64_t fd, void *buf, uint64_t count)
         cpu_set_errno(EBADF);
         return -1;
     } else if (fd >= VFS_MIN_FD) {
+        int32_t kind = 0, svc = 0;
+        int64_t sfd = 0;
+
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0) {
+            if (svc == SVC_EVENT)
+                return eventfd_read(sfd, buf, count);
+            if (svc == SVC_EPOLL) {
+                cpu_set_errno(EBADF);
+                return -1;
+            }
+        }
+
         int64_t len = vfs_read(fd, count, buf);
         klogd
             ("k_read: try to read %ld bytes from file %ld and return %ld bytes\n",
@@ -627,6 +939,18 @@ int64_t k_write(int64_t fd, const void *buf, uint64_t count)
 
         cpu_set_errno(EBADF);
         return -1;
+    }
+
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0) {
+        if (svc == SVC_EVENT)
+            return eventfd_write(sfd, buf, count);
+        if (svc == SVC_EPOLL) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
     }
 
     return vfs_write(fd, count, buf);
@@ -1138,8 +1462,20 @@ int64_t k_fsync(int64_t fd)
 #define POLLOUT     0x004
 #define POLLNVAL    0x020
 
-/* Readiness is not tracked, so every valid descriptor is reported ready.
- * A blocking read still waits in the server. */
+static eventfd_obj_t *eventfd_get(int64_t id)
+{
+    if (id < 1 || id > EVENTFD_MAX || !eventfds[id - 1].used)
+        return NULL;
+    return &eventfds[id - 1];
+}
+
+static epoll_obj_t *epoll_get(int64_t id)
+{
+    if (id < 1 || id > EPOLL_MAX || !epolls[id - 1].used)
+        return NULL;
+    return &epolls[id - 1];
+}
+
 static bool fd_is_valid(int32_t fd)
 {
     if (fd < 0)
@@ -1154,6 +1490,91 @@ struct pollfd_k {
     int16_t events;
     int16_t revents;
 };
+
+/* Readiness of one descriptor for the given events. Regular files and devices
+ * report ready; a pipe asks its server; stdin asks the tty. Set *want_tty when
+ * a polled stdin has no key, so the caller blocks on the tty wake key. */
+static int16_t fd_poll_revents(int32_t fd, int16_t events, bool *want_tty)
+{
+    if (fd < 0)
+        return 0;
+
+    if (fd == 0) {
+        int16_t rev = 0;
+
+        if (events & POLLIN) {
+            if (tty_server_pending() > 0)
+                rev |= POLLIN;
+            else if (want_tty != NULL)
+                *want_tty = true;
+        }
+        if (events & POLLOUT)
+            rev |= POLLOUT;
+        return rev;
+    }
+
+    if (fd <= 2)
+        return (events & POLLOUT) ? POLLOUT : 0;
+
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) != 0)
+        return POLLNVAL;
+
+    int16_t rev = 0;
+
+    if (svc == SVC_PIPE) {
+        int32_t rd = 0, wr = 0;
+
+        if (vfs_pipe_poll(sfd, &rd, &wr) != 0)
+            return POLLNVAL;
+        if ((events & POLLIN) && rd)
+            rev |= POLLIN;
+        if ((events & POLLOUT) && wr)
+            rev |= POLLOUT;
+        return rev;
+    }
+
+    if (svc == SVC_NET) {
+        int32_t rd = 0, wr = 0;
+
+        if (net_poll((int32_t) fd, &rd, &wr) != 0)
+            return POLLNVAL;
+        if ((events & POLLIN) && rd)
+            rev |= POLLIN;
+        if ((events & POLLOUT) && wr)
+            rev |= POLLOUT;
+        return rev;
+    }
+
+    if (svc == SVC_EVENT) {
+        eventfd_obj_t *e = eventfd_get(sfd);
+        uint64_t c;
+
+        if (e == NULL)
+            return POLLNVAL;
+
+        kobj_lock_acquire();
+        c = e->counter;
+        kobj_lock_release();
+
+        if ((events & POLLIN) && c > 0)
+            rev |= POLLIN;
+        if ((events & POLLOUT) && c != ~0ULL)
+            rev |= POLLOUT;
+        return rev;
+    }
+
+    if (svc == SVC_EPOLL)
+        return 0;
+
+    if (events & POLLIN)
+        rev |= POLLIN;
+    if (events & POLLOUT)
+        rev |= POLLOUT;
+    return rev;
+}
 
 /* Report readiness once. Returns the ready count, or -1 on a bad pointer. Set
  * *want_tty when a polled stdin needs the tty to wake a blocking caller. */
@@ -1171,30 +1592,7 @@ static int32_t poll_check(void *fds, uint64_t nfds, bool *want_tty)
         if (copy_from_user(&p, slot, sizeof(p)) != 0)
             return -1;
 
-        int16_t rev = 0;
-
-        if (p.fd < 0) {
-            rev = 0;
-        } else if (p.fd == 0) {
-            if (p.events & POLLIN) {
-                if (want_tty != NULL)
-                    *want_tty = true;
-                if (tty_server_pending() > 0)
-                    rev |= POLLIN;
-            }
-            if (p.events & POLLOUT)
-                rev |= POLLOUT;
-        } else if (p.fd <= 2) {
-            if (p.events & POLLOUT)
-                rev |= POLLOUT;
-        } else if (fd_is_valid(p.fd)) {
-            if (p.events & POLLIN)
-                rev |= POLLIN;
-            if (p.events & POLLOUT)
-                rev |= POLLOUT;
-        } else {
-            rev = POLLNVAL;
-        }
+        int16_t rev = fd_poll_revents(p.fd, p.events, want_tty);
 
         p.revents = rev;
 
@@ -1229,18 +1627,18 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         if (ready > 0 || timeout == 0)
             return ready;
 
+        int64_t rem = -1;
+
+        if (timeout > 0) {
+            int64_t elapsed =
+                (int64_t) (hpet_get_nanos() / 1000000) - start_ms;
+
+            if (elapsed >= timeout)
+                return 0;
+            rem = timeout - elapsed;
+        }
+
         if (want_tty) {
-            int64_t rem = -1;
-
-            if (timeout > 0) {
-                int64_t elapsed =
-                    (int64_t) (hpet_get_nanos() / 1000000) - start_ms;
-
-                if (elapsed >= timeout)
-                    return 0;
-                rem = timeout - elapsed;
-            }
-
             /* Arm and block. The re-check above and the arm are close, so a
              * wake in between is rare; the next poll catches it. */
             sched_wait_key_begin(tty_server_poll_key());
@@ -1253,7 +1651,7 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
             /* Nothing pollable is pending; do not spin. */
             sched_sleep(1000);
         } else {
-            return 0;
+            sched_sleep(rem);
         }
     }
 }
@@ -1293,11 +1691,19 @@ static int64_t select_common(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
         if (!fd_is_valid(fd))
             continue;
 
-        for (int32_t s = 0; s < 3; s++) {
-            if (sets[s] != NULL && (in[s][bit] & mask)) {
-                out[s][bit] |= mask;
-                any = true;
-            }
+        if (rfds != NULL && (in[0][bit] & mask)
+            && (fd_poll_revents(fd, POLLIN, NULL) & POLLIN)) {
+            out[0][bit] |= mask;
+            any = true;
+        }
+        if (wfds != NULL && (in[1][bit] & mask)
+            && (fd_poll_revents(fd, POLLOUT, NULL) & POLLOUT)) {
+            out[1][bit] |= mask;
+            any = true;
+        }
+        if (efds != NULL && (in[2][bit] & mask)) {
+            out[2][bit] |= mask;
+            any = true;
         }
         if (any)
             ready++;
@@ -1861,17 +2267,6 @@ int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
     }
 
     return 0;
-}
-
-int64_t k_readlink(int64_t dirfd, const char *path, void *buffer,
-                   uint64_t max_size)
-{
-    (void) dirfd;
-    (void) path;
-    (void) buffer;
-    (void) max_size;
-    cpu_set_errno(ENOSYS);
-    return -1;
 }
 
 void k_uname(void)
@@ -2777,6 +3172,307 @@ int64_t k_getsockopt(int32_t sock, int32_t level, int32_t optname,
     return -1;
 }
 
+/* Allocate a kernel object and register it as a process fd. */
+static int64_t kobj_register(int32_t svc, int64_t id)
+{
+    return vfs_open_server_svc(id, "", VFS_MODE_READWRITE, 0, svc);
+}
+
+int64_t k_eventfd2(uint32_t initval, int32_t flags)
+{
+    int32_t slot = -1;
+
+    cpu_set_errno(0);
+
+    kobj_lock_acquire();
+    for (int32_t i = 0; i < EVENTFD_MAX; i++) {
+        if (!eventfds[i].used) {
+            eventfds[i].used = true;
+            eventfds[i].counter = initval;
+            eventfds[i].semaphore = (flags & EFD_SEMAPHORE) != 0;
+            slot = i;
+            break;
+        }
+    }
+    kobj_lock_release();
+
+    if (slot < 0) {
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+
+    int64_t fd = kobj_register(SVC_EVENT, slot + 1);
+
+    if (fd < 0) {
+        kobj_lock_acquire();
+        eventfds[slot].used = false;
+        kobj_lock_release();
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+    return fd;
+}
+
+static int64_t eventfd_read(int64_t id, void *buf, uint64_t count)
+{
+    eventfd_obj_t *e = eventfd_get(id);
+
+    if (count < sizeof(uint64_t) || buf == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (e == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    uint64_t v;
+
+    kobj_lock_acquire();
+    if (e->counter == 0) {
+        kobj_lock_release();
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+    if (e->semaphore) {
+        v = 1;
+        e->counter--;
+    } else {
+        v = e->counter;
+        e->counter = 0;
+    }
+    kobj_lock_release();
+
+    if (copy_to_user(buf, &v, sizeof(v)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return (int64_t) sizeof(v);
+}
+
+static int64_t eventfd_write(int64_t id, const void *buf, uint64_t count)
+{
+    eventfd_obj_t *e = eventfd_get(id);
+    uint64_t v;
+
+    if (count < sizeof(uint64_t) || buf == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (e == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (copy_from_user(&v, buf, sizeof(v)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (v == ~0ULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    kobj_lock_acquire();
+    if (e->counter > (~0ULL - 1) - v) {
+        kobj_lock_release();
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+    e->counter += v;
+    kobj_lock_release();
+
+    return (int64_t) sizeof(v);
+}
+
+int64_t k_epoll_create1(int32_t flags)
+{
+    int32_t slot = -1;
+
+    (void) flags;
+    cpu_set_errno(0);
+
+    kobj_lock_acquire();
+    for (int32_t i = 0; i < EPOLL_MAX; i++) {
+        if (!epolls[i].used) {
+            memset(&epolls[i], 0, sizeof(epolls[i]));
+            epolls[i].used = true;
+            slot = i;
+            break;
+        }
+    }
+    kobj_lock_release();
+
+    if (slot < 0) {
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+
+    int64_t fd = kobj_register(SVC_EPOLL, slot + 1);
+
+    if (fd < 0) {
+        kobj_lock_acquire();
+        epolls[slot].used = false;
+        kobj_lock_release();
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+    return fd;
+}
+
+int64_t k_epoll_ctl(int32_t epfd, int32_t op, int32_t fd, void *uevent)
+{
+    int32_t kind = 0, svc = 0;
+    int64_t sid = 0;
+
+    cpu_set_errno(0);
+
+    if (process_fd_get(epfd, &kind, &svc, &sid, NULL, NULL) != 0
+        || svc != SVC_EPOLL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    epoll_obj_t *eo = epoll_get(sid);
+
+    if (eo == NULL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    uint32_t events = 0;
+    uint64_t data = 0;
+
+    if (op != 2 /* EPOLL_CTL_DEL */) {
+        struct {
+            uint32_t events;
+            uint64_t data;
+        } __attribute__((packed)) ev;
+
+        if (uevent == NULL || copy_from_user(&ev, uevent, sizeof(ev)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        events = ev.events;
+        data = ev.data;
+    }
+
+    if (op == 1) {              /* EPOLL_CTL_ADD */
+        int32_t slot = -1;
+
+        for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
+            if (eo->items[i].fd == 0) {
+                slot = i;
+                break;
+            }
+        }
+        if (slot < 0) {
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+        eo->items[slot].fd = fd + 1;
+        eo->items[slot].events = events;
+        eo->items[slot].data = data;
+        eo->count++;
+        return 0;
+    }
+
+    for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
+        if (eo->items[i].fd == fd + 1) {
+            if (op == 3) {      /* EPOLL_CTL_MOD */
+                eo->items[i].events = events;
+                eo->items[i].data = data;
+            } else if (op == 2) {       /* EPOLL_CTL_DEL */
+                eo->items[i].fd = 0;
+                eo->count--;
+            } else {
+                cpu_set_errno(EINVAL);
+                return -1;
+            }
+            return 0;
+        }
+    }
+
+    cpu_set_errno(ENOENT);
+    return -1;
+}
+
+int64_t k_epoll_wait(int32_t epfd, void *uevents, int32_t maxevents,
+                     int32_t timeout)
+{
+    int32_t kind = 0, svc = 0;
+    int64_t sid = 0;
+
+    cpu_set_errno(0);
+
+    if (uevents == NULL || maxevents <= 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (process_fd_get(epfd, &kind, &svc, &sid, NULL, NULL) != 0
+        || svc != SVC_EPOLL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    epoll_obj_t *eo = epoll_get(sid);
+
+    if (eo == NULL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    int64_t start = (int64_t) (hpet_get_nanos() / 1000000);
+
+    for (;;) {
+        int32_t ready = 0;
+
+        for (int32_t i = 0; i < EPOLL_FD_MAX && ready < maxevents; i++) {
+            if (eo->items[i].fd == 0)
+                continue;
+
+            int16_t rev =
+                fd_poll_revents(eo->items[i].fd - 1,
+                                (int16_t) eo->items[i].events, NULL);
+
+            if (rev) {
+                struct {
+                    uint32_t events;
+                    uint64_t data;
+                } __attribute__((packed)) ev;
+
+                ev.events = (uint32_t) rev;
+                ev.data = eo->items[i].data;
+                if (copy_to_user((uint8_t *) uevents
+                                 + (uint64_t) ready * sizeof(ev), &ev,
+                                 sizeof(ev)) != 0) {
+                    cpu_set_errno(EFAULT);
+                    return -1;
+                }
+                ready++;
+            }
+        }
+
+        if (ready > 0)
+            return ready;
+        if (timeout == 0)
+            return 0;
+
+        int64_t elapsed = (int64_t) (hpet_get_nanos() / 1000000) - start;
+
+        if (timeout > 0 && elapsed >= timeout)
+            return 0;
+
+        sched_sleep(10);
+    }
+}
+
+int64_t k_epoll_pwait(int32_t epfd, void *uevents, int32_t maxevents,
+                      int32_t timeout, const void *sigmask)
+{
+    (void) sigmask;
+    return k_epoll_wait(epfd, uevents, maxevents, timeout);
+}
+
 syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
@@ -2787,6 +3483,11 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MUNMAP] = (syscall_ptr_t) k_vm_unmap,
     [SYSCALL_RT_SIGACTION] = (syscall_ptr_t) k_sigaction,
     [SYSCALL_RT_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,
+    [SYSCALL_RT_SIGRETURN] = (syscall_ptr_t) k_sigreturn,
+    [SYSCALL_KILL] = (syscall_ptr_t) k_kill,
+    [SYSCALL_TKILL] = (syscall_ptr_t) k_tkill,
+    [SYSCALL_TGKILL] = (syscall_ptr_t) k_tgkill,
+    [SYSCALL_SET_TID_ADDRESS] = (syscall_ptr_t) k_set_tid_address,
     [SYSCALL_IOCTL] = (syscall_ptr_t) k_ioctl,
     [SYSCALL_PIPE] = (syscall_ptr_t) k_pipe,
     [SYSCALL_NANOSLEEP] = (syscall_ptr_t) k_nanosleep,
@@ -2821,6 +3522,10 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_GETCWD] = (syscall_ptr_t) k_getcwd,
     [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
     [SYSCALL_UNLINK] = (syscall_ptr_t) k_unlink,
+    [SYSCALL_MKDIRAT] = (syscall_ptr_t) k_mkdirat,
+    [SYSCALL_SYMLINKAT] = (syscall_ptr_t) k_symlinkat,
+    [SYSCALL_RENAMEAT] = (syscall_ptr_t) k_renameat,
+    [SYSCALL_RENAMEAT2] = (syscall_ptr_t) k_renameat,
     [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,
     [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,
     [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
@@ -2831,6 +3536,11 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,
     [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
     [SYSCALL_PRLIMIT64] = (syscall_ptr_t) k_prlimit64,
+    [SYSCALL_EVENTFD2] = (syscall_ptr_t) k_eventfd2,
+    [SYSCALL_EPOLL_CREATE1] = (syscall_ptr_t) k_epoll_create1,
+    [SYSCALL_EPOLL_CTL] = (syscall_ptr_t) k_epoll_ctl,
+    [SYSCALL_EPOLL_WAIT] = (syscall_ptr_t) k_epoll_wait,
+    [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,

@@ -2,6 +2,7 @@
 
 global syscall_handler
 extern k_print_log
+extern syscall_post
 
 syscall_handler:
     push r15                ; store r15 in user stack
@@ -10,7 +11,8 @@ syscall_handler:
     ; push information (gs, cs, rip, rflags, rip)
     ; but the below data are not used in current implementation
     push qword 0x3b         ; user data segment
-    push r15                ; saved stack
+    push r15                ; saved stack (frame base; true rsp is +8)
+    add qword [rsp], 8      ; store the interrupted user rsp
     push r11                ; saved rflags
     push qword 0x43         ; user code segment 
     push rcx                ; current RIP
@@ -28,9 +30,14 @@ syscall_handler:
     jz .enosys
     mov [gs:8], rsp         ; expose the saved register frame to the handler
     call rbx
-    jmp .dispatched
+    jmp .post
 .enosys:
     mov rax, -38            ; -ENOSYS
+.post:
+    ; Let a queued signal rewrite the return frame before it is popped.
+    mov rdi, rax
+    mov rsi, rsp
+    call syscall_post
 .dispatched:
     ; pop all registers except rax which is used for storing return value
     pop_all_syscall
@@ -48,8 +55,9 @@ syscall_handler:
     neg rdx
     mov rax, rdx
 .done:
-    mov rsp, r15             ; back to user stack
-    pop r15                  ; pop r15 from user stack
+    ; r15 points at the frame's r15 slot; the user rsp lives 16 below it.
+    mov rsp, [r15 - 16]      ; restore the (possibly moved) user stack
+    mov r15, [r15]           ; restore the user r15
 
     swapgs
 

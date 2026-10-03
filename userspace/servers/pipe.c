@@ -319,6 +319,22 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == PIPE_POLL) {
+        int32_t fd = (int32_t) m->words[0];
+
+        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+
+        pipe_t *p = &pipes[ends[fd - 1].pipe];
+
+        rep->words[0] = 0;
+        rep->words[1] = (p->count > 0 || p->w_refs == 0) ? 1 : 0;
+        rep->words[2] = (p->r_refs > 0 && p->count < PIPE_BUF_SIZE) ? 1 : 0;
+        return;
+    }
+
     if (m->tag == PIPE_READ || m->tag == PIPE_WRITE) {
         int32_t fd = (int32_t) m->words[0];
         uint64_t len = m->words[1];

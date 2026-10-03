@@ -27,6 +27,7 @@
 #include <ipc/ipc.h>
 #include <router/router.h>
 #include <srv/net_srv.h>
+#include <fs/vfs.h>
 #include <proc/sched.h>
 #include <arch/x64/pci.h>
 
@@ -208,6 +209,40 @@ static void net_copy_out(memobj_t * mo, void *dst, uint64_t len)
     }
 }
 
+/* Resolve a process fd to the network server's socket descriptor. */
+static int64_t net_sockfd(int32_t fd, int32_t * out)
+{
+    vfs_node_desc_t *d = vfs_fd_to_desc(fd, __func__);
+
+    if (d == NULL || d->svc != SVC_NET)
+        return -1;
+    *out = (int32_t) d->server_fd;
+    return 0;
+}
+
+/* Close a socket on the server side, ignoring the result. */
+static void net_close_server(int64_t sfd)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_CLOSE;
+    req.words[0] = (uint64_t) sfd;
+    router_forward(SVC_NET, &req, &rep);
+}
+
+/* Register a server socket as a process fd. Returns the fd, or -1. */
+static int64_t net_register(int64_t server_fd)
+{
+    int64_t fd = vfs_open_server_svc(server_fd, "", VFS_MODE_READWRITE, 0,
+                                     SVC_NET);
+
+    if (fd < 0)
+        net_close_server(server_fd);
+    return fd;
+}
+
 int64_t net_socket(int32_t domain, int32_t type, int32_t protocol)
 {
     ipc_msg_t req;
@@ -221,13 +256,17 @@ int64_t net_socket(int32_t domain, int32_t type, int32_t protocol)
 
     if (!router_forward(SVC_NET, &req, &rep) || (int64_t) rep.words[0] < 0)
         return -1;
-    return (int64_t) rep.words[1];
+    return net_register((int64_t) rep.words[1]);
 }
 
-int64_t net_bind(int32_t sock, uint32_t ip, uint16_t port)
+int64_t net_bind(int32_t fd, uint32_t ip, uint16_t port)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
 
     memset(&req, 0, sizeof(req));
     req.tag = NET_BIND;
@@ -240,11 +279,15 @@ int64_t net_bind(int32_t sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
-static int64_t net_name(int32_t sock, uint64_t tag, uint32_t *ip,
+static int64_t net_name(int32_t fd, uint64_t tag, uint32_t *ip,
                         uint16_t *port)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
 
     memset(&req, 0, sizeof(req));
     req.tag = tag;
@@ -261,20 +304,47 @@ static int64_t net_name(int32_t sock, uint64_t tag, uint32_t *ip,
     return 0;
 }
 
-int64_t net_getsockname(int32_t sock, uint32_t *ip, uint16_t *port)
+int64_t net_getsockname(int32_t fd, uint32_t *ip, uint16_t *port)
 {
-    return net_name(sock, NET_GETSOCKNAME, ip, port);
+    return net_name(fd, NET_GETSOCKNAME, ip, port);
+}
+int64_t net_getpeername(int32_t fd, uint32_t *ip, uint16_t *port)
+{
+    return net_name(fd, NET_GETPEERNAME, ip, port);
 }
 
-int64_t net_getpeername(int32_t sock, uint32_t *ip, uint16_t *port)
-{
-    return net_name(sock, NET_GETPEERNAME, ip, port);
-}
-
-int64_t net_connect(int32_t sock, uint32_t ip, uint16_t port)
+int64_t net_poll(int32_t fd, int32_t *readable, int32_t *writable)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_POLL;
+    req.words[0] = (uint64_t) sock;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return (int64_t) rep.words[0];
+    if (readable != NULL)
+        *readable = (int32_t) rep.words[1];
+    if (writable != NULL)
+        *writable = (int32_t) rep.words[2];
+    return 0;
+}
+
+int64_t net_connect(int32_t fd, uint32_t ip, uint16_t port)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
 
     memset(&req, 0, sizeof(req));
     req.tag = NET_CONNECT;
@@ -287,10 +357,14 @@ int64_t net_connect(int32_t sock, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
-int64_t net_listen(int32_t sock, int32_t backlog)
+int64_t net_listen(int32_t fd, int32_t backlog)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
 
     memset(&req, 0, sizeof(req));
     req.tag = NET_LISTEN;
@@ -302,10 +376,14 @@ int64_t net_listen(int32_t sock, int32_t backlog)
     return (int64_t) rep.words[0];
 }
 
-int64_t net_accept(int32_t sock)
+int64_t net_accept(int32_t fd)
 {
     ipc_msg_t req;
     ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
 
     memset(&req, 0, sizeof(req));
     req.tag = NET_ACCEPT;
@@ -314,12 +392,17 @@ int64_t net_accept(int32_t sock)
     if (!router_forward_timeout(SVC_NET, &req, &rep, 3600 * 1000)
         || (int64_t) rep.words[0] < 0)
         return -1;
-    return (int64_t) rep.words[1];
+    return net_register((int64_t) rep.words[1]);
 }
 
-int64_t net_sendto(int32_t sock, uint32_t ip, uint16_t port, const void *buf,
+int64_t net_sendto(int32_t fd, uint32_t ip, uint16_t port, const void *buf,
                    uint64_t len)
 {
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
     if (len > NET_IO_BUF_SIZE)
         len = NET_IO_BUF_SIZE;
 
@@ -360,9 +443,14 @@ int64_t net_sendto(int32_t sock, uint32_t ip, uint16_t port, const void *buf,
     return n;
 }
 
-int64_t net_recvfrom(int32_t sock, void *buf, uint64_t len, uint32_t *ip,
+int64_t net_recvfrom(int32_t fd, void *buf, uint64_t len, uint32_t *ip,
                      uint16_t *port)
 {
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
     if (len > NET_IO_BUF_SIZE)
         len = NET_IO_BUF_SIZE;
 
@@ -403,16 +491,7 @@ int64_t net_recvfrom(int32_t sock, void *buf, uint64_t len, uint32_t *ip,
     return n;
 }
 
-int64_t net_close(int32_t sock)
+int64_t net_close(int32_t fd)
 {
-    ipc_msg_t req;
-    ipc_msg_t rep;
-
-    memset(&req, 0, sizeof(req));
-    req.tag = NET_CLOSE;
-    req.words[0] = (uint64_t) sock;
-
-    if (!router_forward(SVC_NET, &req, &rep))
-        return -1;
-    return (int64_t) rep.words[0];
+    return vfs_close(fd);
 }

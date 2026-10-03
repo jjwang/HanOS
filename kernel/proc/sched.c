@@ -625,6 +625,47 @@ void sched_kill_group(pid_t tgid, pid_t except)
     }
 }
 
+/* Make a sleeping process runnable wherever it is parked. A process armed but
+ * not yet parked is left alone: it will observe the wake after it sleeps. */
+void sched_wake_process(process_t * t)
+{
+    if (t == NULL)
+        return;
+
+    uint16_t cur = smp_get_current_cpu_id();
+
+    for (uint16_t c = 0; c < CPU_MAX; c++) {
+        if (idle_process[c] == NULL && running_process[c] == NULL)
+            continue;
+
+        bool woke = false;
+
+        spinlock_acquire(&run_queue_lock[c]);
+
+        if (running_process[c] == t && t->status == PROC_SLEEPING) {
+            t->wakeup_time = 0;
+            t->status = PROC_READY;
+            woke = true;
+        }
+
+        uint64_t n = vec_length(&run_queues[c]);
+        for (uint64_t i = 0; i < n; i++) {
+            process_t *p = vec_at(&run_queues[c], i);
+
+            if (p == t && p->status == PROC_SLEEPING) {
+                p->wakeup_time = 0;
+                p->status = PROC_READY;
+                woke = true;
+            }
+        }
+
+        spinlock_release(&run_queue_lock[c]);
+
+        if (woke && c != cur && sched_ipi_vector != 0)
+            apic_send_ipi(c, sched_ipi_vector, 0);
+    }
+}
+
 /* The process server clones a child's fd table after fork. The parent marks
  * the child ready once the server replies; the child waits here, so it never
  * runs with an incomplete fd table. */

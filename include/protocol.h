@@ -44,12 +44,17 @@
 #define VFS_READDIR         0x35        /* words[0]=fd; out: words[0]=0 or -1 (end);
                                            xfer[1]=buffer, dirent at VFS_IO_DATA_OFF */
 #define VFS_UNLINK          0x36        /* in: cwd+path */
+#define VFS_MKDIRAT         0x37        /* in: cwd+path */
 #define VFS_FSTATAT         0x38        /* words[0]=flags; in: cwd+path in xfer[1];
                                            out: stat at VFS_IO_DATA_OFF */
 #define VFS_FACCESSAT       0x39        /* words[0]=mode; in: cwd+path */
 #define VFS_FSTAT           0x3A        /* words[0]=fd; out: stat at
                                            VFS_IO_DATA_OFF */
+#define VFS_RENAMEAT        0x3B        /* in: cwd+oldpath+newpath */
 #define VFS_FD_FORK         0x3C        /* words[0]=fd; add a reference (fork) */
+#define VFS_SYMLINKAT       0x3D        /* in: cwd+linkpath+target */
+#define VFS_READLINK        0x3E        /* words[0]=bufsize; in: cwd+path;
+                                           out: target at VFS_IO_DATA_OFF */
 
 /* Buffer size and where a stat/dirent result is written inside the shared
  * buffer memory object. Inputs (such as a path) go at offset 0. */
@@ -108,6 +113,8 @@
                                            out: words[1]=bytes (0 at EOF) */
 #define PIPE_WRITE          0x41        /* words[0]=fd, words[1]=len */
 #define PIPE_CLOSE          0x42        /* words[0]=fd */
+#define PIPE_POLL           0x44        /* words[0]=fd; out: words[1]=readable,
+                                           words[2]=writable */
 #define PIPE_EAGAIN         (-11)
 
 /* TTY server. There is a single tty, so reads and writes carry no fd. Data up
@@ -161,6 +168,8 @@
 #define NET_ACCEPT          0x98        /* words[0]=sock; out words[1]=new sock fd */
 #define NET_GETSOCKNAME     0x99        /* words[0]=sock; out words[1]=ip, words[2]=port */
 #define NET_GETPEERNAME     0x9A        /* words[0]=sock; out words[1]=ip, words[2]=port */
+#define NET_POLL            0x9B        /* words[0]=sock; out words[1]=readable,
+                                           words[2]=writable */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */
