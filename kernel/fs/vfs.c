@@ -31,6 +31,7 @@
 #include <ipc/object.h>
 #include <srv/fat32_srv.h>
 #include <srv/process_srv.h>
+#include <srv/tty_srv.h>
 #include <router/router.h>
 #include <proc/sched.h>
 #include <arch/x64/smp.h>
@@ -601,6 +602,8 @@ int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff)
         /* The FAT server keeps its own offset. */
         return fat32_read_fd(desc->server_fd, len, buff);
     }
+    if (desc->svc == SVC_TTY)
+        return tty_server_read(buff, len);
 
     /* The server moves at most VFS_SERVER_IO_MAX per request; loop so a caller
      * asking for the whole file (e.g. the ELF loader) gets it. */
@@ -667,6 +670,8 @@ int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
 
     if (desc->svc == SVC_PIPE)
         return vfs_pipe_rw(desc->server_fd, PIPE_WRITE, len, (void *) buff);
+    if (desc->svc == SVC_TTY)
+        return tty_server_write(buff, len);
     return vfs_server_write(desc->server_fd, len, buff);
 }
 

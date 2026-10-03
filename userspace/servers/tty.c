@@ -136,6 +136,12 @@ static bool read_ready(void)
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
+    if (m->tag == TTY_POLL) {
+        rep->words[0] = 0;
+        rep->words[1] = kcount;
+        return;
+    }
+
     if (m->tag == TTY_KEY) {
         uint8_t k = (uint8_t) m->words[0];
         key_push(k);

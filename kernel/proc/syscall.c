@@ -1103,6 +1103,7 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         int16_t events;
         int16_t revents;
     };
+    uint64_t start;
 
     cpu_set_errno(0);
 
@@ -1111,44 +1112,68 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         return -1;
     }
 
-    int32_t ready = 0;
+    start = hpet_get_nanos();
 
-    for (uint64_t i = 0; i < nfds; i++) {
-        struct pollfd_k p;
-        uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
+    for (;;) {
+        int32_t ready = 0;
 
-        if (copy_from_user(&p, slot, sizeof(p)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
+        for (uint64_t i = 0; i < nfds; i++) {
+            struct pollfd_k p;
+            uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
+
+            if (copy_from_user(&p, slot, sizeof(p)) != 0) {
+                cpu_set_errno(EFAULT);
+                return -1;
+            }
+
+            int16_t rev = 0;
+
+            if (p.fd < 0) {
+                rev = 0;
+            } else if (p.fd == 0) {
+                if (p.events & POLLIN) {
+                    int64_t n = tty_server_pending();
+
+                    if (n > 0)
+                        rev |= POLLIN;
+                }
+                if (p.events & POLLOUT)
+                    rev |= POLLOUT;
+            } else if (p.fd <= 2) {
+                if (p.events & POLLOUT)
+                    rev |= POLLOUT;
+            } else if (fd_is_valid(p.fd)) {
+                if (p.events & POLLIN)
+                    rev |= POLLIN;
+                if (p.events & POLLOUT)
+                    rev |= POLLOUT;
+            } else {
+                rev = POLLNVAL;
+            }
+
+            p.revents = rev;
+
+            if (copy_to_user(slot, &p, sizeof(p)) != 0) {
+                cpu_set_errno(EFAULT);
+                return -1;
+            }
+            if (rev)
+                ready++;
         }
 
-        int16_t rev = 0;
+        if (ready > 0 || timeout == 0)
+            return ready;
 
-        if (p.fd < 0) {
-            rev = 0;
-        } else if (fd_is_valid(p.fd)) {
-            if (p.events & POLLIN)
-                rev |= POLLIN;
-            if (p.events & POLLOUT)
-                rev |= POLLOUT;
-        } else {
-            rev = POLLNVAL;
+        if (timeout > 0) {
+            int64_t elapsed = (int64_t) ((hpet_get_nanos() - start) / 1000000);
+
+            if (elapsed >= timeout)
+                return 0;
         }
 
-        p.revents = rev;
-
-        if (copy_to_user(slot, &p, sizeof(p)) != 0) {
-            cpu_set_errno(EFAULT);
-            return -1;
-        }
-        if (rev)
-            ready++;
+        /* Re-check after a short sleep. */
+        sched_sleep(10);
     }
-
-    if (ready == 0 && timeout > 0)
-        sched_sleep(timeout);
-
-    return ready;
 }
 
 static int64_t select_common(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
@@ -1782,6 +1807,24 @@ int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
     /* Linux dup3(oldfd, newfd, flags): make newfd refer to oldfd. newfd < 0
      * means the caller wants the lowest free descriptor (dup). */
     int64_t r = process_fd_dup((int32_t) oldfd, (int32_t) newfd);
+
+    /* The standard descriptors live in the kernel, not the process server.
+     * Back a duplicate of them with the tty server. */
+    if (r < 0 && oldfd >= 0 && oldfd < 3) {
+        vfs_openmode_t mode =
+            (oldfd == 0) ? VFS_MODE_READ : VFS_MODE_WRITE;
+        int64_t nfd = vfs_open_server_svc(oldfd, "/dev/tty", mode, 0,
+                                          SVC_TTY);
+
+        if (nfd >= 0 && newfd >= 0) {
+            int64_t r2 = process_fd_dup((int32_t) nfd, (int32_t) newfd);
+
+            process_fd_close((int32_t) nfd, NULL, NULL, NULL);
+            r = r2;
+        } else {
+            r = nfd;
+        }
+    }
 
     if (r < 0) {
         cpu_set_errno(EBADF);

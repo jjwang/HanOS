@@ -55,18 +55,14 @@ int main(void)
     }
 
     {
-        int f = open("/bin/hansh", O_RDONLY);
+        int d = dup(1);
 
-        if (f >= 0) {
-            int d = dup(f);
-
-            if (d >= 0) {
-                printf("dup fd=%d\n", d);
-                close(d);
-            } else {
-                printf("dup FAIL errno=%d\n", errno);
-            }
-            close(f);
+        if (d >= 0) {
+            write(d, "dup-stdout\n", 11);
+            printf("dup stdout fd=%d\n", d);
+            close(d);
+        } else {
+            printf("dup(1) FAIL errno=%d\n", errno);
         }
     }
 
@@ -93,6 +89,13 @@ int main(void)
         int r = poll(&pf, 1, 0);
 
         printf("poll r=%d revents=0x%x\n", r, pf.revents);
+    }
+
+    {
+        struct pollfd pf = { 0, POLLIN, 0 };
+        int r = poll(&pf, 1, 0);
+
+        printf("poll stdin r=%d\n", r);
     }
 
     printf("isatty=%d\n", isatty(1));

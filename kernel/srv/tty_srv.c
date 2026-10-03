@@ -101,6 +101,24 @@ bool tty_server_deliver_key(uint8_t key)
     return ipc_send(tty_ep, &m) == 0;
 }
 
+int64_t tty_server_pending(void)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    if (!tty_server_active())
+        return 0;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = TTY_POLL;
+
+    if (!router_forward(SVC_TTY, &req, &rep))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return -1;
+    return (int64_t) rep.words[1];
+}
+
 int64_t tty_server_read(void *buf, uint64_t len)
 {
     if (len > TTY_INLINE_MAX)

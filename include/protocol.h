@@ -117,6 +117,7 @@
 #define TTY_READ            0x60        /* words[0]=len; out: words[1]=n */
 #define TTY_WRITE           0x61        /* words[0]=len; out: words[1]=n */
 #define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
+#define TTY_POLL            0x63        /* out: words[1]=pending key count */
 #define TTY_EAGAIN          (-11)
 
 /* FAT32 server (a read-only block-server client). File descriptors are server

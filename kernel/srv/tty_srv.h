@@ -27,3 +27,6 @@ bool tty_server_deliver_key(uint8_t key);
 /* Blocking read/write against the tty server (reads wait for a key). */
 int64_t tty_server_read(void *buf, uint64_t len);
 int64_t tty_server_write(const void *buf, uint64_t len);
+
+/* Number of keys buffered in the tty server, or -1. */
+int64_t tty_server_pending(void);
