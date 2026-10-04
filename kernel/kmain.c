@@ -146,6 +146,16 @@ _Noreturn void kshell(pid_t pid)
                 pmm_get_total_memory());
     }
 
+    {
+        pci_device_t gpu;
+
+        if (pci_find_class(PCI_CLASS_DISPLAY, 0x00, &gpu)
+            || pci_find_class(PCI_CLASS_DISPLAY, 0x80, &gpu)) {
+            kprintf("\033[36mVideo Card  \033[0m: %s\n",
+                    pci_device_id_to_string(&gpu));
+        }
+    }
+
     if (self_info.screen_hor_size > 0 && self_info.screen_ver_size > 0) {
         kprintf("\033[36mMonitor     \033[0m: %d x %d cm\n",
                 self_info.screen_hor_size, self_info.screen_ver_size);
@@ -157,12 +167,11 @@ _Noreturn void kshell(pid_t pid)
     }
 
     {
-        pci_device_t gpu;
+        pci_device_t audio;
 
-        if (pci_find_class(PCI_CLASS_DISPLAY, 0x00, &gpu)
-            || pci_find_class(PCI_CLASS_DISPLAY, 0x80, &gpu)) {
-            kprintf("\033[36mVideo Card  \033[0m: %s\n",
-                    pci_device_id_to_string(&gpu));
+        if (pci_find_class_any(PCI_CLASS_MULTIMEDIA, &audio)) {
+            kprintf("\033[36mAudio Card  \033[0m: %s\n",
+                    pci_device_id_to_string(&audio));
         }
     }
 
@@ -172,15 +181,6 @@ _Noreturn void kshell(pid_t pid)
         if (pci_find_class(PCI_CLASS_NETWORK, 0x00, &nic)) {
             kprintf("\033[36mNet Card    \033[0m: %s\n",
                     pci_device_id_to_string(&nic));
-        }
-    }
-
-    {
-        pci_device_t snd;
-
-        if (pci_find_class_any(PCI_CLASS_MULTIMEDIA, &snd)) {
-            kprintf("\033[36mSound Card  \033[0m: %s\n",
-                    pci_device_id_to_string(&snd));
         }
     }
 
