@@ -1022,6 +1022,16 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[1] = (uint64_t) fd;
             return;
         }
+        if (s->acc_wait_reply != 0) {
+            /* One held accept per socket; answer the previous one. */
+            sys_ipc_msg_t old;
+
+            memset(&old, 0, sizeof(old));
+            old.tag = NET_ACCEPT;
+            old.words[0] = (uint64_t) (int64_t) -11;    /* -EAGAIN */
+            sys_ipc_send(s->acc_wait_reply, &old);
+            sys_handle_close(s->acc_wait_reply);
+        }
         s->acc_wait_reply = (int64_t) m->xfer[0];
         msg_deferred = true;
         return;
@@ -1161,6 +1171,18 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
 
         if (s->count == 0) {
+            /* One held read per socket. Answer a previous one so a second
+             * reader cannot leak its reply endpoint. */
+            if (s->wait_reply != 0) {
+                sys_ipc_msg_t old;
+
+                memset(&old, 0, sizeof(old));
+                old.tag = NET_RECVFROM;
+                old.words[0] = (uint64_t) (int64_t) -11;        /* -EAGAIN */
+                sys_ipc_send(s->wait_reply, &old);
+                sys_handle_close(s->wait_reply);
+                sys_handle_close(s->wait_memh);
+            }
             s->wait_reply = (int64_t) m->xfer[0];
             s->wait_memh = memh;
             s->wait_len = len;

@@ -262,7 +262,9 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
         req.xfer_count = 1;
     }
 
-    if (!router_forward(SVC_PIPE, &req, &rep)) {
+    /* A read or write blocks until the other end makes progress, so wait for
+     * the deferred reply without a timeout. */
+    if (!router_forward_timeout(SVC_PIPE, &req, &rep, -1)) {
         if (mo != NULL)
             memobj_unref(mo);
         return -1;
@@ -291,11 +293,17 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
 }
 
 /* Blocking pipe read/write. The pipe server holds a request that cannot make
- * progress and answers it once the other end moves data or closes, so a single
- * call blocks until the operation completes. */
+ * progress and answers it once the other end moves data or closes. When its
+ * deferred table is full it answers EAGAIN, so retry until a slot frees. */
 static int64_t vfs_pipe_rw(int64_t sfd, uint64_t tag, uint64_t len, void *buff)
 {
-    return vfs_pipe_xfer(sfd, tag, len, buff);
+    for (;;) {
+        int64_t r = vfs_pipe_xfer(sfd, tag, len, buff);
+
+        if (r != VFS_IO_AGAIN)
+            return r;
+        sched_sleep(1);
+    }
 }
 
 /* Pack "cwd\0path\0" at the start of the request buffer. */

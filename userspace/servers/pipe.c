@@ -372,7 +372,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 if (queue_wait(m, pi, false, inline_data, memh, len) != 0) {
                     if (memh != 0)
                         sys_handle_close(memh);
-                    rep->words[0] = (uint64_t) (int64_t) -12;
+                    rep->words[0] = (uint64_t) (int64_t) PIPE_EAGAIN;
                     return;
                 }
                 msg_deferred = true;
@@ -425,7 +425,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (queue_wait(m, pi, true, inline_data, memh, len) != 0) {
                 if (memh != 0)
                     sys_handle_close(memh);
-                rep->words[0] = (uint64_t) (int64_t) -12;
+                rep->words[0] = (uint64_t) (int64_t) PIPE_EAGAIN;
                 return;
             }
             msg_deferred = true;
