@@ -339,6 +339,53 @@ int64_t net_poll(int32_t fd, int32_t *readable, int32_t *writable)
     return 0;
 }
 
+int64_t net_setsockopt(int32_t fd, int32_t level, int32_t name, uint64_t value)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_SETOPT;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = (uint64_t) (int64_t) level;
+    req.words[2] = (uint64_t) (int64_t) name;
+    req.words[3] = value;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
+int64_t net_getsockopt(int32_t fd, int32_t level, int32_t name,
+                       uint64_t * value)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_GETOPT;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = (uint64_t) (int64_t) level;
+    req.words[2] = (uint64_t) (int64_t) name;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return (int64_t) rep.words[0];
+    if (value != NULL)
+        *value = rep.words[1];
+    return 0;
+}
+
+
 int64_t net_connect(int32_t fd, uint32_t ip, uint16_t port)
 {
     ipc_msg_t req;
@@ -472,10 +519,15 @@ int64_t net_recvfrom(int32_t fd, void *buf, uint64_t len, uint32_t *ip,
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!router_forward_timeout(SVC_NET, &req, &rep, -1)
-        || (int64_t) rep.words[0] < 0) {
+    if (!router_forward_timeout(SVC_NET, &req, &rep, -1)) {
         memobj_unref(mo);
         return -1;
+    }
+    if ((int64_t) rep.words[0] < 0) {
+        int64_t rc = (int64_t) rep.words[0];
+
+        memobj_unref(mo);
+        return rc;              /* keep the server errno, e.g. -EAGAIN */
     }
 
     int64_t n = (int64_t) rep.words[1];

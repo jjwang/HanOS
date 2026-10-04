@@ -103,6 +103,11 @@ typedef struct {
     bool need_win_update;
     bool got_ack;
     bool got_fin;
+    /* Socket options. */
+    bool reuseaddr;
+    bool nonblock;
+    uint32_t rcvtimeo_ms;
+    uint32_t wait_deadline;
     bool listening;
     int32_t accept_pending;         /* completed connection fd, or 0 */
     int64_t acc_wait_reply;     /* deferred accept reply endpoint */
@@ -704,6 +709,7 @@ static void sock_flush(net_sock_t * s)
     sys_handle_close(s->wait_memh);
     s->wait_reply = 0;
     s->wait_memh = 0;
+    s->wait_deadline = 0;
 }
 
 static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
@@ -964,8 +970,27 @@ static void tcp_tick_sock(net_sock_t * s)
 
 static void tcp_tick_all(void)
 {
-    for (int32_t i = 0; i < NET_MAX_SOCKS; i++)
-        tcp_tick_sock(&socks[i]);
+    for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+        net_sock_t *s = &socks[i];
+
+        /* Expire a deferred read whose receive timeout elapsed. */
+        if (s->used && s->wait_reply != 0 && s->wait_deadline != 0
+            && (int32_t) (net_ms() - s->wait_deadline) >= 0) {
+            sys_ipc_msg_t rr;
+
+            memset(&rr, 0, sizeof(rr));
+            rr.tag = NET_RECVFROM;
+            rr.words[0] = (uint64_t) (int64_t) -11;     /* -EAGAIN */
+            sys_ipc_send(s->wait_reply, &rr);
+            sys_handle_close(s->wait_reply);
+            sys_handle_close(s->wait_memh);
+            s->wait_reply = 0;
+            s->wait_memh = 0;
+            s->wait_deadline = 0;
+        }
+
+        tcp_tick_sock(s);
+    }
 }
 
 /* Append any buffered segment that is now in sequence. */
@@ -1297,7 +1322,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_SOCKET) {
-        uint64_t type = m->words[1];
+        uint64_t type = m->words[1] & ~(uint64_t) SOCK_NONBLOCK;
 
         if (m->words[0] != AF_INET
             || (type != SOCK_DGRAM && type != SOCK_STREAM)) {
@@ -1311,8 +1336,60 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
         socks[fd - 1].stream = (type == SOCK_STREAM);
+        socks[fd - 1].nonblock = (m->words[1] & SOCK_NONBLOCK) != 0;
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) fd;
+        return;
+    }
+
+    if (m->tag == NET_SETOPT) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+        int32_t level = (int32_t) m->words[1];
+        int32_t name = (int32_t) m->words[2];
+        uint64_t val = m->words[3];
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            return;
+        }
+        if (level != SOL_SOCKET) {
+            rep->words[0] = (uint64_t) (int64_t) -92;   /* -ENOPROTOOPT */
+            return;
+        }
+        if (name == SO_REUSEADDR) {
+            s->reuseaddr = (val != 0);
+        } else if (name == SO_RCVTIMEO) {
+            s->rcvtimeo_ms = (uint32_t) val;
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -92;
+            return;
+        }
+        rep->words[0] = 0;
+        return;
+    }
+
+    if (m->tag == NET_GETOPT) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+        int32_t level = (int32_t) m->words[1];
+        int32_t name = (int32_t) m->words[2];
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            return;
+        }
+        if (level != SOL_SOCKET) {
+            rep->words[0] = (uint64_t) (int64_t) -92;
+            return;
+        }
+        if (name == SO_REUSEADDR) {
+            rep->words[1] = s->reuseaddr ? 1 : 0;
+        } else if (name == SO_RCVTIMEO) {
+            rep->words[1] = s->rcvtimeo_ms;
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -92;
+            return;
+        }
+        rep->words[0] = 0;
         return;
     }
 
@@ -1385,7 +1462,12 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
         for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
-            if (&socks[i] != s && addr_match(&socks[i], ip, port)) {
+            if (&socks[i] == s)
+                continue;
+            /* SO_REUSEADDR allows rebinding a port a closed or waiting
+             * socket still holds. */
+            if (addr_match(&socks[i], ip, port)
+                && !(s->reuseaddr && socks[i].tstate != TCP_ESTABLISHED)) {
                 rep->words[0] = (uint64_t) (int64_t) -98;       /* -EADDRINUSE */
                 return;
             }
@@ -1519,6 +1601,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
 
         if (s->count == 0) {
+            if (s->nonblock) {
+                sys_handle_close(memh);
+                rep->words[0] = (uint64_t) (int64_t) -11;   /* -EAGAIN */
+                return;
+            }
             /* One held read per socket. Answer a previous one so a second
              * reader cannot leak its reply endpoint. */
             if (s->wait_reply != 0) {
@@ -1534,6 +1621,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             s->wait_reply = (int64_t) m->xfer[0];
             s->wait_memh = memh;
             s->wait_len = len;
+            s->wait_deadline = s->rcvtimeo_ms ? net_ms() + s->rcvtimeo_ms : 0;
             msg_deferred = true;
             return;
         }

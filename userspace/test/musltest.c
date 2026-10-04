@@ -154,6 +154,62 @@ int main(void)
     }
 
     {
+        /* SO_REUSEADDR lets a second bind to a busy port succeed. */
+        int a = socket(AF_INET, SOCK_DGRAM, 0);
+        int b = socket(AF_INET, SOCK_DGRAM, 0);
+        struct sockaddr_in sa;
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sin_family = AF_INET;
+        sa.sin_port = htons(43210);
+        sa.sin_addr.s_addr = htonl(0x7f000001);
+
+        int r1 = bind(a, (struct sockaddr *) &sa, sizeof(sa));
+        int r2 = bind(b, (struct sockaddr *) &sa, sizeof(sa));
+        int on = 1;
+
+        setsockopt(b, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        int r3 = bind(b, (struct sockaddr *) &sa, sizeof(sa));
+
+        printf("reuseaddr first=%d busy=%d(=%d) reopen=%d\n", r1, r2, errno, r3);
+        close(a);
+        close(b);
+    }
+
+    {
+        /* SO_RCVTIMEO and non-blocking return EAGAIN with no data. */
+        int c = socket(AF_INET, SOCK_DGRAM, 0);
+        int d = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+        struct sockaddr_in sa;
+        struct timeval tv = { 0, 200000 };
+        char buf[8];
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sin_family = AF_INET;
+        sa.sin_port = htons(43211);
+        sa.sin_addr.s_addr = htonl(0x7f000001);
+
+        bind(c, (struct sockaddr *) &sa, sizeof(sa));
+        setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        errno = 0;
+        ssize_t n1 = recvfrom(c, buf, sizeof(buf), 0, NULL, NULL);
+        int e1 = errno;
+
+        sa.sin_port = htons(43212);
+        bind(d, (struct sockaddr *) &sa, sizeof(sa));
+
+        errno = 0;
+        ssize_t n2 = recvfrom(d, buf, sizeof(buf), 0, NULL, NULL);
+        int e2 = errno;
+
+        printf("rcvtimeo n=%ld errno=%d nonblock n=%ld errno=%d\n", (long) n1,
+               e1, (long) n2, e2);
+        close(c);
+        close(d);
+    }
+
+    {
         fd_set wf;
         struct timeval tv = { 0, 0 };
 

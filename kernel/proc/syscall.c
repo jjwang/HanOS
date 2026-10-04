@@ -2989,8 +2989,10 @@ int64_t k_bind(int64_t sock, int64_t ip, int64_t port)
 {
     cpu_set_errno(0);
 
-    if (net_bind((int32_t) sock, (uint32_t) ip, (uint16_t) port) < 0) {
-        cpu_set_errno(EINVAL);
+    int64_t r = net_bind((int32_t) sock, (uint32_t) ip, (uint16_t) port);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EINVAL : (int32_t) - r);
         return -1;
     }
     return 0;
@@ -3033,7 +3035,7 @@ int64_t k_recvfrom(int64_t sock, void *buf, uint64_t len, void *ip_ptr,
     int64_t n = net_recvfrom((int32_t) sock, buf, len, &ip, &port);
 
     if (n < 0) {
-        cpu_set_errno(EIO);
+        cpu_set_errno((n == -1) ? EIO : (int32_t) - n);
         return -1;
     }
 
@@ -3151,25 +3153,107 @@ int64_t k_shutdown(int32_t sock, int32_t how)
 int64_t k_setsockopt(int32_t sock, int32_t level, int32_t optname,
                      const void *optval, uint64_t optlen)
 {
-    (void)sock;
-    (void)level;
-    (void)optname;
-    (void)optval;
-    (void)optlen;
     cpu_set_errno(0);
+
+    if (optval == NULL || optlen == 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    uint64_t value = 0;
+
+    if (optname == SO_REUSEADDR) {
+        int32_t v = 0;
+
+        if (optlen < sizeof(v) || copy_from_user(&v, optval, sizeof(v)) != 0) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        value = (v != 0);
+    } else if (optname == SO_RCVTIMEO) {
+        timeval_t tv;
+
+        if (optlen < sizeof(tv)
+            || copy_from_user(&tv, optval, sizeof(tv)) != 0) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        value = tv.tv_sec * 1000 + (tv.tv_usec + 999) / 1000;
+    } else {
+        cpu_set_errno(ENOPROTOOPT);
+        return -1;
+    }
+
+    int64_t r = net_setsockopt(sock, level, optname, value);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : (int32_t) - r);
+        return -1;
+    }
     return 0;
 }
 
 int64_t k_getsockopt(int32_t sock, int32_t level, int32_t optname,
-                     void *optval, uint64_t *optlen)
+                     void *optval, uint64_t * optlen)
 {
-    (void)sock;
-    (void)level;
-    (void)optname;
-    (void)optval;
-    (void)optlen;
-    cpu_set_errno(ENOPROTOOPT);
-    return -1;
+    cpu_set_errno(0);
+
+    if (optval == NULL || optlen == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    uint64_t len = 0;
+
+    if (copy_from_user(&len, optlen, sizeof(len)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    uint64_t value = 0;
+    int64_t r = net_getsockopt(sock, level, optname, &value);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : (int32_t) - r);
+        return -1;
+    }
+
+    if (optname == SO_REUSEADDR) {
+        int32_t v = (int32_t) value;
+
+        if (len < sizeof(v)) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        if (copy_to_user(optval, &v, sizeof(v)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        len = sizeof(v);
+    } else if (optname == SO_RCVTIMEO) {
+        timeval_t tv;
+
+        tv.tv_sec = value / 1000;
+        tv.tv_usec = (value % 1000) * 1000;
+        if (len < sizeof(tv)) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        if (copy_to_user(optval, &tv, sizeof(tv)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        len = sizeof(tv);
+    } else {
+        cpu_set_errno(ENOPROTOOPT);
+        return -1;
+    }
+
+    if (copy_to_user(optlen, &len, sizeof(len)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
 }
 
 /* Allocate a kernel object and register it as a process fd. */

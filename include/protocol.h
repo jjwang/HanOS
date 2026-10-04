@@ -150,6 +150,10 @@
 #define AF_INET             2
 #define SOCK_STREAM         1
 #define SOCK_DGRAM          2
+#define SOCK_NONBLOCK       0x800
+#define SOL_SOCKET          1
+#define SO_REUSEADDR        2
+#define SO_RCVTIMEO         20
 #define NET_IP_LOOPBACK     0x7f000001U /* 127.0.0.1 */
 #define NET_PING            0x90
 #define NET_SOCKET          0x91        /* words[0]=domain, words[1]=type;
@@ -170,6 +174,10 @@
 #define NET_GETPEERNAME     0x9A        /* words[0]=sock; out words[1]=ip, words[2]=port */
 #define NET_POLL            0x9B        /* words[0]=sock; out words[1]=readable,
                                            words[2]=writable */
+#define NET_SETOPT          0x9C        /* words[0]=sock, words[1]=level,
+                                           words[2]=name, words[3]=value */
+#define NET_GETOPT          0x9D        /* words[0]=sock, words[1]=level,
+                                           words[2]=name; out words[1]=value */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */
