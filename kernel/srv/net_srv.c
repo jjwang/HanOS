@@ -25,12 +25,14 @@
 #include <mm/memobj.h>
 #include <ipc/object.h>
 #include <ipc/ipc.h>
+#include <ipc/irq.h>
 #include <router/router.h>
 #include <srv/net_srv.h>
 #include <srv/svc_monitor.h>
 #include <fs/vfs.h>
 #include <proc/sched.h>
 #include <arch/x64/pci.h>
+#include <arch/x64/idt.h>
 
 #define NET_IO_BUF_SIZE     VFS_IO_BUF_SIZE
 
@@ -96,6 +98,24 @@ static bool net_grant_nic(process_t * tc, bootinfo_t * bi)
     klogi("net: granted NIC %04x:%04x BAR0 0x%lx (%ld bytes) at 0x%lx\n",
           dev.vendor_id, dev.device_id, (uint64_t) bar.u.address, bar.size,
           NET_MMIO_VADDR);
+
+    /* Route the NIC's interrupt line to the server. The driver unmasks its
+     * interrupt; the kernel delivers an IRQ notification to the same endpoint
+     * that carries the socket requests. */
+    uint8_t irq = pci_inb(id, 0x3C);    /* PCI interrupt line */
+
+    if (irq != 0 && irq != 0xff) {
+        irq_obj_t *io = irq_create(irq);
+
+        if (io != NULL) {
+            irq_bind(io, net_ep);
+            /* PCI INTx is active low. Use edge triggering: the e1000
+             * deasserts when the driver reads ICR, so an edge per event
+             * avoids a level storm before the server drains. */
+            irq_route(irq, false, true);
+            klogi("net: NIC IRQ %u routed to the server\n", irq);
+        }
+    }
     return true;
 }
 

@@ -71,17 +71,31 @@ void ioapic_set_line(uint8_t irq, bool masked)
 
     madt_isa_to_gsi(irq, &gsi, &flags);
 
+    /* ISO flags: bits 0-1 polarity (11 = active low), bits 2-3 trigger
+     * (11 = level). ISA defaults stay edge, active high. */
+    ioapic_set_irq(irq, masked, (flags & 0xc) == 0xc, (flags & 0x3) == 0x3);
+    (void) gsi;
+}
+
+void ioapic_set_irq(uint8_t irq, bool masked, bool level, bool active_low)
+{
+    if (!ioapic_available() || irq == 2)
+        return;
+
+    uint32_t gsi;
+    uint16_t flags;
+
+    madt_isa_to_gsi(irq, &gsi, &flags);
+
     if (gsi < gsi_base)
         return;
 
     uint32_t idx = gsi - gsi_base;
     uint32_t low = (uint32_t) (0x20 + irq);     /* PIC-compatible vector */
 
-    /* ISO flags: bits 0-1 polarity (11 = active low), bits 2-3 trigger
-     * (11 = level). ISA defaults stay edge, active high. */
-    if ((flags & 0x3) == 0x3)
+    if (active_low)
         low |= 1u << 13;
-    if ((flags & 0xc) == 0xc)
+    if (level)
         low |= 1u << 15;
     if (masked)
         low |= 1u << 16;

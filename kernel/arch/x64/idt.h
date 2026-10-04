@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define IDT_ENTRIES                     256
@@ -39,3 +40,4 @@ void idt_set_handler(uint8_t vector, void *handler);
 uint8_t idt_get_available_vector(void);
 void irq_set_mask(uint8_t line);
 void irq_clear_mask(uint8_t line);
+void irq_route(uint8_t line, bool level, bool active_low);

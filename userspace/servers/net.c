@@ -122,6 +122,8 @@ static bool msg_deferred;
 #define E1000_CTRL      0x0000
 #define E1000_STATUS    0x0008
 #define E1000_CTRL_EXT  0x0018
+#define E1000_ICR       0x00C0
+#define E1000_IMS       0x00D0
 #define E1000_IMC       0x00D8
 #define E1000_RCTL      0x0100
 #define E1000_TCTL      0x0400
@@ -485,6 +487,12 @@ static bool nic_init(void)
               | 0x04000000U);   /* SECRC: strip the FCS */
     nic_write(E1000_TCTL, E1000_TCTL_VAL);
 
+    /* Drain any stale cause, then unmask the receive interrupts: receive
+     * timer and minimum threshold. The kernel relays the line as an IRQ
+     * notification. */
+    nic_read(E1000_ICR);
+    nic_write(E1000_IMS, (1u << 7) | (1u << 4));        /* RXT0 | RXDMT0 */
+
     rx_cur = 0;
     tx_cur = 0;
     nic_ok = true;
@@ -532,6 +540,9 @@ static void net_poll_once(void)
 
     if (!nic_ok)
         return;
+
+    /* Reading ICR clears the interrupt cause and deasserts the line. */
+    nic_read(E1000_ICR);
 
     for (int32_t i = 0; i < 16; i++) {
         int32_t n = nic_poll(rx);
@@ -1685,6 +1696,10 @@ int32_t main(void)
         sys_ipc_msg_t m;
 
         if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 10) != 0)
+            continue;
+
+        /* A NIC interrupt: the drain at the top of the loop already ran. */
+        if (m.tag == IRQ_NOTIFY_TAG)
             continue;
 
         sys_ipc_msg_t rep;

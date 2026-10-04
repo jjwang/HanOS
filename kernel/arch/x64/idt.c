@@ -98,6 +98,18 @@ void irq_clear_mask(uint8_t line)
     pic_mask(line, false);
 }
 
+/* Route a line with an explicit trigger and polarity. A PCI INTx line is level,
+ * active low. */
+void irq_route(uint8_t line, bool level, bool active_low)
+{
+    if (ioapic_available()) {
+        ioapic_set_irq(line, false, level, active_low);
+        pic_mask(line, true);
+        return;
+    }
+    pic_mask(line, false);
+}
+
 void idt_init()
 {
     /* start 8259A PIC initialization */
