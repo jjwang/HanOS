@@ -159,7 +159,8 @@ void fb_splash(fb_info_t * fb)
     int32_t scale = SPLASH_SCALE;
     int32_t lw = (int32_t) strlen(logo) * 8 * scale;
     int32_t lx = ((int32_t) fb->width - lw) / 2;
-    int32_t ly = ((int32_t) fb->height - boot_font_bold.charsize * scale) / 2;
+    int32_t ly = ((int32_t) fb->height - boot_font_bold.charsize * scale) / 2
+        - (int32_t) fb->height / 8;
     splash_text(fb, &boot_font_bold, lx, ly, logo, scale, SPLASH_LOGO);
 
     char desc[96];
@@ -167,7 +168,8 @@ void fb_splash(fb_info_t * fb)
              "- Microkernel-based General Purpose OS Kernel for x86-64 v%s -",
              VERSION);
     int32_t dx = ((int32_t) fb->width - (int32_t) strlen(desc) * 8) / 2;
-    int32_t dy = ((int32_t) fb->height + boot_font_bold.charsize * scale) / 2;
+    int32_t dy = ((int32_t) fb->height + boot_font_bold.charsize * scale) / 2
+        - (int32_t) fb->height / 8;
     splash_text(fb, &boot_font_norm, dx, dy, desc, 1, SPLASH_DESC);
 
     splash_track_w = (int32_t) fb->width / 4;
