@@ -38,6 +38,7 @@
 #include <arch/x64/isr_base.h>
 #include <arch/x64/idt.h>
 #include <arch/x64/panic.h>
+#include <router/router.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/serial.h>
 #include <srv/process_srv.h>
@@ -145,6 +146,9 @@ _Noreturn void process_idle(pid_t pid)
         }
 
         klogi("sched: clean memory of dead process #%ld (0x%016lx)\n", t->pid, t);
+
+        /* A dead server owner drops its endpoint; the monitor restarts it. */
+        router_owner_died(t->pid);
 
         /* Step 2: Free all resources of this dead process */
         process_free(t);

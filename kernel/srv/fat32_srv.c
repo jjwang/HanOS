@@ -23,6 +23,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/fat32_srv.h>
+#include <srv/svc_monitor.h>
 #include <srv/block_srv.h>
 #include <ipc/ipc.h>
 #include <mm/memobj.h>
@@ -80,6 +81,7 @@ bool fat32_server_start(void)
         return false;
 
     router_register(SVC_FAT, fat32_ep, tc->pid);
+    svc_monitor_set(SVC_FAT, fat32_server_start, "fat32");
     fat32_active = true;
     klogi("fat32: server started and registered as SVC_FAT\n");
     return true;

@@ -23,6 +23,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/tty_srv.h>
+#include <srv/svc_monitor.h>
 #include <ipc/ipc.h>
 #include <srv/console_srv.h>
 #include <router/router.h>
@@ -78,6 +79,7 @@ bool tty_server_start(void)
         return false;
 
     router_register(SVC_TTY, tty_ep, tc->pid);
+    svc_monitor_set(SVC_TTY, tty_server_start, "tty");
     tty_active = true;
     klogi("tty: server started and registered as SVC_TTY\n");
     return true;

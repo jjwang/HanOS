@@ -26,6 +26,7 @@ static struct {
 } services[SVC_COUNT];
 
 static spinlock_t service_lock;
+static void (*service_down_handler)(service_id_t id);
 
 void router_register(service_id_t id, endpoint_t *ep, pid_t owner)
 {
@@ -44,6 +45,40 @@ endpoint_t *router_lookup(service_id_t id)
         return NULL;
 
     return services[id].ep;
+}
+
+pid_t router_owner(service_id_t id)
+{
+    if (id >= SVC_COUNT)
+        return PID_NONE;
+
+    return services[id].owner;
+}
+
+void router_set_down_handler(void (*fn) (service_id_t id))
+{
+    service_down_handler = fn;
+}
+
+void router_owner_died(pid_t pid)
+{
+    service_id_t down[SVC_COUNT];
+    uint8_t ndown = 0;
+
+    spinlock_acquire(&service_lock);
+    for (uint32_t i = 0; i < SVC_COUNT; i++) {
+        if (services[i].ep != NULL && services[i].owner == pid) {
+            services[i].ep = NULL;
+            if (ndown < SVC_COUNT)
+                down[ndown++] = (service_id_t) i;
+        }
+    }
+    spinlock_release(&service_lock);
+
+    if (service_down_handler != NULL) {
+        for (uint8_t i = 0; i < ndown; i++)
+            service_down_handler(down[i]);
+    }
 }
 
 bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,

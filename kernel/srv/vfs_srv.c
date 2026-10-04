@@ -21,6 +21,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/vfs_srv.h>
+#include <srv/svc_monitor.h>
 #include <ipc/ipc.h>
 #include <mm/ipc_buf.h>
 #include <mm/mm.h>
@@ -91,6 +92,7 @@ bool vfs_server_start(void)
         return false;
 
     router_register(SVC_FS, vfs_ep, tc->pid);
+    svc_monitor_set(SVC_FS, vfs_server_start, "vfs");
     vfs_active = true;
     klogi("vfs: server started and registered as SVC_FS\n");
     return true;

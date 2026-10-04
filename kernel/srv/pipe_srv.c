@@ -20,6 +20,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/pipe_srv.h>
+#include <srv/svc_monitor.h>
 #include <ipc/ipc.h>
 #include <router/router.h>
 #include <proc/sched.h>
@@ -67,6 +68,7 @@ bool pipe_server_start(void)
         return false;
 
     router_register(SVC_PIPE, pipe_ep, tc->pid);
+    svc_monitor_set(SVC_PIPE, pipe_server_start, "pipe");
     pipe_active = true;
     klogi("pipe: server started and registered as SVC_PIPE\n");
     return true;

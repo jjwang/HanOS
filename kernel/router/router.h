@@ -44,3 +44,12 @@ endpoint_t *router_lookup(service_id_t id);
 bool router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep);
 bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
                             ipc_msg_t *rep, time_t timeout_ms);
+pid_t router_owner(service_id_t id);
+
+/* Mark every service owned by pid down and drop its endpoint, so a client
+ * fails fast instead of blocking on a dead server. Called when a process
+ * exits. */
+void router_owner_died(pid_t pid);
+
+/* A down handler lets a supervisor learn which service died and restart it. */
+void router_set_down_handler(void (*fn) (service_id_t id));

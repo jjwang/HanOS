@@ -21,6 +21,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/process_srv.h>
+#include <srv/svc_monitor.h>
 #include <ipc/ipc.h>
 #include <router/router.h>
 #include <proc/sched.h>
@@ -89,6 +90,7 @@ bool process_server_start(void)
         return false;
 
     router_register(SVC_PROC, proc_ep, tc->pid);
+    svc_monitor_set(SVC_PROC, process_server_start, "process");
     proc_active = true;
     klogi("process: server started and registered as SVC_PROC\n");
     return true;

@@ -68,6 +68,7 @@
 #include <proc/notify.h>
 #include <srv/input_srv.h>
 #include <srv/console_srv.h>
+#include <srv/svc_monitor.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
 #include <fs/initrd.h>
@@ -231,6 +232,9 @@ _Noreturn void kshell(pid_t pid)
         process_server_probe();
     if (!net_server_start())
         klogw("net: server failed to start\n");
+
+    /* Restart a server when its process dies. */
+    svc_monitor_start();
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {

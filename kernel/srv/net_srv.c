@@ -27,6 +27,7 @@
 #include <ipc/ipc.h>
 #include <router/router.h>
 #include <srv/net_srv.h>
+#include <srv/svc_monitor.h>
 #include <fs/vfs.h>
 #include <proc/sched.h>
 #include <arch/x64/pci.h>
@@ -140,6 +141,7 @@ bool net_server_start(void)
         return false;
 
     router_register(SVC_NET, net_ep, tc->pid);
+    svc_monitor_set(SVC_NET, net_server_start, "net");
     net_active = true;
     klogi("net: server started and registered as SVC_NET\n");
     return true;
