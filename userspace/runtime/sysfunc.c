@@ -141,6 +141,13 @@ int32_t sys_chdir(const char *path)
     return ret;
 }
 
+int32_t sys_resolve(const char *name, uint32_t * ip)
+{
+    int32_t ret, errno;
+    SYSCALL2(SYSCALL_RESOLVE, name, ip);
+    return ret;
+}
+
 int32_t sys_unlink(const char *path)
 {
     int32_t ret, errno;

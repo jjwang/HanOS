@@ -178,6 +178,8 @@
                                            words[2]=name, words[3]=value */
 #define NET_GETOPT          0x9D        /* words[0]=sock, words[1]=level,
                                            words[2]=name; out words[1]=value */
+#define NET_RESOLVE         0x9E        /* words[0]=name length, name inline in
+                                           words[1..]; out words[1]=ipv4 */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

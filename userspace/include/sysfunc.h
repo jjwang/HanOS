@@ -106,6 +106,7 @@ int32_t sys_fork();
 int32_t sys_openat(int32_t dirfd, const char *path, int32_t flags);
 int32_t sys_getcwd(char *buffer, uint64_t size);
 int32_t sys_chdir(const char *path);
+int32_t sys_resolve(const char *name, uint32_t * ip);
 int32_t sys_open(const char *path, int32_t flags);
 int32_t sys_close(int32_t fd);
 int32_t sys_read(int32_t fd, void *buf, uint64_t count);

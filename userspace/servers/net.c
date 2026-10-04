@@ -1553,10 +1553,191 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
     }
 }
 
+/* --- DNS resolver -------------------------------------------------------- */
+
+#define DNS_PORT        53
+#define DNS_SRC_PORT    5300
+
+/* Encode a dotted name as DNS labels. Returns the length, or -1. */
+static int32_t dns_encode(uint8_t * out, const char * name)
+{
+    int32_t len = 0;
+    const char *p = name;
+
+    while (*p != '\0') {
+        const char *dot = p;
+        int32_t n = 0;
+
+        while (dot[n] != '\0' && dot[n] != '.')
+            n++;
+        if (n == 0 || n > 63 || len + n + 1 > 255)
+            return -1;
+        out[len++] = (uint8_t) n;
+        memcpy(out + len, p, n);
+        len += n;
+        p = dot + n;
+        if (*p == '.')
+            p++;
+    }
+    out[len++] = 0;
+    return len;
+}
+
+static bool dns_send(const uint8_t * query, uint32_t qlen)
+{
+    uint8_t seg[8 + 512];
+    udp_hdr_t *u = (udp_hdr_t *) seg;
+
+    if (qlen > 512)
+        return false;
+    u->src = ntohs(DNS_SRC_PORT);
+    u->dst = ntohs(DNS_PORT);
+    u->len = ntohs((uint16_t) (8 + qlen));
+    u->csum = 0;
+    memcpy(seg + 8, query, qlen);
+    return ip_send(dns_ip, 17, seg, 8 + qlen);
+}
+
+/* Advance past a (possibly compressed) DNS name. Returns true on a bad name. */
+static bool dns_skip_name(const uint8_t * p, const uint8_t * end,
+                          const uint8_t ** next)
+{
+    while (p < end) {
+        uint8_t c = *p;
+
+        if (c == 0) {
+            *next = p + 1;
+            return false;
+        }
+        if ((c & 0xc0) == 0xc0) {
+            *next = p + 2;
+            return false;
+        }
+        p += 1 + c;
+    }
+    *next = p;
+    return true;
+}
+
+/* Return the first A record address. */
+static bool dns_parse(const uint8_t * resp, int32_t n, uint32_t * ip)
+{
+    if (n < 12)
+        return false;
+
+    const uint8_t *p = resp + 12;
+    const uint8_t *end = resp + n;
+    uint16_t qd = (uint16_t) ((resp[4] << 8) | resp[5]);
+    uint16_t an = (uint16_t) ((resp[6] << 8) | resp[7]);
+
+    for (uint16_t i = 0; i < qd; i++) {
+        const uint8_t *next;
+
+        if (dns_skip_name(p, end, &next))
+            return false;
+        p = next + 4;           /* QTYPE + QCLASS */
+    }
+
+    for (uint16_t i = 0; i < an; i++) {
+        const uint8_t *next;
+
+        if (dns_skip_name(p, end, &next))
+            return false;
+        p = next;
+        if (p + 10 > end)
+            return false;
+
+        uint16_t type = (uint16_t) ((p[0] << 8) | p[1]);
+        uint16_t rdlen = (uint16_t) ((p[8] << 8) | p[9]);
+
+        p += 10;
+        if (type == 1 && rdlen == 4 && p + 4 <= end) {
+            *ip = ((uint32_t) p[0] << 24) | ((uint32_t) p[1] << 16)
+                | ((uint32_t) p[2] << 8) | p[3];
+            return true;
+        }
+        p += rdlen;
+    }
+    return false;
+}
+
+static bool dns_lookup(const char * name, uint32_t * ip)
+{
+    uint8_t query[300];
+    static uint16_t dns_id = 1;
+    uint16_t id = dns_id++;
+    int32_t nl;
+
+    if (dns_ip == 0)
+        return false;
+
+    memset(query, 0, 12);
+    query[0] = (uint8_t) (id >> 8);
+    query[1] = (uint8_t) id;
+    query[2] = 0x01;            /* standard query, recursion desired */
+    query[5] = 1;               /* qdcount */
+
+    nl = dns_encode(query + 12, name);
+    if (nl < 0)
+        return false;
+
+    uint32_t qlen = (uint32_t) (12 + nl);
+
+    query[qlen++] = 0;
+    query[qlen++] = 1;          /* QTYPE A */
+    query[qlen++] = 0;
+    query[qlen++] = 1;          /* QCLASS IN */
+
+    dns_send(query, qlen);
+
+    for (int32_t t = 0; t < 2000; t++) {
+        uint8_t rx[NIC_BUF];
+        int32_t n = nic_poll(rx);
+
+        if (n > 42) {
+            const eth_hdr_t *e = (const eth_hdr_t *) rx;
+            const ip_hdr_t *ip4 = (const ip_hdr_t *) (rx + 14);
+            const udp_hdr_t *u = (const udp_hdr_t *) (rx + 34);
+
+            if (ntohs(e->type) == 0x0800 && ip4->proto == 17
+                && ntohs(u->src) == DNS_PORT
+                && ntohs(u->dst) == DNS_SRC_PORT) {
+                const uint8_t *dns = rx + 42;
+
+                if (n >= 44 && ((dns[0] << 8) | dns[1]) == id
+                    && dns_parse(dns, n - 42, ip))
+                    return true;
+            }
+        }
+        net_delay();
+    }
+    return false;
+}
+
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == NET_PING) {
         rep->words[0] = NET_PING;
+        return;
+    }
+
+    if (m->tag == NET_RESOLVE) {
+        uint32_t len = (uint32_t) m->words[0];
+        char name[64];
+        uint32_t ip = 0;
+
+        if (len == 0 || len > 40) {
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            return;
+        }
+        memset(name, 0, sizeof(name));
+        memcpy(name, &m->words[1], len);
+        if (dns_lookup(name, &ip)) {
+            rep->words[0] = 0;
+            rep->words[1] = ip;
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+        }
         return;
     }
 

@@ -23,7 +23,7 @@ syscall_handler:
     mov rcx, r10
 
     extern syscall_funcs
-    cmp rax, 0x470          ; SYSCALL_TABLE_SIZE (keep in sync with syscall.h)
+    cmp rax, 0x480          ; SYSCALL_TABLE_SIZE (keep in sync with syscall.h)
     jae .enosys
     mov rbx, [rax * 8 + syscall_funcs]
     test rbx, rbx

@@ -227,6 +227,13 @@ int32_t main(int32_t argc, char *argv[])
         sys_exit(1);
     }
 
+    {
+        uint32_t rip = 0;
+        int32_t rr = sys_resolve("example.com", &rip);
+
+        printf("nettest: resolve r=%d ip=%08x\n", rr, rip);
+    }
+
     printf("nettest: PASS\n");
     sys_exit(0);
 }

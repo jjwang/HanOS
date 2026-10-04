@@ -37,3 +37,4 @@ int64_t net_setsockopt(int32_t sock, int32_t level, int32_t name,
                        uint64_t value);
 int64_t net_getsockopt(int32_t sock, int32_t level, int32_t name,
                        uint64_t * value);
+int64_t net_resolve(const char *name, uint32_t * ip);

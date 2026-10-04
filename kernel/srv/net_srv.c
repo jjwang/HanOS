@@ -405,6 +405,29 @@ int64_t net_getsockopt(int32_t fd, int32_t level, int32_t name,
     return 0;
 }
 
+int64_t net_resolve(const char *name, uint32_t * ip)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    uint64_t len = strlen(name);
+
+    if (len == 0 || len > 40)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_RESOLVE;
+    req.words[0] = len;
+    memcpy(&req.words[1], name, len);
+
+    if (!router_forward_timeout(SVC_NET, &req, &rep, 10000))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return (int64_t) rep.words[0];
+    if (ip != NULL)
+        *ip = (uint32_t) rep.words[1];
+    return 0;
+}
+
 
 int64_t net_connect(int32_t fd, uint32_t ip, uint16_t port)
 {

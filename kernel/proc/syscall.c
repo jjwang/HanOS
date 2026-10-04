@@ -3557,6 +3557,35 @@ int64_t k_epoll_pwait(int32_t epfd, void *uevents, int32_t maxevents,
     return k_epoll_wait(epfd, uevents, maxevents, timeout);
 }
 
+int64_t k_resolve(const char *name, uint32_t * uip)
+{
+    char kname[64];
+    uint32_t ip = 0;
+
+    cpu_set_errno(0);
+
+    if (name == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    if (strncpy_from_user(kname, name, sizeof(kname)) < 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    int64_t r = net_resolve(kname, &ip);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? ENOSYS : (int32_t) - r);
+        return -1;
+    }
+    if (uip != NULL && copy_to_user(uip, &ip, sizeof(ip)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
+}
+
 syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
@@ -3625,6 +3654,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_EPOLL_CTL] = (syscall_ptr_t) k_epoll_ctl,
     [SYSCALL_EPOLL_WAIT] = (syscall_ptr_t) k_epoll_wait,
     [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
+    [SYSCALL_RESOLVE] = (syscall_ptr_t) k_resolve,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,
