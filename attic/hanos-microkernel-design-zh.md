@@ -109,7 +109,9 @@ futex 阻塞在一个用户字上。`k_futex_wait` 武装等待键后再读该�
 
 `kill`、`tkill`、`tgkill` 排入信号并唤醒目标。未装处理函数时内核执行默认动作：忽略，或终止进程。处理函数执行期间屏蔽自身信号，`SA_NODEFER` 除外，并叠加动作掩码。`SIGKILL` 绕过掩码与处理函数。
 
-帧位于 `kernel/proc/signal.c`；`syscall_post` 在 `kernel/proc/syscall.c` 中调用 `signal_deliver`。
+帧位于 `kernel/proc/signal.c`。`signal_deliver` 显式接收被打断的 RIP 与 RFLAGS。系统调用路径经 `kernel/proc/syscall.c` 的 `syscall_post` 传 `rcx`/`r11`。中断路径传 `rip`/`rflags`。APIC 定时抢占入口 `enter_context_switch` 在选下一个进程前调用同一投递。进程在用户态自旋时，信号在下一次定时 tick 落地。该路径上的默认动作把进程标记为死亡。调度器丢弃它，空闲回收线程记录退出，关中断时不能走进程服务往返。
+
+内核保存 Linux 等待状态。正常退出把低字节左移存放。信号致死把信号号放低位，核心转储置 `0x80`。父进程的 `wait` 返回该状态，`WIFEXITED`/`WEXITSTATUS` 与 `WIFSIGNALED`/`WTERMSIG` 据此译码。
 
 ### 3.10 中断控制器
 
@@ -310,6 +312,8 @@ process 服务保存每进程文件描述符表与进程树。每个 fd 请求�
 
 内核经 process 服务把 fd 解析为每 CPU 临时描述符。内核按 `tgid` 索引 fd 调用，同组线程共享组长那张表。`dup3` 复制 fd 0、1、2 时用 tty 服务做后端，因为标准描述符留内核；副本上的读写直达 tty。套接字也注册进程 fd，`poll`、`select`、`epoll` 经同一解析到达它。`eventfd` 与 `epoll` 对象留内核，用内核服务 id 注册进程 fd；对它们的 `read`、`write`、`close` 留在 ring 0。
 
+`poll` 或 `epoll_wait` 无法立刻返回时装备进程轮询键。它把键注册到每个被轮询的管道端、内核 eventfd 或套接字。`PIPE_POLL_WAIT` 与 `NET_POLL_WAIT` 带上该键与请求事件位。只有描述符满足时服务才唤醒该键。内核在装备后复查就绪，消除竞态。tty 保留自己的键。`SYSCALL_POLL_WAKE` 供服务唤醒已停靠的轮询者。
+
 ### 5.9 net
 
 net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接字。
@@ -345,8 +349,7 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 - TCP 实现精简：无重传、无乱序处理、固定窗口，只提供客户端与服务器。
 - 网卡用轮询，不用中断。
 - VFS 运行时文件放在 RAM，不持久。
-- 信号在系统调用返回时投递给用户态；进程在用户态自旋时收到的信号要等下一次系统调用或定时路径。
-- `poll` 与 `epoll` 靠短定时器反复查询就绪；只有 tty 有真正的唤醒键。
+- 定时路径进入的信号处理函数经 `rt_sigreturn` 与 `sysret` 返回，被打断的 `rcx` 不恢复。系统调用 ABI 本就破坏 `rcx`；只有用户代码在被中断时把活值放在 `rcx` 才会察觉。
 - `mkdirat`、`symlinkat`、`renameat` 只建运行时条目；initrd 与 FAT 挂载保持只读。
 - 一批系统调用仍返回 `ENOSYS`，例如 FAT 挂载上的 `symlinkat`、`signalfd`。
 

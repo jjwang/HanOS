@@ -109,7 +109,9 @@ The syscall entry saves the user register frame on the user stack. After the han
 
 `kill`, `tkill` and `tgkill` queue a signal and wake the target. With no handler the kernel applies the default action: ignore, or terminate the process. The handler blocks its own signal unless `SA_NODEFER`, plus the action mask. `SIGKILL` bypasses the mask and the handler.
 
-The frame belongs to `kernel/proc/signal.c`; `signal_deliver` runs from `syscall_post` in `kernel/proc/syscall.c`.
+The frame belongs to `kernel/proc/signal.c`; `signal_deliver` takes the interrupted RIP and RFLAGS explicitly, so the syscall path passes them from `rcx`/`r11` through `syscall_post` in `kernel/proc/syscall.c` and the interrupt path passes `rip`/`rflags`. The APIC timer preemption entry `enter_context_switch` calls the same delivery before it selects the next process, so a signal raised while a process runs in user mode lands on the next timer tick, not only on a syscall return. A default action on that path marks the process dead for the scheduler to drop; the idle reaper records its exit, because the process-server round trip cannot run with interrupts disabled.
+
+The kernel stores a Linux wait status. A normal exit stores the low byte shifted up; a signal death stores the signal in the low bits with `0x80` for a core dump. The parent's `wait` returns that status, so `WIFEXITED`/`WEXITSTATUS` and `WIFSIGNALED`/`WTERMSIG` decode it.
 
 ### 3.10 Interrupt controllers
 
@@ -310,6 +312,8 @@ The process server owns the per-process file descriptor table and the process tr
 
 The kernel resolves a fd through the process server into a per-CPU transient descriptor. The kernel keys fd calls by `tgid`, so every thread of a group shares the leader's table. `dup3` of fd 0, 1 or 2 backs the new descriptor with the tty server, because the standard descriptors live in the kernel; reads and writes on the duplicate reach the tty. A socket registers a process fd as well, so `poll`, `select` and `epoll` reach it by the same resolution. `eventfd` and `epoll` objects live in the kernel and register a process fd with a kernel service id; `read`, `write` and `close` on them stay in ring 0.
 
+A `poll` or `epoll_wait` that cannot return at once arms the process poll key and registers it with each polled pipe end, kernel eventfd, or socket. The `PIPE_POLL_WAIT` and `NET_POLL_WAIT` requests carry the key and the requested event bits; the server wakes the key only when the descriptor matches, and the kernel re-checks readiness after arming to close the race. The tty keeps its own key. `SYSCALL_POLL_WAKE` wakes a parked poller from a server.
+
 ### 5.9 net
 
 The network server owns the socket layer and the NIC. It serves AF_INET datagram and stream sockets.
@@ -345,8 +349,7 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 - TCP is a minimal implementation: no retransmission, no out-of-order handling, a fixed window, and a client and a server only.
 - The NIC is polled, not interrupt-driven.
 - VFS runtime files live in RAM and do not persist.
-- Signals are delivered in user space on syscall return; a signal raised while a process spins in user mode waits for the next syscall or timer path.
-- `poll` and `epoll` wait by re-querying readiness on a short timer; only the tty has a true wake key.
+- A signal handler entered on the timer path returns through `rt_sigreturn` and `sysret`, so the interrupted `rcx` is not restored. The syscall ABI already clobbers `rcx`; only user code that interrupts with a live value in `rcx` observes it.
 - `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT mounts stay read-only.
 - A set of syscalls still returns `ENOSYS`, for example `symlinkat` on the FAT mount and `signalfd`.
 
