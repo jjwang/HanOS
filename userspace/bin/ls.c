@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sysfunc.h>
@@ -37,6 +38,7 @@ static command_help_t help_msg[] = {
 
 static int32_t opt_all;
 static int32_t opt_one;
+static int32_t opt_long;
 static int32_t use_color;
 
 static int32_t cmp_name(const void *a, const void *b)
@@ -74,6 +76,53 @@ static void print_name(const char *name, uint8_t type)
         printf("\033[%dm%s\033[0m", color, name);
     else
         printf("%s", name);
+}
+
+/* Build the 10-character mode string, e.g. "-rw-r--r--". */
+static void mode_string(mode_t mode, char *out)
+{
+    static const char rwx[] = "rwx";
+
+    out[0] = S_ISDIR(mode) ? 'd' :
+        S_ISLNK(mode) ? 'l' :
+        S_ISCHR(mode) ? 'c' :
+        S_ISBLK(mode) ? 'b' :
+        S_ISFIFO(mode) ? 'p' : S_ISSOCK(mode) ? 's' : '-';
+
+    for (int32_t i = 0; i < 9; i++) {
+        out[i + 1] = (mode & (1 << (8 - i))) ? rwx[i % 3] : '-';
+    }
+
+    if (mode & S_ISUID)
+        out[3] = (out[3] == 'x') ? 's' : 'S';
+    if (mode & S_ISGID)
+        out[6] = (out[6] == 'x') ? 's' : 'S';
+    if (mode & S_ISVTX)
+        out[9] = (out[9] == 'x') ? 't' : 'T';
+    out[10] = '\0';
+}
+
+static void print_long(const char *path, const char *name, uint8_t type)
+{
+    struct stat st;
+
+    if (lstat(path, &st) != 0)
+        return;
+
+    char perms[11];
+    char tbuf[32];
+    struct tm tmv;
+
+    mode_string(st.st_mode, perms);
+    memset(&tmv, 0, sizeof(tmv));
+    gmtime_r(&st.st_mtim.tv_sec, &tmv);
+    strftime(tbuf, sizeof(tbuf), "%b %e %H:%M", &tmv);
+
+    printf("%s %2lu %u %u %8lld %s ", perms, (unsigned long) st.st_nlink,
+           (unsigned) st.st_uid, (unsigned) st.st_gid,
+           (long long) st.st_size, tbuf);
+    print_name(name, type);
+    putchar('\n');
 }
 
 static void print_columns(char **names, uint8_t * types, size_t n)
@@ -168,7 +217,17 @@ static void list_dir(const char *path)
     closedir(dir);
 
     qsort(names, n, sizeof(*names), cmp_name);
-    print_columns(names, types, n);
+
+    if (opt_long) {
+        for (size_t i = 0; i < n; i++) {
+            char full[4096];
+
+            snprintf(full, sizeof(full), "%s/%s", path, names[i]);
+            print_long(full, names[i], types[i]);
+        }
+    } else {
+        print_columns(names, types, n);
+    }
 
     for (size_t i = 0; i < n; i++)
         free(names[i]);
@@ -191,6 +250,8 @@ int32_t main(int32_t argc, char *argv[])
                     opt_all = 1;
                 else if (argv[i][j] == '1')
                     opt_one = 1;
+                else if (argv[i][j] == 'l')
+                    opt_long = 1;
                 else
                     fprintf(stderr, "ls: invalid option -- '%c'\n",
                             argv[i][j]);
@@ -221,6 +282,8 @@ int32_t main(int32_t argc, char *argv[])
                 printf("%s:\n", paths[i]);
             }
             list_dir(paths[i]);
+        } else if (opt_long) {
+            print_long(paths[i], paths[i], S_ISLNK(st.st_mode) ? DT_LNK : DT_REG);
         } else {
             print_name(paths[i], S_ISLNK(st.st_mode) ? DT_LNK : DT_REG);
             putchar('\n');
