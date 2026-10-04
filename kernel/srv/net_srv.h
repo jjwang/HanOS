@@ -33,6 +33,7 @@ int64_t net_close(int32_t sock);
 int64_t net_getsockname(int32_t sock, uint32_t *ip, uint16_t *port);
 int64_t net_getpeername(int32_t sock, uint32_t *ip, uint16_t *port);
 int64_t net_poll(int32_t sock, int32_t *readable, int32_t *writable);
+int64_t net_poll_register(int32_t fd, void *key, int32_t events);
 int64_t net_setsockopt(int32_t sock, int32_t level, int32_t name,
                        uint64_t value);
 int64_t net_getsockopt(int32_t sock, int32_t level, int32_t name,

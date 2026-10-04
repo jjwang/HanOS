@@ -359,6 +359,27 @@ int64_t net_poll(int32_t fd, int32_t *readable, int32_t *writable)
     return 0;
 }
 
+/* Ask the network server to wake the key when the socket matches events. */
+int64_t net_poll_register(int32_t fd, void *key, int32_t events)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_POLL_WAIT;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = (uint64_t) key;
+    req.words[2] = (uint32_t) events;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
 int64_t net_setsockopt(int32_t fd, int32_t level, int32_t name, uint64_t value)
 {
     ipc_msg_t req;

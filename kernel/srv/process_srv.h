@@ -35,7 +35,11 @@ int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence);
 int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg);
 void process_fd_fork(int32_t parent, int32_t child);
 void process_fd_exit(int32_t pid);
+/* Exit bookkeeping keyed by pid, for the idle reaper's context. */
+void process_fd_exit_pid(int32_t pid);
 
 /* wait/exit bookkeeping, served by the userspace process server. */
 void process_exit_notify(int64_t status);
+/* Exit notify keyed by pid, for the idle reaper's context. */
+void process_exit_notify_pid(int32_t pid, int64_t status);
 int64_t process_wait(int32_t target, int32_t nohang, int64_t *status);

@@ -154,6 +154,48 @@ int main(void)
     }
 
     {
+        /* A blocking socket poll wakes when a datagram arrives. */
+        int s = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if (s >= 0) {
+            struct sockaddr_in sa;
+            struct pollfd pf;
+            struct timespec t0, t1;
+            pid_t pid;
+            long ms;
+            int r;
+
+            memset(&sa, 0, sizeof(sa));
+            sa.sin_family = AF_INET;
+            sa.sin_port = htons(12346);
+            sa.sin_addr.s_addr = htonl(0x7f000001);
+            bind(s, (struct sockaddr *) &sa, sizeof(sa));
+
+            pid = fork();
+            if (pid == 0) {
+                int c = socket(AF_INET, SOCK_DGRAM, 0);
+
+                sendto(c, "z", 1, 0, (struct sockaddr *) &sa, sizeof(sa));
+                _exit(0);
+            }
+
+            pf.fd = s;
+            pf.events = POLLIN;
+            pf.revents = 0;
+            clock_gettime(CLOCK_MONOTONIC, &t0);
+            r = poll(&pf, 1, 5000);
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            ms = (t1.tv_sec - t0.tv_sec) * 1000
+                + (t1.tv_nsec - t0.tv_nsec) / 1000000;
+
+            waitpid(pid, NULL, 0);
+            printf("sockpoll block r=%d revents=0x%x ms=%ld\n", r,
+                   pf.revents, ms);
+            close(s);
+        }
+    }
+
+    {
         /* SO_REUSEADDR lets a second bind to a busy port succeed. */
         int a = socket(AF_INET, SOCK_DGRAM, 0);
         int b = socket(AF_INET, SOCK_DGRAM, 0);
@@ -302,6 +344,84 @@ int main(void)
             close(pp[1]);
         } else {
             printf("pipepoll FAIL errno=%d\n", errno);
+        }
+    }
+
+    {
+        int pp[2];
+
+        if (pipe(pp) == 0) {
+            pid_t pid = fork();
+
+            if (pid == 0) {
+                char c = 'w';
+
+                write(pp[1], &c, 1);
+                _exit(0);
+            }
+
+            struct pollfd pf;
+            struct timespec t0, t1;
+            long ms;
+
+            pf.fd = pp[0];
+            pf.events = POLLIN;
+            pf.revents = 0;
+            clock_gettime(CLOCK_MONOTONIC, &t0);
+            int r = poll(&pf, 1, 5000);
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            ms = (t1.tv_sec - t0.tv_sec) * 1000
+                + (t1.tv_nsec - t0.tv_nsec) / 1000000;
+
+            waitpid(pid, NULL, 0);
+            printf("pipepoll block r=%d revents=0x%x ms=%ld\n", r,
+                   pf.revents, ms);
+            close(pp[0]);
+            close(pp[1]);
+        }
+    }
+
+    {
+        int pp[2];
+
+        if (pipe(pp) == 0) {
+            int ep = epoll_create1(0);
+
+            if (ep >= 0) {
+                struct epoll_event ee;
+                struct epoll_event out[4];
+                struct timespec t0, t1;
+                pid_t pid;
+                long ms;
+
+                memset(&ee, 0, sizeof(ee));
+                ee.events = EPOLLIN;
+                ee.data.u64 = 77;
+                epoll_ctl(ep, EPOLL_CTL_ADD, pp[0], &ee);
+
+                pid = fork();
+                if (pid == 0) {
+                    char c = 'e';
+
+                    write(pp[1], &c, 1);
+                    _exit(0);
+                }
+
+                clock_gettime(CLOCK_MONOTONIC, &t0);
+                int r = epoll_wait(ep, out, 4, 5000);
+                clock_gettime(CLOCK_MONOTONIC, &t1);
+                ms = (t1.tv_sec - t0.tv_sec) * 1000
+                    + (t1.tv_nsec - t0.tv_nsec) / 1000000;
+
+                waitpid(pid, NULL, 0);
+                printf("epoll block r=%d events=0x%x data=%llu ms=%ld\n", r,
+                       (r > 0) ? out[0].events : 0,
+                       (unsigned long long) ((r > 0) ? out[0].data.u64 : 0),
+                       ms);
+                close(ep);
+            }
+            close(pp[0]);
+            close(pp[1]);
         }
     }
 

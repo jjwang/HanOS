@@ -66,6 +66,8 @@ typedef struct {
     bool used;
     uint64_t counter;
     bool semaphore;
+    void *wait_key;             /* poll wake key */
+    int32_t wait_events;        /* poll event bits the waiter asked for */
 } eventfd_obj_t;
 
 static eventfd_obj_t eventfds[EVENTFD_MAX];
@@ -392,8 +394,11 @@ int64_t syscall_post(int64_t ret, void *frame)
 {
     process_t *t = sched_get_current_process();
 
-    if (t != NULL && frame != NULL)
-        signal_deliver(t, (syscall_regs_t *) frame, ret);
+    if (t != NULL && frame != NULL) {
+        syscall_regs_t *regs = (syscall_regs_t *) frame;
+
+        signal_deliver(t, regs, ret, regs->rcx, regs->r11, false);
+    }
 
     return ret;
 }
@@ -1605,6 +1610,50 @@ static int32_t poll_check(void *fds, uint64_t nfds, bool *want_tty)
     return ready;
 }
 
+/* Register a poll wake key with one descriptor for the given event bits. */
+static void poll_register_one(int32_t fd, void *key, int32_t events)
+{
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (key == NULL || fd < 3)
+        return;
+    if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) != 0)
+        return;
+
+    if (svc == SVC_PIPE) {
+        vfs_pipe_poll_register(sfd, key, events);
+    } else if (svc == SVC_NET) {
+        net_poll_register(fd, key, events);
+    } else if (svc == SVC_EVENT) {
+        kobj_lock_acquire();
+        eventfd_obj_t *e = eventfd_get(sfd);
+
+        if (e != NULL) {
+            e->wait_key = key;
+            e->wait_events = events;
+        }
+        kobj_lock_release();
+    }
+}
+
+/* Register a poll wake key with each non-tty polled descriptor, so its server
+ * or kernel object wakes us when the state changes. */
+static void poll_register(void *fds, uint64_t nfds, void *key)
+{
+    if (key == NULL)
+        return;
+
+    for (uint64_t i = 0; i < nfds; i++) {
+        struct pollfd_k p;
+        uint8_t *slot = (uint8_t *) fds + i * sizeof(p);
+
+        if (copy_from_user(&p, slot, sizeof(p)) != 0)
+            return;
+        poll_register_one(p.fd, key, p.events);
+    }
+}
+
 int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
 {
     int64_t start_ms = (int64_t) (hpet_get_nanos() / 1000000);
@@ -1615,6 +1664,8 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         cpu_set_errno(EINVAL);
         return -1;
     }
+
+    process_t *t = sched_get_current_process();
 
     for (;;) {
         bool want_tty = false;
@@ -1638,22 +1689,40 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
             rem = timeout - elapsed;
         }
 
-        if (want_tty) {
-            /* Arm and block. The re-check above and the arm are close, so a
-             * wake in between is rare; the next poll catches it. */
-            sched_wait_key_begin(tty_server_poll_key());
+        void *key = want_tty ? tty_server_poll_key()
+            : (t != NULL ? (void *) &t->poll_key : NULL);
 
+        if (key != NULL)
+            sched_wait_key_begin(key);
+
+        poll_register(fds, nfds, key);
+
+        /* Re-check after arming; a change in the window is caught here. */
+        bool again = false;
+
+        ready = poll_check(fds, nfds, &again);
+        if (ready > 0) {
+            if (key != NULL)
+                sched_wait_key_cancel();
+            return ready;
+        }
+
+        if (key != NULL) {
             if (timeout < 0)
                 sched_wait_key_commit_infinite();
             else
                 sched_wait_key_commit(rem);
-        } else if (timeout < 0) {
-            /* Nothing pollable is pending; do not spin. */
-            sched_sleep(1000);
         } else {
-            sched_sleep(rem);
+            sched_sleep(timeout < 0 ? 1000 : rem);
         }
     }
+}
+
+int64_t k_poll_wake(uint64_t key)
+{
+    cpu_set_errno(0);
+    sched_wake_key((void *) key);
+    return 0;
 }
 
 static int64_t select_common(int32_t nfds, uint8_t * rfds, uint8_t * wfds,
@@ -1959,6 +2028,17 @@ int64_t k_waitpid(int64_t pid, int32_t * status, int32_t flags)
     }
 }
 
+/* Close the process on the server side and record its wait status. The kernel
+ * stores the Linux wait status directly: a normal exit shifts the low byte up,
+ * a signal death keeps the signal in the low bits. */
+static void process_record_exit(process_t * t, int64_t wait_status)
+{
+    process_fd_exit((int32_t) t->pid);
+    process_exit_notify(wait_status);
+    t->exit_status = wait_status;
+    t->exit_recorded = true;
+}
+
 void k_exit(int64_t status)
 {
     process_t *t = sched_get_current_process();
@@ -1975,11 +2055,9 @@ void k_exit(int64_t status)
         } else {
             klogi("k_exit: process %ld exit with status %ld\n", t->pid,
                   status);
-            /* The process server owns the fd table and closes the server side
-             * of every descriptor the process held. */
-            process_fd_exit((int32_t) t->pid);
-            /* Record the exit status so the parent's wait can collect it. */
-            process_exit_notify(status);
+            /* The process server owns the fd table; record the wait status so
+             * the parent's wait can collect it. */
+            process_record_exit(t, (status & 0xff) << 8);
         }
     }
 
@@ -1997,13 +2075,27 @@ void k_exit_group(int64_t status)
         /* Stop the other threads of the group first. */
         sched_kill_group(t->tgid, t->pid);
 
-        if (!t->is_thread) {
-            process_fd_exit((int32_t) t->pid);
-            process_exit_notify(status);
-        }
+        if (!t->is_thread)
+            process_record_exit(t, (status & 0xff) << 8);
     }
 
     sched_exit(status);
+}
+
+/* Exit the group because of a fatal signal. The wait status carries the signal
+ * in the low bits with the core-dump flag set. */
+void k_exit_group_signal(int32_t sig)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL) {
+        sched_kill_group(t->tgid, t->pid);
+
+        if (!t->is_thread)
+            process_record_exit(t, (int64_t) sig | 0x80);
+    }
+
+    sched_exit(sig);
 }
 
 int32_t k_getcwd(char *buffer, uint64_t size)
@@ -3325,7 +3417,14 @@ static int64_t eventfd_read(int64_t id, void *buf, uint64_t count)
         v = e->counter;
         e->counter = 0;
     }
+    void *wk = e->wait_key;
+    int32_t wev = e->wait_events;
+
     kobj_lock_release();
+
+    /* A drain makes the eventfd writable and a writer may be waiting. */
+    if (wk != NULL && (wev & POLLOUT))
+        sched_wake_key(wk);
 
     if (copy_to_user(buf, &v, sizeof(v)) != 0) {
         cpu_set_errno(EFAULT);
@@ -3363,7 +3462,14 @@ static int64_t eventfd_write(int64_t id, const void *buf, uint64_t count)
         return -1;
     }
     e->counter += v;
+    void *wk = e->wait_key;
+    int32_t wev = e->wait_events;
+
     kobj_lock_release();
+
+    /* A write makes the eventfd readable. */
+    if (wk != NULL && (wev & POLLIN))
+        sched_wake_key(wk);
 
     return (int64_t) sizeof(v);
 }
@@ -3545,8 +3651,42 @@ int64_t k_epoll_wait(int32_t epfd, void *uevents, int32_t maxevents,
 
         if (timeout > 0 && elapsed >= timeout)
             return 0;
+        int64_t rem = timeout > 0 ? timeout - elapsed : -1;
 
-        sched_sleep(10);
+        process_t *t = sched_get_current_process();
+        void *key = t != NULL ? (void *) &t->poll_key : NULL;
+
+        if (key == NULL) {
+            sched_sleep(rem < 0 ? 1000 : rem);
+            continue;
+        }
+
+        sched_wait_key_begin(key);
+        for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
+            if (eo->items[i].fd != 0)
+                poll_register_one(eo->items[i].fd - 1, key,
+                                  (int32_t) eo->items[i].events);
+        }
+
+        /* Re-check after arming; data that arrived in the window is caught
+         * here instead of being missed until the timeout. */
+        bool any = false;
+
+        for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
+            if (eo->items[i].fd != 0
+                && fd_poll_revents(eo->items[i].fd - 1,
+                                   (int16_t) eo->items[i].events, NULL))
+                any = true;
+        }
+        if (any) {
+            sched_wait_key_cancel();
+            continue;
+        }
+
+        if (rem < 0)
+            sched_wait_key_commit_infinite();
+        else
+            sched_wait_key_commit(rem);
     }
 }
 
@@ -3655,6 +3795,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_EPOLL_WAIT] = (syscall_ptr_t) k_epoll_wait,
     [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
     [SYSCALL_RESOLVE] = (syscall_ptr_t) k_resolve,
+    [SYSCALL_POLL_WAKE] = (syscall_ptr_t) k_poll_wake,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,

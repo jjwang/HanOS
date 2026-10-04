@@ -29,6 +29,7 @@
 #include <lib/kmalloc.h>
 #include <lib/vector.h>
 #include <proc/sched.h>
+#include <proc/signal.h>
 #include <proc/elf.h>
 #include <arch/x64/smp.h>
 #include <arch/x64/timer.h>
@@ -146,6 +147,13 @@ _Noreturn void process_idle(pid_t pid)
         }
 
         klogi("sched: clean memory of dead process #%ld (0x%016lx)\n", t->pid, t);
+
+        /* A process killed from the timer path could not reach the process
+         * server; record its status here, in idle context, before it is freed. */
+        if (!t->exit_recorded && !t->is_thread) {
+            process_fd_exit_pid((int32_t) t->pid);
+            process_exit_notify_pid((int32_t) t->pid, t->exit_status);
+        }
 
         /* A dead server owner drops its endpoint; the monitor restarts it. */
         router_owner_died(t->pid);
@@ -385,10 +393,39 @@ void sched_exit(int64_t status)
     force_context_switch();
 }
 
-/* Sleep until a child of the current process exits, or until the timeout
- * expires. The timeout guarantees progress even if the wakeup is missed
- * because the child exited just before this process went to sleep.
- */
+/* Mark the current process dead from the timer preempt path. The core is about
+ * to context switch, so the scheduler drops the process and the reaper records
+ * its exit and frees it; no IPC runs in interrupt context. */
+void sched_preempt_exit(process_t * t, int64_t status)
+{
+    if (t == NULL)
+        return;
+
+    t->exit_status = status;
+    t->exit_recorded = false;
+    t->status = PROC_DEAD;
+    sched_wake_child_waiter(t->ppid);
+}
+
+/* Deliver a pending signal to the user process the timer preempted. The saved
+ * frame uses the same layout as syscall_regs_t (rax first). */
+void sched_signal_deliver(void *frame)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || frame == NULL || t->mode != PROC_USER_MODE)
+        return;
+    if (t->is_thread)
+        return;
+
+    syscall_regs_t *regs = (syscall_regs_t *) frame;
+
+    if ((regs->cs & 3) != 3)
+        return;
+
+    signal_deliver(t, regs, (int64_t) regs->rax, regs->rip, regs->rflags,
+                   true);
+}
 void sched_wait_child(time_t millis)
 {
     cpu_t *cpu = smp_get_current_cpu(false);

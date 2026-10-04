@@ -148,6 +148,13 @@ int32_t sys_resolve(const char *name, uint32_t * ip)
     return ret;
 }
 
+int32_t sys_poll_wake(uint64_t key)
+{
+    int32_t ret, errno;
+    SYSCALL1(SYSCALL_POLL_WAKE, key);
+    return ret;
+}
+
 int32_t sys_unlink(const char *path)
 {
     int32_t ret, errno;

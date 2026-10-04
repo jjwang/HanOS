@@ -842,6 +842,22 @@ int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable)
     return 0;
 }
 
+int64_t vfs_pipe_poll_register(int64_t sfd, void *key, int32_t events)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = PIPE_POLL_WAIT;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = (uint64_t) key;
+    req.words[2] = (uint32_t) events;
+
+    if (!router_forward(SVC_PIPE, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
 int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
 {    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
     if (!desc || !desc->server)

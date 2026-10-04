@@ -117,6 +117,46 @@ static net_sock_t socks[NET_MAX_SOCKS];
 static bootinfo_t bi;
 static bool msg_deferred;
 
+/* A poll() waiter: the kernel wake key registered by the caller. */
+typedef struct {
+    bool used;
+    int32_t sock;
+    int32_t events;
+    uint64_t key;
+} net_poll_t;
+
+static net_poll_t poll_waits[NET_MAX_SOCKS];
+
+static void net_wake_pollers(void)
+{
+    for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+        bool readable, writable;
+        int32_t idx;
+        net_sock_t *s;
+
+        if (!poll_waits[i].used)
+            continue;
+
+        idx = poll_waits[i].sock;
+        if (idx < 1 || idx > NET_MAX_SOCKS || !socks[idx - 1].used) {
+            poll_waits[i].used = false;
+            continue;
+        }
+
+        s = &socks[idx - 1];
+        readable = (s->count > 0)
+            || (s->accept_pending > 0)
+            || (s->stream && s->got_fin);
+        writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
+
+        if ((readable && (poll_waits[i].events & POLLIN_BIT))
+            || (writable && (poll_waits[i].events & POLLOUT_BIT))) {
+            sys_poll_wake(poll_waits[i].key);
+            poll_waits[i].used = false;
+        }
+    }
+}
+
 /* --- e1000e NIC driver (polling) ----------------------------------------- */
 
 #define E1000_CTRL      0x0000
@@ -1944,6 +1984,32 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == NET_POLL_WAIT) {
+        int32_t idx = (int32_t) m->words[0];
+        uint64_t key = m->words[1];
+        int32_t events = (int32_t) m->words[2];
+
+        if (sock_get(idx) == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+            if (poll_waits[i].used && poll_waits[i].sock == idx)
+                poll_waits[i].used = false;
+        }
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+            if (!poll_waits[i].used) {
+                poll_waits[i].used = true;
+                poll_waits[i].sock = idx;
+                poll_waits[i].events = events;
+                poll_waits[i].key = key;
+                break;
+            }
+        }
+        rep->words[0] = 0;
+        return;
+    }
+
     if (m->tag == NET_SENDTO) {
         net_sock_t *s = sock_get((int32_t) m->words[0]);
         uint32_t ip = (uint32_t) m->words[1];
@@ -2103,6 +2169,7 @@ int32_t main(void)
     for (;;) {
         net_poll_once();
         tcp_tick_all();
+        net_wake_pollers();
 
         sys_ipc_msg_t m;
 

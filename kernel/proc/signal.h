@@ -271,10 +271,14 @@ void signal_changemask(process_t * t, int64_t how, sigset_t * new,
  * queueing of duplicates). Wakes the target when it sleeps. */
 void signal_raise(process_t * t, int32_t sig);
 
-/* Deliver one pending, unblocked signal by rewriting the syscall return frame
- * to enter the handler. Applies the default action (terminate or ignore) when
- * no handler is installed. Returns true when a frame was rewritten. */
-bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval);
+/* Deliver one pending, unblocked signal by rewriting the return frame to enter
+ * the handler. entry_rip and entry_rflags name the interrupted instruction: a
+ * syscall keeps them in rcx/r11, an interrupt in rip/rflags. On the timer path
+ * (preempt true) a default action marks the process dead instead of switching
+ * the core out of interrupt context. Applies the default action when no handler
+ * is installed. Returns true when a frame was rewritten. */
+bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval,
+                    uint64_t entry_rip, uint64_t entry_rflags, bool preempt);
 
 /* Restore the context saved by signal_deliver from the frame on the user
  * stack, writing the interrupted syscall result to *out. Returns 0, or -1 on

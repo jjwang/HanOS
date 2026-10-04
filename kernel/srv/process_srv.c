@@ -260,6 +260,18 @@ void process_exit_notify(int64_t status)
     proc_call(PROC_EXIT, (uint64_t) status, 0, 0, 0, NULL);
 }
 
+/* Exit and fd bookkeeping for a process reaped by the idle reaper, which runs
+ * in a different process context than the dead one. */
+void process_fd_exit_pid(int32_t pid)
+{
+    proc_call_pid(pid, PROC_FD_EXIT, 0, 0, 0, 0, NULL);
+}
+
+void process_exit_notify_pid(int32_t pid, int64_t status)
+{
+    proc_call_pid(pid, PROC_EXIT, (uint64_t) status, 0, 0, 0, NULL);
+}
+
 /* Ask the server for a reapable child of the current process. Returns the child
  * pid, 0 when none is ready and nohang is set, PROC_WAIT_BLOCK when a child
  * exists but has not exited, or a negative errno. */

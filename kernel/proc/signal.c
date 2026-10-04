@@ -141,7 +141,8 @@ void signal_raise(process_t * t, int32_t sig)
     sched_wake_process(t);
 }
 
-/* Apply the default disposition: terminate the process or ignore. */
+/* Apply the default disposition: terminate the process or ignore. The status
+ * is left for the reaper to record so the parent's wait collects it. */
 static void signal_default_action(process_t * t, int32_t sig)
 {
     int32_t action = signal_defaultactions[sig];
@@ -149,15 +150,36 @@ static void signal_default_action(process_t * t, int32_t sig)
     if (action == SIG_ACTION_IGN || action == SIG_ACTION_CONT)
         return;
 
+    t->exit_status = (action == SIG_ACTION_CORE) ? 128 + sig : sig;
+    t->exit_recorded = false;
+
     if (sched_get_current_process() == t)
-        sched_exit(128 + sig);
+        sched_exit(sig);
     else
         sched_kill_group(t->tgid, 0);
 }
 
-bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval)
+/* Terminate for a default action on the timer preempt path. The core is about
+ * to context switch, so mark the process dead and let the scheduler drop it and
+ * the reaper record the exit, instead of switching out of interrupt context. */
+static void signal_preempt_terminate(process_t * t, int32_t sig)
+{
+    int32_t action = signal_defaultactions[sig];
+
+    if (action == SIG_ACTION_IGN || action == SIG_ACTION_CONT)
+        return;
+
+    sched_preempt_exit(t, (action == SIG_ACTION_CORE) ? 128 + sig : sig);
+}
+
+bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval,
+                    uint64_t entry_rip, uint64_t entry_rflags, bool preempt)
 {
     if (t == NULL || regs == NULL || t->mode != PROC_USER_MODE)
+        return false;
+
+    /* Fast path: nothing queued on this tick. */
+    if (__atomic_load_n(&t->signals.pending.sig, __ATOMIC_RELAXED) == 0)
         return false;
 
     uint64_t pending;
@@ -186,7 +208,10 @@ bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval)
         return false;
 
     if (kill || (void *) act.address == SIG_DFL) {
-        signal_default_action(t, sig);
+        if (preempt)
+            signal_preempt_terminate(t, sig);
+        else
+            signal_default_action(t, sig);
         return false;
     }
 
@@ -194,21 +219,27 @@ bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval)
 
     if (restorer == 0) {
         /* No restorer: the handler cannot return. Terminate. */
-        signal_default_action(t, sig);
+        if (preempt)
+            signal_preempt_terminate(t, sig);
+        else
+            signal_default_action(t, sig);
         return false;
     }
 
     hanos_sigframe_t *sf = kmalloc(sizeof(*sf));
 
     if (sf == NULL) {
-        signal_default_action(t, sig);
+        if (preempt)
+            signal_preempt_terminate(t, sig);
+        else
+            signal_default_action(t, sig);
         return false;
     }
 
     memset(sf, 0, sizeof(*sf));
     sf->pretcode = restorer;
-    /* The frame's rax slot still holds the syscall number; the interrupted
-     * syscall result arrives in retval and must resume in rax. */
+    /* The frame's rax slot holds the interrupted value; the handler returns to
+     * it through rt_sigreturn. */
     sf->rax = (uint64_t) retval;
     sf->rbx = regs->rbx;
     sf->rcx = regs->rcx;
@@ -224,10 +255,9 @@ bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval)
     sf->r13 = regs->r13;
     sf->r14 = regs->r14;
     sf->r15 = regs->r15;
-    /* SYSCALL leaves the interrupted RIP in rcx and RFLAGS in r11. */
-    sf->rip = regs->rcx;
+    sf->rip = entry_rip;
     sf->cs = regs->cs;
-    sf->rflags = regs->r11;
+    sf->rflags = entry_rflags;
     sf->rsp = regs->rsp;
     sf->ss = regs->ss;
     sf->signo = (uint64_t) sig;
@@ -240,13 +270,16 @@ bool signal_deliver(process_t * t, syscall_regs_t * regs, int64_t retval)
 
     if (copy_to_user((void *) newrsp, sf, sizeof(*sf)) != 0) {
         kmfree(sf);
-        signal_default_action(t, sig);
+        if (preempt)
+            signal_preempt_terminate(t, sig);
+        else
+            signal_default_action(t, sig);
         return false;
     }
     kmfree(sf);
 
-    regs->rcx = (uint64_t) act.address;
-    regs->rip = (uint64_t) act.address;
+    regs->rcx = (uint64_t) act.address; /* sysret target on the syscall path */
+    regs->rip = (uint64_t) act.address; /* iret target on the interrupt path */
     regs->rsp = newrsp;
     regs->rdi = (uint64_t) sig;
     regs->rax = 0;

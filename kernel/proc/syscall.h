@@ -138,6 +138,8 @@ void syscall_init(void);
  * Used by the exit syscalls and by a user-mode fault that must kill the
  * process. Does not return. */
 void k_exit_group(int64_t status);
+/* Exit the group for a fatal signal; the wait status keeps the signal. */
+void k_exit_group_signal(int32_t sig);
 
 /*
  * The maximum number of syscall arguments is 5. Other arguments should be put

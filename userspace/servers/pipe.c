@@ -74,6 +74,52 @@ typedef struct {
 static pipe_wait_t waits[PIPE_WAIT_MAX];
 static bool msg_deferred;
 
+/* A poll() waiter: the kernel wake key registered by the caller. The key is
+ * echoed back to the kernel when the pipe state changes. */
+typedef struct {
+    bool used;
+    int32_t fd;
+    int32_t events;
+    uint64_t key;
+} pipe_poll_t;
+
+static pipe_poll_t poll_waits[PIPE_WAIT_MAX];
+
+static void pipe_wake_pollers(int32_t pi)
+{
+    for (int32_t i = 0; i < PIPE_WAIT_MAX; i++) {
+        int32_t fd;
+        pipe_t *p;
+        bool readable, writable;
+
+        if (!poll_waits[i].used)
+            continue;
+
+        fd = poll_waits[i].fd;
+        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+            poll_waits[i].used = false;
+            continue;
+        }
+        if (ends[fd - 1].pipe != pi)
+            continue;
+
+        p = &pipes[pi];
+        if (ends[fd - 1].is_write) {
+            readable = false;
+            writable = (p->r_refs > 0 && p->count < PIPE_BUF_SIZE);
+        } else {
+            readable = (p->count > 0 || p->w_refs == 0);
+            writable = (p->r_refs > 0 && p->count < PIPE_BUF_SIZE);
+        }
+
+        if ((readable && (poll_waits[i].events & POLLIN_BIT))
+            || (writable && (poll_waits[i].events & POLLOUT_BIT))) {
+            sys_poll_wake(poll_waits[i].key);
+            poll_waits[i].used = false;
+        }
+    }
+}
+
 static int32_t end_alloc(int32_t pipe_idx, bool is_write)
 {
     for (int32_t i = 0; i < PIPE_END_MAX; i++) {
@@ -240,6 +286,8 @@ static void pipe_flush(int32_t pi)
 {
     bool progress = true;
 
+    pipe_wake_pollers(pi);
+
     while (progress) {
         progress = false;
 
@@ -332,6 +380,33 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[0] = 0;
         rep->words[1] = (p->count > 0 || p->w_refs == 0) ? 1 : 0;
         rep->words[2] = (p->r_refs > 0 && p->count < PIPE_BUF_SIZE) ? 1 : 0;
+        return;
+    }
+
+    if (m->tag == PIPE_POLL_WAIT) {
+        int32_t fd = (int32_t) m->words[0];
+        uint64_t key = m->words[1];
+        int32_t events = (int32_t) m->words[2];
+
+        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        /* Replace a previous waiter on the same end. */
+        for (int32_t i = 0; i < PIPE_WAIT_MAX; i++) {
+            if (poll_waits[i].used && poll_waits[i].fd == fd)
+                poll_waits[i].used = false;
+        }
+        for (int32_t i = 0; i < PIPE_WAIT_MAX; i++) {
+            if (!poll_waits[i].used) {
+                poll_waits[i].used = true;
+                poll_waits[i].fd = fd;
+                poll_waits[i].events = events;
+                poll_waits[i].key = key;
+                break;
+            }
+        }
+        rep->words[0] = 0;
         return;
     }
 

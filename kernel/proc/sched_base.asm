@@ -6,11 +6,17 @@ global force_context_switch
 global fork_context_switch
 
 extern do_context_switch
+extern sched_signal_deliver
 
 enter_context_switch:
     cli
 
     push_all
+
+    ; Give a queued signal the chance to rewrite the interrupted user frame
+    ; before the switch selects the next process.
+    mov rdi, rsp
+    call sched_signal_deliver
 
     mov rdi, rsp
     mov rsi, 0

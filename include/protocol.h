@@ -104,6 +104,11 @@
 #define PROC_FD_SERVER      0
 #define PROC_FD_KERNEL      1
 
+/* poll() event bits (match Linux). Servers receive them with a wake key and
+ * only wake the key when the requested condition holds. */
+#define POLLIN_BIT          0x001
+#define POLLOUT_BIT         0x004
+
 /* Pipe server. Transfers up to PIPE_INLINE_MAX bytes travel inline in
  * words[2..]; larger ones in a memory object in xfer[1]. A read or write that
  * cannot make progress returns PIPE_EAGAIN in words[0]. */
@@ -115,6 +120,8 @@
 #define PIPE_CLOSE          0x42        /* words[0]=fd */
 #define PIPE_POLL           0x44        /* words[0]=fd; out: words[1]=readable,
                                            words[2]=writable */
+#define PIPE_POLL_WAIT      0x45        /* words[0]=fd, words[1]=wake key,
+                                           words[2]=events */
 #define PIPE_EAGAIN         (-11)
 
 /* TTY server. There is a single tty, so reads and writes carry no fd. Data up
@@ -180,6 +187,8 @@
                                            words[2]=name; out words[1]=value */
 #define NET_RESOLVE         0x9E        /* words[0]=name length, name inline in
                                            words[1..]; out words[1]=ipv4 */
+#define NET_POLL_WAIT       0x9F        /* words[0]=sock, words[1]=wake key,
+                                           words[2]=events */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

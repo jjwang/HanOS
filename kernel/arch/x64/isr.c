@@ -107,7 +107,7 @@ static _Noreturn void kill_faulting_process(uint64_t excno, exception_regs_t * t
     kloge("User exception %s (%ld) at RIP 0x%016lx, pid %ld: killing process\n",
           name, excno, tr->rip, sched_get_pid());
 
-    k_exit_group(128 + sig);
+    k_exit_group_signal(sig);
 
     for (;;)
         asm volatile ("hlt");

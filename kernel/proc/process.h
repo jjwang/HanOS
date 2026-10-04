@@ -239,6 +239,7 @@ typedef struct process {
     event_t wakeup_event;
     void *wakeup_key;               /* opaque wake key for EVENT_IPC */
     bool wakeup_pending;            /* a wake arrived before the process slept */
+    void *poll_key;                 /* wake key while blocked in poll() */
     process_status_t status;
     process_mode_t mode;
     bool forked;
@@ -254,6 +255,8 @@ typedef struct process {
     uint8_t io_port_count;
 
     int64_t errno;
+    int64_t exit_status;            /* status to hand to the parent's wait */
+    bool exit_recorded;             /* process server already holds the status */
 
     /* Address space. */
     addrspace_t *addrspace;

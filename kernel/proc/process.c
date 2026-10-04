@@ -253,6 +253,9 @@ process_t *process_fork(process_t * tp)
     pid_t new_pid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);
 
     tc->forked = true;
+    tc->exit_status = 0;
+    tc->exit_recorded = false;
+    tc->signals.pending.sig = 0;    /* a child starts with no pending signal */
     tc->addrspace = create_addrspace();
 
     uint64_t len = vec_length(&(tp->addrspace->mmap_list));
@@ -350,6 +353,9 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
     tc->tgid = tp->tgid;
     tc->is_thread = true;
     tc->forked = false;
+    tc->exit_status = 0;
+    tc->exit_recorded = false;
+    tc->signals.pending.sig = 0;    /* a thread starts with no pending signal */
     tc->status = PROC_READY;
     tc->fds_ready = true;
 
