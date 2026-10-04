@@ -320,6 +320,53 @@ static uint16_t inet_csum(const void *data, uint32_t len)
     return (uint16_t) (~sum);
 }
 
+static uint32_t csum_add(uint32_t sum, const void *data, uint32_t len)
+{
+    const uint8_t *p = data;
+
+    while (len > 1) {
+        sum += (uint16_t) ((p[0] << 8) | p[1]);
+        p += 2;
+        len -= 2;
+    }
+    if (len != 0)
+        sum += (uint16_t) (p[0] << 8);
+    return sum;
+}
+
+static uint16_t csum_finish(uint32_t sum)
+{
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+    return (uint16_t) (~sum);
+}
+
+/* The IPv4 header checksum is valid when the sum over the header, including
+ * the checksum field, is zero. */
+static bool ip_checksum_ok(const ip_hdr_t * ip4, uint32_t ihl)
+{
+    return csum_finish(csum_add(0, ip4, ihl)) == 0;
+}
+
+/* Validate a TCP or UDP checksum over the pseudo-header and the segment. */
+static bool l4_checksum_ok(const ip_hdr_t * ip4, const uint8_t * seg,
+                           uint32_t seglen)
+{
+    uint8_t ph[12];
+    uint32_t sum;
+
+    memcpy(ph, &ip4->src, 4);
+    memcpy(ph + 4, &ip4->dst, 4);
+    ph[8] = 0;
+    ph[9] = ip4->proto;
+    ph[10] = (uint8_t) (seglen >> 8);
+    ph[11] = (uint8_t) seglen;
+
+    sum = csum_add(0, ph, 12);
+    sum = csum_add(sum, seg, seglen);
+    return csum_finish(sum) == 0;
+}
+
 static bool nic_send(const uint8_t *pkt, uint32_t len)
 {
     nic_tx_desc_t *d = &tx_ring[tx_cur];
@@ -1072,6 +1119,10 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
     uint32_t ihl = (uint32_t) (ip4->ver_ihl & 0xf) * 4;
     uint32_t iptot = ntohs(ip4->tot_len);
 
+    /* Drop a frame whose IPv4 header checksum is wrong. */
+    if (ihl < 20 || !ip_checksum_ok(ip4, ihl))
+        return;
+
     if (ip4->proto == 1 && ihl >= 20 && n >= 14 + (int32_t) ihl
         + (int32_t) sizeof(icmp_hdr_t)) {
         icmp_hdr_t *ic = (icmp_hdr_t *) (pkt + 14 + ihl);
@@ -1109,6 +1160,11 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
         if (14 + ihl + 8 + ulen > (uint32_t) n)
             ulen = (uint32_t) n - 14 - ihl - 8;
 
+        /* A zero UDP checksum means the sender skipped it. */
+        if (u->csum != 0
+            && !l4_checksum_ok(ip4, (const uint8_t *) u, ulen + 8))
+            return;
+
         for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
             if (addr_match(&socks[i], MY_IP, dport)) {
                 sock_push(&socks[i], pkt + 14 + ihl + 8, ulen, src, sport);
@@ -1137,6 +1193,9 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
             plen = 0;
         else if (poff + plen > (uint32_t) n)
             plen = (uint32_t) n - poff;
+
+        if (!l4_checksum_ok(ip4, (const uint8_t *) t, tcp_off + plen))
+            return;
 
         s = tcp_find(dport, src, sport, &is_listen);
         if (s == NULL)
