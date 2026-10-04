@@ -26,6 +26,7 @@
 #include <arch/x64/pci.h>
 #include <arch/x64/pit.h>
 #include <proc/sched.h>
+#include <srv/tty_srv.h>
 #include <device/display/gfx.h>
 #include <device/usb/xhci.h>
 
@@ -159,7 +160,6 @@ static uint32_t evt_deq;
 static uint32_t evt_cycle;
 
 static uint64_t *dcbaa;
-static xhci_dev_ctx_t *dev_ctx;
 static xhci_input_ctx_t *input_ctx;
 
 static xhci_trb_t *ep0_ring;
@@ -167,25 +167,39 @@ static uint64_t ep0_ring_phys;
 static uint32_t ep0_enq;
 static uint32_t ep0_cycle;
 
-static xhci_trb_t *int_ring;
-static uint64_t int_ring_phys;
-static uint32_t int_enq;
-static uint32_t int_cycle;
-static uint8_t *int_buf;
-static uint64_t int_buf_phys;
 static uint8_t *ctrl_buf;
 static uint64_t ctrl_buf_phys;
 
-static uint8_t mouse_slot;
-static uint8_t mouse_dci;
-static uint16_t mouse_max_packet;
-static bool mouse_ready;
+#define HID_MAX             2
+#define HID_PROTO_KBD       1
+#define HID_PROTO_MOUSE     2
+
+/**
+ * @brief One enumerated HID interrupt endpoint
+ */
+typedef struct {
+    bool used;
+    uint8_t slot;
+    uint8_t dci;
+    uint16_t max_packet;
+    uint8_t protocol;
+    xhci_trb_t *ring;
+    uint64_t ring_phys;
+    uint32_t enq;
+    uint32_t cycle;
+    uint8_t *buf;
+    uint64_t buf_phys;
+    xhci_dev_ctx_t *dev_ctx;
+} hid_t;
+
+static hid_t hids[HID_MAX];
+static int32_t nhids;
 
 static bool xhci_inited;
 
 vec_extern(pci_device_t, pci_devices);
 
-static _Noreturn void usb_mouse_thread(pid_t pid);
+static _Noreturn void usb_hid_thread(pid_t pid);
 
 static uint32_t mmio_rd(uint32_t off)
 {
@@ -366,7 +380,8 @@ static void input_clear(void)
     memset(input_ctx, 0, sizeof(*input_ctx));
 }
 
-static bool address_device(uint8_t slot, uint8_t port, uint8_t speed)
+static bool address_device(uint8_t slot, uint8_t port, uint8_t speed,
+                           xhci_dev_ctx_t * dev_ctx)
 {
     uint32_t max_packet = 8;
 
@@ -391,7 +406,7 @@ static bool address_device(uint8_t slot, uint8_t port, uint8_t speed)
 }
 
 static bool configure_endpoint(uint8_t slot, uint8_t dci, uint8_t interval,
-                               uint16_t max_packet)
+                               uint16_t max_packet, uint64_t ring_phys)
 {
     input_clear();
     input_ctx->icc.add_flags = (1u << 0) | (1u << dci);
@@ -403,7 +418,7 @@ static bool configure_endpoint(uint8_t slot, uint8_t dci, uint8_t interval,
     ep->info = (uint32_t) interval << 16;
     ep->info2 = (EP_TYPE_INT_IN << 3) | (3 << 1)
         | ((uint32_t) max_packet << 16);
-    ep->deq = int_ring_phys | 1u;
+    ep->deq = ring_phys | 1u;
 
     asm volatile ("mfence":::"memory");
     return send_command(slot, TRB_CONFIGURE_EP,
@@ -504,16 +519,12 @@ void usb_hid_init(void)
     cmd_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t), &cmd_ring_phys);
     evt_ring = dma_alloc(EVT_NUM * sizeof(xhci_trb_t), &evt_ring_phys);
     xhci_erst_entry_t *erst = dma_alloc(sizeof(*erst), NULL);
-    dev_ctx = dma_alloc(sizeof(*dev_ctx), NULL);
     input_ctx = dma_alloc(sizeof(*input_ctx), NULL);
     ep0_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t), &ep0_ring_phys);
-    int_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t), &int_ring_phys);
-    int_buf = dma_alloc(64, &int_buf_phys);
     ctrl_buf = dma_alloc(512, &ctrl_buf_phys);
 
     if (dcbaa == NULL || cmd_ring == NULL || evt_ring == NULL || erst == NULL
-        || dev_ctx == NULL || input_ctx == NULL || ep0_ring == NULL
-        || int_ring == NULL || int_buf == NULL || ctrl_buf == NULL) {
+        || input_ctx == NULL || ep0_ring == NULL || ctrl_buf == NULL) {
         kloge("USB: out of memory for xHCI structures\n");
         return;
     }
@@ -525,8 +536,6 @@ void usb_hid_init(void)
     cmd_cycle = 1;
     ep0_enq = 0;
     ep0_cycle = 1;
-    int_enq = 0;
-    int_cycle = 1;
     mmio_wr64(op_base + OP_CRCR, cmd_ring_phys | 1u);
 
     erst->base = evt_ring_phys;
@@ -539,11 +548,16 @@ void usb_hid_init(void)
     mmio_wr(rt_base + 0x00, 1u << 1);   /* IMAN: IE */
     mmio_wr(op_base + OP_USBCMD, USBCMD_RS | USBCMD_INTE);
 
-    for (uint8_t port = 1; port <= max_ports && !mouse_ready; port++) {
+    for (uint8_t port = 1; port <= max_ports && nhids < HID_MAX; port++) {
         uint8_t speed;
 
         if (!port_reset(port, &speed))
             continue;
+
+        /* The commands share one EP0 ring; reinit it per device. */
+        memset(ep0_ring, 0, (RING_NUM + 1) * sizeof(xhci_trb_t));
+        ep0_enq = 0;
+        ep0_cycle = 1;
 
         uint8_t slot = 0;
 
@@ -553,7 +567,12 @@ void usb_hid_init(void)
             continue;
         }
 
-        if (!address_device(slot, port, speed)) {
+        xhci_dev_ctx_t *dev_ctx = dma_alloc(sizeof(*dev_ctx), NULL);
+
+        if (dev_ctx == NULL)
+            continue;
+
+        if (!address_device(slot, port, speed, dev_ctx)) {
             kloge("USB: address device on port %u failed (speed %u)\n", port,
                   speed);
             continue;
@@ -585,6 +604,7 @@ void usb_hid_init(void)
         uint16_t total = (uint16_t) (desc[2] | (desc[3] << 8));
         uint8_t cfg_value = desc[5];
         uint8_t hid_iface = 0;
+        uint8_t hid_proto = 0;
         uint8_t hid_interval = 0;
         uint16_t hid_max_packet = 0;
         bool have_hid = false;
@@ -599,6 +619,7 @@ void usb_hid_init(void)
             if (dtype == 4) {           /* interface */
                 if (desc[off + 5] == 3) {       /* HID class */
                     hid_iface = desc[off + 2];
+                    hid_proto = desc[off + 7];  /* 1 keyboard, 2 mouse */
                     have_hid = true;
                 } else {
                     have_hid = false;
@@ -618,8 +639,9 @@ void usb_hid_init(void)
             off += len;
         }
 
-        if (!found) {
-            klogi("USB: port %u is not a HID interrupt pointer\n", port);
+        if (!found
+            || (hid_proto != HID_PROTO_KBD && hid_proto != HID_PROTO_MOUSE)) {
+            klogi("USB: port %u is not a HID boot device\n", port);
             continue;
         }
 
@@ -632,61 +654,212 @@ void usb_hid_init(void)
         ctrl_buf[0] = 0;
         control_xfer(slot, 0x21, 0x0b, 0, hid_iface, 1, ctrl_buf_phys);
 
-        if (!configure_endpoint(slot, 3,
-                                hid_interval ? hid_interval : 10,
-                                hid_max_packet ? hid_max_packet : 4)) {
+        hid_t *h = &hids[nhids];
+        uint16_t pkt = hid_max_packet ? hid_max_packet : 8;
+
+        h->slot = slot;
+        h->dci = 3;
+        h->protocol = hid_proto;
+        h->max_packet = pkt;
+        h->dev_ctx = dev_ctx;
+        h->ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t), &h->ring_phys);
+        h->buf = dma_alloc(pkt, &h->buf_phys);
+        h->enq = 0;
+        h->cycle = 1;
+
+        if (h->ring == NULL || h->buf == NULL
+            || !configure_endpoint(slot, h->dci, hid_interval ? hid_interval : 10,
+                                   pkt, h->ring_phys)) {
             kloge("USB: configure endpoint on port %u failed\n", port);
             continue;
         }
 
-        mouse_slot = slot;
-        mouse_dci = 3;
-        mouse_max_packet = hid_max_packet ? hid_max_packet : 4;
-        mouse_ready = true;
-        klogi("USB: HID pointer on port %u (packet %u, interval %u ms)\n", port,
-              mouse_max_packet, hid_interval);
+        h->used = true;
+        nhids++;
+        klogi("USB: HID %s on port %u (packet %u, interval %u ms)\n",
+              hid_proto == HID_PROTO_KBD ? "keyboard" : "pointer", port, pkt,
+              hid_interval);
     }
 
-    if (!mouse_ready) {
-        klogi("USB: no HID pointer found\n");
+    if (nhids == 0) {
+        klogi("USB: no HID device found\n");
         return;
     }
 
-    process_t *th = sched_new("usbmouse", usb_mouse_thread, false);
+    process_t *th = sched_new("usbhid", usb_hid_thread, false);
 
     if (th != NULL)
         sched_add(th);
 }
 
-_Noreturn static void usb_mouse_thread(pid_t pid)
+/* USB HID usage (keyboard/keypad page 0x07) to ASCII, or 0. */
+static char usb_hid_ascii(uint8_t usage, bool shift, bool caps)
+{
+    if (usage >= 0x04 && usage <= 0x1d) {
+        char c = (char) ('a' + (usage - 0x04));
+
+        if (shift ^ caps)
+            c = (char) (c - 32);
+        return c;
+    }
+
+    switch (usage) {
+    case 0x1e:
+        return shift ? '!' : '1';
+    case 0x1f:
+        return shift ? '@' : '2';
+    case 0x20:
+        return shift ? '#' : '3';
+    case 0x21:
+        return shift ? '$' : '4';
+    case 0x22:
+        return shift ? '%' : '5';
+    case 0x23:
+        return shift ? '^' : '6';
+    case 0x24:
+        return shift ? '&' : '7';
+    case 0x25:
+        return shift ? '*' : '8';
+    case 0x26:
+        return shift ? '(' : '9';
+    case 0x27:
+        return shift ? ')' : '0';
+    case 0x28:
+        return '\n';
+    case 0x2a:
+        return '\b';
+    case 0x2b:
+        return '\t';
+    case 0x2c:
+        return ' ';
+    case 0x2d:
+        return shift ? '_' : '-';
+    case 0x2e:
+        return shift ? '+' : '=';
+    case 0x2f:
+        return shift ? '{' : '[';
+    case 0x30:
+        return shift ? '}' : ']';
+    case 0x31:
+        return shift ? '|' : '\\';
+    case 0x33:
+        return shift ? ':' : ';';
+    case 0x34:
+        return shift ? '"' : '\'';
+    case 0x35:
+        return shift ? '~' : '`';
+    case 0x36:
+        return shift ? '<' : ',';
+    case 0x37:
+        return shift ? '>' : '.';
+    case 0x38:
+        return shift ? '?' : '/';
+    default:
+        return 0;
+    }
+}
+
+static bool report_has(const uint8_t * rep, uint8_t code)
+{
+    for (int32_t i = 2; i < 8; i++) {
+        if (rep[i] == code)
+            return true;
+    }
+    return false;
+}
+
+/* Boot keyboard report: byte 0 modifiers, bytes 2..7 usage codes. */
+static void hid_keyboard(const uint8_t * rep)
+{
+    static uint8_t prev[8];
+    static bool caps;
+    bool shift = (rep[0] & 0x22) != 0;  /* LShift | RShift */
+    bool ctrl = (rep[0] & 0x11) != 0;   /* LCtrl | RCtrl */
+
+    for (int32_t i = 2; i < 8; i++) {
+        uint8_t code = rep[i];
+
+        if (code == 0 || report_has(prev, code))
+            continue;
+        if (code == 0x39) {     /* caps lock */
+            caps = !caps;
+            continue;
+        }
+
+        char ch = usb_hid_ascii(code, shift, caps);
+
+        if (ch == 0)
+            continue;
+        if (ctrl && (ch == 'd' || ch == 'D'))
+            ch = 0x04;          /* Ctrl-D: EOF */
+        tty_server_deliver_key((uint8_t) ch);
+    }
+
+    memcpy(prev, rep, 8);
+}
+
+/* Boot pointer report: byte 0 buttons, byte 1/2 X/Y deltas. */
+static void hid_mouse(const uint8_t * rep)
+{
+    int32_t dx = (int8_t) rep[1];
+    int32_t dy = (int8_t) rep[2];
+    static uint32_t seen;
+
+    if (seen < 8) {
+        klogi("USB: pointer %d,%d buttons 0x%02x\n", dx, dy, rep[0]);
+        seen++;
+    }
+    gfx_cursor_move(dx, dy);
+}
+
+static void hid_arm(hid_t * d)
+{
+    ring_enqueue(d->ring, &d->enq, &d->cycle, d->ring_phys, d->buf_phys,
+                 d->max_packet, (TRB_NORMAL << 10) | (1u << 5));
+    asm volatile ("mfence":::"memory");
+    ring_doorbell(d->slot, d->dci);
+}
+
+/* One thread drains the event ring for every HID device, so the shared event
+ * ring has a single owner. */
+_Noreturn static void usb_hid_thread(pid_t pid)
 {
     (void) pid;
 
+    for (int32_t i = 0; i < nhids; i++)
+        hid_arm(&hids[i]);
+
     for (;;) {
-        ring_enqueue(int_ring, &int_enq, &int_cycle, int_ring_phys,
-                     int_buf_phys, mouse_max_packet,
-                     (TRB_NORMAL << 10) | (1u << 5));
-        asm volatile ("mfence":::"memory");
-        ring_doorbell(mouse_slot, mouse_dci);
+        xhci_trb_t ev;
+        bool got = false;
 
-        uint32_t cc;
+        while (poll_event(&ev)) {
+            if (((ev.control >> 10) & 0x3f) != TRB_EV_TRANSFER)
+                continue;
 
-        do {
-            cc = wait_transfer(mouse_slot, mouse_dci);
-        } while (cc == 0);
+            uint8_t slot = (uint8_t) (ev.control >> 24);
+            uint8_t dci = (uint8_t) ((ev.control >> 16) & 0x1f);
+            uint32_t cc = (ev.status >> 24) & 0xff;
 
-        if (cc == CC_SUCCESS) {
-            int32_t dx = (int8_t) int_buf[1];
-            int32_t dy = (int8_t) int_buf[2];
-            static uint32_t seen;
+            for (int32_t i = 0; i < nhids; i++) {
+                hid_t *d = &hids[i];
 
-            if (seen < 8) {
-                klogi("USB: pointer %d,%d buttons 0x%02x\n", dx, dy,
-                      int_buf[0]);
-                seen++;
+                if (d->slot != slot || d->dci != dci)
+                    continue;
+                if (cc == CC_SUCCESS) {
+                    if (d->protocol == HID_PROTO_KBD)
+                        hid_keyboard(d->buf);
+                    else
+                        hid_mouse(d->buf);
+                }
+                hid_arm(d);
+                got = true;
+                break;
             }
-            gfx_cursor_move(dx, dy);
         }
+
+        if (!got)
+            sched_sleep(1);
     }
 }
 
