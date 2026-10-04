@@ -1195,12 +1195,12 @@ int64_t k_chdir(char *dir)
         if (strcmp(currdir, ".") == 0) {
             /* It is current folder, do nothing */
         } else if (strcmp(currdir, "..") == 0) {
-            /* Change to parent folder */
-            if (vfs_get_parent_dir(fullpath, parent, currdir) < 0) {
-                cpu_set_errno(EINVAL);
-                goto err_exit;
-            }
-            strcpy(fullpath, parent);
+            /* Change to parent folder. The root has no parent, so stay
+             * there. */
+            if (vfs_get_parent_dir(fullpath, parent, currdir) < 0)
+                strcpy(fullpath, "/");
+            else
+                strcpy(fullpath, parent);
         } else if (strlen(currdir) == 0 && i == 0) {
             /* It is root folder based */
             strcpy(fullpath, "/");

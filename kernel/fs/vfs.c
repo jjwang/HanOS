@@ -773,36 +773,31 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
 
     strcpy(parent, path);
 
-    int64_t idx = strlen(parent) - 1;
-    while (idx >= 0) {
-        if (parent[idx] == '/') {
-            parent[idx] = '\0';
-            idx--;
-        }
-        if (parent[idx] != '/')
-            break;
-    }
+    uint64_t n = strlen(parent);
 
-    /* Do not have parent directory */
-    if (idx <= 0) {
+    while (n > 1 && parent[n - 1] == '/')
+        parent[--n] = '\0';
+
+    if (n <= 1) {
         parent[0] = '\0';
-        return -1;
+        return -1;              /* the root has no parent */
     }
 
-    /* Have parent directory */
-    while (idx >= 0) {
-        if (parent[idx] == '/') {
-            parent[idx] = '\0';
-            break;
-        }
-        idx--;
-    }
+    /* k lands just after the last '/'. */
+    uint64_t k = n;
 
-    if (currdir != NULL && idx >= 0) {
-        strcpy(currdir, &(parent[idx + 1]));
+    while (k > 0 && parent[k - 1] != '/')
+        k--;
+
+    if (currdir != NULL)
+        strcpy(currdir, parent + k);
+
+    if (k == 1) {
+        parent[0] = '/';
+        parent[1] = '\0';
+    } else {
+        parent[k - 1] = '\0';
     }
-    if (strlen(parent) == 0)
-        strcpy(parent, "/");
 
     return 0;
 }
