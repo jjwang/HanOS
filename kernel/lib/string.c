@@ -136,18 +136,20 @@ int64_t strcat(char *dest, const char *src)
     return i;
 }
 
-int64_t strncat(char *dest, const char *src, uint64_t dest_size)
+/* Append at most n bytes of src to dest and NUL-terminate. Returns the new
+ * length. Standard semantics: n bounds the bytes copied from src, not the
+ * buffer size. */
+int64_t strncat(char *dest, const char *src, uint64_t n)
 {
-    uint64_t i, dest_len = strlen(dest);
-    for (i = dest_len;; i++) {
-        dest[i] = src[i - dest_len];
-        if (src[i - dest_len] == '\0')
-            break;
-        if (i >= dest_size - 1)
-            break;
+    uint64_t dest_len = strlen(dest);
+    uint64_t i = 0;
+
+    while (i < n && src[i] != '\0') {
+        dest[dest_len + i] = src[i];
+        i++;
     }
-    dest[i] = '\0';
-    return i;
+    dest[dest_len + i] = '\0';
+    return (int64_t) (dest_len + i);
 }
 
 uint64_t strtol(char *s, num_sys_t type)

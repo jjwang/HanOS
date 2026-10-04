@@ -1218,8 +1218,8 @@ int64_t k_chdir(char *dir)
         k = 0;
     }
 
-    klogd("k_chdir: current \"%s\", target \"%s\" and change to \"%s\"",
-          t->cwd, dir, fullpath);
+    klogd("k_chdir: current \"%s\", target \"%s\" and change to \"%s\"\n",
+          t->cwd, kdir, fullpath);
 
     /* The VFS server owns the namespace; ask it whether the folder exists. */
     {

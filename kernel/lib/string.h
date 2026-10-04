@@ -32,7 +32,7 @@ int64_t strlen(const char *s);
 int64_t strcmp(const char *a, const char *b); 
 int64_t strncmp(const char *a, const char *b, uint64_t len);
 int64_t strcat(char *dest, const char *src);
-int64_t strncat(char *dest, const char *src, uint64_t dest_size);
+int64_t strncat(char *dest, const char *src, uint64_t n);
 char *strchr(const char *s, int32_t c);
 uint64_t strtol(char* s, num_sys_t type);
 char *strlwr(char *s);

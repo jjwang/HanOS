@@ -871,10 +871,23 @@ vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,
 static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
                                    uint64_t *out_len)
 {
+    /* Pack an empty cwd before the path, so the VFS server resolves it as a
+     * path and normalizes "." and "..". */
     handle_t ph;
+    uint64_t plen = strlen(path) + 1;
+    char *pbuf = kmalloc(plen + 1);
 
-    if (ipc_buf_from_kernel(path, strlen(path) + 1, &ph) != 0)
+    if (pbuf == NULL)
         return -1;
+
+    pbuf[0] = '\0';
+    memcpy(pbuf + 1, path, plen);
+
+    if (ipc_buf_from_kernel(pbuf, plen + 1, &ph) != 0) {
+        kmfree(pbuf);
+        return -1;
+    }
+    kmfree(pbuf);
 
     ipc_msg_t req;
     ipc_msg_t rep;
