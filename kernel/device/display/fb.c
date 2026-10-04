@@ -175,7 +175,7 @@ void fb_splash(fb_info_t * fb)
     splash_track_w = (int32_t) fb->width / 4;
     splash_track_h = 6;
     splash_track_x = ((int32_t) fb->width - splash_track_w) / 2;
-    splash_track_y = (int32_t) fb->height * 4 / 5;
+    splash_track_y = (int32_t) fb->height * 2 / 3;
     splash_rect(fb, splash_track_x, splash_track_y, splash_track_w,
                 splash_track_h, SPLASH_TRACK);
 
