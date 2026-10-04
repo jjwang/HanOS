@@ -253,8 +253,14 @@ static bool icmp_got_reply;
 #define DMA_VADDR       0x40000000
 #define DMA_SIZE        (RX_COUNT * 16 + TX_COUNT * 16 \
                          + RX_COUNT * NIC_BUF + TX_COUNT * NIC_BUF)
-#define MY_IP           0x0a00020fU     /* 10.0.2.15 */
-#define GW_IP           0x0a000202U     /* 10.0.2.2 */
+/* Defaults used when DHCP does not answer. */
+#define DEFAULT_MY_IP   0x0a00020fU     /* 10.0.2.15 */
+#define DEFAULT_GW_IP   0x0a000202U     /* 10.0.2.2 */
+#define DEFAULT_DNS_IP  0x0a000203U     /* 10.0.2.3 */
+
+static uint32_t my_ip = DEFAULT_MY_IP;
+static uint32_t gw_ip = DEFAULT_GW_IP;
+static uint32_t dns_ip = DEFAULT_DNS_IP;
 
 static volatile uint32_t *nic;
 static uint8_t *dma;
@@ -503,6 +509,228 @@ static void net_rx_frame(uint8_t * pkt, int32_t n);
 static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
                     uint32_t plen);
 
+/* --- DHCP client --------------------------------------------------------- */
+
+#define DHCP_MAGIC      0x63825363U
+#define DHCP_SERVER_PORT 67
+#define DHCP_CLIENT_PORT 68
+
+static uint32_t dhcp_xid;
+
+/* Build a DHCP message (BOOTP header plus options). Returns the length. */
+static uint32_t dhcp_build(uint8_t * b, uint8_t msg_type, uint32_t requested,
+                           uint32_t server)
+{
+    uint32_t xid = ntohl(dhcp_xid);
+    uint32_t req = ntohl(requested);
+    uint32_t srv = ntohl(server);
+    uint32_t cookie = ntohl(DHCP_MAGIC);
+    uint8_t *o;
+
+    memset(b, 0, 300);
+    b[0] = 1;                   /* BOOTREQUEST */
+    b[1] = 1;                   /* Ethernet */
+    b[2] = 6;                   /* hardware length */
+    memcpy(b + 4, &xid, 4);
+    b[10] = 0x80;               /* broadcast flag */
+    memcpy(b + 28, mac, 6);     /* client hardware address */
+    memcpy(b + 236, &cookie, 4);
+
+    o = b + 240;
+    *o++ = 53;                  /* DHCP message type */
+    *o++ = 1;
+    *o++ = msg_type;
+    if (requested != 0) {
+        *o++ = 50;              /* requested IP */
+        *o++ = 4;
+        memcpy(o, &req, 4);
+        o += 4;
+    }
+    if (server != 0) {
+        *o++ = 54;              /* server identifier */
+        *o++ = 4;
+        memcpy(o, &srv, 4);
+        o += 4;
+    }
+    *o++ = 55;                  /* parameter request list */
+    *o++ = 4;
+    *o++ = 1;                   /* subnet mask */
+    *o++ = 3;                   /* router */
+    *o++ = 6;                   /* DNS */
+    *o++ = 15;                  /* domain name */
+    *o++ = 255;
+    return (uint32_t) (o - b);
+}
+
+/* Send a DHCP message from 0.0.0.0:68 to 255.255.255.255:67. */
+static bool dhcp_send(const uint8_t * payload, uint32_t plen)
+{
+    uint8_t pkt[14 + 20 + 8 + 300];
+    eth_hdr_t *e = (eth_hdr_t *) pkt;
+    ip_hdr_t *ip4 = (ip_hdr_t *) (pkt + 14);
+    udp_hdr_t *u = (udp_hdr_t *) (pkt + 34);
+
+    if (plen > 300)
+        plen = 300;
+
+    memset(e->dst, 0xff, 6);
+    memcpy(e->src, mac, 6);
+    e->type = ntohs(0x0800);
+    ip4->ver_ihl = 0x45;
+    ip4->tos = 0;
+    ip4->tot_len = ntohs((uint16_t) (20 + 8 + plen));
+    ip4->id = ntohs(++ip_id);
+    ip4->frag = 0;
+    ip4->ttl = 64;
+    ip4->proto = 17;
+    ip4->src = 0;
+    ip4->dst = 0xffffffffU;
+    ip4->csum = 0;
+    ip4->csum = ntohs(inet_csum(ip4, 20));
+    u->src = ntohs(DHCP_CLIENT_PORT);
+    u->dst = ntohs(DHCP_SERVER_PORT);
+    u->len = ntohs((uint16_t) (8 + plen));
+    u->csum = 0;
+    memcpy(pkt + 42, payload, plen);
+    nic_barrier();
+    return nic_send(pkt, 14 + 20 + 8 + plen);
+}
+
+/* Return the next frame addressed to the DHCP client port, or 0. */
+static int32_t dhcp_recv(uint8_t * frame)
+{
+    uint8_t rx[NIC_BUF];
+    int32_t n = nic_poll(rx);
+
+    if (n < 42)
+        return 0;
+
+    const eth_hdr_t *e = (const eth_hdr_t *) rx;
+    const ip_hdr_t *ip4 = (const ip_hdr_t *) (rx + 14);
+    const udp_hdr_t *u = (const udp_hdr_t *) (rx + 34);
+
+    if (ntohs(e->type) != 0x0800 || ip4->proto != 17
+        || ntohs(u->dst) != DHCP_CLIENT_PORT)
+        return 0;
+
+    memcpy(frame, rx, n);
+    return n;
+}
+
+/* Parse a DHCP reply. Returns the message type, or 0. */
+static uint8_t dhcp_parse(const uint8_t * frame, int32_t n, uint32_t * yiaddr,
+                          uint32_t * mask, uint32_t * router, uint32_t * dns,
+                          uint32_t * server)
+{
+    if (n < 42 + 240)
+        return 0;
+
+    const ip_hdr_t *ip4 = (const ip_hdr_t *) (frame + 14);
+    const uint8_t *b = frame + 42;
+    uint32_t xid = ntohl(dhcp_xid);
+    uint32_t cookie;
+    int32_t iptot = ntohs(ip4->tot_len);
+    const uint8_t *o;
+    const uint8_t *end;
+    uint8_t type = 0;
+
+    if (b[0] != 2 || memcmp(b + 4, &xid, 4) != 0 || memcmp(b + 28, mac, 6) != 0)
+        return 0;
+
+    memcpy(&cookie, b + 236, 4);
+    if (ntohl(cookie) != DHCP_MAGIC)
+        return 0;
+
+    memcpy(yiaddr, b + 16, 4);
+    *yiaddr = ntohl(*yiaddr);
+    memcpy(server, b + 20, 4);  /* siaddr */
+    *server = ntohl(*server);
+
+    o = b + 240;
+    if (14 + iptot < n)
+        end = frame + 14 + iptot;
+    else
+        end = frame + n;
+
+    while (o < end) {
+        uint8_t opt = *o++;
+        uint8_t len;
+
+        if (opt == 0)
+            continue;
+        if (opt == 255)
+            break;
+        if (o >= end)
+            break;
+        len = *o++;
+        if (o + len > end)
+            break;
+
+        if (opt == 53 && len >= 1) {
+            type = o[0];
+        } else if (opt == 1 && len >= 4) {
+            memcpy(mask, o, 4);
+            *mask = ntohl(*mask);
+        } else if (opt == 3 && len >= 4) {
+            memcpy(router, o, 4);
+            *router = ntohl(*router);
+        } else if (opt == 6 && len >= 4) {
+            memcpy(dns, o, 4);
+            *dns = ntohl(*dns);
+        }
+        o += len;
+    }
+    return type;
+}
+
+/* Obtain the address, gateway and DNS server. Keeps the defaults on failure. */
+static bool dhcp_acquire(void)
+{
+    uint8_t b[300];
+    uint8_t frame[NIC_BUF];
+    uint32_t yiaddr = 0, mask = 0, router = 0, dns = 0, server = 0;
+    uint8_t type = 0;
+
+    dhcp_xid = 0x48414e4fU;     /* "HANO" */
+
+    dhcp_send(b, dhcp_build(b, 1, 0, 0));       /* DISCOVER */
+
+    for (int32_t t = 0; t < 2000 && yiaddr == 0; t++) {
+        int32_t n = dhcp_recv(frame);
+
+        if (n > 0
+            && (type = dhcp_parse(frame, n, &yiaddr, &mask, &router, &dns,
+                                  &server)) == 2)
+            break;
+        net_delay();
+    }
+    if (yiaddr == 0) {
+        net_log("net: DHCP no offer\n");
+        return false;
+    }
+
+    dhcp_send(b, dhcp_build(b, 3, yiaddr, server));     /* REQUEST */
+
+    for (int32_t t = 0; t < 2000; t++) {
+        int32_t n = dhcp_recv(frame);
+
+        if (n > 0
+            && dhcp_parse(frame, n, &yiaddr, &mask, &router, &dns, &server) == 5)
+            break;
+        net_delay();
+    }
+
+    if (yiaddr != 0)
+        my_ip = yiaddr;
+    if (router != 0)
+        gw_ip = router;
+    if (dns != 0)
+        dns_ip = dns;
+
+    net_log("net: DHCP address acquired\n");
+    return true;
+}
+
 static void arp_store(uint32_t ip, const uint8_t * m)
 {
     for (int32_t i = 0; i < ARP_CACHE_N; i++) {
@@ -572,7 +800,7 @@ static bool arp_resolve(uint32_t ip, uint8_t * out)
     a->plen = 4;
     a->op = ntohs(1);
     memcpy(a->sha, mac, 6);
-    a->spa = ntohl(MY_IP);
+    a->spa = ntohl(my_ip);
     a->tpa = ntohl(ip);
 
     if (!nic_send(pkt, 14 + sizeof(arp_hdr_t)))
@@ -625,13 +853,13 @@ static void nic_selftest(void)
 
     uint8_t gw_mac[6];
 
-    if (!arp_resolve(GW_IP, gw_mac)) {
+    if (!arp_resolve(gw_ip, gw_mac)) {
         net_log("net: ARP gateway FAIL\n");
         return;
     }
     net_log("net: ARP gateway ok\n");
 
-    if (icmp_ping(GW_IP, 1))
+    if (icmp_ping(gw_ip, 1))
         net_log("net: ping 10.0.2.2 ok\n");
     else
         net_log("net: ping 10.0.2.2 FAIL\n");
@@ -747,7 +975,7 @@ static bool ip_send(uint32_t dst, uint8_t proto, const uint8_t * payload,
     ip4->frag = 0;
     ip4->ttl = 64;
     ip4->proto = proto;
-    ip4->src = ntohl(MY_IP);
+    ip4->src = ntohl(my_ip);
     ip4->dst = ntohl(dst);
     ip4->csum = 0;
     ip4->csum = ntohs(inet_csum(ip4, 20));
@@ -822,7 +1050,7 @@ static bool tcp_emit(net_sock_t * s, uint32_t seq, uint32_t ack, uint8_t flags,
     uint8_t buf[12 + 20 + TCP_MSS];
     tcp_hdr_t *t = (tcp_hdr_t *) (buf + 12);
     uint16_t sport = s->bound ? s->port : (uint16_t) (40000 + (s - socks));
-    uint32_t mybe = ntohl(MY_IP);
+    uint32_t mybe = ntohl(my_ip);
     uint32_t pbe = ntohl(s->peer_ip);
     uint16_t total;
     uint16_t total_be;
@@ -1125,7 +1353,7 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
 
         if (ntohs(a->op) == 2) {
             arp_store(ntohl(a->spa), a->sha);
-        } else if (ntohs(a->op) == 1 && ntohl(a->tpa) == MY_IP) {
+        } else if (ntohs(a->op) == 1 && ntohl(a->tpa) == my_ip) {
             uint8_t r[42];
             eth_hdr_t *re = (eth_hdr_t *) r;
             arp_hdr_t *ra = (arp_hdr_t *) (r + 14);
@@ -1139,7 +1367,7 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
             ra->plen = 4;
             ra->op = ntohs(2);
             memcpy(ra->sha, mac, 6);
-            ra->spa = ntohl(MY_IP);
+            ra->spa = ntohl(my_ip);
             memcpy(ra->tha, a->sha, 6);
             ra->tpa = a->spa;
             nic_send(r, 42);
@@ -1202,7 +1430,7 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
             return;
 
         for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
-            if (addr_match(&socks[i], MY_IP, dport)) {
+            if (addr_match(&socks[i], my_ip, dport)) {
                 sock_push(&socks[i], pkt + 14 + ihl + 8, ulen, src, sport);
                 sock_flush(&socks[i]);
                 break;
@@ -1687,6 +1915,8 @@ int32_t main(void)
     }
 
     nic_init();
+    if (nic_ok)
+        dhcp_acquire();
     nic_selftest();
 
     for (;;) {
