@@ -22,10 +22,54 @@
 #include <protocol.h>
 #include <string.h>
 #include <sysfunc.h>
+#include <time.h>
 
 #define NET_BUF_ADDR    0x20000000
 #define NET_MAX_SOCKS   8
 #define NET_RBUF        1024
+
+/* TCP reliability limits. */
+#define TCP_MSS         1400
+#define TCP_SNDQ        4       /* unacknowledged segments kept for retransmit */
+#define TCP_OOO         4       /* out-of-order segments held */
+#define TCP_RTO_MS      500
+#define TCP_RTO_MAX_MS  4000
+#define TCP_MAX_RETRY   8
+#define TCP_TIME_WAIT_MS 2000
+
+#define TCP_CLOSED      0
+#define TCP_SYN_SENT    1
+#define TCP_ESTABLISHED 2
+#define TCP_FIN_WAIT1   3
+#define TCP_FIN_WAIT2   4
+#define TCP_CLOSE_WAIT  5
+#define TCP_LAST_ACK    6
+#define TCP_TIME_WAIT   7
+
+/**
+ * @brief One unacknowledged outgoing segment
+ */
+typedef struct {
+    bool used;
+    bool syn;                   /* consumes one sequence number */
+    bool fin;
+    uint8_t flags;
+    uint8_t retries;
+    uint32_t seq;
+    uint32_t time;
+    uint16_t len;
+    uint8_t data[TCP_MSS];
+} tcp_seg_t;
+
+/**
+ * @brief One out-of-order incoming segment
+ */
+typedef struct {
+    bool used;
+    uint32_t seq;
+    uint16_t len;
+    uint8_t data[TCP_MSS];
+} tcp_ooo_t;
 
 /**
  * @brief A datagram socket and its receive queue
@@ -46,12 +90,17 @@ typedef struct {
     int64_t wait_memh;
     uint32_t wait_len;
     /* TCP state. */
-    int32_t tstate;                 /* 0 closed, 1 syn sent, 2 established */
+    int32_t tstate;
     uint32_t snd_nxt;
     uint32_t snd_una;
     uint32_t rcv_nxt;
     uint32_t peer_ip;
     uint16_t peer_port;
+    tcp_seg_t sndq[TCP_SNDQ];
+    tcp_ooo_t ooo[TCP_OOO];
+    uint32_t rto;
+    uint32_t close_time;
+    bool need_win_update;
     bool got_ack;
     bool got_fin;
     bool listening;
@@ -667,17 +716,61 @@ static bool udp_send(net_sock_t * s, uint32_t dst, uint16_t dport,
     return ip_send(dst, 17, seg, 8 + len);
 }
 
-/* Send one TCP segment. The pseudo-header is prepended for the checksum. */
-static bool tcp_send_seg(net_sock_t * s, uint8_t flags, const uint8_t * data,
-                         uint32_t len)
+static uint32_t net_ms(void)
 {
-    uint8_t buf[12 + 20 + 1400];
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t) (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+/* Release a socket slot and answer any deferred reply so its client does not
+ * block forever. */
+static void sock_free(net_sock_t * s)
+{
+    if (s->wait_reply != 0) {
+        sys_ipc_msg_t rr;
+
+        memset(&rr, 0, sizeof(rr));
+        rr.tag = NET_RECVFROM;
+        rr.words[0] = 0;        /* EOF */
+        sys_ipc_send(s->wait_reply, &rr);
+        sys_handle_close(s->wait_reply);
+        sys_handle_close(s->wait_memh);
+    }
+    if (s->acc_wait_reply != 0) {
+        sys_ipc_msg_t rr;
+
+        memset(&rr, 0, sizeof(rr));
+        rr.tag = NET_ACCEPT;
+        rr.words[0] = (uint64_t) (int64_t) -4;  /* -EINTR */
+        sys_ipc_send(s->acc_wait_reply, &rr);
+        sys_handle_close(s->acc_wait_reply);
+    }
+    memset(s, 0, sizeof(*s));
+}
+
+/* Build and send one TCP segment with explicit sequence and acknowledgement
+ * numbers. The pseudo-header is prepended for the checksum. */
+static bool tcp_emit(net_sock_t * s, uint32_t seq, uint32_t ack, uint8_t flags,
+                     const uint8_t * data, uint32_t len)
+{
+    uint8_t buf[12 + 20 + TCP_MSS];
     tcp_hdr_t *t = (tcp_hdr_t *) (buf + 12);
     uint16_t sport = s->bound ? s->port : (uint16_t) (40000 + (s - socks));
     uint32_t mybe = ntohl(MY_IP);
     uint32_t pbe = ntohl(s->peer_ip);
-    uint16_t total = (uint16_t) (20 + len);
-    uint16_t total_be = ntohs(total);
+    uint16_t total;
+    uint16_t total_be;
+    uint32_t win = NET_RBUF - s->count;
+
+    if (len > TCP_MSS)
+        len = TCP_MSS;
+    if (win > 65535)
+        win = 65535;
+
+    total = (uint16_t) (20 + len);
+    total_be = ntohs(total);
 
     memcpy(buf + 0, &mybe, 4);
     memcpy(buf + 4, &pbe, 4);
@@ -688,17 +781,187 @@ static bool tcp_send_seg(net_sock_t * s, uint8_t flags, const uint8_t * data,
     memset(t, 0, 20);
     t->src = ntohs(sport);
     t->dst = ntohs(s->peer_port);
-    t->seq = ntohl(s->snd_nxt);
-    t->ack = ntohl(s->rcv_nxt);
+    t->seq = ntohl(seq);
+    t->ack = ntohl(ack);
     t->off = 5 << 4;
     t->flags = flags;
-    t->win = ntohs(2048);
+    t->win = ntohs((uint16_t) win);
     if (len > 0)
         memcpy(buf + 12 + 20, data, len);
 
     t->csum = 0;
     t->csum = ntohs(inet_csum(buf, 12 + 20 + len));
     return ip_send(s->peer_ip, 6, (const uint8_t *) t, 20 + len);
+}
+
+/* A bare ACK that carries the current sequence and window. */
+static void tcp_send_ack(net_sock_t * s)
+{
+    tcp_emit(s, s->snd_nxt, s->rcv_nxt, TCP_ACK, NULL, 0);
+}
+
+/* Queue a segment for retransmission and send it. A SYN, FIN or data consumes
+ * sequence space. Returns true on success, false when the queue is full. */
+static bool tcp_enqueue(net_sock_t * s, uint8_t flags, const uint8_t * data,
+                        uint32_t len)
+{
+    tcp_seg_t *seg = NULL;
+
+    if (len > TCP_MSS)
+        len = TCP_MSS;
+
+    for (int32_t i = 0; i < TCP_SNDQ; i++) {
+        if (!s->sndq[i].used) {
+            seg = &s->sndq[i];
+            break;
+        }
+    }
+    if (seg == NULL)
+        return false;
+
+    uint32_t seq = s->snd_nxt;
+
+    memset(seg, 0, sizeof(*seg));
+    seg->used = true;
+    seg->flags = flags;
+    seg->syn = (flags & TCP_SYN) != 0;
+    seg->fin = (flags & TCP_FIN) != 0;
+    seg->seq = seq;
+    seg->len = (uint16_t) len;
+    seg->time = net_ms();
+    if (len > 0)
+        memcpy(seg->data, data, len);
+
+    if (!tcp_emit(s, seq, s->rcv_nxt, flags, data, len)) {
+        seg->used = false;
+        return false;
+    }
+
+    s->snd_nxt += (seg->syn || seg->fin) ? 1 : len;
+    return true;
+}
+
+/* Drop queued segments acked by ack and reset the retransmit backoff. */
+static void tcp_ack(net_sock_t * s, uint32_t ack)
+{
+    if ((int32_t) (ack - s->snd_una) <= 0)
+        return;
+
+    s->snd_una = ack;
+    s->rto = TCP_RTO_MS;
+
+    for (int32_t i = 0; i < TCP_SNDQ; i++) {
+        tcp_seg_t *seg = &s->sndq[i];
+
+        if (!seg->used)
+            continue;
+
+        uint32_t used = (seg->syn || seg->fin) ? 1 : seg->len;
+
+        if ((int32_t) (ack - (seg->seq + used)) >= 0)
+            seg->used = false;
+    }
+}
+
+/* Retransmit the oldest unacknowledged segment on timeout and expire a
+ * finished close. */
+static void tcp_tick_sock(net_sock_t * s)
+{
+    uint32_t now;
+
+    if (!s->used || !s->stream)
+        return;
+
+    now = net_ms();
+
+    if (s->need_win_update && s->tstate == TCP_ESTABLISHED) {
+        tcp_send_ack(s);
+        s->need_win_update = false;
+    }
+
+    if ((s->tstate == TCP_TIME_WAIT || s->tstate == TCP_LAST_ACK)
+        && now - s->close_time >= TCP_TIME_WAIT_MS) {
+        sock_free(s);
+        return;
+    }
+    if (s->tstate == TCP_LAST_ACK && s->snd_una == s->snd_nxt) {
+        sock_free(s);
+        return;
+    }
+
+    tcp_seg_t *oldest = NULL;
+
+    for (int32_t i = 0; i < TCP_SNDQ; i++) {
+        tcp_seg_t *seg = &s->sndq[i];
+
+        if (!seg->used)
+            continue;
+        if (oldest == NULL || (int32_t) (seg->seq - oldest->seq) < 0)
+            oldest = seg;
+    }
+
+    if (oldest == NULL || now - oldest->time < s->rto)
+        return;
+
+    if (oldest->retries >= TCP_MAX_RETRY) {
+        sock_free(s);
+        return;
+    }
+
+    oldest->retries++;
+    oldest->time = now;
+    s->rto = (s->rto * 2 < TCP_RTO_MAX_MS) ? s->rto * 2 : TCP_RTO_MAX_MS;
+    tcp_emit(s, oldest->seq, s->rcv_nxt, oldest->flags, oldest->data,
+             oldest->len);
+}
+
+static void tcp_tick_all(void)
+{
+    for (int32_t i = 0; i < NET_MAX_SOCKS; i++)
+        tcp_tick_sock(&socks[i]);
+}
+
+/* Append any buffered segment that is now in sequence. */
+static void tcp_drain_ooo(net_sock_t * s)
+{
+    bool progress = true;
+
+    while (progress) {
+        progress = false;
+        for (int32_t i = 0; i < TCP_OOO; i++) {
+            tcp_ooo_t *o = &s->ooo[i];
+
+            if (o->used && o->seq == s->rcv_nxt) {
+                sock_push(s, o->data, o->len, s->peer_ip, s->peer_port);
+                s->rcv_nxt += o->len;
+                o->used = false;
+                progress = true;
+            }
+        }
+    }
+}
+
+static void tcp_store_ooo(net_sock_t * s, uint32_t seq, const uint8_t * data,
+                          uint32_t len)
+{
+    for (int32_t i = 0; i < TCP_OOO; i++) {
+        if (s->ooo[i].used && s->ooo[i].seq == seq)
+            return;             /* already buffered */
+    }
+    for (int32_t i = 0; i < TCP_OOO; i++) {
+        tcp_ooo_t *o = &s->ooo[i];
+
+        if (!o->used) {
+            if (len > TCP_MSS)
+                len = TCP_MSS;
+            o->used = true;
+            o->seq = seq;
+            o->len = (uint16_t) len;
+            memcpy(o->data, data, len);
+            return;
+        }
+    }
+    /* No room: drop. The peer retransmits. */
 }
 
 static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
@@ -710,18 +973,17 @@ static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
     s->snd_nxt = 1000 + (uint32_t) (s - socks) * 100;
     s->snd_una = s->snd_nxt;
     s->rcv_nxt = 0;
-    s->tstate = 1;
+    s->tstate = TCP_SYN_SENT;
+    s->rto = TCP_RTO_MS;
 
-    if (!tcp_send_seg(s, TCP_SYN, NULL, 0))
+    if (!tcp_enqueue(s, TCP_SYN, NULL, 0))
         return false;
-    s->snd_nxt++;
 
     for (int32_t i = 0; i < 3000; i++) {
         net_poll_once();
-        if (s->tstate == 2) {
-            tcp_send_seg(s, TCP_ACK, NULL, 0);
+        tcp_tick_all();
+        if (s->tstate == TCP_ESTABLISHED)
             return true;
-        }
         if (s->tstate < 0)
             return false;
         net_delay();
@@ -731,14 +993,13 @@ static bool tcp_connect(net_sock_t * s, uint32_t ip, uint16_t port)
 
 static int32_t tcp_send(net_sock_t * s, const uint8_t * data, uint32_t len)
 {
-    if (s->tstate != 2)
+    if (s->tstate != TCP_ESTABLISHED)
         return -1;
-    if (len > 1400)
-        len = 1400;
-    if (!tcp_send_seg(s, TCP_ACK | TCP_PSH, data, len))
+    if (len > TCP_MSS)
+        len = TCP_MSS;
+    if (!tcp_enqueue(s, TCP_ACK | TCP_PSH, data, len))
         return -1;
 
-    s->snd_nxt += len;
     return (int32_t) len;
 }
 
@@ -896,9 +1157,12 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
                     ns->snd_nxt = 2000 + (uint32_t) nfd * 100;
                     ns->snd_una = ns->snd_nxt;
                     ns->rcv_nxt = seq + 1;
-                    ns->tstate = 2;
-                    tcp_send_seg(ns, TCP_SYN | TCP_ACK, NULL, 0);
-                    ns->snd_nxt++;
+                    ns->rto = TCP_RTO_MS;
+                    ns->tstate = TCP_ESTABLISHED;
+                    if (!tcp_enqueue(ns, TCP_SYN | TCP_ACK, NULL, 0)) {
+                        sock_free(ns);
+                        return;
+                    }
 
                     if (s->acc_wait_reply != 0) {
                         sys_ipc_msg_t rr;
@@ -919,33 +1183,48 @@ static void net_rx_frame(uint8_t * pkt, int32_t n)
         }
 
         if (t->flags & TCP_RST) {
-            s->tstate = -1;
+            sock_free(s);
             return;
         }
         if ((t->flags & TCP_SYN) && (t->flags & TCP_ACK)
-            && s->tstate == 1) {
+            && s->tstate == TCP_SYN_SENT) {
             s->rcv_nxt = seq + 1;
-            s->snd_una = ack;
-            s->tstate = 2;
-            return;
+            s->tstate = TCP_ESTABLISHED;
+            tcp_ack(s, ack);
+            tcp_send_ack(s);
         }
         if (t->flags & TCP_ACK) {
-            if (ack > s->snd_una) {
-                s->snd_una = ack;
-            }
+            tcp_ack(s, ack);
+            if (s->tstate == TCP_FIN_WAIT1 && s->snd_una == s->snd_nxt)
+                s->tstate = TCP_FIN_WAIT2;
         }
         if (plen > 0) {
             if (seq == s->rcv_nxt) {
-                sock_push(s, pkt + poff, plen, src, ntohs(t->src));
-                s->rcv_nxt = seq + plen;
+                sock_push(s, pkt + poff, plen, src, sport);
+                s->rcv_nxt += plen;
+                tcp_drain_ooo(s);
                 sock_flush(s);
+            } else if ((int32_t) (seq - s->rcv_nxt) > 0) {
+                tcp_store_ooo(s, seq, pkt + poff, plen);
             }
-            tcp_send_seg(s, TCP_ACK, NULL, 0);
+            tcp_send_ack(s);
         }
         if (t->flags & TCP_FIN) {
-            s->rcv_nxt = seq + 1;
-            tcp_send_seg(s, TCP_ACK, NULL, 0);
+            uint32_t fin_seq = seq + plen;
+
+            if (fin_seq == s->rcv_nxt)
+                s->rcv_nxt = fin_seq + 1;
             s->got_fin = true;
+            tcp_send_ack(s);
+            sock_flush(s);
+            if (s->tstate == TCP_ESTABLISHED) {
+                /* Peer closed; the app can still read buffered data. */
+                s->tstate = TCP_CLOSE_WAIT;
+            } else if (s->tstate == TCP_FIN_WAIT1
+                       || s->tstate == TCP_FIN_WAIT2) {
+                s->tstate = TCP_TIME_WAIT;
+                s->close_time = net_ms();
+            }
         }
         return;
     }
@@ -1096,7 +1375,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         bool readable = (s->count > 0)
             || (s->accept_pending > 0)
             || (s->stream && s->got_fin);
-        bool writable = s->stream ? (s->tstate == 2) : true;
+        bool writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
 
         rep->words[0] = 0;
         rep->words[1] = readable ? 1 : 0;
@@ -1170,6 +1449,16 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
+        if (s->count == 0 && s->stream && s->got_fin) {
+            /* Peer closed and the queue drained: report EOF at once. */
+            sys_handle_close(memh);
+            rep->words[0] = 0;
+            rep->words[1] = 0;
+            rep->words[2] = s->peer_ip;
+            rep->words[3] = s->peer_port;
+            return;
+        }
+
         if (s->count == 0) {
             /* One held read per socket. Answer a previous one so a second
              * reader cannot leak its reply endpoint. */
@@ -1212,21 +1501,20 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -9;
             return;
         }
-        if (s->stream && s->tstate == 2) {
-            tcp_send_seg(s, TCP_FIN | TCP_ACK, NULL, 0);
-            s->snd_nxt++;
+        if (s->stream && (s->tstate == TCP_ESTABLISHED
+                          || s->tstate == TCP_SYN_SENT
+                          || s->tstate == TCP_CLOSE_WAIT)) {
+            /* Send FIN and let the tick finish the close handshake. */
+            if (tcp_enqueue(s, TCP_FIN | TCP_ACK, NULL, 0)) {
+                s->tstate = (s->tstate == TCP_CLOSE_WAIT)
+                    ? TCP_LAST_ACK : TCP_FIN_WAIT1;
+            } else {
+                sock_free(s);
+            }
+            s->close_time = net_ms();
+        } else {
+            sock_free(s);
         }
-        if (s->wait_reply != 0) {
-            sys_ipc_msg_t rr;
-
-            memset(&rr, 0, sizeof(rr));
-            rr.tag = NET_RECVFROM;
-            rr.words[0] = (uint64_t) (int64_t) -9;
-            sys_ipc_send(s->wait_reply, &rr);
-            sys_handle_close(s->wait_reply);
-            sys_handle_close(s->wait_memh);
-        }
-        s->used = false;
         rep->words[0] = 0;
         return;
     }
@@ -1245,6 +1533,7 @@ int32_t main(void)
 
     for (;;) {
         net_poll_once();
+        tcp_tick_all();
 
         sys_ipc_msg_t m;
 
