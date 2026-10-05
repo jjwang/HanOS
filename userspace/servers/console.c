@@ -49,6 +49,7 @@ extern psf1_t term_font_norm;
 #define COLOR_MAGENTA   0xAA00AA
 #define COLOR_CYAN      0x00AAAA
 #define COLOR_GREY      0xAAAAAA
+#define COLOR_WHITE     0xFFFFFF
 
 #define ROW_MAX     512
 
@@ -207,11 +208,35 @@ static void draw_background(void)
     }
 }
 
+/* A light theme: the terminal sits on white, so the palette darkens the
+ * colours that a program picked for a dark background. */
+static const uint32_t ansi_light[16] = {
+    0x000000,                   /* black   */
+    0xAA0000,                   /* red     */
+    0x008800,                   /* green   */
+    0x806000,                   /* yellow  */
+    0x0000AA,                   /* blue    */
+    0xAA00AA,                   /* magenta */
+    0x006666,                   /* cyan    */
+    0x333333,                   /* white   */
+    0x555555,                   /* bright black   */
+    0xCC0000,                   /* bright red     */
+    0x008800,                   /* bright green   */
+    0x806000,                   /* bright yellow  */
+    0x0000EE,                   /* bright blue    */
+    0xCC00CC,                   /* bright magenta */
+    0x008888,                   /* bright cyan    */
+    0x000000,                   /* bright white   */
+};
+
 static uint32_t color_of(const VTermColor * c, uint32_t def, bool is_fg)
 {
     if ((is_fg && VTERM_COLOR_IS_DEFAULT_FG(c))
         || (!is_fg && VTERM_COLOR_IS_DEFAULT_BG(c)))
         return def;
+
+    if (VTERM_COLOR_IS_INDEXED(c) && c->indexed.idx < 16)
+        return ansi_light[c->indexed.idx];
 
     VTermColor t = *c;
 
@@ -244,8 +269,8 @@ static void render_cell(uint32_t row, uint32_t col)
     else if (cp != 0)
         ch = '?';
 
-    f = color_of(&cell.fg, COLOR_GREY, true);
-    b = color_of(&cell.bg, COLOR_BLACK, false);
+    f = color_of(&cell.fg, COLOR_BLACK, true);
+    b = color_of(&cell.bg, COLOR_WHITE, false);
     if (cell.attrs.reverse) {
         uint32_t t = f;
 
@@ -280,7 +305,7 @@ static void put_cursor(bool show)
         && vterm_cur_row < (int32_t) rows && vterm_cur_col >= 0
         && vterm_cur_col < (int32_t) cols) {
         fill_cell((uint32_t) vterm_cur_col, (uint32_t) vterm_cur_row,
-                  COLOR_GREY);
+                  COLOR_BLACK);
         drawn_row = vterm_cur_row;
         drawn_col = vterm_cur_col;
     }
