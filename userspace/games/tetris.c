@@ -17,14 +17,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <poll.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sysfunc.h>
-#include <termios.h>
 #include <time.h>
-#include <unistd.h>
 
 #include "common.h"
 
@@ -51,8 +48,6 @@ static const uint16_t shapes[7][4] = {
 };
 
 static const int colors[7] = { 36, 33, 35, 32, 31, 34, 37 };
-
-static struct termios saved;
 
 static int board[BH][BW];
 static int px, py, prot, ptype;
@@ -182,46 +177,19 @@ static void draw(void)
     }
 
     put_at(WELL_ROW + BH, well_col, "+-------------------+");
-    game_menu("a/d move  s drop  w rotate  space hard  p pause  q quit");
+    game_menu("arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
     printf("\033[?25l");
     fflush(stdout);
 }
 
-static int read_key(int timeout_ms)
-{
-    struct pollfd pf = { STDIN_FILENO, POLLIN, 0 };
-
-    if (poll(&pf, 1, timeout_ms) != 1)
-        return -1;
-
-    unsigned char c;
-
-    if (read(STDIN_FILENO, &c, 1) != 1)
-        return -1;
-    return c;
-}
-
-static void set_raw(bool on)
-{
-    if (on) {
-        tcgetattr(STDIN_FILENO, &saved);
-        struct termios t = saved;
-
-        t.c_lflag &= ~(tcflag_t) (ECHO | ICANON);
-        tcsetattr(STDIN_FILENO, TCSANOW, &t);
-    } else {
-        tcsetattr(STDIN_FILENO, TCSANOW, &saved);
-    }
-}
-
 static void restore_term(void)
 {
-    set_raw(false);
+    game_set_raw(false);
 }
 
 int main(void)
 {
-    set_raw(true);
+    game_set_raw(true);
     atexit(restore_term);
     printf("\033[2J\033[?25l");
 
@@ -252,7 +220,7 @@ int main(void)
         if (gravity < 120)
             gravity = 120;
 
-        int c = read_key(10);
+        int c = game_read_key(10);
 
         if (c != -1) {
             if (c == 'q')
@@ -261,16 +229,19 @@ int main(void)
                 paused = !paused;
                 dirty = true;
             } else if (!paused) {
-                if (c == 'a' && fits(ptype, prot, px - 1, py)) {
+                if ((c == 'a' || c == KEY_LEFT)
+                    && fits(ptype, prot, px - 1, py)) {
                     px--;
                     dirty = true;
-                } else if (c == 'd' && fits(ptype, prot, px + 1, py)) {
+                } else if ((c == 'd' || c == KEY_RIGHT)
+                           && fits(ptype, prot, px + 1, py)) {
                     px++;
                     dirty = true;
-                } else if (c == 'w' && fits(ptype, (prot + 1) % 4, px, py)) {
+                } else if ((c == 'w' || c == KEY_UP)
+                           && fits(ptype, (prot + 1) % 4, px, py)) {
                     prot = (prot + 1) % 4;
                     dirty = true;
-                } else if (c == 's') {
+                } else if (c == 's' || c == KEY_DOWN) {
                     if (fits(ptype, prot, px, py + 1))
                         py++;
                     else
@@ -310,7 +281,7 @@ int main(void)
         }
     }
 
-    set_raw(false);
+    game_set_raw(false);
     printf("\033[2J\033[?25h\033[H");
     fflush(stdout);
     return 0;
