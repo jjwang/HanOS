@@ -127,8 +127,8 @@ static int32_t digits_s(long long v)
 static void print_long_rows(char **names, int32_t *colors, struct stat *sts,
                             uint8_t * ok, size_t n)
 {
-    unsigned long wn = 1, wu = 1, wg = 1;
-    int32_t ws = 1;
+    unsigned long wn = 2, wu = 1, wg = 1;
+    int32_t ws = 5;
 
     for (size_t i = 0; i < n; i++) {
         int32_t d;
@@ -272,12 +272,17 @@ static void list_dir(const char *path)
         uint8_t *ok = calloc(n ? n : 1, 1);
 
         if (sts != NULL && ok != NULL) {
+            long long total = 0;
+
             for (size_t i = 0; i < n; i++) {
                 char full[4096];
 
                 snprintf(full, sizeof(full), "%s/%s", path, names[i]);
                 ok[i] = (lstat(full, &sts[i]) == 0);
+                if (ok[i])
+                    total += (long long) ((sts[i].st_size + 1023) / 1024);
             }
+            printf("total %lld\n", total);
             print_long_rows(names, colors, sts, ok, n);
         }
         free(sts);

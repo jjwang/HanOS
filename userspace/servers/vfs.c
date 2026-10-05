@@ -37,6 +37,7 @@
 #define VFS_DYN_CAP         8192
 
 /* ustar header field offsets. */
+#define USTAR_MODE_OFF      100
 #define USTAR_SIZE_OFF      124
 #define USTAR_MTIME_OFF     136
 #define USTAR_TYPE_OFF      156
@@ -61,6 +62,7 @@ typedef struct {
     bool is_dir;
     bool deleted;               /* removed at runtime (initrd is read-only) */
     int64_t mtime;
+    uint32_t mode;              /* permission bits from the ustar header */
 } vfs_ent_t;
 
 /**
@@ -347,6 +349,7 @@ static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size,
     e->is_dir = is_dir;
     e->deleted = false;
     e->mtime = mtime;
+    e->mode = (uint32_t) oct2bin(hdr + USTAR_MODE_OFF, 7) & 0777u;
     ent_count++;
 }
 
@@ -411,6 +414,13 @@ static int64_t idx_mtime(int32_t i)
     if (idx_is_dyn(i))
         return 0;
     return ents[i].mtime;
+}
+
+static uint32_t idx_mode(int32_t i)
+{
+    if (i == ROOT_INDEX || idx_is_dyn(i))
+        return 0755;
+    return (ents[i].mode != 0) ? ents[i].mode : 0644;
 }
 
 static const char *idx_name(int32_t i)
@@ -521,7 +531,7 @@ static void fill_stat(int32_t e, void *out)
     st->st_mtim.tv_sec = idx_mtime(e);
 
     if (idx_is_dir(e)) {
-        st->st_mode = S_IFDIR | 0755;
+        st->st_mode = S_IFDIR | (idx_mode(e) & 0777);
         st->st_ino = (e == ROOT_INDEX) ? 1 : (uint64_t) e + 1;
         st->st_size = 4096;
     } else if (idx_is_symlink(e)) {
@@ -529,7 +539,7 @@ static void fill_stat(int32_t e, void *out)
         st->st_ino = (uint64_t) e + 1;
         st->st_size = (int64_t) idx_size(e);
     } else {
-        st->st_mode = S_IFREG | 0644;
+        st->st_mode = S_IFREG | (idx_mode(e) & 0777);
         st->st_ino = (uint64_t) e + 1;
         st->st_size = (int64_t) idx_size(e);
     }
