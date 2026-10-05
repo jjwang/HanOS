@@ -30,6 +30,7 @@
 #include <mm/mm.h>
 #include <ipc/object.h>
 #include <srv/fat32_srv.h>
+#include <srv/ext2_srv.h>
 #include <srv/process_srv.h>
 #include <srv/tty_srv.h>
 #include <router/router.h>
@@ -391,6 +392,27 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
         return 0;
     }
 
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+        uint64_t size = 0;
+        bool is_dir = false;
+        uint32_t mode = 0;
+
+        memobj_unref(mo);
+        if (rel == NULL)
+            return -1;
+        int64_t r = ext2_stat_path(rel, &size, &is_dir, &mode);
+
+        kmfree(rel);
+        if (r < 0)
+            return -1;
+        memset(out, 0, sizeof(*out));
+        out->st_mode = (uint16_t) mode;
+        out->st_nlink = 1;
+        out->st_size = size;
+        return 0;
+    }
+
     if (rc < 0) {
         memobj_unref(mo);
         return rc;
@@ -441,6 +463,21 @@ int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
         return r;
     }
 
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+        uint64_t size = 0;
+        bool is_dir = false;
+        uint32_t mode = 0;
+        int64_t r;
+
+        memobj_unref(mo);
+        if (rel == NULL)
+            return -1;
+        r = (ext2_stat_path(rel, &size, &is_dir, &mode) == 0) ? 0 : -1;
+        kmfree(rel);
+        return r;
+    }
+
     memobj_unref(mo);
     return rc;
 }
@@ -472,6 +509,8 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
 
     if (rc == VFS_REDIRECT_FAT)
         rc = -30;               /* -EROFS: the FAT mount is read-only */
+    if (rc == VFS_REDIRECT_EXT)
+        rc = -30;               /* -EROFS: the ext2 mount is read-only */
     memobj_unref(mo);
     return rc;
 }
@@ -634,6 +673,31 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         return fd;
     }
 
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+        uint64_t size = 0;
+        bool is_dir = false;
+        uint32_t mode = 0;
+        int64_t efd;
+
+        memobj_unref(mo);
+        if (rel == NULL)
+            return VFS_INVALID_FD;
+
+        efd = ext2_open_path(rel, &size, &is_dir, &mode);
+
+        if (efd < 0) {
+            kmfree(rel);
+            return VFS_INVALID_FD;
+        }
+        if (svc != NULL)
+            *svc = SVC_EXT;
+        vfs_fd_t fd = vfs_open_server_svc(efd, rel, VFS_MODE_READ, size,
+                                          SVC_EXT);
+        kmfree(rel);
+        return fd;
+    }
+
     if (rc < 0) {
         memobj_unref(mo);
         return VFS_INVALID_FD;
@@ -755,6 +819,10 @@ int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff)
         /* The FAT server keeps its own offset. */
         return fat32_read_fd(desc->server_fd, len, buff);
     }
+    if (desc->svc == SVC_EXT) {
+        /* The ext2 server keeps its own offset. */
+        return ext2_read_fd(desc->server_fd, len, buff);
+    }
     if (desc->svc == SVC_TTY)
         return tty_server_read(buff, len);
 
@@ -867,6 +935,8 @@ int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
         return -1;              /* pipes are not seekable */
     if (desc->svc == SVC_FAT)
         return fat32_seek_fd(desc->server_fd, pos, whence);
+    if (desc->svc == SVC_EXT)
+        return ext2_seek_fd(desc->server_fd, pos, whence);
     return vfs_server_seek(desc->server_fd, pos, whence);
 }
 
@@ -989,6 +1059,8 @@ int64_t vfs_close(vfs_fd_t fd)
 
     if (svc == SVC_FAT)
         return fat32_close_fd(sfd);
+    if (svc == SVC_EXT)
+        return ext2_close_fd(sfd);
 
     return vfs_server_close(svc, sfd);
 }

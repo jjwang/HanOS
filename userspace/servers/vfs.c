@@ -137,6 +137,7 @@ static char *norm_dir(const char *path)
 }
 
 #define VFS_MOUNT_FAT "/fat"
+#define VFS_MOUNT_EXT "/data"
 
 /* Join cwd and path into a normalized absolute path. The caller frees it. */
 static char *join_path(const char *cwd, const char *path)
@@ -225,6 +226,44 @@ static char *fat_rel(const char *abs)
         return NULL;
 
     return strdup(rel);
+}
+
+/* Return the mount-relative path when abs is under VFS_MOUNT_EXT, else NULL. */
+static char *ext_rel(const char *abs)
+{
+    uint64_t ml = strlen(VFS_MOUNT_EXT);
+    const char *rel;
+
+    if (strcmp(abs, VFS_MOUNT_EXT) == 0)
+        rel = "/";
+    else if (strncmp(abs, VFS_MOUNT_EXT, ml) == 0 && abs[ml] == '/')
+        rel = abs + ml;
+    else
+        return NULL;
+
+    return strdup(rel);
+}
+
+/* Resolve a mount prefix for abs. Returns the redirect tag and a fresh
+ * mount-relative path in *rel_out, or 0 when abs is not on a mounted volume. */
+static uint64_t mount_rel(const char *abs, char **rel_out)
+{
+    char *r;
+
+    if (abs == NULL)
+        return 0;
+
+    r = fat_rel(abs);
+    if (r != NULL) {
+        *rel_out = r;
+        return VFS_REDIRECT_FAT;
+    }
+    r = ext_rel(abs);
+    if (r != NULL) {
+        *rel_out = r;
+        return VFS_REDIRECT_EXT;
+    }
+    return 0;
 }
 
 /* Split "cwd\0path\0" read from the request buffer. Allocates both strings;
@@ -550,11 +589,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         if (split_cwd_path(buf, VFS_IO_DATA_OFF, &cwd, &path)) {
             abs = join_path(cwd, path);
-            rel = (abs != NULL) ? fat_rel(abs) : NULL;
+            uint64_t redir = mount_rel(abs, &rel);
 
-            if (rel != NULL) {
+            if (redir != 0) {
                 buf_write_path(buf, rel);
-                rep->words[0] = VFS_REDIRECT_FAT;
+                rep->words[0] = redir;
             } else if (abs != NULL) {
                 rep->words[0] =
                     (resolve(abs) != -1) ? 0 : (uint64_t) (int64_t) -2;
@@ -588,11 +627,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         if (split_cwd_path(buf, VFS_IO_DATA_OFF, &cwd, &path)) {
             abs = join_path(cwd, path);
-            rel = (abs != NULL) ? fat_rel(abs) : NULL;
+            uint64_t redir = mount_rel(abs, &rel);
 
-            if (rel != NULL) {
+            if (redir != 0) {
                 buf_write_path(buf, rel);
-                rep->words[0] = VFS_REDIRECT_FAT;
+                rep->words[0] = redir;
             } else if (abs == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;   /* -ENOMEM */
             } else {
@@ -664,11 +703,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             goto openat_out;
         }
 
-        rel = fat_rel(abs);
+        uint64_t redir = mount_rel(abs, &rel);
 
-        if (rel != NULL) {
+        if (redir != 0) {
             buf_write_path(buf, rel);
-            rep->words[0] = VFS_REDIRECT_FAT;
+            rep->words[0] = redir;
             goto openat_out;
         }
 
@@ -953,11 +992,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         if (split_cwd_path(buf, VFS_IO_DATA_OFF, &cwd, &path)) {
             abs = join_path(cwd, path);
-            rel = (abs != NULL) ? fat_rel(abs) : NULL;
+            uint64_t redir = mount_rel(abs, &rel);
 
-            if (rel != NULL) {
+            if (redir != 0) {
                 buf_write_path(buf, rel);
-                rep->words[0] = VFS_REDIRECT_FAT;
+                rep->words[0] = redir;
             } else if (abs != NULL) {
                 int32_t e = resolve(abs);
 

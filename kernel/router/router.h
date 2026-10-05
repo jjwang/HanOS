@@ -34,6 +34,7 @@ typedef enum {
     SVC_PIPE,
     SVC_TTY,
     SVC_FAT,
+    SVC_EXT,                    /* userspace ext2 filesystem */
     SVC_EVENT,                  /* kernel eventfd objects */
     SVC_EPOLL,                  /* kernel epoll objects */
     SVC_COUNT

@@ -63,6 +63,7 @@
 #include <srv/net_srv.h>
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
+#include <srv/ext2_srv.h>
 #include <proc/sched.h>
 #include <proc/syscall.h>
 #include <proc/notify.h>
@@ -220,6 +221,12 @@ _Noreturn void kshell(pid_t pid)
         klogw("fat32: server failed to start\n");
     else
         fat32_server_probe();
+    if (!block_server_active())
+        klogw("ext2: no block server, skipping\n");
+    else if (!ext2_server_start())
+        klogw("ext2: server failed to start\n");
+    else
+        ext2_server_probe();
     if (!vfs_server_start())
         klogw("vfs: server failed to start\n");
     else

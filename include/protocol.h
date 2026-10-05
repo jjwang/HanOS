@@ -152,6 +152,23 @@
                                            out: words[1]=pos */
 #define FAT_FSTAT           0x76        /* words[0]=fd; out: words[1]=size, words[2]=is_dir */
 
+/* ext2 server. The path and data layout matches the FAT server: the path sits
+ * at offset 0 and file data or a directory name at VFS_IO_DATA_OFF of the
+ * buffer in xfer[1]. STAT/FSTAT also report the inode mode in words[3]. */
+#define EXT2_OPEN           0x80        /* in: path; out: words[1]=fd, words[2]=size,
+                                           words[3]=is_dir */
+#define EXT2_READ           0x81        /* words[0]=fd, words[1]=len;
+                                           xfer[1]=buffer; out: words[1]=n */
+#define EXT2_READDIR        0x82        /* words[0]=fd, words[1]=index; out: 0 or
+                                           -1, name at VFS_IO_DATA_OFF */
+#define EXT2_STAT           0x83        /* in: path; out: words[1]=size,
+                                           words[2]=is_dir, words[3]=mode */
+#define EXT2_CLOSE          0x84        /* words[0]=fd */
+#define EXT2_SEEK           0x85        /* words[0]=fd, words[1]=off, words[2]=whence */
+#define EXT2_FSTAT          0x86        /* words[0]=fd; out: words[1]=size,
+                                           words[2]=is_dir, words[3]=mode */
+#define VFS_REDIRECT_EXT    101         /* path belongs to the ext2 mount */
+
 /* Network server. Datagram sockets only; traffic to the loopback address is
  * delivered to the matching bound socket. A data buffer travels in xfer[1];
  * the reply endpoint is xfer[0]. A recvfrom with no data is held and answered

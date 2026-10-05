@@ -38,6 +38,7 @@
 #include <ipc/irq.h>
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
+#include <srv/ext2_srv.h>
 #include <router/router.h>
 #include <protocol.h>
 #include <proc/process.h>
@@ -1068,6 +1069,18 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
             st.st_mode = is_dir ? (S_IFDIR | 0755) : (S_IFREG | 0644);
             st.st_nlink = 1;
             st.st_size = size;
+        } else if (desc->svc == SVC_EXT) {
+            uint64_t size = 0;
+            bool is_dir = false;
+            uint32_t mode = 0;
+
+            if (ext2_fstat_fd(desc->server_fd, &size, &is_dir, &mode) < 0) {
+                cpu_set_errno(ENOENT);
+                return -1;
+            }
+            st.st_mode = (uint16_t) mode;
+            st.st_nlink = 1;
+            st.st_size = size;
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
@@ -1281,6 +1294,20 @@ int64_t k_readdir(int64_t fd, uint64_t buff)
 
             if (fat32_readdir_fd(desc->server_fd, desc->curr_dir_idx, name,
                                  sizeof(name), &size, &is_dir) != 0) {
+                cpu_set_errno(0);
+                return 0;       /* end of directory */
+            }
+            de.d_ino = desc->curr_dir_idx + 1;
+            de.d_type = is_dir ? DT_DIR : DT_REG;
+            strncpy(de.d_name, name, sizeof(de.d_name) - 1);
+            desc->curr_dir_idx++;
+        } else if (desc->svc == SVC_EXT) {
+            char name[256];
+            uint64_t size = 0;
+            bool is_dir = false;
+
+            if (ext2_readdir_fd(desc->server_fd, desc->curr_dir_idx, name,
+                                sizeof(name), &size, &is_dir) != 0) {
                 cpu_set_errno(0);
                 return 0;       /* end of directory */
             }
