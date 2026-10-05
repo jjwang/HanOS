@@ -878,6 +878,34 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         const char *dir = fds[fd - 1].dir;
         uint64_t wanted = fds[fd - 1].dir_idx;
+
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        /* Every directory starts with "." and "..", then its children. */
+        if (wanted < 2) {
+            dirent_t *de = (dirent_t *) (buf + VFS_IO_DATA_OFF);
+
+            memset(de, 0, sizeof(*de));
+            de->d_ino = wanted + 1;
+            de->d_type = DT_DIR;
+            de->d_name[0] = '.';
+            de->d_name[1] = (wanted == 1) ? '.' : '\0';
+            de->d_name[2] = '\0';
+            fds[fd - 1].dir_idx++;
+            rep->words[0] = 0;
+            sys_mem_unmap(memh, VFS_BUF_VADDR);
+            sys_handle_close(memh);
+            return;
+        }
+
+        wanted -= 2;
+
         uint64_t seen = 0;
         int32_t found = -1;
 
@@ -900,14 +928,6 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 seen++;
             }
-        }
-
-        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
-        if (buf == NULL) {
-            if (memh != 0)
-                sys_handle_close(memh);
-            rep->words[0] = (uint64_t) (int64_t) -5;
-            return;
         }
 
         if (found < 0) {
