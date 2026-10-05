@@ -322,8 +322,12 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 
 - Datagram: `sendto` to the loopback address is delivered in the server; a real address resolves ARP and emits a UDP/IP/Ethernet frame. A received datagram matches a bound socket.
 - Stream: `connect` runs the SYN/SYN-ACK/ACK handshake; `send` emits a PSH segment; `recv` buffers incoming data; `close` sends FIN. `listen` and `accept` accept an incoming connection.
-- `NET_POLL` reports whether a socket has a buffered datagram, a completed connection, or a closed stream (readable) and whether a stream is established (writable). A socket registers a process fd, so `poll` and `epoll` reach it.
-- The server drives the e1000e: the kernel grants the MMIO BAR and a physically contiguous DMA region; the server programs the rings, reads its MAC and polls.
+- Stream reliability: a per-connection send queue retransmits the oldest segment on timeout with backoff; out-of-order segments wait until the gap fills; the advertised window follows the free receive space; a FIN/ACK handshake closes the connection and keeps buffered data readable in CLOSE_WAIT.
+- Receive validation: the server verifies the IPv4, TCP and UDP checksums and drops a bad frame.
+- Socket options: `setsockopt`/`getsockopt` carry `SO_REUSEADDR`, `SO_RCVTIMEO` and `SOCK_NONBLOCK`; a timed or non-blocking read returns EAGAIN.
+- Address configuration: a DHCP client takes the address, gateway and DNS server; a resolver sends an A-record query to that server and a HanOS resolve syscall returns the address.
+- `NET_POLL` reports whether a socket has a buffered datagram, a completed connection, or a closed stream (readable) and whether a stream is established (writable). A socket registers a process fd, so `poll` and `epoll` reach it, and the server wakes a registered poll key when the state matches.
+- The server drives the e1000e: the kernel grants the MMIO BAR and a physically contiguous DMA region; the server programs the rings and reads its MAC. The kernel binds the NIC's PCI interrupt line to the service endpoint and routes it through the I/O APIC (active low, edge), so the server drains the ring on the notification, with the poll as a fallback.
 - An ARP cache backs address lookups. An RX dispatcher handles ARP, ICMP echo, UDP and TCP. The server pings the gateway at start.
 
 ## 6. Boot sequence
@@ -348,12 +352,13 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 - The FAT32 server is read-only and handles 8.3 names.
 - The block server uses ATA PIO polling, not DMA.
 - SVC_MM and SVC_MISC are reserved but unused.
-- TCP is a minimal implementation: no retransmission, no out-of-order handling, a fixed window, and a client and a server only.
-- The NIC is polled, not interrupt-driven.
+- TCP has no congestion control; the send queue holds four segments and the receive window follows the free buffer space.
+- The NIC wakes the server on its PCI interrupt line; a bounded poll remains as a fallback.
 - VFS runtime files live in RAM and do not persist.
+- The xHCI driver enumerates every port but drives only a HID boot keyboard and pointer. It uses one controller and skips a controller with 64-byte contexts. A USB network or wireless adapter is logged by vendor:product and class, not driven.
 - A signal handler entered on the timer path returns through `rt_sigreturn` and `sysret`, so the interrupted `rcx` is not restored. The syscall ABI already clobbers `rcx`; only user code that interrupts with a live value in `rcx` observes it.
 - `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT mounts stay read-only.
-- A set of syscalls still returns `ENOSYS`, for example `symlinkat` on the FAT mount and `signalfd`.
+- A set of syscalls still returns `ENOSYS`, for example `signalfd`, `getppid`, `chmod`, and `symlinkat` on the FAT mount.
 
 ## 8. Conclusion
 

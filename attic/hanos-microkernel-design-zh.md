@@ -322,8 +322,12 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 
 - 数据报：发往回环地址的 `sendto` 在服务内投递；真实地址先解析 ARP，再发 UDP/IP/以太网帧。收到的数据报按绑定套接字匹配。
 - 流：`connect` 走 SYN/SYN-ACK/ACK 握手；`send` 发 PSH 段；`recv` 缓冲到达数据；`close` 发 FIN。`listen` 与 `accept` 接受入连接。
-- `NET_POLL` 报告套接字是否有待读数据报、待接受连接或已关闭的流（可读），以及流是否已建立（可写）。套接字注册进程 fd，`poll` 与 `epoll` 因此到达它。
-- 服务驱动 e1000e：内核授予 MMIO（内存映射 I/O）基址寄存器（BAR）与一段物理连续 DMA（直接内存访问）区；服务配置环形队列、读取 MAC、轮询。
+- 流可靠性：每连接一个发送队列，按超时退避重传最旧段。乱序段缓存到缺口填上。通告窗口跟随接收空闲空间。FIN/ACK 握手关闭连接，CLOSE_WAIT 下已缓冲数据仍可读。
+- 收包校验：服务校验 IPv4、TCP 与 UDP 校验和，坏帧丢弃。
+- 套接字选项：`setsockopt`/`getsockopt` 支持 `SO_REUSEADDR`、`SO_RCVTIMEO`、`SOCK_NONBLOCK`；超时或非阻塞读返回 EAGAIN。
+- 地址配置：DHCP 客户端取地址、网关与 DNS 服务器；解析器向该服务器发 A 记录查询，HanOS resolve 系统调用返回地址。
+- `NET_POLL` 报告套接字是否有待读数据报、待接受连接或已关闭的流（可读），以及流是否已建立（可写）。套接字注册进程 fd，`poll` 与 `epoll` 到达它；状态匹配时服务唤醒已注册的轮询键。
+- 服务驱动 e1000e：内核授予 MMIO（内存映射 I/O）基址寄存器（BAR）与一段物理连续 DMA（直接内存访问）区；服务配置环形队列、读取 MAC。内核把网卡的 PCI 中断线绑到服务 endpoint，经 I/O APIC 路由（低有效、边沿）。服务收到通知后排空环形队列，轮询作为兜底。
 - ARP 缓存放地址查询。RX 分发器处理 ARP、ICMP 回显、UDP 与 TCP。服务启动时 ping 网关。
 
 ## 6. 启动顺序
@@ -348,12 +352,13 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 - FAT32 服务只读，且只处理 8.3 名。
 - block 服务用 ATA PIO 轮询，不用 DMA。
 - SVC_MM 与 SVC_MISC 预留未用。
-- TCP 实现精简：无重传、无乱序处理、固定窗口，只提供客户端与服务器。
-- 网卡用轮询，不用中断。
+- TCP 无拥塞控制；发送队列容纳四段，接收窗口跟随空闲缓冲。
+- 网卡经 PCI 中断线唤醒服务；有界轮询作为兜底。
 - VFS 运行时文件放在 RAM，不持久。
+- xHCI 驱动扫描所有端口，但只驱动 HID 开机键盘与指针。它只用一个控制器，跳过 64 字节上下文的控制器。USB 网卡或无线网卡按 厂家:产品 与类打印，不驱动。
 - 定时路径进入的信号处理函数经 `rt_sigreturn` 与 `sysret` 返回，被打断的 `rcx` 不恢复。系统调用 ABI 本就破坏 `rcx`；只有用户代码在被中断时把活值放在 `rcx` 才会察觉。
 - `mkdirat`、`symlinkat`、`renameat` 只建运行时条目；initrd 与 FAT 挂载保持只读。
-- 一批系统调用仍返回 `ENOSYS`，例如 FAT 挂载上的 `symlinkat`、`signalfd`。
+- 一批系统调用仍返回 `ENOSYS`，例如 `signalfd`、`getppid`、`chmod`，以及 FAT 挂载上的 `symlinkat`。
 
 ## 8. 结论
 
