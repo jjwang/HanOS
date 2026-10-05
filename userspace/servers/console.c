@@ -20,6 +20,8 @@
 
 #include <bootinfo.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <sysfunc.h>
 
 #include <vterm.h>
@@ -379,6 +381,11 @@ int32_t main(void)
         rows = ROW_MAX;
     term_x = (fb_w - cols * FONT_W) / 2;
     term_y = (fb_h - rows * FONT_H) / 2;
+
+    /* Publish the grid so a program can size and centre its output. */
+    struct winsize ws = { (unsigned short) rows, (unsigned short) cols, 0, 0 };
+
+    ioctl(STDOUT_FILENO, TIOCSWINSZ, &ws);
 
     back = sys_malloc((uint64_t) fb_pitch * fb_h);
     if (back == NULL)

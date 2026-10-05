@@ -975,9 +975,13 @@ int64_t k_set_fs_base(uint64_t val)
     return 0;
 }
 
+static uint16_t tty_win_rows = 25;
+static uint16_t tty_win_cols = 80;
+
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
 #define TIOCGWINSZ_K 0x5413
+#define TIOCSWINSZ_K 0x5414
 #define TCGETS_K    0x5401
 #define TCSETS_K    0x5402
 #define TCSETSW_K   0x5403
@@ -1009,12 +1013,32 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
             uint16_t col;
             uint16_t xpixel;
             uint16_t ypixel;
-        } ws = { 25, 80, 0, 0 };
+        } ws = { tty_win_rows, tty_win_cols, 0, 0 };
 
         if (fd < 0 || fd > 2 || arg == 0
             || copy_to_user((void *) arg, &ws, sizeof(ws)) != 0) {
             cpu_set_errno(ENOTTY);
             return -1;
+        }
+        return 0;
+    }
+
+    /* The console server owns the grid geometry and publishes it here. */
+    if (request == TIOCSWINSZ_K) {
+        struct {
+            uint16_t row;
+            uint16_t col;
+            uint16_t xpixel;
+            uint16_t ypixel;
+        } ws;
+
+        if (arg == 0 || copy_from_user(&ws, (void *) arg, sizeof(ws)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        if (ws.row != 0 && ws.col != 0) {
+            tty_win_rows = ws.row;
+            tty_win_cols = ws.col;
         }
         return 0;
     }
