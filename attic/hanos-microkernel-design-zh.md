@@ -261,7 +261,7 @@ bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
 
 console 服务负责帧缓冲。内核授予它带 write-combining 属性的 scan-out 映射，以及一个收控制台字节的 endpoint。服务保存一块后台缓冲，用共享的 gohufont 字形渲染文本。它记录脏行，只把这些行拷到帧缓冲。
 
-内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务把字节流喂给一个 libvterm `VTerm`,把 `VTermScreen` 单元渲染进后台缓冲,于是完整 VT 集合可用:光标定位、擦除、滚动、SGR 颜色、备用屏、光标隐藏与显示。它把裸 LF 映射为 CR-NL,因为 tty 只发 NL,而终端遇 LF 只下移不回首列。光标可见时画块状光标,只有受损行拷进帧缓冲。服务从清屏开始,不继承启动画面。
+内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务把字节流喂给一个 libvterm `VTerm`,把 `VTermScreen` 单元渲染进后台缓冲,于是完整 VT 集合可用:光标定位、擦除、滚动、SGR 颜色、备用屏、光标隐藏与显示。网格占屏幕中间五分之四,边距放静态绿色数据流——二进制与十六进制数字,多档亮度。它把裸 LF 映射为 CR-NL,因为 tty 只发 NL,而终端遇 LF 只下移不回首列。光标可见时画块状光标,只有受损行拷进帧缓冲。服务从清屏开始,不继承启动画面。
 
 ### 5.2 input
 
@@ -279,7 +279,7 @@ tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台�
 
 对 fd 0 的 `poll` 经 `TTY_POLL` 问服务待读键数。无键时它阻塞在一个内核等待键上，tty 中转收到键时唤醒它，于是轮询者睡眠而非自旋。`select` 与 `pselect6` 共用就绪判定。管道与套接字的就绪查询见 5.7、5.9。
 
-对标准描述符的 `TCGETS`/`TCSETS` ioctl 到达 tty 服务。清掉 `ECHO` 与 `ICANON` 进入 raw 模式：不再回显按键，有待读字节时立即答复挂起的读，全屏程序不必等换行即可逐键读取。shell 退出时恢复保存的模式。
+对标准描述符的 `TCGETS`/`TCSETS` ioctl 到达 tty 服务。清掉 `ECHO` 与 `ICANON` 进入 raw 模式：不再回显按键，有待读字节时立即答复挂起的读，全屏程序不必等换行即可逐键读取。行模式下它把退格回显为「退格-空格-退格」，被删单元随之消失。shell 退出时恢复保存的模式。
 
 ### 5.4 block
 

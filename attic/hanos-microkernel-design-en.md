@@ -261,7 +261,7 @@ Each server is a process that receives on `service_ep`, handles a request, and r
 
 The console server owns the framebuffer. The kernel grants it a mapping of the scan-out with write-combining attributes and an endpoint for console bytes. The server keeps a back buffer and renders text with the shared gohufont glyphs. It tracks dirty rows and copies only those to the framebuffer.
 
-The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server feeds the byte stream to a libvterm `VTerm` and renders the `VTermScreen` cells into the back buffer, so the full VT set works: cursor addressing, erase, scrolling, SGR colours, alternate screen and cursor show and hide. It maps a bare LF to CR-NL, because the tty sends NL and a terminal keeps the column on LF alone. It draws a block cursor while it is visible, and only the damaged rows reach the framebuffer. The server starts from a cleared screen, so it does not inherit the boot splash.
+The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server feeds the byte stream to a libvterm `VTerm` and renders the `VTermScreen` cells into the back buffer, so the full VT set works: cursor addressing, erase, scrolling, SGR colours, alternate screen and cursor show and hide. The grid fills the middle four fifths of the screen; the margins carry a static green data stream of binary and hex digits at several brightness levels. The server maps a bare LF to CR-NL, because the tty sends NL and a terminal keeps the column on LF alone. It draws a block cursor while it is visible, and only the damaged rows reach the framebuffer. The server starts from a cleared screen, so it does not inherit the boot splash.
 
 ### 5.2 input
 
@@ -279,7 +279,7 @@ Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns
 
 `poll` on fd 0 asks the server for the pending key count through `TTY_POLL`. With no key it blocks on a kernel wait key that the tty relay wakes when a key arrives, so a poller sleeps instead of spinning. `select` and `pselect6` share the readiness helper. Section 5.7 and section 5.9 describe the pipe and socket readiness queries.
 
-A `TCGETS`/`TCSETS` ioctl on the standard descriptors reaches the tty server. Clearing `ECHO` and `ICANON` puts it in raw mode: it stops echoing keys and answers a deferred read as soon as a key is buffered, so a full-screen program reads each keypress without waiting for a newline. The shell restores the saved mode on exit.
+A `TCGETS`/`TCSETS` ioctl on the standard descriptors reaches the tty server. Clearing `ECHO` and `ICANON` puts it in raw mode: it stops echoing keys and answers a deferred read as soon as a key is buffered, so a full-screen program reads each keypress without waiting for a newline. In line mode it echoes backspace as backspace-space-backspace, so the erased cell goes with it. The shell restores the saved mode on exit.
 
 ### 5.4 block
 
