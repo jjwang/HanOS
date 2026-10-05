@@ -224,6 +224,7 @@ int main(void)
     spawn();
 
     bool paused = false;
+    bool dirty = true;
     struct timespec start;
     long last_drop = 0;
 
@@ -235,29 +236,35 @@ int main(void)
         if (gravity < 120)
             gravity = 120;
 
-        int c = read_key(20);
+        int c = read_key(10);
 
         if (c != -1) {
             if (c == 'q')
                 break;
-            if (c == 'p')
+            if (c == 'p') {
                 paused = !paused;
-            if (!paused) {
-                if (c == 'a' && fits(ptype, prot, px - 1, py))
+                dirty = true;
+            } else if (!paused) {
+                if (c == 'a' && fits(ptype, prot, px - 1, py)) {
                     px--;
-                else if (c == 'd' && fits(ptype, prot, px + 1, py))
+                    dirty = true;
+                } else if (c == 'd' && fits(ptype, prot, px + 1, py)) {
                     px++;
-                else if (c == 'w' && fits(ptype, (prot + 1) % 4, px, py))
+                    dirty = true;
+                } else if (c == 'w' && fits(ptype, (prot + 1) % 4, px, py)) {
                     prot = (prot + 1) % 4;
-                else if (c == 's') {
+                    dirty = true;
+                } else if (c == 's') {
                     if (fits(ptype, prot, px, py + 1))
                         py++;
                     else
                         lock_piece();
+                    dirty = true;
                 } else if (c == ' ') {
                     while (fits(ptype, prot, px, py + 1))
                         py++;
                     lock_piece();
+                    dirty = true;
                 }
             }
         }
@@ -277,9 +284,14 @@ int main(void)
                 py++;
             else
                 lock_piece();
+            dirty = true;
         }
 
-        draw();
+        /* Repaint only on a change, so a key is read within one short poll. */
+        if (dirty) {
+            draw();
+            dirty = false;
+        }
     }
 
     set_raw(false);
