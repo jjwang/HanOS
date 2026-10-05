@@ -261,7 +261,7 @@ Each server is a process that receives on `service_ep`, handles a request, and r
 
 The console server owns the framebuffer. The kernel grants it a mapping of the scan-out with write-combining attributes and an endpoint for console bytes. The server keeps a back buffer and renders text with the shared gohufont glyphs. It tracks dirty rows and copies only those to the framebuffer.
 
-The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server decodes a minimal SGR subset (colours) and a newline, carriage return, backspace and tab. When the queue is idle it blinks a block cursor. The server starts from a cleared screen, so it does not inherit the boot splash.
+The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server decodes a subset of the CSI sequences: SGR colours, cursor addressing, cursor moves, erase in display and line, and cursor show and hide, plus newline, carriage return, backspace and tab, so a full-screen program can repaint the screen. When the queue is idle it blinks a block cursor unless the program hid it. The server starts from a cleared screen, so it does not inherit the boot splash.
 
 ### 5.2 input
 
@@ -278,6 +278,8 @@ The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. 
 Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when a line is complete or the requested length is buffered. The kernel blocks in `tty_server_read` on that reply instead of polling. A reader that asks for few bytes stays unbuffered.
 
 `poll` on fd 0 asks the server for the pending key count through `TTY_POLL`. With no key it blocks on a kernel wait key that the tty relay wakes when a key arrives, so a poller sleeps instead of spinning. `select` and `pselect6` share the readiness helper. Section 5.7 and section 5.9 describe the pipe and socket readiness queries.
+
+A `TCGETS`/`TCSETS` ioctl on the standard descriptors reaches the tty server. Clearing `ECHO` and `ICANON` puts it in raw mode: it stops echoing keys and answers a deferred read as soon as a key is buffered, so a full-screen program reads each keypress without waiting for a newline. The shell restores the saved mode on exit.
 
 ### 5.4 block
 
@@ -334,7 +336,7 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 
 ### 5.10 ext2
 
-The ext2 server is a read-only client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE` and `EXT2_SEEK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd.
+The ext2 server is a read-only client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE` and `EXT2_SEEK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd; the shell resolves a command in `/bin`, then in `/data/bin`. `exec` loads an image from the volume by the same redirect, and `vfs_load_file` reads it in large chunks.
 
 ## 6. Boot sequence
 

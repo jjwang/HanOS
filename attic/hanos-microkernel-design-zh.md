@@ -261,7 +261,7 @@ bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
 
 console 服务负责帧缓冲。内核授予它带 write-combining 属性的 scan-out 映射，以及一个收控制台字节的 endpoint。服务保存一块后台缓冲，用共享的 gohufont 字形渲染文本。它记录脏行，只把这些行拷到帧缓冲。
 
-内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务解析少量 SGR 子集（颜色）与换行、回车、退格、制表符。队列空闲时它闪烁块状光标。服务从清屏开始，不继承启动画面。
+内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务解析部分 CSI 序列：SGR 颜色、光标定位、光标移动、清屏与清行、光标隐藏与显示，加上换行、回车、退格、制表符，全屏程序据此重绘屏幕。队列空闲时它闪烁块状光标，程序隐藏光标时则不画。服务从清屏开始，不继承启动画面。
 
 ### 5.2 input
 
@@ -278,6 +278,8 @@ tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台�
 读是事件驱动的，按行缓冲。`TTY_READ` 有时返回现成字节。`TTY_READ` 无键时挂起：服务保存应答 endpoint，在整行或请求长度到齐时答复。内核在 `tty_server_read` 里阻塞等该应答，不轮询。请求字节少的读保持非缓冲。
 
 对 fd 0 的 `poll` 经 `TTY_POLL` 问服务待读键数。无键时它阻塞在一个内核等待键上，tty 中转收到键时唤醒它，于是轮询者睡眠而非自旋。`select` 与 `pselect6` 共用就绪判定。管道与套接字的就绪查询见 5.7、5.9。
+
+对标准描述符的 `TCGETS`/`TCSETS` ioctl 到达 tty 服务。清掉 `ECHO` 与 `ICANON` 进入 raw 模式：不再回显按键，有待读字节时立即答复挂起的读，全屏程序不必等换行即可逐键读取。shell 退出时恢复保存的模式。
 
 ### 5.4 block
 
@@ -334,7 +336,7 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 
 ### 5.10 ext2
 
-ext2 服务是 block 服务的只读客户端。它经 `BLOCK_GET_PART` 挂载索引 1 的分区，读字节偏移 1024 处的超级块、块组描述符与 inode 表，解析直接、单级、双级与三级间接块映射。它应答 `EXT2_OPEN`、`EXT2_READ`、`EXT2_READDIR`、`EXT2_STAT`、`EXT2_CLOSE` 与 `EXT2_SEEK`。名字区分大小写，每个 inode 带模式与属主，`STAT` 返回模式。VFS 挂载表把 `/data` 指到该卷，`/data` 下的路径转发给 ext2 服务，`/fat` 到 FAT 服务同理。分区放应用与游戏，它们从磁盘装入，不占 initrd。
+ext2 服务是 block 服务的只读客户端。它经 `BLOCK_GET_PART` 挂载索引 1 的分区，读字节偏移 1024 处的超级块、块组描述符与 inode 表，解析直接、单级、双级与三级间接块映射。它应答 `EXT2_OPEN`、`EXT2_READ`、`EXT2_READDIR`、`EXT2_STAT`、`EXT2_CLOSE` 与 `EXT2_SEEK`。名字区分大小写，每个 inode 带模式与属主，`STAT` 返回模式。VFS 挂载表把 `/data` 指到该卷，`/data` 下的路径转发给 ext2 服务，`/fat` 到 FAT 服务同理。分区放应用与游戏，它们从磁盘装入，不占 initrd；shell 先在 `/bin` 找命令，再到 `/data/bin`。`exec` 经同一转发从该卷装入镜像，`vfs_load_file` 按大块读取。
 
 ## 6. 启动顺序
 
