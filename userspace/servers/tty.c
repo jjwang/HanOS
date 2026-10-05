@@ -75,10 +75,11 @@ static void console_write(const uint8_t * p, uint64_t len)
             wm.words[k++] = p[sent++];
         wm.words[5] = k;
 
-        for (int32_t tries = 0; tries < 1000; tries++) {
-            if (sys_ipc_send((int64_t) bi.console_ep, &wm) == 0)
-                break;
-        }
+        /* Wait for the console to drain instead of dropping a chunk. A large
+         * frame fills the endpoint queue while the console renders, and a
+         * dropped chunk leaves a hole in the screen. */
+        while (sys_ipc_send((int64_t) bi.console_ep, &wm) != 0)
+            ;
     }
 }
 
