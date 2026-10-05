@@ -42,6 +42,10 @@ static bool msg_deferred;
 
 static bootinfo_t bi;
 
+/* Raw mode: a full-screen program turns echo and canonical input off. */
+static bool tty_echo = true;
+static bool tty_canon = true;
+
 static void key_push(uint8_t k)
 {
     if (kcount >= TTY_KEY_MAX)
@@ -56,8 +60,10 @@ static void console_write(const uint8_t * p, uint64_t len)
     uint64_t sent = 0;
 
     /* Mirror the output to the serial console; the kernel serialises it with
-     * its own log so the two streams do not interleave. */
-    sys_serial_write((const char *) p, len);
+     * its own log so the two streams do not interleave. A full-screen program
+     * (raw mode) is skipped: its control sequences would flood the log. */
+    if (tty_canon)
+        sys_serial_write((const char *) p, len);
 
     while (sent < len) {
         sys_ipc_msg_t wm;
@@ -79,10 +85,6 @@ static void console_write(const uint8_t * p, uint64_t len)
 /* Echo one key from the input server to the console (framebuffer and serial).
  * A line-length guard keeps backspace from erasing the shell prompt. */
 static int32_t echo_len;
-
-/* Raw mode: a full-screen program turns echo and canonical input off. */
-static bool tty_echo = true;
-static bool tty_canon = true;
 
 static void echo_key(uint8_t k)
 {

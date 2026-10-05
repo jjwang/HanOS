@@ -152,7 +152,7 @@ static void draw(void)
 {
     char line[BW * 8 + 16];
 
-    printf("\033[?25l\033[2J");
+    printf("\033[?25l");
     put_at(1, WELL_COL, "\033[37mTETRIS  score");
     printf(" %ld  lines %d  level %d\033[0m", score, lines, level);
 
@@ -224,7 +224,10 @@ int main(void)
     spawn();
 
     bool paused = false;
-    long acc = 0;
+    struct timespec start;
+    long last_drop = 0;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     for (;;) {
         long gravity = 700 - (level - 1) * 60;
@@ -232,7 +235,7 @@ int main(void)
         if (gravity < 120)
             gravity = 120;
 
-        int c = read_key(40);
+        int c = read_key(20);
 
         if (c != -1) {
             if (c == 'q')
@@ -257,18 +260,23 @@ int main(void)
                     lock_piece();
                 }
             }
-            acc = 0;
         }
 
-        if (!paused) {
-            acc += 40;
-            if (acc >= gravity) {
-                acc = 0;
-                if (fits(ptype, prot, px, py + 1))
-                    py++;
-                else
-                    lock_piece();
-            }
+        /* Gravity follows real elapsed time, not the loop rate: a slow repaint
+         * must not slow the drop. */
+        struct timespec now;
+        long ms;
+
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        ms = (now.tv_sec - start.tv_sec) * 1000
+            + (now.tv_nsec - start.tv_nsec) / 1000000;
+
+        if (!paused && ms - last_drop >= gravity) {
+            last_drop = ms;
+            if (fits(ptype, prot, px, py + 1))
+                py++;
+            else
+                lock_piece();
         }
 
         draw();

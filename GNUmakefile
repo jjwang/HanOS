@@ -44,7 +44,7 @@ $(ISO_IMAGE): limine initrd kernel
 	rm -rf iso_root initrd.tar
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
-	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
+	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root data
 	mkdir -p iso_root
 	cp kernel/hanos.elf initrd.tar \
 		limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
@@ -59,7 +59,7 @@ $(ISO_IMAGE): limine initrd kernel
 $(HDD_IMAGE): limine initrd kernel
 	rm -rf initrd.tar
 	mkdir -p initrd/etc initrd/usr initrd/root
-	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
+	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root data
 	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
 	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
