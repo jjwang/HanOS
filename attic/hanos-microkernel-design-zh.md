@@ -332,6 +332,10 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 - 服务驱动 e1000e：内核授予 MMIO（内存映射 I/O）基址寄存器（BAR）与一段物理连续 DMA（直接内存访问）区；服务配置环形队列、读取 MAC。内核把网卡的 PCI 中断线绑到服务 endpoint，经 I/O APIC 路由（低有效、边沿）。服务收到通知后排空环形队列，轮询作为兜底。
 - ARP 缓存放地址查询。RX 分发器处理 ARP、ICMP 回显、UDP 与 TCP。服务启动时 ping 网关。
 
+### 5.10 ext2
+
+ext2 服务是 block 服务的只读客户端。它经 `BLOCK_GET_PART` 挂载索引 1 的分区，读字节偏移 1024 处的超级块、块组描述符与 inode 表，解析直接、单级、双级与三级间接块映射。它应答 `EXT2_OPEN`、`EXT2_READ`、`EXT2_READDIR`、`EXT2_STAT`、`EXT2_CLOSE` 与 `EXT2_SEEK`。名字区分大小写，每个 inode 带模式与属主，`STAT` 返回模式。VFS 挂载表把 `/data` 指到该卷，`/data` 下的路径转发给 ext2 服务，`/fat` 到 FAT 服务同理。分区放应用与游戏，它们从磁盘装入，不占 initrd。
+
 ## 6. 启动顺序
 
 `kshell` 按依赖顺序启动服务。

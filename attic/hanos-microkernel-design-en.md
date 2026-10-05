@@ -332,6 +332,10 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 - The server drives the e1000e: the kernel grants the MMIO BAR and a physically contiguous DMA region; the server programs the rings and reads its MAC. The kernel binds the NIC's PCI interrupt line to the service endpoint and routes it through the I/O APIC (active low, edge), so the server drains the ring on the notification, with the poll as a fallback.
 - An ARP cache backs address lookups. An RX dispatcher handles ARP, ICMP echo, UDP and TCP. The server pings the gateway at start.
 
+### 5.10 ext2
+
+The ext2 server is a read-only client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE` and `EXT2_SEEK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd.
+
 ## 6. Boot sequence
 
 `kshell` starts the servers in dependency order.
