@@ -450,6 +450,53 @@ static bool port_reset(uint8_t port, uint8_t * speed)
     return true;
 }
 
+/* USB interface/base class names for the boot log. */
+static const char *usb_class_name(uint8_t cls)
+{
+    switch (cls) {
+    case 0x01:
+        return "audio";
+    case 0x02:
+        return "communications";
+    case 0x03:
+        return "HID";
+    case 0x05:
+        return "physical";
+    case 0x06:
+        return "image";
+    case 0x07:
+        return "printer";
+    case 0x08:
+        return "mass storage";
+    case 0x09:
+        return "hub";
+    case 0x0a:
+        return "CDC data";
+    case 0x0b:
+        return "smart card";
+    case 0x0d:
+        return "content security";
+    case 0x0e:
+        return "video";
+    case 0x0f:
+        return "personal healthcare";
+    case 0x10:
+        return "audio/video";
+    case 0xdc:
+        return "diagnostic";
+    case 0xe0:
+        return "wireless";
+    case 0xef:
+        return "miscellaneous";
+    case 0xfe:
+        return "application specific";
+    case 0xff:
+        return "vendor specific";
+    default:
+        return "unknown";
+    }
+}
+
 void usb_hid_init(void)
 {
     pci_device_t *dev = NULL;
@@ -548,7 +595,7 @@ void usb_hid_init(void)
     mmio_wr(rt_base + 0x00, 1u << 1);   /* IMAN: IE */
     mmio_wr(op_base + OP_USBCMD, USBCMD_RS | USBCMD_INTE);
 
-    for (uint8_t port = 1; port <= max_ports && nhids < HID_MAX; port++) {
+    for (uint8_t port = 1; port <= max_ports; port++) {
         uint8_t speed;
 
         if (!port_reset(port, &speed))
@@ -594,6 +641,9 @@ void usb_hid_init(void)
         klogi("USB: port %u idVendor %02x%02x idProduct %02x%02x\n", port,
               desc[9], desc[8], desc[11], desc[10]);
 
+        uint16_t vid = (uint16_t) (desc[8] | (desc[9] << 8));
+        uint16_t pid = (uint16_t) (desc[10] | (desc[11] << 8));
+
         /* Full configuration descriptor. */
         if (control_xfer(slot, 0x80, 6, 2 << 8, 0, 255,
                          ctrl_buf_phys) != CC_SUCCESS) {
@@ -607,6 +657,8 @@ void usb_hid_init(void)
         uint8_t hid_proto = 0;
         uint8_t hid_interval = 0;
         uint16_t hid_max_packet = 0;
+        uint8_t iface_class = desc[5];  /* bDeviceClass as the fallback */
+        bool have_iface = false;
         bool have_hid = false;
         bool found = false;
 
@@ -617,6 +669,10 @@ void usb_hid_init(void)
             if (len < 2)
                 break;
             if (dtype == 4) {           /* interface */
+                if (!have_iface) {
+                    iface_class = desc[off + 5];
+                    have_iface = true;
+                }
                 if (desc[off + 5] == 3) {       /* HID class */
                     hid_iface = desc[off + 2];
                     hid_proto = desc[off + 7];  /* 1 keyboard, 2 mouse */
@@ -641,7 +697,14 @@ void usb_hid_init(void)
 
         if (!found
             || (hid_proto != HID_PROTO_KBD && hid_proto != HID_PROTO_MOUSE)) {
-            klogi("USB: port %u is not a HID boot device\n", port);
+            klogi("USB: port %u device %04x:%04x class %02x (%s)\n", port,
+                  vid, pid, iface_class, usb_class_name(iface_class));
+            continue;
+        }
+
+        if (nhids >= HID_MAX) {
+            klogi("USB: port %u HID device ignored, %d slots in use\n",
+                  port, nhids);
             continue;
         }
 
