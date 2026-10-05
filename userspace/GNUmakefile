@@ -16,6 +16,11 @@ MUSL_CRT1 := $(MUSL)/obj/crt/crt1.o
 MUSL_CRTI := $(MUSL)/obj/crt/x86_64/crti.o
 MUSL_CRTN := $(MUSL)/obj/crt/x86_64/crtn.o
 
+# libvterm: the VT emulator behind the console server.
+VTERM      := ../3rdparty/libvterm
+VTERM_C    := $(wildcard $(VTERM)/src/*.c)
+VTERM_OBJS := $(VTERM_C:.c=.o)
+
 LC_FLAGS :=                 \
 	-std=gnu11              \
 	-nostdinc               \
@@ -24,6 +29,7 @@ LC_FLAGS :=                 \
 	-I$(MUSL)/obj/include   \
 	-I$(MUSL)/include       \
 	-I. -Iinclude -I.. -I../include                \
+	-I$(VTERM)/include -I$(VTERM)                  \
 	-ffreestanding          \
 	-fno-pic                \
 	-fno-omit-frame-pointer \
@@ -54,16 +60,19 @@ ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 HONOS_RT  := $(RUNTIME_OBJS)
 
-CELF      := servers/block servers/console servers/fat32 servers/ext2 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest test/musltest test/faulttest test/sigtest
+CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest test/musltest test/faulttest test/sigtest
+
+# The console server links libvterm, so it builds through its own rule.
+CONSOLE   := servers/console
 
 # Applications that live on the ext2 data partition, not in the initrd image.
 DISK_APPS := games/tetris
 
 .PHONY: clean all musl
 
-all: $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(DISK_APPS)
+all: $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(DISK_APPS)
 	mkdir -p ../initrd/bin
-	cp $(CELF) ../initrd/bin
+	cp $(CELF) $(CONSOLE) ../initrd/bin
 
 musl: $(MUSL_LIB)/libc.a
 
@@ -107,9 +116,26 @@ $(ASM_OBJS): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
+$(VTERM_OBJS): %.o: %.c
+	@echo Compiling $^ ...
+	$(CC) $(LC_FLAGS) -c $< -o $@
+
+# The encoding tables are generated from the .tbl files at build time.
+$(VTERM)/src/encoding/%.inc: $(VTERM)/src/encoding/%.tbl
+	@perl -CSD $(VTERM)/tbl2inc_c.pl $< > $@
+
+$(VTERM)/src/encoding.o: $(VTERM)/src/encoding/uk.inc \
+	$(VTERM)/src/encoding/DECdrawing.inc
+
 $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
 		$(MUSL_CRT1) $(MUSL_CRTI) $< $(HONOS_RT) font.o _help.o \
+		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+
+# The console server renders through libvterm, so it links those objects too.
+servers/console: servers/console.o $(VTERM_OBJS) $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
+	$(LD) $(LD_FLAGS) \
+		$(MUSL_CRT1) $(MUSL_CRTI) $< $(VTERM_OBJS) $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
 $(DISK_APPS): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
@@ -118,5 +144,5 @@ $(DISK_APPS): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
 clean:
-	rm -rf $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) sh.sym
+	rm -rf $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) $(VTERM_OBJS) sh.sym
 	rm -rf ../initrd/bin/* _help.c _help.o
