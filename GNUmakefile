@@ -60,15 +60,24 @@ $(HDD_IMAGE): limine initrd kernel
 	rm -rf initrd.tar
 	mkdir -p initrd/etc initrd/usr initrd/root
 	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root
-	rm -f $(HDD_IMAGE)
+	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
+	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
-	dd if=/dev/zero bs=1M count=0 seek=128 of=$(HDD_IMAGE)
-	sgdisk $(HDD_IMAGE) -n 1:2048 -t 1:ef00
+	dd if=/dev/zero bs=1M count=0 seek=256 of=$(HDD_IMAGE)
+	sgdisk $(HDD_IMAGE) -n 1:2048:+96M -t 1:ef00 -n 2:198656:0 -t 2:8300
 	./limine/limine bios-install $(HDD_IMAGE)
-	mformat -i $(HDD_IMAGE)@@1M
-	mmd -i $(HDD_IMAGE)@@1M ::/EFI ::/EFI/BOOT
-	mcopy -i $(HDD_IMAGE)@@1M kernel/hanos.elf initrd.tar limine.conf limine/limine-bios.sys ::/
-	mcopy -i $(HDD_IMAGE)@@1M limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
+	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
+	mformat -i $(HDD_IMAGE).esp ::
+	mmd -i $(HDD_IMAGE).esp ::/EFI ::/EFI/BOOT
+	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf initrd.tar limine.conf limine/limine-bios.sys ::/
+	mcopy -i $(HDD_IMAGE).esp limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
+	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
+	rm -f $(HDD_IMAGE).esp
+	mkdir -p $(HDD_IMAGE).p2root/bin $(HDD_IMAGE).p2root/assets
+	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
+	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
+		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 156M
+	rm -rf $(HDD_IMAGE).p2root
 
 clean:
 	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \

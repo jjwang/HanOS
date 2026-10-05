@@ -300,6 +300,81 @@ static int32_t ahci_write(uint32_t lba, uint8_t count, const uint8_t *buf)
     return ahci_cmd(CMD_WRITE_DMA_EXT, lba, count, bytes, true);
 }
 
+/* --- GPT partition layer ------------------------------------------------- */
+
+#define GPT_PART_MAX        8
+
+typedef struct {
+    bool used;
+    uint64_t start;
+    uint32_t count;
+} blk_part_t;
+
+static blk_part_t parts[GPT_PART_MAX];
+static int32_t nparts;
+
+static uint64_t rd64(const uint8_t * p)
+{
+    return (uint64_t) p[0] | ((uint64_t) p[1] << 8) | ((uint64_t) p[2] << 16)
+        | ((uint64_t) p[3] << 24) | ((uint64_t) p[4] << 32)
+        | ((uint64_t) p[5] << 40) | ((uint64_t) p[6] << 48)
+        | ((uint64_t) p[7] << 56);
+}
+
+static uint32_t rd32(const uint8_t * p)
+{
+    return (uint32_t) p[0] | ((uint32_t) p[1] << 8)
+        | ((uint32_t) p[2] << 16) | ((uint32_t) p[3] << 24);
+}
+
+/* Record the GPT partitions so the filesystem servers can mount one by index. */
+static void gpt_load(void)
+{
+    uint8_t sec[SECTOR_SIZE];
+
+    if (ahci_read(1, 1, sec) != 0)
+        return;
+    if (rd64(sec) != 0x5452415020494645ULL)     /* "EFI PART" */
+        return;
+
+    uint64_t entry_lba = rd64(sec + 72);
+    uint32_t num = rd32(sec + 80);
+    uint32_t esz = rd32(sec + 84);
+
+    if (esz < 128 || esz > SECTOR_SIZE || num > 128)
+        return;
+
+    uint32_t per = SECTOR_SIZE / esz;
+
+    for (uint32_t i = 0; i < num && nparts < GPT_PART_MAX; i++) {
+        uint8_t esec[SECTOR_SIZE];
+        const uint8_t *e;
+        bool zero = true;
+
+        if (ahci_read((uint32_t) (entry_lba + i / per), 1, esec) != 0)
+            return;
+
+        e = esec + (i % per) * esz;
+
+        for (int32_t k = 0; k < 16; k++)
+            if (e[k])
+                zero = false;
+        if (zero)               /* unused entry */
+            continue;
+
+        uint64_t first = rd64(e + 32);
+        uint64_t last = rd64(e + 40);
+
+        if (last < first)
+            continue;
+
+        parts[nparts].used = true;
+        parts[nparts].start = first;
+        parts[nparts].count = (uint32_t) (last - first + 1);
+        nparts++;
+    }
+}
+
 int32_t main(void)
 {
     bootinfo_t bi;
@@ -317,6 +392,8 @@ int32_t main(void)
         dma_phys = bi.block_dma_phys;
         memset(dma, 0, DMA_SIZE);
         have_disk = (ahci_init() == 0);
+        if (have_disk)
+            gpt_load();
     }
 
     for (;;) {
@@ -332,6 +409,16 @@ int32_t main(void)
         if (m.tag == BLOCK_GET_INFO) {
             rep.words[0] = have_disk ? SECTOR_SIZE : 0;
             rep.words[1] = have_disk ? sector_count : 0;
+        } else if (m.tag == BLOCK_GET_PART) {
+            uint32_t idx = (uint32_t) m.words[0];
+
+            if (idx < (uint32_t) nparts && parts[idx].used) {
+                rep.words[0] = 0;
+                rep.words[1] = parts[idx].start;
+                rep.words[2] = parts[idx].count;
+            } else {
+                rep.words[0] = (uint64_t) (int64_t) -1;
+            }
         } else if ((m.tag == BLOCK_READ || m.tag == BLOCK_WRITE)
                    && have_disk && m.xfer_count >= 2) {
             /* xfer[0] = reply endpoint, xfer[1] = memory object with the data. */

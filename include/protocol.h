@@ -22,6 +22,8 @@
                                            xfer[0]=memobj to fill */
 #define BLOCK_WRITE         0x21        /* words[0]=lba, words[1]=count;
                                            xfer[0]=memobj holding data */
+#define BLOCK_GET_PART      0x23        /* words[0]=index; reply: words[1]=start
+                                           lba, words[2]=sector count */
 
 /* Reply status carried in words[0] of a BLOCK_READ/WRITE reply. */
 #define BLOCK_OK            0
