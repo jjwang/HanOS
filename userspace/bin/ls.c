@@ -57,7 +57,7 @@ static int32_t term_columns(void)
     return ws.ws_col;
 }
 
-static int32_t entry_color(uint8_t type)
+static int32_t entry_color_for(const char *fullpath, uint8_t type)
 {
     if (!use_color)
         return 0;
@@ -65,13 +65,17 @@ static int32_t entry_color(uint8_t type)
         return 34;              /* blue */
     if (type == DT_LNK)
         return 36;              /* cyan */
+    if (type == DT_REG) {
+        struct stat st;
+
+        if (stat(fullpath, &st) == 0 && (st.st_mode & 0111))
+            return 32;          /* green: executable */
+    }
     return 0;
 }
 
-static void print_name(const char *name, uint8_t type)
+static void print_name(const char *name, int32_t color)
 {
-    int32_t color = entry_color(type);
-
     if (color != 0)
         printf("\033[%dm%s\033[0m", color, name);
     else
@@ -102,7 +106,7 @@ static void mode_string(mode_t mode, char *out)
     out[10] = '\0';
 }
 
-static void print_long(const char *path, const char *name, uint8_t type)
+static void print_long(const char *path, const char *name, int32_t color)
 {
     struct stat st;
 
@@ -121,11 +125,11 @@ static void print_long(const char *path, const char *name, uint8_t type)
     printf("%s %2lu %u %u %8lld %s ", perms, (unsigned long) st.st_nlink,
            (unsigned) st.st_uid, (unsigned) st.st_gid,
            (long long) st.st_size, tbuf);
-    print_name(name, type);
+    print_name(name, color);
     putchar('\n');
 }
 
-static void print_columns(char **names, uint8_t * types, size_t n)
+static void print_columns(char **names, int32_t *colors, size_t n)
 {
     int32_t width = term_columns();
 
@@ -134,7 +138,7 @@ static void print_columns(char **names, uint8_t * types, size_t n)
 
     if (width <= 0) {
         for (size_t i = 0; i < n; i++) {
-            print_name(names[i], types[i]);
+            print_name(names[i], colors[i]);
             putchar('\n');
         }
         return;
@@ -164,7 +168,7 @@ static void print_columns(char **names, uint8_t * types, size_t n)
             if (idx >= n)
                 continue;
 
-            print_name(names[idx], types[idx]);
+            print_name(names[idx], colors[idx]);
 
             if (c + 1 < cols && idx + rows < n) {
                 size_t pad = cell - strlen(names[idx]);
@@ -188,7 +192,7 @@ static void list_dir(const char *path)
     }
 
     char **names = NULL;
-    uint8_t *types = NULL;
+    int32_t *colors = NULL;
     size_t n = 0, cap = 0;
     struct dirent *de;
 
@@ -199,19 +203,22 @@ static void list_dir(const char *path)
         if (n == cap) {
             size_t ncap = cap ? cap * 2 : 64;
             char **nn = realloc(names, ncap * sizeof(*names));
-            uint8_t *nt = realloc(types, ncap);
+            int32_t *nc = realloc(colors, ncap * sizeof(*colors));
 
-            if (nn == NULL || nt == NULL) {
+            if (nn == NULL || nc == NULL) {
                 free(nn);
-                free(nt);
+                free(nc);
                 break;
             }
             names = nn;
-            types = nt;
+            colors = nc;
             cap = ncap;
         }
         names[n] = strdup(de->d_name);
-        types[n] = de->d_type;
+        char full[4096];
+
+        snprintf(full, sizeof(full), "%s/%s", path, de->d_name);
+        colors[n] = entry_color_for(full, de->d_type);
         n++;
     }
     closedir(dir);
@@ -223,16 +230,16 @@ static void list_dir(const char *path)
             char full[4096];
 
             snprintf(full, sizeof(full), "%s/%s", path, names[i]);
-            print_long(full, names[i], types[i]);
+            print_long(full, names[i], colors[i]);
         }
     } else {
-        print_columns(names, types, n);
+        print_columns(names, colors, n);
     }
 
     for (size_t i = 0; i < n; i++)
         free(names[i]);
     free(names);
-    free(types);
+    free(colors);
 }
 
 int32_t main(int32_t argc, char *argv[])
@@ -282,11 +289,16 @@ int32_t main(int32_t argc, char *argv[])
                 printf("%s:\n", paths[i]);
             }
             list_dir(paths[i]);
-        } else if (opt_long) {
-            print_long(paths[i], paths[i], S_ISLNK(st.st_mode) ? DT_LNK : DT_REG);
         } else {
-            print_name(paths[i], S_ISLNK(st.st_mode) ? DT_LNK : DT_REG);
-            putchar('\n');
+            uint8_t type = S_ISLNK(st.st_mode) ? DT_LNK : DT_REG;
+            int32_t color = entry_color_for(paths[i], type);
+
+            if (opt_long) {
+                print_long(paths[i], paths[i], color);
+            } else {
+                print_name(paths[i], color);
+                putchar('\n');
+            }
         }
         first = 0;
     }

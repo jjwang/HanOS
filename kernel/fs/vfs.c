@@ -394,22 +394,23 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
 
     if (rc == VFS_REDIRECT_EXT) {
         char *rel = memobj_read_path_alloc(mo);
-        uint64_t size = 0;
-        bool is_dir = false;
-        uint32_t mode = 0;
+        ext2_meta_t m;
 
         memobj_unref(mo);
         if (rel == NULL)
             return -1;
-        int64_t r = ext2_stat_path(rel, &size, &is_dir, &mode);
+        int64_t r = ext2_stat_path(rel, &m);
 
         kmfree(rel);
         if (r < 0)
             return -1;
         memset(out, 0, sizeof(*out));
-        out->st_mode = (uint16_t) mode;
-        out->st_nlink = 1;
-        out->st_size = size;
+        out->st_mode = (uint16_t) m.mode;
+        out->st_nlink = m.nlink;
+        out->st_uid = m.uid;
+        out->st_gid = m.gid;
+        out->st_size = (off_t) m.size;
+        out->st_mtim.tv_sec = m.mtime;
         return 0;
     }
 
@@ -465,15 +466,13 @@ int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
 
     if (rc == VFS_REDIRECT_EXT) {
         char *rel = memobj_read_path_alloc(mo);
-        uint64_t size = 0;
-        bool is_dir = false;
-        uint32_t mode = 0;
+        ext2_meta_t m;
         int64_t r;
 
         memobj_unref(mo);
         if (rel == NULL)
             return -1;
-        r = (ext2_stat_path(rel, &size, &is_dir, &mode) == 0) ? 0 : -1;
+        r = (ext2_stat_path(rel, &m) == 0) ? 0 : -1;
         kmfree(rel);
         return r;
     }

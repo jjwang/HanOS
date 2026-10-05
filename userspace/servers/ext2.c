@@ -428,6 +428,8 @@ typedef struct {
     uint32_t size;
     bool is_dir;
     uint32_t mode;
+    uint64_t meta;              /* uid | gid<<16 | nlink<<32 */
+    uint32_t mtime;
     uint64_t off;
     uint64_t dir_idx;           /* readdir cursor */
 } ext2_fd_t;
@@ -506,12 +508,21 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             uint32_t mode = rd16(inode);
             uint32_t size = rd32(inode + 4);
             bool is_dir = (mode & 0xF000) == 0x4000;
+            uint32_t uid = rd16(inode + 2);
+            uint32_t gid = rd16(inode + 24);
+            uint32_t nlink = rd16(inode + 26);
+            uint32_t mtime = rd32(inode + 16);
+            uint64_t meta = (uid & 0xffffu)
+                | ((uint64_t) (gid & 0xffffu) << 16)
+                | ((uint64_t) (nlink & 0xffffu) << 32);
 
             if (m->tag == EXT2_STAT) {
                 rep->words[0] = 0;
                 rep->words[1] = size;
                 rep->words[2] = is_dir ? 1 : 0;
                 rep->words[3] = mode;
+                rep->words[4] = meta;
+                rep->words[5] = mtime;
                 break;
             }
 
@@ -526,6 +537,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fdtab[nfd].size = size;
             fdtab[nfd].is_dir = is_dir;
             fdtab[nfd].mode = mode;
+            fdtab[nfd].meta = meta;
+            fdtab[nfd].mtime = mtime;
             fdtab[nfd].off = 0;
             fdtab[nfd].dir_idx = 0;
             rep->words[0] = 0;
@@ -553,6 +566,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[1] = fdtab[fd].size;
         rep->words[2] = fdtab[fd].is_dir ? 1 : 0;
         rep->words[3] = fdtab[fd].mode;
+        rep->words[4] = fdtab[fd].meta;
+        rep->words[5] = fdtab[fd].mtime;
         break;
 
     case EXT2_READ:{

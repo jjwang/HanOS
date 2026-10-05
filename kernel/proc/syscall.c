@@ -1124,17 +1124,18 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
             st.st_nlink = 1;
             st.st_size = size;
         } else if (desc->svc == SVC_EXT) {
-            uint64_t size = 0;
-            bool is_dir = false;
-            uint32_t mode = 0;
+            ext2_meta_t m;
 
-            if (ext2_fstat_fd(desc->server_fd, &size, &is_dir, &mode) < 0) {
+            if (ext2_fstat_fd(desc->server_fd, &m) < 0) {
                 cpu_set_errno(ENOENT);
                 return -1;
             }
-            st.st_mode = (uint16_t) mode;
-            st.st_nlink = 1;
-            st.st_size = size;
+            st.st_mode = (uint16_t) m.mode;
+            st.st_nlink = m.nlink;
+            st.st_uid = m.uid;
+            st.st_gid = m.gid;
+            st.st_size = (off_t) m.size;
+            st.st_mtim.tv_sec = m.mtime;
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;

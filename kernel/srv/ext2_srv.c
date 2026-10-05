@@ -177,10 +177,47 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
     return rc;
 }
 
-int64_t ext2_stat_path(const char *path, uint64_t *size, bool *is_dir,
-                       uint32_t *mode)
+static void ext2_fill_meta(ext2_meta_t * m, const ipc_msg_t * rep)
 {
-    return ext2_path_call(EXT2_STAT, path, size, is_dir, mode);
+    uint64_t meta = rep->words[4];
+
+    m->size = rep->words[1];
+    m->is_dir = rep->words[2] != 0;
+    m->mode = (uint32_t) rep->words[3];
+    m->uid = (uint32_t) (meta & 0xffff);
+    m->gid = (uint32_t) ((meta >> 16) & 0xffff);
+    m->nlink = (uint32_t) ((meta >> 32) & 0xffff);
+    m->mtime = (int64_t) rep->words[5];
+}
+
+int64_t ext2_stat_path(const char *path, ext2_meta_t * m)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = ext2_memobj(EXT2_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_STAT;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_EXT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        ext2_fill_meta(m, &rep);
+        rc = 0;
+    }
+
+    memobj_unref(mo);
+    return rc;
 }
 
 int64_t ext2_open_path(const char *path, uint64_t *size, bool *is_dir,
@@ -260,7 +297,7 @@ int64_t ext2_close_fd(int64_t fd)
     return 0;
 }
 
-int64_t ext2_fstat_fd(int64_t fd, uint64_t *size, bool *is_dir, uint32_t *mode)
+int64_t ext2_fstat_fd(int64_t fd, ext2_meta_t * m)
 {
     if (!ext2_active)
         return -1;
@@ -275,12 +312,7 @@ int64_t ext2_fstat_fd(int64_t fd, uint64_t *size, bool *is_dir, uint32_t *mode)
     if (!router_forward(SVC_EXT, &req, &rep) || (int64_t) rep.words[0] < 0)
         return -1;
 
-    if (size != NULL)
-        *size = rep.words[1];
-    if (is_dir != NULL)
-        *is_dir = rep.words[2] != 0;
-    if (mode != NULL)
-        *mode = (uint32_t) rep.words[3];
+    ext2_fill_meta(m, &rep);
     return 0;
 }
 

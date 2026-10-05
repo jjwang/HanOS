@@ -21,16 +21,25 @@
 bool ext2_server_start(void);
 bool ext2_server_active(void);
 
-/* Resolve a mount-relative path and report its size, kind and inode mode. */
-int64_t ext2_stat_path(const char *path, uint64_t * size, bool * is_dir,
-                       uint32_t * mode);
+/* Inode metadata reported by stat/fstat. */
+typedef struct {
+    uint64_t size;
+    bool is_dir;
+    uint32_t mode;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t nlink;
+    int64_t mtime;              /* seconds since the epoch */
+} ext2_meta_t;
+
+/* Resolve a mount-relative path and report its metadata. */
+int64_t ext2_stat_path(const char *path, ext2_meta_t * meta);
 int64_t ext2_open_path(const char *path, uint64_t * size, bool * is_dir,
                        uint32_t * mode);
 int64_t ext2_read_fd(int64_t fd, uint64_t len, void *buf);
 int64_t ext2_seek_fd(int64_t fd, uint64_t off, int64_t whence);
 int64_t ext2_close_fd(int64_t fd);
-int64_t ext2_fstat_fd(int64_t fd, uint64_t * size, bool * is_dir,
-                      uint32_t * mode);
+int64_t ext2_fstat_fd(int64_t fd, ext2_meta_t * meta);
 int64_t ext2_readdir_fd(int64_t fd, uint64_t index, char *name,
                         uint64_t namesz, uint64_t * size, bool * is_dir);
 
