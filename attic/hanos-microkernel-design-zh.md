@@ -281,6 +281,8 @@ tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台�
 
 对标准描述符的 `TCGETS`/`TCSETS` ioctl 到达 tty 服务。清掉 `ECHO` 与 `ICANON` 进入 raw 模式：不再回显按键，有待读字节时立即答复挂起的读，全屏程序不必等换行即可逐键读取。行模式下它把退格回显为「退格-空格-退格」，被删单元随之消失。shell 退出时恢复保存的模式。
 
+控制台服务从帧缓冲算出网格，用 `TIOCSWINSZ` ioctl 存下行数与列数。`TIOCGWINSZ` ioctl 返回该尺寸，全屏程序按真实网格摆放并居中。服务设置之前尺寸为 25x80。
+
 ### 5.4 block
 
 block 服务负责 AHCI（SATA）控制器。内核像给网卡一样授予它 ABAR MMIO 窗口与一段物理连续 DMA 区。它应答 `BLOCK_GET_INFO`、`BLOCK_READ` 与 `BLOCK_WRITE`。读写把扇区放进 `xfer[1]` 的内存对象，用 48 位 LBA 寻址。服务在 DMA 区里建命令列表、命令表与接收 FIS 区，发 `IDENTIFY DEVICE` 与 `READ`/`WRITE DMA EXT`，并轮询端口。它经自己的 DMA 缓冲拷贝，因为只有那段内存有已知物理地址，也不解引用客户端指针。有界轮询让设备缺失时快速失败。

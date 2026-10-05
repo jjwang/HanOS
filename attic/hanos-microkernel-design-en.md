@@ -281,6 +281,8 @@ Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns
 
 A `TCGETS`/`TCSETS` ioctl on the standard descriptors reaches the tty server. Clearing `ECHO` and `ICANON` puts it in raw mode: it stops echoing keys and answers a deferred read as soon as a key is buffered, so a full-screen program reads each keypress without waiting for a newline. In line mode it echoes backspace as backspace-space-backspace, so the erased cell goes with it. The shell restores the saved mode on exit.
 
+The console server computes the grid from the framebuffer and stores the row and column count with a `TIOCSWINSZ` ioctl. A `TIOCGWINSZ` ioctl returns that size, so a full-screen program sizes and centres its layout on the real grid. Before the server sets it the size is 25x80.
+
 ### 5.4 block
 
 The block server owns the AHCI (SATA) controller. The kernel grants it the ABAR MMIO window and a physically contiguous DMA region, like the NIC. It answers `BLOCK_GET_INFO`, `BLOCK_READ` and `BLOCK_WRITE`. Reads and writes carry a memory object in `xfer[1]` holding the sectors and use 48-bit LBA addressing. The server builds a command list, a command table and a received-FIS area in the DMA region, issues `IDENTIFY DEVICE` and `READ`/`WRITE DMA EXT`, and polls the port. It copies through its own DMA buffer because only that memory has a known physical address, and never dereferences a client pointer. A bounded poll fails fast when the device is absent.
