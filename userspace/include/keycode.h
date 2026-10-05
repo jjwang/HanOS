@@ -21,6 +21,9 @@
 #include <stdint.h>
 
 #define KB_ARROW_UP     72
+#define KB_ARROW_DOWN   80
+#define KB_ARROW_LEFT   75
+#define KB_ARROW_RIGHT  77
 #define KB_BACKSPACE    14
 #define KB_CAPS_LOCK    58
 #define KB_ENTER        28

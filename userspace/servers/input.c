@@ -129,6 +129,15 @@ static void send_key(uint64_t key_ep, uint64_t ch)
     sys_ipc_send((int64_t) key_ep, &m);
 }
 
+/* An arrow key arrives as the VT sequence ESC [ A/B/C/D, so a full-screen
+ * program reads it the way it reads a terminal. */
+static void send_arrow(uint64_t key_ep, uint8_t final)
+{
+    send_key(key_ep, 0x1b);
+    send_key(key_ep, '[');
+    send_key(key_ep, final);
+}
+
 static void send_mouse(uint64_t key_ep, int32_t dx, int32_t dy)
 {
     sys_ipc_msg_t m = { 0 };
@@ -171,6 +180,7 @@ static void mouse_byte(uint64_t key_ep, uint8_t data)
 static bool shift;
 static bool caps;
 static bool ctrl;
+static bool ext;                /* previous byte was the 0xE0 prefix */
 
 /* Map a raw character to the key the tty expects and hand it to the kernel.
  * The tty server echoes it. */
@@ -203,8 +213,40 @@ static void ps2_drain(uint64_t key_ep)
             continue;
         }
 
-        uint8_t sc = (uint8_t) code & 0x7f;
-        bool pressed = !((uint8_t) code & 0x80);
+        uint8_t raw = (uint8_t) code;
+
+        if (raw == 0xe0) {      /* extended prefix: the next byte picks a key */
+            ext = true;
+            continue;
+        }
+        if (raw == 0xe1) {      /* pause/break, ignore */
+            ext = false;
+            continue;
+        }
+
+        uint8_t sc = raw & 0x7f;
+        bool pressed = !(raw & 0x80);
+
+        if (ext) {
+            ext = false;
+            if (pressed) {
+                switch (sc) {
+                case KB_ARROW_UP:
+                    send_arrow(key_ep, 'A');
+                    break;
+                case KB_ARROW_DOWN:
+                    send_arrow(key_ep, 'B');
+                    break;
+                case KB_ARROW_RIGHT:
+                    send_arrow(key_ep, 'C');
+                    break;
+                case KB_ARROW_LEFT:
+                    send_arrow(key_ep, 'D');
+                    break;
+                }
+            }
+            continue;
+        }
 
         if (sc == KB_LSHIFT || sc == KB_RSHIFT) {
             shift = pressed;

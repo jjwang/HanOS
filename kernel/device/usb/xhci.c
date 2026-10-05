@@ -848,6 +848,15 @@ static void hid_keyboard(const uint8_t * rep)
             caps = !caps;
             continue;
         }
+        if (code >= 0x4f && code <= 0x52) {
+            /* Arrow keys become the VT sequence ESC [ A/B/C/D. */
+            static const uint8_t arrow[4] = { 'C', 'D', 'B', 'A' };
+
+            tty_server_deliver_key(0x1b);
+            tty_server_deliver_key('[');
+            tty_server_deliver_key(arrow[code - 0x4f]);
+            continue;
+        }
 
         char ch = usb_hid_ascii(code, shift, caps);
 
