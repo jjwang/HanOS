@@ -145,38 +145,61 @@ static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
     }
 }
 
-/* A static stream of green characters behind the terminal, visible in the
- * margins around the grid. Binary and hex digits with a few glyphs, at three
- * brightness levels, give a data-stream look. */
+/* A static Matrix-like rain of green characters behind the terminal. It is
+ * drawn once for the framebuffer console; a GPU console will animate the
+ * stream. Most columns stay dark so the terminal reads clearly. */
 static uint32_t bg_rng = 0x9e3779b9u;
+
+static uint32_t bg_rand(void)
+{
+    bg_rng = bg_rng * 1103515245u + 12345u;
+    return bg_rng >> 8;
+}
 
 static void draw_background(void)
 {
     static const char set[] =
-        "0101010101110001010123456789ABCDEF#$%&*<>[]{}()/=+-:.";
+        "01010101010101011123456789ABCDEF#$%&*<>[]{}()/=+-:.";
     uint32_t bc = fb_w / FONT_W;
     uint32_t br = fb_h / FONT_H;
     uint32_t ns = sizeof(set) - 1;
 
-    for (uint32_t r = 0; r < br; r++) {
-        for (uint32_t c = 0; c < bc; c++) {
-            uint8_t ch;
+    for (uint32_t c = 0; c < bc; c++) {
+        uint32_t head;
+        uint32_t tail;
+
+        /* Leave a third of the columns empty. */
+        if (bg_rand() % 3 == 0)
+            continue;
+
+        /* A short stream per column: a bright head low on the screen and a
+         * tail fading upward. */
+        head = br - 1 - (bg_rand() % (br ? br : 1));
+        tail = 5 + (bg_rand() % 16);
+
+        for (uint32_t r = 0; r < br; r++) {
+            uint32_t d;
             uint32_t lvl;
             uint32_t col;
+            uint8_t ch;
 
-            bg_rng = bg_rng * 1103515245u + 12345u;
-            ch = (uint8_t) set[(bg_rng >> 8) % ns];
-            lvl = (bg_rng >> 20) & 0xff;
+            if (r > head)
+                continue;
+            d = head - r;
+            if (d >= tail)
+                continue;
 
-            if (lvl < 32)
-                col = 0x00ff66; /* bright head */
-            else if (lvl < 96)
+            lvl = (tail - d) * 255 / tail;
+            if (lvl > 210)
+                col = 0xddffdd; /* head */
+            else if (lvl > 140)
+                col = 0x33ff66;
+            else if (lvl > 70)
                 col = 0x00aa33;
-            else if (lvl < 176)
-                col = 0x006622;
             else
-                col = 0x003311; /* dim tail */
+                col = 0x004411; /* tail */
 
+            ch = (uint8_t) set[bg_rand() % ns];
             draw_glyph_px(c * FONT_W, r * FONT_H, ch, col, COLOR_BLACK);
         }
     }
@@ -244,14 +267,14 @@ static void render_dirty(void)
     }
 }
 
-/* Repaint the previous cursor cell and draw the block at the new position. */
-static void put_cursor(void)
+/* Repaint the previous cursor cell and draw the block when show is set. */
+static void put_cursor(bool show)
 {
     if (drawn_row >= 0 && drawn_row < (int32_t) rows)
         render_cell((uint32_t) drawn_row, (uint32_t) drawn_col);
     drawn_row = -1;
 
-    if (cursor_visible && vterm_cur_row >= 0
+    if (show && cursor_visible && vterm_cur_row >= 0
         && vterm_cur_row < (int32_t) rows && vterm_cur_col >= 0
         && vterm_cur_col < (int32_t) cols) {
         fill_cell((uint32_t) vterm_cur_col, (uint32_t) vterm_cur_row,
@@ -395,6 +418,8 @@ int32_t main(void)
     render_dirty();
     flush();
 
+    bool blink_on = true;
+
     for (;;) {
         sys_ipc_msg_t m;
         int32_t r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m, 500);
@@ -406,7 +431,12 @@ int32_t main(void)
 
             vterm_screen_flush_damage(vs);
             render_dirty();
-            put_cursor();
+            blink_on = true;    /* solid while output flows */
+            put_cursor(true);
+            flush();
+        } else {
+            blink_on = !blink_on;
+            put_cursor(blink_on);
             flush();
         }
     }
