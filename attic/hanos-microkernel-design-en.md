@@ -283,6 +283,8 @@ Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns
 
 The block server owns the AHCI (SATA) controller. The kernel grants it the ABAR MMIO window and a physically contiguous DMA region, like the NIC. It answers `BLOCK_GET_INFO`, `BLOCK_READ` and `BLOCK_WRITE`. Reads and writes carry a memory object in `xfer[1]` holding the sectors and use 48-bit LBA addressing. The server builds a command list, a command table and a received-FIS area in the DMA region, issues `IDENTIFY DEVICE` and `READ`/`WRITE DMA EXT`, and polls the port. It copies through its own DMA buffer because only that memory has a known physical address, and never dereferences a client pointer. A bounded poll fails fast when the device is absent.
 
+The server parses the GPT at start and records each used entry's LBA range. `BLOCK_GET_PART` returns a partition's start and sector count by index, so a filesystem server can mount a partition without parsing the table itself.
+
 ### 5.5 fat32
 
 The FAT32 server is a read-only client of the block server. At start it reads the boot sector, validates the FAT32 signature and records the geometry. It walks directories with 8.3 names and follows a file's cluster chain.
