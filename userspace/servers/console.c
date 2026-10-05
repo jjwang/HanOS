@@ -57,6 +57,8 @@ static uint32_t fb_h;
 static uint32_t fb_pitch;
 static uint32_t cols;
 static uint32_t rows;
+static uint32_t term_x;         /* top-left pixel of the terminal grid */
+static uint32_t term_y;
 
 static VTerm *vt;
 static VTermScreen *vs;
@@ -103,25 +105,31 @@ static void putpixel(uint32_t x, uint32_t y, uint32_t c)
     *(uint32_t *) (back + (uint64_t) y * fb_pitch + (uint64_t) x * 4) = c;
 }
 
-/* Draw one glyph cell with an explicit foreground and background. */
-static void draw_glyph(uint32_t col, uint32_t row, uint8_t ch, uint32_t fgc,
-                       uint32_t bgc)
+/* Draw one glyph at an absolute pixel position. */
+static void draw_glyph_px(uint32_t x, uint32_t y, uint8_t ch, uint32_t fgc,
+                          uint32_t bgc)
 {
     psf1_t *f = &term_font_norm;
     uint32_t off = (uint32_t) ch * f->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
-    if (col >= cols || row >= rows)
-        return;
-
     for (uint32_t i = 0; i < FONT_H; i++) {
         for (uint32_t k = 0; k < FONT_W; k++) {
             uint32_t c = (i < f->charsize && (f->data[off + i] & masks[k]))
                 ? fgc : bgc;
-            putpixel(col * FONT_W + k, row * FONT_H + i, c);
+            putpixel(x + k, y + i, c);
         }
-        mark_row(row * FONT_H + i);
+        mark_row(y + i);
     }
+}
+
+/* Draw one glyph cell, relative to the terminal grid origin. */
+static void draw_glyph(uint32_t col, uint32_t row, uint8_t ch, uint32_t fgc,
+                       uint32_t bgc)
+{
+    if (col >= cols || row >= rows)
+        return;
+    draw_glyph_px(term_x + col * FONT_W, term_y + row * FONT_H, ch, fgc, bgc);
 }
 
 static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
@@ -131,8 +139,46 @@ static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
 
     for (uint32_t i = 0; i < FONT_H; i++) {
         for (uint32_t k = 0; k < FONT_W; k++)
-            putpixel(col * FONT_W + k, row * FONT_H + i, color);
-        mark_row(row * FONT_H + i);
+            putpixel(term_x + col * FONT_W + k, term_y + row * FONT_H + i,
+                     color);
+        mark_row(term_y + row * FONT_H + i);
+    }
+}
+
+/* A static stream of green characters behind the terminal, visible in the
+ * margins around the grid. Binary and hex digits with a few glyphs, at three
+ * brightness levels, give a data-stream look. */
+static uint32_t bg_rng = 0x9e3779b9u;
+
+static void draw_background(void)
+{
+    static const char set[] =
+        "0101010101110001010123456789ABCDEF#$%&*<>[]{}()/=+-:.";
+    uint32_t bc = fb_w / FONT_W;
+    uint32_t br = fb_h / FONT_H;
+    uint32_t ns = sizeof(set) - 1;
+
+    for (uint32_t r = 0; r < br; r++) {
+        for (uint32_t c = 0; c < bc; c++) {
+            uint8_t ch;
+            uint32_t lvl;
+            uint32_t col;
+
+            bg_rng = bg_rng * 1103515245u + 12345u;
+            ch = (uint8_t) set[(bg_rng >> 8) % ns];
+            lvl = (bg_rng >> 20) & 0xff;
+
+            if (lvl < 32)
+                col = 0x00ff66; /* bright head */
+            else if (lvl < 96)
+                col = 0x00aa33;
+            else if (lvl < 176)
+                col = 0x006622;
+            else
+                col = 0x003311; /* dim tail */
+
+            draw_glyph_px(c * FONT_W, r * FONT_H, ch, col, COLOR_BLACK);
+        }
     }
 }
 
@@ -301,16 +347,22 @@ int32_t main(void)
     fb_w = bi.fb_width;
     fb_h = bi.fb_height;
     fb_pitch = bi.fb_pitch;
-    cols = fb_w / FONT_W;
-    rows = fb_h / FONT_H;
+
+    /* The terminal grid fills the middle four fifths; the margins show the
+     * background. */
+    cols = (fb_w / FONT_W) * 4 / 5;
+    rows = (fb_h / FONT_H) * 4 / 5;
     if (rows > ROW_MAX)
         rows = ROW_MAX;
+    term_x = (fb_w - cols * FONT_W) / 2;
+    term_y = (fb_h - rows * FONT_H) / 2;
 
     back = sys_malloc((uint64_t) fb_pitch * fb_h);
     if (back == NULL)
         return 1;
 
     memset(back, 0, (uint64_t) fb_pitch * fb_h);
+    draw_background();
     memcpy(fbio, back, (uint64_t) fb_pitch * fb_h);
 
     vt = vterm_new((int) rows, (int) cols);
@@ -335,6 +387,13 @@ int32_t main(void)
     vterm_screen_set_damage_merge(vs, VTERM_DAMAGE_ROW);
     vterm_screen_enable_altscreen(vs, 1);
     vterm_screen_reset(vs, 1);
+
+    /* Paint the empty terminal over the centre; the margins keep the
+     * background. */
+    for (uint32_t r = 0; r < rows; r++)
+        row_dirty[r] = true;
+    render_dirty();
+    flush();
 
     for (;;) {
         sys_ipc_msg_t m;

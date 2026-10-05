@@ -95,7 +95,8 @@ static void echo_key(uint8_t k)
         echo_len = 0;
     } else if (k == '\b') {
         if (echo_len > 0) {
-            console_write((const uint8_t *) "\b", 1);
+            /* Backspace-space-backspace erases the cell, as a terminal does. */
+            console_write((const uint8_t *) "\b \b", 3);
             echo_len--;
         }
     } else if (k >= 0x20 && k < 0x7f) {
