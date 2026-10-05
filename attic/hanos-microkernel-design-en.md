@@ -261,7 +261,7 @@ Each server is a process that receives on `service_ep`, handles a request, and r
 
 The console server owns the framebuffer. The kernel grants it a mapping of the scan-out with write-combining attributes and an endpoint for console bytes. The server keeps a back buffer and renders text with the shared gohufont glyphs. It tracks dirty rows and copies only those to the framebuffer.
 
-The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server feeds the byte stream to a libvterm `VTerm` and renders the `VTermScreen` cells into the back buffer, so the full VT set works: cursor addressing, erase, scrolling, SGR colours, alternate screen and cursor show and hide. The grid fills the middle four fifths of the screen; the margins carry a static Matrix-like rain of green binary and hex digits, bright at the head and dim toward the tail, with most columns left dark. A GPU console will draw the stream as animation; this one is static. The server maps a bare LF to CR-NL, because the tty sends NL and a terminal keeps the column on LF alone. It draws a block cursor that blinks while idle and only the damaged rows reach the framebuffer. The server starts from a cleared screen, so it does not inherit the boot splash.
+The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server feeds the byte stream to a libvterm `VTerm` and renders the `VTermScreen` cells into the back buffer, so the full VT set works: cursor addressing, erase, scrolling, SGR colours, alternate screen and cursor show and hide. The grid fills the middle four fifths of the screen; the margins carry a static Matrix-like rain of green binary and hex digits, bright at the head and dim toward the tail, with most columns left dark. The grid renders on white with black default text; the server darkens the palette, because a program picks light colours for a dark background and they vanish on white. A GPU console will draw the stream as animation; this one is static. The server maps a bare LF to CR-NL, because the tty sends NL and a terminal keeps the column on LF alone. It draws a block cursor that blinks while idle and only the damaged rows reach the framebuffer. The server starts from a cleared screen, so it does not inherit the boot splash.
 
 ### 5.2 input
 
@@ -273,7 +273,7 @@ The kernel enumerates USB through a minimal xHCI driver in `kernel/device/usb/xh
 
 ### 5.3 tty
 
-The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. The kernel relays each decoded key to the server as a `TTY_KEY` message.
+The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. The kernel relays each decoded key to the server as a `TTY_KEY` message. It sends the console bytes in small messages and waits when the endpoint queue is full, so a large full-screen frame arrives whole instead of losing the chunks that overflow.
 
 Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns the bytes at once. A `TTY_READ` with no keys is deferred: the server keeps the reply endpoint and answers it when a line is complete or the requested length is buffered. The kernel blocks in `tty_server_read` on that reply instead of polling. A reader that asks for few bytes stays unbuffered.
 
