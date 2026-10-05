@@ -316,7 +316,10 @@ static void term_input(uint8_t c)
             return;
         }
         if (c >= '0' && c <= '9') {
-            esc_p1 = esc_p1 * 10 + (c - '0');
+            if (esc_has_p2)
+                esc_p2 = esc_p2 * 10 + (c - '0');
+            else
+                esc_p1 = esc_p1 * 10 + (c - '0');
             return;
         }
         if (c == ';') {
