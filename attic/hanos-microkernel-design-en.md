@@ -269,6 +269,8 @@ The input server owns the PS/2 controller, its IRQ lines and COM1. The kernel gr
 
 On an interrupt notification the server drains the PS/2 controller. The status byte says whether the byte came from the keyboard or the mouse. Keyboard scancodes are decoded through the shared keycode table; the mouse packets are three-byte deltas. The server also drains any COM1 bytes, so a serial console works without a PS/2 keyboard. Decoded keys and mouse deltas are sent to the kernel as `INPUT_KEY_TAG` and `INPUT_MOUSE_TAG` messages.
 
+The kernel enumerates USB through a minimal xHCI driver in `kernel/device/usb/xhci.c`. At boot it resets the controller and each port, addresses the device, and reads the device and configuration descriptors. It scans every port and logs each device as vendor:product plus its interface class, so a USB network or wireless adapter appears in the boot log without a driver. A HID boot keyboard or pointer is registered with an interrupt endpoint and decoded into the same key path.
+
 ### 5.3 tty
 
 The tty server owns `/dev/tty`. It buffers keys and echoes them to the console. The kernel relays each decoded key to the server as a `TTY_KEY` message.
