@@ -95,13 +95,14 @@ int game_read_key(int timeout_ms)
     if (c != 0x1b)
         return c;
 
-    /* An escape prefix: read a CSI or SS3 final byte for an arrow key. */
-    int a = poll_byte(5);
+    /* An escape prefix: read a CSI or SS3 final byte for an arrow key. The
+     * tty delivers the bytes as separate keys, so allow a little slack. */
+    int a = poll_byte(50);
 
     if (a != '[' && a != 'O')
         return 0x1b;
 
-    int b = poll_byte(5);
+    int b = poll_byte(50);
 
     switch (b) {
     case 'A':
