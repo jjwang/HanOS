@@ -295,7 +295,7 @@ Descriptors are server state. `FAT_OPEN` parses a path and returns a descriptor;
 
 ### 5.6 vfs
 
-The VFS server serves the initrd namespace. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories, sizes and modification times. It also keeps a small set of files created at runtime in RAM.
+The VFS server serves the initrd namespace. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories, sizes, modes and modification times. It also keeps a small set of files created at runtime in RAM.
 
 The server owns path resolution and the FAT mount. A path request carries the process working directory and the path; the server joins and normalizes them. When the result is under `/fat`, the server writes the mount-relative path back and replies `VFS_REDIRECT_FAT`; the kernel then issues the request to the FAT server. The kernel builds no path.
 
