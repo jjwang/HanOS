@@ -84,4 +84,11 @@ typedef struct {
     uint64_t net_dma_vaddr;
     uint64_t net_dma_phys;
     uint64_t net_dma_size;
+
+    /* AHCI ABAR and DMA region granted to the block server. */
+    uint64_t block_mmio_vaddr;
+    uint64_t block_mmio_size;
+    uint64_t block_dma_vaddr;
+    uint64_t block_dma_phys;
+    uint64_t block_dma_size;
 } bootinfo_t;

@@ -1,15 +1,18 @@
 /**-----------------------------------------------------------------------------
 
  @file    block.c
- @brief   Userspace ATA PIO block server
+ @brief   Userspace AHCI (SATA) block server
 
  @details
  @verbatim
 
-   Owns the ATA PIO ports granted by the kernel and answers BLOCK_GET_INFO /
-   BLOCK_READ / BLOCK_WRITE over IPC. Port I/O goes through the range-checked
-   IOPORT_ACCESS syscall. The server never dereferences client pointers: bulk
-   data travels in memory objects.
+   Owns the AHCI controller's ABAR and a contiguous DMA region granted by the
+   kernel, and answers BLOCK_GET_INFO / BLOCK_READ / BLOCK_WRITE over IPC. The
+   server builds a command list, a command table and a received-FIS area in the
+   DMA region, issues READ/WRITE DMA EXT and IDENTIFY DEVICE, and polls the port
+   for completion. Bulk data travels in memory objects; the server copies
+   through its own DMA buffer because only that memory has a known physical
+   address.
 
  @endverbatim
 
@@ -23,159 +26,278 @@
 #include <string.h>
 #include <sysfunc.h>
 
-#define ATA_IO_BASE     0x1F0
-#define ATA_CTRL_BASE   0x3F6
-
-#define ATA_REG_DATA        0
-#define ATA_REG_ERROR       1
-#define ATA_REG_SECCOUNT0   2
-#define ATA_REG_LBA0        3
-#define ATA_REG_LBA1        4
-#define ATA_REG_LBA2        5
-#define ATA_REG_HDDEVSEL    6
-#define ATA_REG_COMMAND     7
-#define ATA_REG_STATUS      7
-#define ATA_REG_CONTROL     0x206       /* 0x3F6 - 0x1F0 */
-
-#define ATA_SR_BSY          0x80
-#define ATA_SR_DRQ          0x08
-#define ATA_SR_ERR          0x01
-
-#define ATA_CMD_IDENTIFY    0xEC
-#define ATA_CMD_READ_PIO    0x20
-#define ATA_CMD_WRITE_PIO   0x30
-
-#define ATA_SECTOR_SIZE     512
-
 /* Where the server maps an incoming request's memory object. */
 #define BLOCK_BUF_VADDR     0x20000000
 
-static uint8_t inb(uint16_t port)
+#define SECTOR_SIZE         512
+#define DMA_SIZE            (256 * 1024)
+
+/* Host control registers, relative to ABAR. */
+#define HOST_CAP            0x00
+#define HOST_GHC            0x04
+#define HOST_PI             0x0c
+#define PORT_BASE           0x100
+#define PORT_SIZE           0x80
+
+/* Port registers, relative to the port base. */
+#define P_CLB               0x00
+#define P_CLBU              0x04
+#define P_FB                0x08
+#define P_FBU               0x0c
+#define P_IS                0x10
+#define P_CMD               0x18
+#define P_TFD               0x20
+#define P_SIG               0x24
+#define P_SSTS              0x28
+#define P_SERR              0x30
+#define P_CI                0x38
+
+#define GHC_AE              0x80000000u
+#define CMD_ST              0x00000001u
+#define CMD_FRE             0x00000010u
+#define CMD_FR              0x00004000u
+#define CMD_CR              0x00008000u
+#define TFD_ERR             0x00000001u
+#define TFD_DF              0x00000020u
+#define IS_TFES             0x40000000u
+#define SSTS_DET_MASK       0x0000000fu     /* DET in bits 0..3, 3 = present */
+
+#define FIS_REG_H2D         0x27
+#define ATA_LBA_MODE        0x40
+
+#define CMD_IDENTIFY        0xec
+#define CMD_READ_DMA_EXT    0x25
+#define CMD_WRITE_DMA_EXT   0x35
+
+/* Offsets inside the DMA region. The base is page aligned, so the command
+ * list (1 KiB), the FIS (256 B) and the command table (128 B) meet their
+ * alignment: 0, 0x400 and 0x500. */
+#define DMA_CMDLIST         0x0000
+#define DMA_FIS             0x0400
+#define DMA_CMDTBL          0x0500
+#define DMA_DATA            0x1000
+
+/* One command list entry. opts carries CFL, the direction bit and PRDTL. */
+typedef struct[[gnu::packed]] {
+    uint32_t opts;
+    uint32_t prdbc;
+    uint32_t ctba;
+    uint32_t ctbau;
+    uint32_t rsv[4];
+} cmd_hdr_t;
+
+/* A physical region descriptor: address, a reserved dword, then the byte count
+ * minus one in the low 22 bits (bit 31 marks interrupt on completion). */
+typedef struct[[gnu::packed]] {
+    uint64_t dba;
+    uint32_t rsv;
+    uint32_t dbc;
+} prdt_t;
+
+typedef struct[[gnu::packed]] {
+    uint8_t cfis[64];
+    uint8_t acmd[16];
+    uint8_t rsv[48];
+    prdt_t prdt[1];
+} cmd_tbl_t;
+
+static volatile uint8_t *abar;
+static uint8_t *dma;
+static uint64_t dma_phys;
+static int32_t port = -1;
+static uint64_t sector_count;
+
+static uint32_t r32(uint32_t off)
 {
-    return (uint8_t) sys_ioport_access(0, port, 1, 0);
+    return *(volatile uint32_t *) (abar + off);
 }
 
-static void outb(uint16_t port, uint8_t val)
+static void w32(uint32_t off, uint32_t v)
 {
-    sys_ioport_access(1, port, 1, val);
+    *(volatile uint32_t *) (abar + off) = v;
 }
 
-static uint16_t inw(uint16_t port)
+static uint32_t pr32(uint32_t p, uint32_t off)
 {
-    return (uint16_t) sys_ioport_access(0, port, 2, 0);
+    return r32(PORT_BASE + p * PORT_SIZE + off);
 }
 
-static void outw(uint16_t port, uint16_t val)
+static void pw32(uint32_t p, uint32_t off, uint32_t v)
 {
-    sys_ioport_access(1, port, 2, val);
+    w32(PORT_BASE + p * PORT_SIZE + off, v);
 }
 
-/* 400 ns delay: read the alternate status register four times. */
-static void io_wait(void)
+/* Bring one port's command list and FIS receive area up. */
+static int32_t port_start(int32_t p)
 {
-    for (int32_t i = 0; i < 4; i++)
-        inb(ATA_IO_BASE + ATA_REG_CONTROL);
+    port = p;
+
+    uint32_t cmd = pr32((uint32_t) p, P_CMD);
+
+    cmd &= ~CMD_ST;
+    pw32((uint32_t) p, P_CMD, cmd);
+    for (int32_t t = 0; t < 100000 && (pr32((uint32_t) p, P_CMD) & CMD_CR); t++)
+        ;
+
+    cmd = pr32((uint32_t) p, P_CMD);
+    cmd &= ~CMD_FRE;
+    pw32((uint32_t) p, P_CMD, cmd);
+    for (int32_t t = 0; t < 100000 && (pr32((uint32_t) p, P_CMD) & CMD_FR); t++)
+        ;
+
+    uint64_t clb = dma_phys + DMA_CMDLIST;
+    uint64_t fb = dma_phys + DMA_FIS;
+
+    pw32((uint32_t) p, P_CLB, (uint32_t) clb);
+    pw32((uint32_t) p, P_CLBU, (uint32_t) (clb >> 32));
+    pw32((uint32_t) p, P_FB, (uint32_t) fb);
+    pw32((uint32_t) p, P_FBU, (uint32_t) (fb >> 32));
+    pw32((uint32_t) p, P_SERR, 0xffffffffu);
+    pw32((uint32_t) p, P_IS, 0xffffffffu);
+
+    cmd = pr32((uint32_t) p, P_CMD);
+    cmd |= CMD_FRE;
+    pw32((uint32_t) p, P_CMD, cmd);
+    for (int32_t t = 0; t < 100000 && !(pr32((uint32_t) p, P_CMD) & CMD_FR); t++)
+        ;
+
+    cmd = pr32((uint32_t) p, P_CMD);
+    cmd |= CMD_ST;
+    pw32((uint32_t) p, P_CMD, cmd);
+    for (int32_t t = 0; t < 100000 && !(pr32((uint32_t) p, P_CMD) & CMD_CR); t++)
+        ;
+
+    return (pr32((uint32_t) p, P_CMD) & CMD_CR) ? 0 : -1;
 }
 
-/* Bounded poll so a missing or wedged device fails fast. Each port read is an
- * IOPORT_ACCESS syscall, so the limit is small on purpose. */
-#define ATA_POLL_LIMIT      0x1000
-
-static int32_t wait_not_busy(void)
+/* Issue one command to the port and poll for completion. */
+static int32_t ahci_cmd(uint8_t cmd, uint64_t lba, uint16_t count,
+                        uint32_t bytes, bool write)
 {
-    for (int32_t t = 0; t < ATA_POLL_LIMIT; t++) {
-        uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
+    cmd_hdr_t *hdr = (cmd_hdr_t *) (dma + DMA_CMDLIST);
+    cmd_tbl_t *tbl = (cmd_tbl_t *) (dma + DMA_CMDTBL);
+    uint8_t *fis = tbl->cfis;
 
-        if (st == 0x00 || st == 0xFF)
-            return -1;          /* no device / floating bus */
-        if (st & ATA_SR_ERR)
+    memset(hdr, 0, sizeof(*hdr));
+    memset(tbl, 0, sizeof(*tbl));
+
+    fis[0] = FIS_REG_H2D;
+    fis[1] = 0x80;              /* command, not control */
+    fis[2] = cmd;
+    fis[3] = 0;
+    fis[4] = (uint8_t) lba;
+    fis[5] = (uint8_t) (lba >> 8);
+    fis[6] = (uint8_t) (lba >> 16);
+    fis[7] = (cmd == CMD_IDENTIFY) ? 0 : ATA_LBA_MODE;
+    fis[8] = (uint8_t) (lba >> 24);
+    fis[9] = (uint8_t) (lba >> 32);
+    fis[10] = (uint8_t) (lba >> 40);
+    fis[11] = 0;
+    fis[12] = (uint8_t) count;
+    fis[13] = (uint8_t) (count >> 8);
+
+    uint64_t ctba = dma_phys + DMA_CMDTBL;
+
+    hdr->opts = 5 | (write ? (1u << 6) : 0) | (1u << 16);       /* CFL, PRDTL */
+    hdr->ctba = (uint32_t) ctba;
+    hdr->ctbau = (uint32_t) (ctba >> 32);
+
+    if (bytes > 0) {
+        tbl->prdt[0].dba = dma_phys + DMA_DATA;
+        tbl->prdt[0].dbc = bytes - 1;
+    }
+
+    /* Wait for the port to go idle, then submit slot 0. */
+    for (int32_t t = 0; t < 100000 && (pr32((uint32_t) port, P_CI) & 1u); t++)
+        ;
+
+    pw32((uint32_t) port, P_IS, 0xffffffffu);
+    pw32((uint32_t) port, P_CI, 1);
+
+    for (int32_t t = 0; t < 5000000; t++) {
+        if (pr32((uint32_t) port, P_IS) & IS_TFES)
             return -1;
-        if (!(st & ATA_SR_BSY) && (st & ATA_SR_DRQ))
+        if (!(pr32((uint32_t) port, P_CI) & 1u))
+            break;
+    }
+
+    if (pr32((uint32_t) port, P_CI) & 1u)
+        return -1;
+    if (pr32((uint32_t) port, P_TFD) & (TFD_ERR | TFD_DF))
+        return -1;
+
+    return 0;
+}
+
+static int32_t ahci_identify(void)
+{
+    if (ahci_cmd(CMD_IDENTIFY, 0, 1, SECTOR_SIZE, false) != 0)
+        return -1;
+
+    uint16_t *id = (uint16_t *) (dma + DMA_DATA);
+    uint64_t n;
+
+    if (id[83] & (1u << 10)) {  /* LBA48 supported */
+        n = (uint32_t) id[100] | ((uint64_t) (uint32_t) id[101] << 16)
+            | ((uint64_t) (uint32_t) id[102] << 32)
+            | ((uint64_t) (uint32_t) id[103] << 48);
+    } else {
+        n = (uint32_t) id[60] | ((uint64_t) (uint32_t) id[61] << 16);
+    }
+
+    sector_count = n;
+    return n > 0 ? 0 : -1;
+}
+
+/* Find the first ATA disk on an AHCI port and identify it. */
+static int32_t ahci_init(void)
+{
+    uint32_t cap = r32(HOST_CAP);
+    uint32_t pi = r32(HOST_PI);
+    uint32_t nports = (cap & 0x1fu) + 1;
+
+    w32(HOST_GHC, r32(HOST_GHC) | GHC_AE);
+
+    for (uint32_t p = 0; p < nports; p++) {
+        if (!(pi & (1u << p)))
+            continue;
+        if ((pr32(p, P_SSTS) & SSTS_DET_MASK) != 3)
+            continue;
+        if (pr32(p, P_SIG) != 0x00000101u)  /* ATA disk */
+            continue;
+
+        port = (int32_t) p;
+        if (port_start(port) != 0)
+            continue;
+        if (ahci_identify() == 0)
             return 0;
     }
+
     return -1;
 }
 
-/* IDENTIFY the primary master. Returns 0 and fills sector size/count. */
-static int32_t ata_init(uint64_t *sector_size, uint64_t *sector_count)
+static int32_t ahci_read(uint32_t lba, uint8_t count, uint8_t *buf)
 {
-    outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xA0);
-    io_wait();
-    outb(ATA_IO_BASE + ATA_REG_SECCOUNT0, 0);
-    outb(ATA_IO_BASE + ATA_REG_LBA0, 0);
-    outb(ATA_IO_BASE + ATA_REG_LBA1, 0);
-    outb(ATA_IO_BASE + ATA_REG_LBA2, 0);
-    outb(ATA_IO_BASE + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-    io_wait();
+    uint32_t bytes = (uint32_t) count * SECTOR_SIZE;
 
-    uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
-    if (st == 0x00 || st == 0xFF)
-        return -1;              /* no device / floating bus */
-
-    if (wait_not_busy() != 0)
+    if (count == 0 || bytes > DMA_SIZE - DMA_DATA)
+        return -1;
+    if (ahci_cmd(CMD_READ_DMA_EXT, lba, count, bytes, false) != 0)
         return -1;
 
-    if (inb(ATA_IO_BASE + ATA_REG_LBA1) || inb(ATA_IO_BASE + ATA_REG_LBA2))
-        return -1;              /* not an ATA (ATAPI) device */
-
-    uint16_t ident[256];
-    for (int32_t i = 0; i < 256; i++)
-        ident[i] = inw(ATA_IO_BASE + ATA_REG_DATA);
-
-    *sector_size = ATA_SECTOR_SIZE;
-    *sector_count = (uint32_t) ident[60] | ((uint64_t) (uint32_t) ident[61] << 16);
+    memcpy(buf, dma + DMA_DATA, bytes);
     return 0;
 }
 
-static int32_t ata_read(uint32_t lba, uint8_t count, uint8_t *buf)
+static int32_t ahci_write(uint32_t lba, uint8_t count, const uint8_t *buf)
 {
-    outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
-    io_wait();
-    outb(ATA_IO_BASE + ATA_REG_ERROR, 0);
-    outb(ATA_IO_BASE + ATA_REG_SECCOUNT0, count);
-    outb(ATA_IO_BASE + ATA_REG_LBA0, (uint8_t) lba);
-    outb(ATA_IO_BASE + ATA_REG_LBA1, (uint8_t) (lba >> 8));
-    outb(ATA_IO_BASE + ATA_REG_LBA2, (uint8_t) (lba >> 16));
-    outb(ATA_IO_BASE + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+    uint32_t bytes = (uint32_t) count * SECTOR_SIZE;
 
-    for (uint8_t s = 0; s < count; s++) {
-        if (wait_not_busy() != 0)
-            return -1;
-        uint16_t *dst = (uint16_t *) (buf + s * ATA_SECTOR_SIZE);
-        for (int32_t i = 0; i < 256; i++)
-            dst[i] = inw(ATA_IO_BASE + ATA_REG_DATA);
-        io_wait();
-    }
-    return 0;
-}
+    if (count == 0 || bytes > DMA_SIZE - DMA_DATA)
+        return -1;
 
-static int32_t ata_write(uint32_t lba, uint8_t count, const uint8_t *buf)
-{
-    outb(ATA_IO_BASE + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
-    io_wait();
-    outb(ATA_IO_BASE + ATA_REG_ERROR, 0);
-    outb(ATA_IO_BASE + ATA_REG_SECCOUNT0, count);
-    outb(ATA_IO_BASE + ATA_REG_LBA0, (uint8_t) lba);
-    outb(ATA_IO_BASE + ATA_REG_LBA1, (uint8_t) (lba >> 8));
-    outb(ATA_IO_BASE + ATA_REG_LBA2, (uint8_t) (lba >> 16));
-    outb(ATA_IO_BASE + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
-
-    for (uint8_t s = 0; s < count; s++) {
-        if (wait_not_busy() != 0)
-            return -1;
-        const uint16_t *src = (const uint16_t *) (buf + s * ATA_SECTOR_SIZE);
-        for (int32_t i = 0; i < 256; i++)
-            outw(ATA_IO_BASE + ATA_REG_DATA, src[i]);
-        io_wait();
-    }
-    /* Cache flush; wait until it finishes so an immediate read sees the data. */
-    outb(ATA_IO_BASE + ATA_REG_COMMAND, 0xE7);
-    for (int32_t t = 0; t < ATA_POLL_LIMIT; t++) {
-        uint8_t st = inb(ATA_IO_BASE + ATA_REG_STATUS);
-        if (st == 0x00 || st == 0xFF || !(st & ATA_SR_BSY))
-            break;
-    }
-    return 0;
+    memcpy(dma + DMA_DATA, buf, bytes);
+    return ahci_cmd(CMD_WRITE_DMA_EXT, lba, count, bytes, true);
 }
 
 int32_t main(void)
@@ -186,8 +308,16 @@ int32_t main(void)
         /* The kernel sets the bootinfo before the process is runnable. */
     }
 
-    uint64_t sector_size = 0, sector_count = 0;
-    int32_t have_disk = (ata_init(&sector_size, &sector_count) == 0);
+    bool have_disk = false;
+
+    if (bi.block_mmio_vaddr != 0 && bi.block_mmio_size != 0
+        && bi.block_dma_vaddr != 0 && bi.block_dma_size >= DMA_SIZE) {
+        abar = (volatile uint8_t *) (uint64_t) bi.block_mmio_vaddr;
+        dma = (uint8_t *) (uint64_t) bi.block_dma_vaddr;
+        dma_phys = bi.block_dma_phys;
+        memset(dma, 0, DMA_SIZE);
+        have_disk = (ahci_init() == 0);
+    }
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -200,7 +330,7 @@ int32_t main(void)
         rep.tag = m.tag;
 
         if (m.tag == BLOCK_GET_INFO) {
-            rep.words[0] = have_disk ? sector_size : 0;
+            rep.words[0] = have_disk ? SECTOR_SIZE : 0;
             rep.words[1] = have_disk ? sector_count : 0;
         } else if ((m.tag == BLOCK_READ || m.tag == BLOCK_WRITE)
                    && have_disk && m.xfer_count >= 2) {
@@ -211,11 +341,11 @@ int32_t main(void)
 
             if (sys_mem_map(memh, BLOCK_BUF_VADDR, 3) == 0) {
                 if (m.tag == BLOCK_READ)
-                    rc = ata_read((uint32_t) m.words[0], (uint8_t) m.words[1],
-                                  buf);
-                else
-                    rc = ata_write((uint32_t) m.words[0], (uint8_t) m.words[1],
+                    rc = ahci_read((uint32_t) m.words[0], (uint8_t) m.words[1],
                                    buf);
+                else
+                    rc = ahci_write((uint32_t) m.words[0], (uint8_t) m.words[1],
+                                    buf);
                 sys_mem_unmap(memh, BLOCK_BUF_VADDR);
             }
             rep.words[0] = (uint64_t) (int64_t) (rc == 0 ? BLOCK_OK : BLOCK_ERR);

@@ -5,9 +5,9 @@
  @details
  @verbatim
 
-  Creates the service endpoint, grants the ATA I/O ports and spawns
-  /bin/block; the probe does a boot-time BLOCK_GET_INFO/READ/WRITE round
-  trip.
+  Creates the service endpoint, grants the AHCI controller's ABAR and a
+  contiguous DMA region, and spawns /bin/block; the probe does a boot-time
+  BLOCK_GET_INFO/READ/WRITE round trip.
 
  @endverbatim
 
@@ -21,10 +21,17 @@
 #include <kconfig.h>
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
-#include <srv/block_srv.h>
-#include <ipc/ipc.h>
+#include <mm/mm.h>
 #include <mm/memobj.h>
+#include <ipc/ipc.h>
 #include <proc/sched.h>
+#include <srv/block_srv.h>
+#include <arch/x64/pci.h>
+
+/* Where the AHCI ABAR and the DMA region map in the block server. */
+#define BLOCK_MMIO_VADDR    0x30000000UL
+#define BLOCK_DMA_VADDR     0x40000000UL
+#define BLOCK_DMA_SIZE      (256 * 1024)
 
 static endpoint_t *block_in_ep = NULL;
 static pid_t block_spawner = PID_MAX;
@@ -43,13 +50,6 @@ static void block_spawn_attach(process_t * tc)
     if (h == HANDLE_INVALID)
         return;
 
-    /* ATA PIO: command block 0x1F0..0x1F7, control 0x3F6..0x3F7. */
-    tc->io_ports[0].first = 0x1F0;
-    tc->io_ports[0].last = 0x1F7;
-    tc->io_ports[1].first = 0x3F6;
-    tc->io_ports[1].last = 0x3F7;
-    tc->io_port_count = 2;
-
     bootinfo_t *bi = kmalloc(sizeof(bootinfo_t));
     if (bi == NULL)
         return;
@@ -57,14 +57,52 @@ static void block_spawn_attach(process_t * tc)
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
     bi->service_ep = h;
-    bi->io_ports[0].first = 0x1F0;
-    bi->io_ports[0].last = 0x1F7;
-    bi->io_ports[1].first = 0x3F6;
-    bi->io_ports[1].last = 0x3F7;
-    bi->io_port_count = 2;
+
+    /* Grant the AHCI controller's ABAR (BAR5). */
+    pci_device_t dev;
+
+    if (pci_find_class(PCI_CLASS_STORAGE, 0x06, &dev)) {
+        uint32_t id = PCI_MAKE_ID(dev.bus, dev.device, dev.func);
+
+        /* Bus master + memory space, then map ABAR into the server. */
+        pci_outw(id, PCI_CONFIG_COMMAND, pci_inw(id, PCI_CONFIG_COMMAND) | 0x6);
+
+        pci_bar_t bar;
+
+        pci_get_bar(&bar, id, 5);
+        if (bar.u.address != NULL && bar.size != 0) {
+            vmm_map(tc->addrspace, BLOCK_MMIO_VADDR, (uint64_t) bar.u.address,
+                    NUM_PAGES(bar.size), VMM_FLAGS_MMIO | VMM_FLAG_USER);
+            bi->block_mmio_vaddr = BLOCK_MMIO_VADDR;
+            bi->block_mmio_size = bar.size;
+            klogi("block: granted AHCI %04x:%04x ABAR 0x%lx at 0x%lx\n",
+                  dev.vendor_id, dev.device_id, (uint64_t) bar.u.address,
+                  (uint64_t) BLOCK_MMIO_VADDR);
+        } else {
+            klogw("block: AHCI ABAR missing\n");
+        }
+    } else {
+        klogw("block: no AHCI controller\n");
+    }
+
+    /* Contiguous DMA region for the command list, FIS, tables and data. */
+    void *dma = kmalloc_chunk(BLOCK_DMA_SIZE, __func__, __LINE__);
+
+    if (dma != NULL) {
+        uint64_t dma_phys = VIRT_TO_PHYS((uint64_t) dma);
+
+        vmm_map(tc->addrspace, BLOCK_DMA_VADDR, dma_phys,
+                NUM_PAGES(BLOCK_DMA_SIZE), VMM_FLAGS_DEFAULT | VMM_FLAG_USER);
+        bi->block_dma_vaddr = BLOCK_DMA_VADDR;
+        bi->block_dma_phys = dma_phys;
+        bi->block_dma_size = BLOCK_DMA_SIZE;
+        klogi("block: granted DMA 0x%lx (%ld bytes) at 0x%lx\n", dma_phys,
+              (int64_t) BLOCK_DMA_SIZE, (int64_t) BLOCK_DMA_VADDR);
+    }
+
     tc->bootinfo = bi;
 
-    klogi("block: attached ATA ports to pid %ld (ep handle %ld)\n",
+    klogi("block: attached AHCI to pid %ld (ep handle %ld)\n",
           (int64_t)tc->pid, (int64_t)h);
 }
 
