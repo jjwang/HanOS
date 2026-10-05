@@ -56,9 +56,12 @@ HONOS_RT  := $(RUNTIME_OBJS)
 
 CELF      := servers/block servers/console servers/fat32 servers/ext2 servers/input servers/net servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc test/crtest test/fdtest test/cloexectest test/nettest test/musltest test/faulttest test/sigtest
 
+# Applications that live on the ext2 data partition, not in the initrd image.
+DISK_APPS := games/tetris
+
 .PHONY: clean all musl
 
-all: $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF)
+all: $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(DISK_APPS)
 	mkdir -p ../initrd/bin
 	cp $(CELF) ../initrd/bin
 
@@ -109,6 +112,11 @@ $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 		$(MUSL_CRT1) $(MUSL_CRTI) $< $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
+$(DISK_APPS): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
+	$(LD) $(LD_FLAGS) \
+		$(MUSL_CRT1) $(MUSL_CRTI) $< $(HONOS_RT) font.o _help.o \
+		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+
 clean:
-	rm -rf $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) sh.sym
+	rm -rf $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) sh.sym
 	rm -rf ../initrd/bin/* _help.c _help.o

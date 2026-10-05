@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sysfunc.h>
 
 /* Parsed command representation */
@@ -125,15 +126,26 @@ void runcmd(cmd_t * cmd)
             ecmd = (execcmd_t *) cmd;
             if (ecmd->argv[0] == 0)
                 sys_exit(1);
-            plen = strlen(ecmd->argv[0]) + 6;
+            plen = strlen(ecmd->argv[0]) + 12;
             pathname = sys_malloc(plen);
             if (pathname == NULL)
                 sys_exit(1);
             snprintf(pathname, plen, "/bin/%s", ecmd->argv[0]);
-            sys_libc_log
-                ("hansh: start to execute process for current process\n");
-            if (sys_exec(pathname, ecmd->argv) < 0) {
+
+            /* Resolve the path before exec: an application that is not in the
+             * initrd lives on the ext2 volume under /data/bin. */
+            struct stat st;
+
+            if (stat(pathname, &st) != 0 && strchr(ecmd->argv[0], '/') == NULL)
+                snprintf(pathname, plen, "/data/bin/%s", ecmd->argv[0]);
+
+            if (stat(pathname, &st) != 0) {
                 dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
+            } else {
+                sys_libc_log
+                    ("hansh: start to execute process for current process\n");
+                if (sys_exec(pathname, ecmd->argv) < 0)
+                    dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
             }
             break;
         }

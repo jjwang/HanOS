@@ -134,6 +134,7 @@
 #define TTY_WRITE           0x61        /* words[0]=len; out: words[1]=n */
 #define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
 #define TTY_POLL            0x63        /* out: words[1]=pending key count */
+#define TTY_SETMODE         0x64        /* words[0]=echo, words[1]=canonical */
 #define TTY_EAGAIN          (-11)
 
 /* FAT32 server (a read-only block-server client). File descriptors are server
@@ -168,6 +169,8 @@
 #define EXT2_FSTAT          0x86        /* words[0]=fd; out: words[1]=size,
                                            words[2]=is_dir, words[3]=mode */
 #define VFS_REDIRECT_EXT    101         /* path belongs to the ext2 mount */
+#define EXT2_IO_BUF_SIZE    (64 * 1024) /* request buffer for a bulk transfer */
+#define EXT2_IO_DATA_OFF    4096        /* payload offset inside it */
 
 /* Network server. Datagram sockets only; traffic to the loopback address is
  * delivered to the matching bound socket. A data buffer travels in xfer[1];

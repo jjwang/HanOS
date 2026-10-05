@@ -134,6 +134,25 @@ int64_t tty_server_pending(void)
     return (int64_t) rep.words[1];
 }
 
+/* Turn echo and canonical input on or off for a full-screen program. */
+int64_t tty_server_setmode(bool echo, bool canon)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    if (!tty_server_active())
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = TTY_SETMODE;
+    req.words[0] = echo ? 1 : 0;
+    req.words[1] = canon ? 1 : 0;
+
+    if (!router_forward(SVC_TTY, &req, &rep))
+        return -1;
+    return 0;
+}
+
 int64_t tty_server_read(void *buf, uint64_t len)
 {
     if (len > TTY_INLINE_MAX)

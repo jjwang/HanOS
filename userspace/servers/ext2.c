@@ -28,8 +28,8 @@
 #define SEC                 512
 #define EXT2_BLK_ADDR       0x20000000  /* block I/O memory-object mapping */
 #define EXT2_REQ_ADDR       0x21000000  /* request/result buffer mapping */
-#define EXT2_DATA_OFF       4096
-#define EXT2_DATA_MAX       4096
+#define EXT2_DATA_OFF       EXT2_IO_DATA_OFF
+#define EXT2_DATA_MAX       (EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF)
 #define EXT2_PART_INDEX     1
 #define EXT2_ROOT_INO       2
 #define EXT2_FD_MAX         32

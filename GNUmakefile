@@ -74,6 +74,7 @@ $(HDD_IMAGE): limine initrd kernel
 	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
 	rm -f $(HDD_IMAGE).esp
 	mkdir -p $(HDD_IMAGE).p2root/bin $(HDD_IMAGE).p2root/assets
+	cp -f userspace/games/tetris $(HDD_IMAGE).p2root/bin/ 2>/dev/null || true
 	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
 	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
 		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 156M

@@ -978,6 +978,26 @@ int64_t k_set_fs_base(uint64_t val)
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
 #define TIOCGWINSZ_K 0x5413
+#define TCGETS_K    0x5401
+#define TCSETS_K    0x5402
+#define TCSETSW_K   0x5403
+#define TCSETSF_K   0x5404
+#define ICANON_K    0x0002
+#define ECHO_K      0x0008
+
+    /* termios, matching musl's layout on x86-64. */
+    typedef struct {
+        uint32_t c_iflag;
+        uint32_t c_oflag;
+        uint32_t c_cflag;
+        uint32_t c_lflag;
+        uint8_t c_line;
+        uint8_t c_cc[32];
+        uint32_t c_ispeed;
+        uint32_t c_ospeed;
+    } k_termios_t;
+
+    static uint32_t tty_lflag = 0x0002 | 0x0008;        /* ICANON | ECHO */
 
     cpu_set_errno(0);
 
@@ -996,6 +1016,40 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
             cpu_set_errno(ENOTTY);
             return -1;
         }
+        return 0;
+    }
+
+    /* termios for the tty: a full-screen program clears ECHO and ICANON. */
+    if (request == TCGETS_K || request == TCSETS_K || request == TCSETSW_K
+        || request == TCSETSF_K) {
+        k_termios_t t;
+
+        if (fd < 0 || fd > 2 || arg == 0) {
+            cpu_set_errno(ENOTTY);
+            return -1;
+        }
+
+        memset(&t, 0, sizeof(t));
+        t.c_iflag = 0x0500;             /* ICRNL | IXON */
+        t.c_oflag = 0x0005;
+        t.c_cflag = 0x00bf;
+
+        if (request == TCGETS_K) {
+            t.c_lflag = tty_lflag;
+            if (copy_to_user((void *) arg, &t, sizeof(t)) != 0) {
+                cpu_set_errno(EFAULT);
+                return -1;
+            }
+            return 0;
+        }
+
+        if (copy_from_user(&t, (void *) arg, sizeof(t)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        tty_lflag = t.c_lflag;
+        tty_server_setmode((t.c_lflag & ECHO_K) != 0,
+                           (t.c_lflag & ICANON_K) != 0);
         return 0;
     }
 

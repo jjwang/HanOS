@@ -225,12 +225,13 @@ _Noreturn void kshell(pid_t pid)
         klogw("ext2: no block server, skipping\n");
     else if (!ext2_server_start())
         klogw("ext2: server failed to start\n");
-    else
-        ext2_server_probe();
     if (!vfs_server_start())
         klogw("vfs: server failed to start\n");
-    else
+    else {
         vfs_server_probe();
+        if (ext2_server_active())
+            ext2_server_probe();
+    }
     if (!pipe_server_start())
         klogw("pipe: server failed to start\n");
     if (!process_server_start())

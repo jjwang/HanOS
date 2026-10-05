@@ -190,9 +190,12 @@ static void putc_raw(uint8_t c)
     }
 }
 
-/* Minimal SGR handling so the kernel's coloured output renders. */
-static int32_t esc_state;
-static int32_t esc_param;
+/* Minimal CSI handling: SGR colours, cursor addressing, erase and cursor
+ * visibility, enough for full-screen programs. */
+static int32_t esc_state;       /* 0 none, 1 after ESC, 2 CSI, 3 CSI private */
+static int32_t esc_p1, esc_p2;
+static bool esc_has_p2;
+static bool cursor_visible = true;
 
 static void apply_sgr(int32_t p)
 {
@@ -213,12 +216,82 @@ static void apply_sgr(int32_t p)
     }
 }
 
+static void erase_to_eol(void)
+{
+    for (uint32_t c = cx; c < cols; c++)
+        fill_cell(c, cy, bg);
+}
+
+static void csi_final(uint8_t c)
+{
+    switch (c) {
+    case 'm':
+        apply_sgr(esc_p1);
+        if (esc_has_p2)
+            apply_sgr(esc_p2);
+        break;
+    case 'H':
+    case 'f':{
+            uint32_t row = (esc_p1 > 0) ? (uint32_t) (esc_p1 - 1) : 0;
+            uint32_t col =
+                (esc_has_p2 && esc_p2 > 0) ? (uint32_t) (esc_p2 - 1) : 0;
+
+            if (row >= rows)
+                row = rows - 1;
+            if (col >= cols)
+                col = cols - 1;
+            cx = col;
+            cy = row;
+            break;
+        }
+    case 'A':
+        cy = (cy > (uint32_t) esc_p1) ? cy - (uint32_t) esc_p1 : 0;
+        break;
+    case 'B':
+        cy += (uint32_t) esc_p1;
+        if (cy >= rows)
+            cy = rows - 1;
+        break;
+    case 'C':
+        cx += (uint32_t) esc_p1;
+        if (cx >= cols)
+            cx = cols - 1;
+        break;
+    case 'D':
+        cx = (cx > (uint32_t) esc_p1) ? cx - (uint32_t) esc_p1 : 0;
+        break;
+    case 'J':
+        if (esc_p1 == 2) {
+            for (uint32_t r = 0; r < rows; r++)
+                for (uint32_t cc = 0; cc < cols; cc++)
+                    fill_cell(cc, r, bg);
+            cx = 0;
+            cy = 0;
+        } else if (esc_p1 == 0) {
+            erase_to_eol();
+            for (uint32_t r = cy + 1; r < rows; r++)
+                for (uint32_t cc = 0; cc < cols; cc++)
+                    fill_cell(cc, r, bg);
+        }
+        break;
+    case 'K':
+        if (esc_p1 == 2) {
+            for (uint32_t cc = 0; cc < cols; cc++)
+                fill_cell(cc, cy, bg);
+        } else {
+            erase_to_eol();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 static void term_input(uint8_t c)
 {
     if (esc_state == 0) {
         if (c == 0x1b) {
             esc_state = 1;
-            esc_param = 0;
             return;
         }
         putc_raw(c);
@@ -228,22 +301,41 @@ static void term_input(uint8_t c)
     if (esc_state == 1) {
         if (c == '[') {
             esc_state = 2;
-            esc_param = 0;
+            esc_p1 = 0;
+            esc_p2 = 0;
+            esc_has_p2 = false;
         } else {
             esc_state = 0;
         }
         return;
     }
 
-    /* Collect a numeric parameter until the final byte. */
-    if (c >= '0' && c <= '9') {
-        esc_param = esc_param * 10 + (c - '0');
+    if (esc_state == 2) {
+        if (c == '?') {
+            esc_state = 3;
+            return;
+        }
+        if (c >= '0' && c <= '9') {
+            esc_p1 = esc_p1 * 10 + (c - '0');
+            return;
+        }
+        if (c == ';') {
+            esc_has_p2 = true;
+            esc_p2 = 0;
+            return;
+        }
+        csi_final(c);
+        esc_state = 0;
         return;
     }
 
-    if (c == 'm')
-        apply_sgr(esc_param);
-
+    /* esc_state == 3: CSI with a private '?' marker. */
+    if (c >= '0' && c <= '9') {
+        esc_p1 = esc_p1 * 10 + (c - '0');
+        return;
+    }
+    if ((c == 'h' || c == 'l') && esc_p1 == 25)
+        cursor_visible = (c == 'h');
     esc_state = 0;
 }
 
@@ -311,7 +403,7 @@ int32_t main(void)
             blink_on = !blink_on;
         }
 
-        if (blink_on) {
+        if (blink_on && cursor_visible) {
             draw_cursor(true);
             cursor_drawn = true;
         }

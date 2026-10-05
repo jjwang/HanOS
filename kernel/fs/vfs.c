@@ -957,6 +957,52 @@ vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,
     return vfs_open_server_svc(server_fd, path, mode, size, SVC_FS);
 }
 
+/* Load a whole file from the ext2 server into a fresh kernel buffer. */
+static int64_t ext2_load_file(const char *rel, uint8_t **out_buf,
+                              uint64_t *out_len)
+{
+    uint64_t size = 0;
+    bool is_dir = false;
+    uint32_t mode = 0;
+    int64_t fd = ext2_open_path(rel, &size, &is_dir, &mode);
+
+    (void) is_dir;
+    (void) mode;
+    if (fd < 0)
+        return -1;
+
+    uint8_t *buf = NULL;
+
+    if (size > 0) {
+        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
+        if (buf == NULL) {
+            ext2_close_fd(fd);
+            return -1;
+        }
+    }
+
+    uint64_t done = 0;
+
+    while (done < size) {
+        int64_t n = ext2_read_fd(fd, size - done, buf + done);
+
+        if (n <= 0)
+            break;
+        done += (uint64_t) n;
+    }
+    ext2_close_fd(fd);
+
+    if (done != size) {
+        if (buf != NULL)
+            kmfree(buf);
+        return -1;
+    }
+
+    *out_buf = buf;
+    *out_len = size;
+    return 0;
+}
+
 static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
                                    uint64_t *out_len)
 {
@@ -989,6 +1035,17 @@ static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
 
     if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
         return -1;
+
+    /* A path on the ext2 volume is loaded through SVC_EXT instead. */
+    if ((int64_t) rep.words[0] == VFS_REDIRECT_EXT) {
+        const char *rel = path;
+
+        if (strncmp(rel, "/data", 5) == 0)
+            rel += 5;
+        if (rel[0] == '\0')
+            rel = "/";
+        return ext2_load_file(rel, out_buf, out_len);
+    }
 
     int64_t sfd = (int64_t) rep.words[1];
     uint64_t size = rep.words[2];

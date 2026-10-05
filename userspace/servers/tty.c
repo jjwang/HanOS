@@ -80,8 +80,14 @@ static void console_write(const uint8_t * p, uint64_t len)
  * A line-length guard keeps backspace from erasing the shell prompt. */
 static int32_t echo_len;
 
+/* Raw mode: a full-screen program turns echo and canonical input off. */
+static bool tty_echo = true;
+static bool tty_canon = true;
+
 static void echo_key(uint8_t k)
 {
+    if (!tty_echo)
+        return;
     if (k == '\n') {
         console_write((const uint8_t *) "\n", 1);
         echo_len = 0;
@@ -132,6 +138,9 @@ static void flush_deferred(void)
  * soon as that many arrive, which keeps single-byte readers unbuffered. */
 static bool read_ready(void)
 {
+    if (!tty_canon)
+        return kcount > 0;
+
     if (kcount >= wait_len)
         return true;
 
@@ -147,6 +156,13 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == TTY_POLL) {
         rep->words[0] = 0;
         rep->words[1] = kcount;
+        return;
+    }
+
+    if (m->tag == TTY_SETMODE) {
+        tty_echo = m->words[0] != 0;
+        tty_canon = m->words[1] != 0;
+        rep->words[0] = 0;
         return;
     }
 

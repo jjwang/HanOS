@@ -30,6 +30,8 @@ int64_t tty_server_write(const void *buf, uint64_t len);
 
 /* Number of keys buffered in the tty server, or -1. */
 int64_t tty_server_pending(void);
+/* Turn echo and canonical input on or off (raw mode for a full-screen program). */
+int64_t tty_server_setmode(bool echo, bool canon);
 
 /* Key a blocking poll waits on; woken when the kernel relays a key. */
 void *tty_server_poll_key(void);

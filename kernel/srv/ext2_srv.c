@@ -140,7 +140,7 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
         return -1;
 
     handle_t h;
-    memobj_t *mo = ext2_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = ext2_memobj(EXT2_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -195,7 +195,7 @@ int64_t ext2_read_fd(int64_t fd, uint64_t len, void *buf)
         return -1;
 
     handle_t h;
-    memobj_t *mo = ext2_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = ext2_memobj(EXT2_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -215,7 +215,7 @@ int64_t ext2_read_fd(int64_t fd, uint64_t len, void *buf)
         if (n > (int64_t) len)
             n = (int64_t) len;
         if (n > 0)
-            ext2_copy_out(mo, buf, (uint64_t) n, VFS_IO_DATA_OFF);
+            ext2_copy_out(mo, buf, (uint64_t) n, EXT2_IO_DATA_OFF);
     }
 
     memobj_unref(mo);
@@ -291,7 +291,7 @@ int64_t ext2_readdir_fd(int64_t fd, uint64_t index, char *name,
         return -1;
 
     handle_t h;
-    memobj_t *mo = ext2_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = ext2_memobj(EXT2_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -309,8 +309,8 @@ int64_t ext2_readdir_fd(int64_t fd, uint64_t index, char *name,
     if (router_forward(SVC_EXT, &req, &rep)) {
         if ((int64_t) rep.words[0] == 0) {
             const char *src = (const char *)
-                (PHYS_TO_VIRT(memobj_page(mo, VFS_IO_DATA_OFF / PAGE_SIZE))
-                 + (VFS_IO_DATA_OFF % PAGE_SIZE));
+                (PHYS_TO_VIRT(memobj_page(mo, EXT2_IO_DATA_OFF / PAGE_SIZE))
+                 + (EXT2_IO_DATA_OFF % PAGE_SIZE));
             uint64_t i = 0;
 
             while (i + 1 < namesz && src[i] != '\0') {

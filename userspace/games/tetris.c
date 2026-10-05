@@ -1,0 +1,281 @@
+/**-----------------------------------------------------------------------------
+
+ @file    tetris.c
+ @brief   A terminal Tetris for HanOS
+
+ @details
+ @verbatim
+
+   Runs on the raw tty: turns off echo and canonical input, hides the cursor,
+   and repaints a 10x20 well with ANSI cursor addressing and SGR colours. Keys:
+   a/d move, s soft drop, w rotate, space hard drop, p pause, q quit.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <poll.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sysfunc.h>
+#include <termios.h>
+#include <time.h>
+#include <unistd.h>
+
+static command_help_t help_msg[] = {
+    {"<help> tetris", "Play Tetris."},
+};
+
+#define BW          10
+#define BH          20
+#define WELL_ROW    3
+#define WELL_COL    4
+
+/* Four rotations per piece as 4x4 bit masks (row 0 is the top). */
+static const uint16_t shapes[7][4] = {
+    { 0x0F00, 0x2222, 0x00F0, 0x4444 }, /* I */
+    { 0x0660, 0x0660, 0x0660, 0x0660 }, /* O */
+    { 0x0E40, 0x4C40, 0x4E00, 0x4640 }, /* T */
+    { 0x06C0, 0x8C40, 0x06C0, 0x8C40 }, /* S */
+    { 0x0C60, 0x4C80, 0x0C60, 0x4C80 }, /* Z */
+    { 0x44C0, 0x8E00, 0x6440, 0x0E20 }, /* J */
+    { 0x4460, 0x0E80, 0xC440, 0x2E00 }, /* L */
+};
+
+static const int colors[7] = { 36, 33, 35, 32, 31, 34, 37 };
+
+static struct termios saved;
+
+static int board[BH][BW];
+static int px, py, prot, ptype;
+static long score;
+static int lines;
+static int level;
+
+static uint32_t rng = 0x12345678;
+
+static uint32_t rnd(void)
+{
+    rng ^= rng << 13;
+    rng ^= rng >> 17;
+    rng ^= rng << 5;
+    return rng;
+}
+
+static bool cell(uint16_t m, int r, int c)
+{
+    return (m >> ((3 - r) * 4 + (3 - c))) & 1;
+}
+
+static bool fits(int type, int rot, int x, int y)
+{
+    const uint16_t m = shapes[type][rot];
+
+    for (int r = 0; r < 4; r++)
+        for (int c = 0; c < 4; c++) {
+            if (!cell(m, r, c))
+                continue;
+            int bx = x + c, by = y + r;
+
+            if (bx < 0 || bx >= BW || by >= BH)
+                return false;
+            if (by >= 0 && board[by][bx])
+                return false;
+        }
+    return true;
+}
+
+static void spawn(void)
+{
+    ptype = (int) (rnd() % 7);
+    prot = 0;
+    px = 3;
+    py = 0;
+    if (!fits(ptype, prot, px, py)) {
+        /* top out: reset the well */
+        memset(board, 0, sizeof(board));
+        score = 0;
+        lines = 0;
+        level = 1;
+        py = 0;
+    }
+}
+
+static void lock_piece(void)
+{
+    const uint16_t m = shapes[ptype][prot];
+
+    for (int r = 0; r < 4; r++)
+        for (int c = 0; c < 4; c++)
+            if (cell(m, r, c) && py + r >= 0 && py + r < BH && px + c >= 0
+                && px + c < BW)
+                board[py + r][px + c] = ptype + 1;
+
+    /* Clear full rows. */
+    int cleared = 0;
+
+    for (int r = BH - 1; r >= 0; r--) {
+        bool full = true;
+
+        for (int c = 0; c < BW; c++)
+            if (!board[r][c])
+                full = false;
+        if (full) {
+            cleared++;
+            for (int rr = r; rr > 0; rr--)
+                memcpy(board[rr], board[rr - 1], sizeof(board[0]));
+            memset(board[0], 0, sizeof(board[0]));
+            r++;
+        }
+    }
+
+    if (cleared) {
+        score += (cleared == 1) ? 100 : (cleared == 2) ? 300
+            : (cleared == 3) ? 500 : 800;
+        lines += cleared;
+        level = 1 + lines / 10;
+    }
+
+    spawn();
+}
+
+static void put_at(int row, int col, const char *s)
+{
+    printf("\033[%d;%dH%s", row, col, s);
+}
+
+static void draw(void)
+{
+    char line[BW * 8 + 16];
+
+    printf("\033[?25l\033[2J");
+    put_at(1, WELL_COL, "\033[37mTETRIS  score");
+    printf(" %ld  lines %d  level %d\033[0m", score, lines, level);
+
+    for (int r = 0; r < BH; r++) {
+        int o = 0;
+
+        o += sprintf(line + o, "\033[37m|\033[0m");
+        for (int c = 0; c < BW; c++) {
+            int v = board[r][c];
+            int pr = r - py, pc = c - px;
+
+            if (v == 0 && pr >= 0 && pr < 4 && pc >= 0 && pc < 4
+                && cell(shapes[ptype][prot], pr, pc))
+                v = ptype + 1;
+
+            if (v == 0)
+                o += sprintf(line + o, "  ");
+            else
+                o += sprintf(line + o, "\033[%dm[]", colors[v - 1]);
+        }
+        o += sprintf(line + o, "\033[0m|");
+        put_at(WELL_ROW + r, WELL_COL, line);
+    }
+
+    put_at(WELL_ROW + BH, WELL_COL, "+-------------------+");
+    put_at(WELL_ROW + BH + 2, WELL_COL,
+           "a/d move  s drop  w rotate  space hard  p pause  q quit");
+    printf("\033[?25l");
+    fflush(stdout);
+}
+
+static int read_key(int timeout_ms)
+{
+    struct pollfd pf = { STDIN_FILENO, POLLIN, 0 };
+
+    if (poll(&pf, 1, timeout_ms) != 1)
+        return -1;
+
+    unsigned char c;
+
+    if (read(STDIN_FILENO, &c, 1) != 1)
+        return -1;
+    return c;
+}
+
+static void set_raw(bool on)
+{
+    if (on) {
+        tcgetattr(STDIN_FILENO, &saved);
+        struct termios t = saved;
+
+        t.c_lflag &= ~(tcflag_t) (ECHO | ICANON);
+        tcsetattr(STDIN_FILENO, TCSANOW, &t);
+    } else {
+        tcsetattr(STDIN_FILENO, TCSANOW, &saved);
+    }
+}
+
+int main(void)
+{
+    set_raw(true);
+    printf("\033[2J\033[?25l");
+
+    rng ^= (uint32_t) time(NULL);
+    score = 0;
+    lines = 0;
+    level = 1;
+    memset(board, 0, sizeof(board));
+    spawn();
+
+    bool paused = false;
+    long acc = 0;
+
+    for (;;) {
+        long gravity = 700 - (level - 1) * 60;
+
+        if (gravity < 120)
+            gravity = 120;
+
+        int c = read_key(40);
+
+        if (c != -1) {
+            if (c == 'q')
+                break;
+            if (c == 'p')
+                paused = !paused;
+            if (!paused) {
+                if (c == 'a' && fits(ptype, prot, px - 1, py))
+                    px--;
+                else if (c == 'd' && fits(ptype, prot, px + 1, py))
+                    px++;
+                else if (c == 'w' && fits(ptype, (prot + 1) % 4, px, py))
+                    prot = (prot + 1) % 4;
+                else if (c == 's') {
+                    if (fits(ptype, prot, px, py + 1))
+                        py++;
+                    else
+                        lock_piece();
+                } else if (c == ' ') {
+                    while (fits(ptype, prot, px, py + 1))
+                        py++;
+                    lock_piece();
+                }
+            }
+            acc = 0;
+        }
+
+        if (!paused) {
+            acc += 40;
+            if (acc >= gravity) {
+                acc = 0;
+                if (fits(ptype, prot, px, py + 1))
+                    py++;
+                else
+                    lock_piece();
+            }
+        }
+
+        draw();
+    }
+
+    set_raw(false);
+    printf("\033[2J\033[?25h\033[H");
+    fflush(stdout);
+    return 0;
+}
