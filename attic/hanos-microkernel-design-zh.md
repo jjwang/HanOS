@@ -261,7 +261,7 @@ bool router_forward_timeout(service_id_t id, const ipc_msg_t *req,
 
 console 服务负责帧缓冲。内核授予它带 write-combining 属性的 scan-out 映射，以及一个收控制台字节的 endpoint。服务保存一块后台缓冲，用共享的 gohufont 字形渲染文本。它记录脏行，只把这些行拷到帧缓冲。
 
-内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务解析部分 CSI 序列：SGR 颜色、光标定位、光标移动、清屏与清行、光标隐藏与显示，加上换行、回车、退格、制表符，全屏程序据此重绘屏幕。队列空闲时它闪烁块状光标，程序隐藏光标时则不画。服务从清屏开始，不继承启动画面。
+内核与 tty 服务发送 `CONSOLE_WRITE_TAG`。服务把字节流喂给一个 libvterm `VTerm`,把 `VTermScreen` 单元渲染进后台缓冲,于是完整 VT 集合可用:光标定位、擦除、滚动、SGR 颜色、备用屏、光标隐藏与显示。它把裸 LF 映射为 CR-NL,因为 tty 只发 NL,而终端遇 LF 只下移不回首列。光标可见时画块状光标,只有受损行拷进帧缓冲。服务从清屏开始,不继承启动画面。
 
 ### 5.2 input
 

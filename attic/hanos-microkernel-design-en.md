@@ -261,7 +261,7 @@ Each server is a process that receives on `service_ep`, handles a request, and r
 
 The console server owns the framebuffer. The kernel grants it a mapping of the scan-out with write-combining attributes and an endpoint for console bytes. The server keeps a back buffer and renders text with the shared gohufont glyphs. It tracks dirty rows and copies only those to the framebuffer.
 
-The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server decodes a subset of the CSI sequences: SGR colours, cursor addressing, cursor moves, erase in display and line, and cursor show and hide, plus newline, carriage return, backspace and tab, so a full-screen program can repaint the screen. When the queue is idle it blinks a block cursor unless the program hid it. The server starts from a cleared screen, so it does not inherit the boot splash.
+The kernel and the tty server send `CONSOLE_WRITE_TAG` messages. The server feeds the byte stream to a libvterm `VTerm` and renders the `VTermScreen` cells into the back buffer, so the full VT set works: cursor addressing, erase, scrolling, SGR colours, alternate screen and cursor show and hide. It maps a bare LF to CR-NL, because the tty sends NL and a terminal keeps the column on LF alone. It draws a block cursor while it is visible, and only the damaged rows reach the framebuffer. The server starts from a cleared screen, so it does not inherit the boot splash.
 
 ### 5.2 input
 
