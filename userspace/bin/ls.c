@@ -106,27 +106,69 @@ static void mode_string(mode_t mode, char *out)
     out[10] = '\0';
 }
 
-static void print_long(const char *path, const char *name, int32_t color)
+static int32_t digits_u(unsigned long v)
 {
-    struct stat st;
+    int32_t d = 1;
 
-    if (lstat(path, &st) != 0)
-        return;
+    while (v >= 10) {
+        v /= 10;
+        d++;
+    }
+    return d;
+}
 
-    char perms[11];
-    char tbuf[32];
-    struct tm tmv;
+static int32_t digits_s(long long v)
+{
+    if (v < 0)
+        return digits_u((unsigned long) (-v)) + 1;
+    return digits_u((unsigned long) v);
+}
 
-    mode_string(st.st_mode, perms);
-    memset(&tmv, 0, sizeof(tmv));
-    gmtime_r(&st.st_mtim.tv_sec, &tmv);
-    strftime(tbuf, sizeof(tbuf), "%b %e %H:%M", &tmv);
+static void print_long_rows(char **names, int32_t *colors, struct stat *sts,
+                            uint8_t * ok, size_t n)
+{
+    unsigned long wn = 1, wu = 1, wg = 1;
+    int32_t ws = 1;
 
-    printf("%s %2lu %u %u %8lld %s ", perms, (unsigned long) st.st_nlink,
-           (unsigned) st.st_uid, (unsigned) st.st_gid,
-           (long long) st.st_size, tbuf);
-    print_name(name, color);
-    putchar('\n');
+    for (size_t i = 0; i < n; i++) {
+        int32_t d;
+
+        if (!ok[i])
+            continue;
+        d = digits_u((unsigned long) sts[i].st_nlink);
+        if ((unsigned long) d > wn)
+            wn = (unsigned long) d;
+        d = digits_u((unsigned) sts[i].st_uid);
+        if ((unsigned long) d > wu)
+            wu = (unsigned long) d;
+        d = digits_u((unsigned) sts[i].st_gid);
+        if ((unsigned long) d > wg)
+            wg = (unsigned long) d;
+        d = digits_s((long long) sts[i].st_size);
+        if (d > ws)
+            ws = d;
+    }
+
+    for (size_t i = 0; i < n; i++) {
+        char perms[11];
+        char tbuf[32];
+        struct tm tmv;
+
+        if (!ok[i])
+            continue;
+
+        mode_string(sts[i].st_mode, perms);
+        memset(&tmv, 0, sizeof(tmv));
+        gmtime_r(&sts[i].st_mtim.tv_sec, &tmv);
+        strftime(tbuf, sizeof(tbuf), "%b %e %H:%M", &tmv);
+
+        printf("%s %*lu %*u %*u %*lld %s ", perms, (int) wn,
+               (unsigned long) sts[i].st_nlink, (int) wu,
+               (unsigned) sts[i].st_uid, (int) wg, (unsigned) sts[i].st_gid,
+               (int) ws, (long long) sts[i].st_size, tbuf);
+        print_name(names[i], colors[i]);
+        putchar('\n');
+    }
 }
 
 static void print_columns(char **names, int32_t *colors, size_t n)
@@ -226,12 +268,20 @@ static void list_dir(const char *path)
     qsort(names, n, sizeof(*names), cmp_name);
 
     if (opt_long) {
-        for (size_t i = 0; i < n; i++) {
-            char full[4096];
+        struct stat *sts = calloc(n ? n : 1, sizeof(*sts));
+        uint8_t *ok = calloc(n ? n : 1, 1);
 
-            snprintf(full, sizeof(full), "%s/%s", path, names[i]);
-            print_long(full, names[i], colors[i]);
+        if (sts != NULL && ok != NULL) {
+            for (size_t i = 0; i < n; i++) {
+                char full[4096];
+
+                snprintf(full, sizeof(full), "%s/%s", path, names[i]);
+                ok[i] = (lstat(full, &sts[i]) == 0);
+            }
+            print_long_rows(names, colors, sts, ok, n);
         }
+        free(sts);
+        free(ok);
     } else {
         print_columns(names, colors, n);
     }
@@ -294,7 +344,19 @@ int32_t main(int32_t argc, char *argv[])
             int32_t color = entry_color_for(paths[i], type);
 
             if (opt_long) {
-                print_long(paths[i], paths[i], color);
+                char perms[11];
+                char tbuf[32];
+                struct tm tmv;
+
+                mode_string(st.st_mode, perms);
+                memset(&tmv, 0, sizeof(tmv));
+                gmtime_r(&st.st_mtim.tv_sec, &tmv);
+                strftime(tbuf, sizeof(tbuf), "%b %e %H:%M", &tmv);
+                printf("%s %2lu %u %u %8lld %s ", perms,
+                       (unsigned long) st.st_nlink, (unsigned) st.st_uid,
+                       (unsigned) st.st_gid, (long long) st.st_size, tbuf);
+                print_name(paths[i], color);
+                putchar('\n');
             } else {
                 print_name(paths[i], color);
                 putchar('\n');

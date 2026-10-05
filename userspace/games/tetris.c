@@ -211,9 +211,15 @@ static void set_raw(bool on)
     }
 }
 
+static void restore_term(void)
+{
+    set_raw(false);
+}
+
 int main(void)
 {
     set_raw(true);
+    atexit(restore_term);
     printf("\033[2J\033[?25l");
 
     rng ^= (uint32_t) time(NULL);

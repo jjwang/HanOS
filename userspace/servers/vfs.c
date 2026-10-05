@@ -38,6 +38,7 @@
 
 /* ustar header field offsets. */
 #define USTAR_SIZE_OFF      124
+#define USTAR_MTIME_OFF     136
 #define USTAR_TYPE_OFF      156
 #define USTAR_MAGIC_OFF     257
 #define USTAR_BLOCK         512
@@ -59,6 +60,7 @@ typedef struct {
     uint64_t size;
     bool is_dir;
     bool deleted;               /* removed at runtime (initrd is read-only) */
+    int64_t mtime;
 } vfs_ent_t;
 
 /**
@@ -77,6 +79,7 @@ typedef struct {
 
 static vfs_ent_t ents[VFS_MAX_ENTS];
 static int32_t ent_count;
+static int64_t root_mtime;      /* newest initrd entry, used for the root */
 
 static vfs_dyn_t dyns[VFS_MAX_DYN];
 
@@ -314,7 +317,8 @@ static void buf_write_path(uint8_t *buf, const char *path)
 }
 
 /* Record one archive entry, stripping a trailing '/' from directories. */
-static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size)
+static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size,
+                    int64_t mtime)
 {
     if (ent_count >= VFS_MAX_ENTS)
         return;
@@ -342,6 +346,7 @@ static void add_ent(const uint8_t *hdr, uint64_t data_off, uint64_t size)
     e->size = size;
     e->is_dir = is_dir;
     e->deleted = false;
+    e->mtime = mtime;
     ent_count++;
 }
 
@@ -359,8 +364,11 @@ static void parse_initrd(void)
            && memcmp(p + USTAR_MAGIC_OFF, "ustar", 5) == 0) {
         uint64_t size = oct2bin(p + USTAR_SIZE_OFF, 11);
         uint64_t data_off = (uint64_t) (p + USTAR_BLOCK - base);
+        int64_t mtime = (int64_t) oct2bin(p + USTAR_MTIME_OFF, 11);
 
-        add_ent(p, data_off, size);
+        add_ent(p, data_off, size, mtime);
+        if (mtime > root_mtime)
+            root_mtime = mtime;
         p += ((size + USTAR_BLOCK - 1) / USTAR_BLOCK + 1) * USTAR_BLOCK;
     }
 }
@@ -394,6 +402,15 @@ static uint64_t idx_size(int32_t i)
         return d->size;
     }
     return ents[i].size;
+}
+
+static int64_t idx_mtime(int32_t i)
+{
+    if (i == ROOT_INDEX)
+        return root_mtime;
+    if (idx_is_dyn(i))
+        return 0;
+    return ents[i].mtime;
 }
 
 static const char *idx_name(int32_t i)
@@ -501,10 +518,12 @@ static void fill_stat(int32_t e, void *out)
 
     memset(st, 0, sizeof(*st));
     st->st_nlink = 1;
+    st->st_mtim.tv_sec = idx_mtime(e);
 
     if (idx_is_dir(e)) {
         st->st_mode = S_IFDIR | 0755;
         st->st_ino = (e == ROOT_INDEX) ? 1 : (uint64_t) e + 1;
+        st->st_size = 4096;
     } else if (idx_is_symlink(e)) {
         st->st_mode = S_IFLNK | 0777;
         st->st_ino = (uint64_t) e + 1;
