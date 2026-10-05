@@ -281,7 +281,7 @@ Reads are event-driven and line-buffered. A `TTY_READ` with pending keys returns
 
 ### 5.4 block
 
-The block server owns the ATA PIO ports. It answers `BLOCK_GET_INFO`, `BLOCK_READ` and `BLOCK_WRITE`. Reads and writes carry a memory object in `xfer[1]` holding the sectors and use 28-bit LBA addressing. The server probes the primary master with `IDENTIFY`, reports the geometry, and never dereferences a client pointer. A bounded poll fails fast when the device is absent.
+The block server owns the AHCI (SATA) controller. The kernel grants it the ABAR MMIO window and a physically contiguous DMA region, like the NIC. It answers `BLOCK_GET_INFO`, `BLOCK_READ` and `BLOCK_WRITE`. Reads and writes carry a memory object in `xfer[1]` holding the sectors and use 48-bit LBA addressing. The server builds a command list, a command table and a received-FIS area in the DMA region, issues `IDENTIFY DEVICE` and `READ`/`WRITE DMA EXT`, and polls the port. It copies through its own DMA buffer because only that memory has a known physical address, and never dereferences a client pointer. A bounded poll fails fast when the device is absent.
 
 ### 5.5 fat32
 
@@ -350,7 +350,7 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 
 - There is a single instance of each service; a crash of a server stops that domain.
 - The FAT32 server is read-only and handles 8.3 names.
-- The block server uses ATA PIO polling, not DMA.
+- The block server drives AHCI (SATA) with DMA. A legacy ATA PIO port is no longer used.
 - SVC_MM and SVC_MISC are reserved but unused.
 - TCP has no congestion control; the send queue holds four segments and the receive window follows the free buffer space.
 - The NIC wakes the server on its PCI interrupt line; a bounded poll remains as a fallback.

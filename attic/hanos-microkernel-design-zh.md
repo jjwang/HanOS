@@ -281,7 +281,7 @@ tty 服务负责 `/dev/tty`。它缓存按键，并把按键回显到控制台�
 
 ### 5.4 block
 
-block 服务负责 ATA PIO 端口。它应答 `BLOCK_GET_INFO`、`BLOCK_READ` 与 `BLOCK_WRITE`。读写把扇区放进 `xfer[1]` 的内存对象，用 28 位 LBA 寻址。服务用 `IDENTIFY` 探测主盘、报告几何，也不解引用客户端指针。有界轮询让设备缺失时快速失败。
+block 服务负责 AHCI（SATA）控制器。内核像给网卡一样授予它 ABAR MMIO 窗口与一段物理连续 DMA 区。它应答 `BLOCK_GET_INFO`、`BLOCK_READ` 与 `BLOCK_WRITE`。读写把扇区放进 `xfer[1]` 的内存对象，用 48 位 LBA 寻址。服务在 DMA 区里建命令列表、命令表与接收 FIS 区，发 `IDENTIFY DEVICE` 与 `READ`/`WRITE DMA EXT`，并轮询端口。它经自己的 DMA 缓冲拷贝，因为只有那段内存有已知物理地址，也不解引用客户端指针。有界轮询让设备缺失时快速失败。
 
 ### 5.5 fat32
 
@@ -350,7 +350,7 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 
 - 每个服务只有一个实例；服务崩溃会让该域停止。
 - FAT32 服务只读，且只处理 8.3 名。
-- block 服务用 ATA PIO 轮询，不用 DMA。
+- block 服务用 AHCI（SATA）加 DMA。不再用传统 ATA PIO 端口。
 - SVC_MM 与 SVC_MISC 预留未用。
 - TCP 无拥塞控制；发送队列容纳四段，接收窗口跟随空闲缓冲。
 - 网卡经 PCI 中断线唤醒服务；有界轮询作为兜底。
