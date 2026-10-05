@@ -26,6 +26,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "common.h"
+
 static command_help_t help_msg[] = {
     {"<help> tetris", "Play Tetris."},
 };
@@ -33,7 +35,9 @@ static command_help_t help_msg[] = {
 #define BW          10
 #define BH          20
 #define WELL_ROW    3
-#define WELL_COL    4
+#define WELL_W      (BW * 2 + 2)
+
+static int well_col = 4;
 
 /* Four rotations per piece as 4x4 bit masks (row 0 is the top). */
 static const uint16_t shapes[7][4] = {
@@ -153,7 +157,7 @@ static void draw(void)
     char line[BW * 8 + 16];
 
     printf("\033[?25l");
-    put_at(1, WELL_COL, "\033[37mTETRIS  score");
+    put_at(1, well_col, "\033[37mTETRIS  score");
     printf(" %ld  lines %d  level %d\033[0m", score, lines, level);
 
     for (int r = 0; r < BH; r++) {
@@ -174,12 +178,11 @@ static void draw(void)
                 o += sprintf(line + o, "\033[%dm[]", colors[v - 1]);
         }
         o += sprintf(line + o, "\033[0m|");
-        put_at(WELL_ROW + r, WELL_COL, line);
+        put_at(WELL_ROW + r, well_col, line);
     }
 
-    put_at(WELL_ROW + BH, WELL_COL, "+-------------------+");
-    put_at(WELL_ROW + BH + 2, WELL_COL,
-           "a/d move  s drop  w rotate  space hard  p pause  q quit");
+    put_at(WELL_ROW + BH, well_col, "+-------------------+");
+    game_menu("a/d move  s drop  w rotate  space hard  p pause  q quit");
     printf("\033[?25l");
     fflush(stdout);
 }
@@ -221,6 +224,13 @@ int main(void)
     set_raw(true);
     atexit(restore_term);
     printf("\033[2J\033[?25l");
+
+    int rows, cols;
+
+    game_size(&rows, &cols);
+    well_col = (cols - WELL_W) / 2 + 1;
+    if (well_col < 1)
+        well_col = 1;
 
     rng ^= (uint32_t) time(NULL);
     score = 0;

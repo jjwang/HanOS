@@ -2,6 +2,9 @@ ISO_IMAGE = cdrom.iso
 HDD_IMAGE = release/hdd.img
 TARGET_ROOT = $(shell pwd)/initrd
 
+# Applications that live on the ext2 data partition, not in the initrd image.
+DISK_APPS = games/tetris games/2048 games/snake
+
 .PHONY: clean all initrd kernel run run-hdd run-uefi run-hdd-uefi
 
 all: $(ISO_IMAGE)
@@ -74,7 +77,7 @@ $(HDD_IMAGE): limine initrd kernel
 	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
 	rm -f $(HDD_IMAGE).esp
 	mkdir -p $(HDD_IMAGE).p2root/bin $(HDD_IMAGE).p2root/assets
-	cp -f userspace/games/tetris $(HDD_IMAGE).p2root/bin/ 2>/dev/null || true
+	for app in $(DISK_APPS); do cp -f userspace/$$app $(HDD_IMAGE).p2root/bin/; done
 	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
 	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
 		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 156M

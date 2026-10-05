@@ -66,7 +66,7 @@ CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net 
 CONSOLE   := servers/console
 
 # Applications that live on the ext2 data partition, not in the initrd image.
-DISK_APPS := games/tetris
+DISK_APPS := games/tetris games/2048 games/snake
 
 .PHONY: clean all musl
 
@@ -138,9 +138,9 @@ servers/console: servers/console.o $(VTERM_OBJS) $(HONOS_RT) _help.o font.o $(MU
 		$(MUSL_CRT1) $(MUSL_CRTI) $< $(VTERM_OBJS) $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
-$(DISK_APPS): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
+$(DISK_APPS): %: %.o games/common.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
-		$(MUSL_CRT1) $(MUSL_CRTI) $< $(HONOS_RT) font.o _help.o \
+		$(MUSL_CRT1) $(MUSL_CRTI) $< games/common.o $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
 clean:
