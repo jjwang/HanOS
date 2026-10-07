@@ -192,7 +192,8 @@ static void send_char(uint64_t key_ep, uint8_t ch)
         send_key(key_ep, '\n');
     else if (ch == 0x7f)
         send_key(key_ep, '\b');
-    else if (ch == '\n' || ch == '\b' || (ch >= 0x20 && ch < 0x7f))
+    else if (ch == '\n' || ch == '\b' || ch == 0x1b || ch == '\t'
+             || (ch >= 0x20 && ch < 0x7f))
         send_key(key_ep, ch);
 }
 
