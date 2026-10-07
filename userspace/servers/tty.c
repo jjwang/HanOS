@@ -28,6 +28,7 @@
 #define TTY_BUF_ADDR    0x20000000
 #define TTY_KEY_MAX     256
 #define TTY_CONSOLE_N   5       /* bytes per CONSOLE_WRITE_TAG message */
+#define OUT_MAX         (128 * 1024)
 
 static uint8_t keys[TTY_KEY_MAX];
 static uint32_t khead;
@@ -55,31 +56,56 @@ static void key_push(uint8_t k)
     kcount++;
 }
 
-static void console_write(const uint8_t * p, uint64_t len)
-{
-    uint64_t sent = 0;
+static uint8_t out_buf[OUT_MAX];
+static uint32_t out_head;
+static uint32_t out_tail;
+static uint32_t out_count;
 
+/* Send the buffered console bytes. A non-blocking pass stops when the console
+ * queue is full; a blocking pass waits for it to drain. Bytes leave the buffer
+ * only after the send succeeds, so nothing is dropped. */
+static void out_flush(bool blocking)
+{
+    while (out_count > 0) {
+        sys_ipc_msg_t wm;
+        uint64_t k = (out_count < TTY_CONSOLE_N) ? out_count : TTY_CONSOLE_N;
+
+        memset(&wm, 0, sizeof(wm));
+        wm.tag = CONSOLE_WRITE_TAG;
+        for (uint64_t j = 0; j < k; j++)
+            wm.words[j] = out_buf[(out_tail + (uint32_t) j) % OUT_MAX];
+        wm.words[5] = k;
+
+        if (sys_ipc_send((int64_t) bi.console_ep, &wm) != 0) {
+            if (!blocking)
+                return;
+            while (sys_ipc_send((int64_t) bi.console_ep, &wm) != 0)
+                ;
+        }
+        out_tail = (out_tail + (uint32_t) k) % OUT_MAX;
+        out_count -= (uint32_t) k;
+    }
+}
+
+/* Queue console output. The server keeps answering keys while a large frame
+ * drains, so the input path never stalls behind the display. */
+static void out_write(const uint8_t * p, uint64_t len)
+{
     /* Mirror the output to the serial console; the kernel serialises it with
      * its own log so the two streams do not interleave. A full-screen program
      * (raw mode) is skipped: its control sequences would flood the log. */
     if (tty_canon)
         sys_serial_write((const char *) p, len);
 
-    while (sent < len) {
-        sys_ipc_msg_t wm;
-        uint64_t k = 0;
-
-        memset(&wm, 0, sizeof(wm));
-        wm.tag = CONSOLE_WRITE_TAG;
-        while (k < TTY_CONSOLE_N && sent < len)
-            wm.words[k++] = p[sent++];
-        wm.words[5] = k;
-
-        /* Wait for the console to drain instead of dropping a chunk. A large
-         * frame fills the endpoint queue while the console renders, and a
-         * dropped chunk leaves a hole in the screen. */
-        while (sys_ipc_send((int64_t) bi.console_ep, &wm) != 0)
-            ;
+    for (uint64_t i = 0; i < len; i++) {
+        if (out_count >= OUT_MAX) {
+            out_flush(true);
+            if (out_count >= OUT_MAX)
+                return;
+        }
+        out_buf[out_head] = p[i];
+        out_head = (out_head + 1) % OUT_MAX;
+        out_count++;
     }
 }
 
@@ -92,16 +118,16 @@ static void echo_key(uint8_t k)
     if (!tty_echo)
         return;
     if (k == '\n') {
-        console_write((const uint8_t *) "\n", 1);
+        out_write((const uint8_t *) "\n", 1);
         echo_len = 0;
     } else if (k == '\b') {
         if (echo_len > 0) {
             /* Backspace-space-backspace erases the cell, as a terminal does. */
-            console_write((const uint8_t *) "\b \b", 3);
+            out_write((const uint8_t *) "\b \b", 3);
             echo_len--;
         }
     } else if (k >= 0x20 && k < 0x7f) {
-        console_write(&k, 1);
+        out_write(&k, 1);
         echo_len++;
     }
 }
@@ -269,7 +295,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (src[i] == '\n')
                 echo_len = 0;
 
-        console_write(src, len);
+        out_write(src, len);
 
         if (!inline_data) {
             sys_mem_unmap(memh, TTY_BUF_ADDR);
@@ -291,9 +317,16 @@ int32_t main(void)
     }
 
     for (;;) {
-        sys_ipc_msg_t m;
+        /* Push pending console bytes, then poll for work when some remain so
+         * the loop keeps draining without blocking the key path. */
+        out_flush(false);
 
-        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 500) != 0)
+        sys_ipc_msg_t m;
+        int32_t ready = (out_count > 0)
+            ? sys_ipc_recv_nb((int64_t) bi.service_ep, &m)
+            : sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 500);
+
+        if (ready != 0)
             continue;
 
         sys_ipc_msg_t rep;
