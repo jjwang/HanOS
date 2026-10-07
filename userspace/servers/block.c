@@ -426,7 +426,7 @@ int32_t main(void)
             uint8_t *buf = (uint8_t *) BLOCK_BUF_VADDR;
             int32_t rc = -1;
 
-            if (sys_mem_map(memh, BLOCK_BUF_VADDR, 3) == 0) {
+            if (sys_mem_map(memh, BLOCK_BUF_VADDR, PROT_READ | PROT_WRITE) == 0) {
                 if (m.tag == BLOCK_READ)
                     rc = ahci_read((uint32_t) m.words[0], (uint8_t) m.words[1],
                                    buf);

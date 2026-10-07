@@ -107,7 +107,7 @@ static int32_t blk_read(uint32_t lba, uint8_t count, uint8_t *dst)
     if (sys_ipc_recv_timeout(reply, &rep, 2000) == 0) {
         if ((int64_t) rep.words[0] != BLOCK_OK) {
             rc = -6;
-        } else if (sys_mem_map(memh, EXT2_BLK_ADDR, 1) != 0) {
+        } else if (sys_mem_map(memh, EXT2_BLK_ADDR, PROT_READ) != 0) {
             rc = -7;
         } else {
             memcpy(dst, (void *) (uint64_t) EXT2_BLK_ADDR,
