@@ -88,33 +88,51 @@ static int poll_byte(int timeout_ms)
     return c;
 }
 
+/* Assemble an escape sequence across reads. The tty delivers the bytes of
+ * ESC [ A/B/C/D as separate keys, so a fixed window would drop a sequence on a
+ * slow machine. The state carries over between calls: a byte that arrives late
+ * completes the sequence instead of being lost, and a stray or truncated ESC
+ * hands the next real key back untouched. */
+static int esc_state;           /* 0 none, 1 after ESC, 2 after ESC [ or ESC O */
+
 int game_read_key(int timeout_ms)
 {
-    int c = poll_byte(timeout_ms);
+    for (;;) {
+        int c = poll_byte(timeout_ms);
 
-    if (c != 0x1b)
-        return c;
+        if (c < 0)
+            return -1;
 
-    /* An escape prefix: read a CSI or SS3 final byte for an arrow key. The
-     * tty delivers the bytes as separate keys, so allow a little slack. */
-    int a = poll_byte(50);
+        if (esc_state == 0) {
+            if (c == 0x1b) {
+                esc_state = 1;
+                continue;
+            }
+            return c;
+        }
 
-    if (a != '[' && a != 'O')
-        return 0x1b;
+        if (esc_state == 1) {
+            if (c == '[' || c == 'O') {
+                esc_state = 2;
+                continue;
+            }
+            esc_state = 0;
+            return c;           /* the ESC stood alone: deliver the key */
+        }
 
-    int b = poll_byte(50);
-
-    switch (b) {
-    case 'A':
-        return KEY_UP;
-    case 'B':
-        return KEY_DOWN;
-    case 'C':
-        return KEY_RIGHT;
-    case 'D':
-        return KEY_LEFT;
-    default:
-        return 0x1b;
+        esc_state = 0;
+        switch (c) {
+        case 'A':
+            return KEY_UP;
+        case 'B':
+            return KEY_DOWN;
+        case 'C':
+            return KEY_RIGHT;
+        case 'D':
+            return KEY_LEFT;
+        default:
+            return c;
+        }
     }
 }
 
