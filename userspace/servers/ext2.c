@@ -48,6 +48,8 @@ static bool mounted;
 static uint8_t gdt[EXT2_MAX_GROUPS * 32];
 static uint8_t blk[4096];       /* one filesystem block */
 static uint8_t ind[4096];       /* one indirect block */
+static uint32_t ind_cached;     /* block address held in `ind`, 0 means none */
+static uint8_t rrun[64 * 1024]; /* coalesced contiguous run buffer */
 
 static uint16_t rd16(const uint8_t * p)
 {
@@ -222,6 +224,19 @@ static int32_t read_block(uint32_t block, uint8_t *dst)
                     (uint8_t) (blk_size / SEC), dst);
 }
 
+/* Read one indirect block into `ind`, skipping the read when the same block is
+ * already there. A sequential walk of a single-indirect file hits this cache
+ * for every block, which removes one block read per data block. */
+static int32_t read_ind(uint32_t block)
+{
+    if (block == ind_cached)
+        return 0;
+    if (read_block(block, ind) != 0)
+        return -1;
+    ind_cached = block;
+    return 0;
+}
+
 static int32_t inode_read(uint32_t n, uint8_t *out)
 {
     if (n == 0 || n > inode_count)
@@ -260,7 +275,7 @@ static uint32_t block_map(const uint8_t * inode, uint32_t lbn)
     if (lbn < per) {
         uint32_t a = rd32(inode + 40 + 12 * 4);
 
-        if (a == 0 || read_block(a, ind) != 0)
+        if (a == 0 || read_ind(a) != 0)
             return 0;
         return rd32(ind + lbn * 4);
     }
@@ -269,11 +284,11 @@ static uint32_t block_map(const uint8_t * inode, uint32_t lbn)
     if (lbn < per * per) {
         uint32_t a = rd32(inode + 40 + 13 * 4);
 
-        if (a == 0 || read_block(a, ind) != 0)
+        if (a == 0 || read_ind(a) != 0)
             return 0;
         uint32_t b = rd32(ind + (lbn / per) * 4);
 
-        if (b == 0 || read_block(b, ind) != 0)
+        if (b == 0 || read_ind(b) != 0)
             return 0;
         return rd32(ind + (lbn % per) * 4);
     }
@@ -281,15 +296,15 @@ static uint32_t block_map(const uint8_t * inode, uint32_t lbn)
     lbn -= per * per;
     uint32_t a = rd32(inode + 40 + 14 * 4);
 
-    if (a == 0 || read_block(a, ind) != 0)
+    if (a == 0 || read_ind(a) != 0)
         return 0;
     uint32_t b = rd32(ind + (lbn / (per * per)) * 4);
 
-    if (b == 0 || read_block(b, ind) != 0)
+    if (b == 0 || read_ind(b) != 0)
         return 0;
     uint32_t c = rd32(ind + ((lbn / per) % per) * 4);
 
-    if (c == 0 || read_block(c, ind) != 0)
+    if (c == 0 || read_ind(c) != 0)
         return 0;
     return rd32(ind + (lbn % per) * 4);
 }
@@ -321,6 +336,29 @@ static uint64_t file_read(const uint8_t * inode, uint64_t off, uint64_t len,
             done += chunk;
             continue;
         }
+
+        /* A block-aligned position lets us read a physically contiguous run in
+         * one block-server call instead of one call per block. */
+        if (boff == 0 && len - done >= blk_size) {
+            uint32_t maxblk = (uint32_t) ((len - done) / blk_size);
+            uint32_t run = 1;
+
+            if (maxblk > sizeof(rrun) / blk_size)
+                maxblk = sizeof(rrun) / blk_size;
+            while (run < maxblk && block_map(inode, lbn + run) == pblk + run)
+                run++;
+
+            uint32_t bytes = run * blk_size;
+            uint32_t lba = (uint32_t) (part_lba
+                                       + (uint64_t) pblk * (blk_size / SEC));
+
+            if (blk_read(lba, (uint8_t) (bytes / SEC), rrun) != 0)
+                return done;
+            memcpy(dst + done, rrun, bytes);
+            done += bytes;
+            continue;
+        }
+
         if (read_block(pblk, blk) != 0)
             return done;
         memcpy(dst + done, blk + boff, chunk);
