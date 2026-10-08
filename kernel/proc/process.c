@@ -306,13 +306,20 @@ process_t *process_fork(process_t * tp)
         offset = (uint64_t) tc->context - (uint64_t) tp->kstack_limit;
         tc->context = (void *) ((uint64_t) tc->kstack_limit + offset);
 
-        process_regs_t *tr = (process_regs_t *) tc->context;
+        /* The saved frame uses the push_all layout (rax first), and the values
+         * that point into the parent kernel stack must move to the child's:
+         * rsp/rbp keep the C code running, r15 keeps the syscall return anchor
+         * (mov rsp, [r15 - 16]) valid. */
+        syscall_regs_t *tr = (syscall_regs_t *) tc->context;
+        uint64_t lo = (uint64_t) tp->kstack_limit;
+        uint64_t hi = lo + STACK_SIZE;
 
-        offset = (uint64_t) tr->rsp - (uint64_t) tp->kstack_limit;
-        tr->rsp = (uint64_t) tc->kstack_limit + offset;
-
-        offset = (uint64_t) tr->rbp - (uint64_t) tp->kstack_limit;
-        tr->rbp = (uint64_t) tc->kstack_limit + offset;
+        if ((uint64_t) tr->rsp >= lo && (uint64_t) tr->rsp <= hi)
+            tr->rsp = (uint64_t) tc->kstack_limit + ((uint64_t) tr->rsp - lo);
+        if ((uint64_t) tr->rbp >= lo && (uint64_t) tr->rbp <= hi)
+            tr->rbp = (uint64_t) tc->kstack_limit + ((uint64_t) tr->rbp - lo);
+        if ((uint64_t) tr->r15 >= lo && (uint64_t) tr->r15 <= hi)
+            tr->r15 = (uint64_t) tc->kstack_limit + ((uint64_t) tr->r15 - lo);
     }
 
     /* The process server clones the child's fd table after the fork; k_fork()
