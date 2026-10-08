@@ -55,6 +55,13 @@ static long score;
 static int lines;
 static int level;
 
+/* A fresh piece ignores drops for a short window, so the input that finished
+ * the previous piece does not immediately drive the new one. */
+#define SPAWN_HOLD_MS   250
+
+static long last_drop;
+static long spawn_hold;
+
 static uint32_t rng = 0x12345678;
 
 static uint32_t rnd(void)
@@ -140,6 +147,8 @@ static void lock_piece(void)
     }
 
     spawn();
+    last_drop = game_ms();
+    spawn_hold = last_drop + SPAWN_HOLD_MS;
 }
 
 static void put_at(int row, int col, const char *s)
@@ -176,7 +185,7 @@ static void draw(void)
         put_at(WELL_ROW + r, well_col, line);
     }
 
-    put_at(WELL_ROW + BH, well_col, "+-------------------+");
+    put_at(WELL_ROW + BH, well_col, "+--------------------+");
     game_menu("arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
     printf("\033[?25l");
     fflush(stdout);
@@ -209,10 +218,9 @@ int main(void)
 
     bool paused = false;
     bool dirty = true;
-    struct timespec start;
-    long last_drop = 0;
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    last_drop = game_ms();
+    spawn_hold = last_drop + SPAWN_HOLD_MS;
 
     for (;;) {
         long gravity = 700 - (level - 1) * 60;
@@ -241,7 +249,8 @@ int main(void)
                            && fits(ptype, (prot + 1) % 4, px, py)) {
                     prot = (prot + 1) % 4;
                     dirty = true;
-                } else if (c == 's' || c == KEY_DOWN) {
+                } else if ((c == 's' || c == KEY_DOWN)
+                           && game_ms() >= spawn_hold) {
                     if (fits(ptype, prot, px, py + 1))
                         py++;
                     else
@@ -258,14 +267,9 @@ int main(void)
 
         /* Gravity follows real elapsed time, not the loop rate: a slow repaint
          * must not slow the drop. */
-        struct timespec now;
-        long ms;
+        long ms = game_ms();
 
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        ms = (now.tv_sec - start.tv_sec) * 1000
-            + (now.tv_nsec - start.tv_nsec) / 1000000;
-
-        if (!paused && ms - last_drop >= gravity) {
+        if (!paused && ms >= spawn_hold && ms - last_drop >= gravity) {
             last_drop = ms;
             if (fits(ptype, prot, px, py + 1))
                 py++;
