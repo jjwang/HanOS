@@ -1041,12 +1041,34 @@ int32_t sched_execve_inplace(const char *path, const char *argv[],
     t->fs_base = 0;
     write_msr(MSR_FS_BASE, 0);
 
+    /* exec resets caught signal dispositions and drops pending signals. */
+    memset(t->signals.actions, 0, sizeof(t->signals.actions));
+    t->signals.pending.sig = 0;
+    t->signals.mask.sig = 0;
+
     tc->addrspace = NULL;
     process_free(tc);
 
     write_cr("cr3", VIRT_TO_PHYS((uint64_t) t->addrspace->PML4));
 
     process_free_addrspace(old_as);
+
+    /* A fresh image starts with all general registers zeroed. Leaving the
+     * values from the execve syscall would hand the C runtime a stale %rdx,
+     * which the ABI uses as the atexit function pointer. */
+    regs->rax = 0;
+    regs->rbx = 0;
+    regs->rdx = 0;
+    regs->rsi = 0;
+    regs->rdi = 0;
+    regs->rbp = 0;
+    regs->r8 = 0;
+    regs->r9 = 0;
+    regs->r10 = 0;
+    regs->r12 = 0;
+    regs->r13 = 0;
+    regs->r14 = 0;
+    regs->r15 = 0;
 
     regs->rcx = entry;
     regs->rip = entry;
