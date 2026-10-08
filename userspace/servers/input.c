@@ -24,6 +24,7 @@
 #include <bootinfo.h>
 #include <keycode.h>
 #include <sysfunc.h>
+#include <time.h>
 
 #define PORT_DATA   0x60
 #define PORT_CMD    0x64
@@ -31,6 +32,13 @@
 /* COM1 register offsets from the base address. */
 #define UART_IER    1
 #define UART_LSR    5
+
+/* Software key repeat, the way the Linux keyboard driver does it: emit the key
+ * once on press, then repeat it after an initial delay at a fixed period. The
+ * hardware typematic is ignored (a make code for an already-held key), so the
+ * rate is ours and stays bounded whatever the keyboard sends. */
+#define REPEAT_DELAY_MS     250
+#define REPEAT_PERIOD_MS    40
 
 static uint16_t serial_base;
 
@@ -197,6 +205,76 @@ static void send_char(uint64_t key_ep, uint8_t ch)
         send_key(key_ep, ch);
 }
 
+static long now_ms(void)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Physical key state, so a repeat make code is told apart from a real press.
+ * The extended (arrow) keys use the high bit of the index. */
+static bool key_down[256];
+static int repeat_id = -1;
+static uint8_t repeat_payload;
+static bool repeat_arrow;
+static long repeat_next;
+
+static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
+{
+    key_down[idx] = true;
+    if (arrow)
+        send_arrow(key_ep, payload);
+    else
+        send_char(key_ep, payload);
+
+    repeat_id = idx;
+    repeat_payload = payload;
+    repeat_arrow = arrow;
+    repeat_next = now_ms() + REPEAT_DELAY_MS;
+}
+
+static void key_release(uint8_t idx)
+{
+    key_down[idx] = false;
+    if (repeat_id == idx)
+        repeat_id = -1;
+}
+
+static void repeat_tick(uint64_t key_ep)
+{
+    if (repeat_id < 0)
+        return;
+
+    long now = now_ms();
+
+    if (now < repeat_next)
+        return;
+
+    if (repeat_arrow)
+        send_arrow(key_ep, repeat_payload);
+    else
+        send_char(key_ep, repeat_payload);
+
+    repeat_next = now + REPEAT_PERIOD_MS;
+}
+
+static uint8_t arrow_final(uint8_t sc)
+{
+    switch (sc) {
+    case KB_ARROW_UP:
+        return 'A';
+    case KB_ARROW_DOWN:
+        return 'B';
+    case KB_ARROW_RIGHT:
+        return 'C';
+    case KB_ARROW_LEFT:
+        return 'D';
+    }
+    return 0;
+}
+
 static void ps2_drain(uint64_t key_ep)
 {
     for (;;) {
@@ -227,24 +305,20 @@ static void ps2_drain(uint64_t key_ep)
 
         uint8_t sc = raw & 0x7f;
         bool pressed = !(raw & 0x80);
+        bool was_ext = ext;
 
-        if (ext) {
-            ext = false;
+        ext = false;
+
+        if (was_ext) {
+            uint8_t idx = (uint8_t) (sc | 0x80);
+
             if (pressed) {
-                switch (sc) {
-                case KB_ARROW_UP:
-                    send_arrow(key_ep, 'A');
-                    break;
-                case KB_ARROW_DOWN:
-                    send_arrow(key_ep, 'B');
-                    break;
-                case KB_ARROW_RIGHT:
-                    send_arrow(key_ep, 'C');
-                    break;
-                case KB_ARROW_LEFT:
-                    send_arrow(key_ep, 'D');
-                    break;
-                }
+                uint8_t fin = arrow_final(sc);
+
+                if (fin != 0 && !key_down[idx])
+                    key_press(key_ep, idx, fin, true);
+            } else {
+                key_release(idx);
             }
             continue;
         }
@@ -257,11 +331,18 @@ static void ps2_drain(uint64_t key_ep)
         } else if (sc == KB_LCTRL) {
             ctrl = pressed;
         } else if (pressed) {
-            char ch = keyboard_get_ascii(sc, shift, caps);
-            if (ctrl && (ch == 'd' || ch == 'D'))
-                send_char(key_ep, 0x04);
-            else if (ch != 0)
-                send_char(key_ep, (uint8_t) ch);
+            if (!key_down[sc]) {
+                char ch = keyboard_get_ascii(sc, shift, caps);
+
+                if (ctrl && (ch == 'd' || ch == 'D'))
+                    key_press(key_ep, sc, 0x04, false);
+                else if (ch != 0)
+                    key_press(key_ep, sc, (uint8_t) ch, false);
+                else
+                    key_down[sc] = true;
+            }
+        } else {
+            key_release(sc);
         }
     }
 }
@@ -314,14 +395,24 @@ int32_t main(void)
     serial_init_rx();
 
     for (;;) {
-        sys_ipc_msg_t m;
-        if (sys_ipc_recv((int64_t) bi.irq_ep, &m) != 0)
-            continue;
-        if (m.tag != IRQ_NOTIFY_TAG)
-            continue;
+        /* Wake on an interrupt, or early enough to emit the next repeat. */
+        long timeout = 1000;
 
-        ps2_drain(bi.key_ep);
-        serial_drain(bi.key_ep);
+        if (repeat_id >= 0) {
+            long rem = repeat_next - now_ms();
+
+            timeout = (rem > 0) ? rem : 0;
+        }
+
+        sys_ipc_msg_t m;
+        int32_t r = sys_ipc_recv_timeout((int64_t) bi.irq_ep, &m, timeout);
+
+        if (r == 0 && m.tag == IRQ_NOTIFY_TAG) {
+            ps2_drain(bi.key_ep);
+            serial_drain(bi.key_ep);
+        }
+
+        repeat_tick(bi.key_ep);
     }
 
     return 0;
