@@ -51,7 +51,14 @@ void serial_write(char a)
         serial_init();
     }
 
-    while ((port_inb(SERIAL_PORT + 5) & 0x20) == 0);
+    /* Do not block the caller on the transmit holding register. The kernel log
+     * path runs under a spinlock; a host that stops draining the port would
+     * otherwise stall that lock for as long as the backpressure lasts. Poll a
+     * bounded number of times, then drop the byte. */
+    for (uint32_t spin = 0; spin < 100; spin++) {
+        if (port_inb(SERIAL_PORT + 5) & 0x20)
+            break;
+    }
 
     port_outb(SERIAL_PORT, a);
 }
