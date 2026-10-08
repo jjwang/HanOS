@@ -5,14 +5,17 @@ extern k_print_log
 extern syscall_post
 
 syscall_handler:
-    push r15                ; store r15 in user stack
+    ; Run the handler on the process kernel stack: save the caller RSP in the
+    ; per-CPU slot, then switch RSP to the kernel stack top.
+    mov [gs:16], rsp        ; save user rsp
+    mov rsp, [gs:24]        ; kernel stack top
+
+    push r15                ; store r15 in kernel stack
     mov r15, rsp            ; save process stack to r15
 
-    ; push information (gs, cs, rip, rflags, rip)
-    ; but the below data are not used in current implementation
+    ; push information (ss, rsp, rflags, cs, rip)
     push qword 0x3b         ; user data segment
-    push r15                ; saved stack (frame base; true rsp is +8)
-    add qword [rsp], 8      ; store the interrupted user rsp
+    push qword [gs:16]      ; saved user rsp
     push r11                ; saved rflags
     push qword 0x43         ; user code segment 
     push rcx                ; current RIP

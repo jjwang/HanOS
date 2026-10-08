@@ -65,6 +65,8 @@ typedef struct[[gnu::packed]] {
 typedef struct[[gnu::packed]] {
     int64_t errno;
     void *syscall_frame;        /* saved syscall register frame (gs:8) */
+    uint64_t syscall_user_rsp;  /* caller RSP saved at syscall entry (gs:16) */
+    uint64_t syscall_kstack;    /* current kernel stack top (gs:24) */
     tss_t tss;
     uint16_t cpu_id;
     uint16_t lapic_id;

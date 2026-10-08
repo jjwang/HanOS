@@ -255,6 +255,7 @@ void do_context_switch(void *stack, int64_t mode)
 
     cpu->errno = next->errno;
     cpu->tss.rsp0 = (uint64_t) next->kstack_top;
+    cpu->syscall_kstack = (uint64_t) next->kstack_top;
 
     tick_count[cpu_id]++;
 
