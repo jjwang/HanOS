@@ -831,8 +831,8 @@ void sched_add(process_t *t)
           smp_get_current_cpu_id(), t->pid, target);
 }
 
-process_t *sched_execve(const char *path, const char *argv[],
-                     const char *envp[], const char *cwd)
+static process_t *sched_execve_prep(const char *path, const char *argv[],
+                     const char *envp[], const char *cwd, bool fork_fds)
 {
     int64_t i;
 
@@ -861,10 +861,7 @@ process_t *sched_execve(const char *path, const char *argv[],
         return NULL;
     }
 
-    /* The process server clones the parent's fd table for the new process;
-     * this kernel path is a fork+exec. Register only after the image loaded,
-     * or a failed exec leaves a live child the parent waits on forever. */
-    if (tp != NULL) {
+    if (tp != NULL && fork_fds) {
         process_fd_fork((int32_t) tp->pid, (int32_t) tc->pid);
     }
 
@@ -985,11 +982,74 @@ process_t *sched_execve(const char *path, const char *argv[],
         tc->ppid = tp->pid;
     }
 
+    return tc;
+}
+
+process_t *sched_execve(const char *path, const char *argv[],
+                     const char *envp[], const char *cwd)
+{
+    process_t *tc = sched_execve_prep(path, argv, envp, cwd, true);
+
+    if (tc == NULL)
+        return NULL;
+
     if (sched_spawn_hook != NULL)
         sched_spawn_hook(tc);
 
     sched_add(tc);
 
     return tc;
+}
+
+int32_t sched_execve_inplace(const char *path, const char *argv[],
+                             const char *envp[], const char *cwd)
+{
+    process_t *t = sched_get_current_process();
+    cpu_t *cpu = smp_get_current_cpu(false);
+
+    if (t == NULL || cpu == NULL || cpu->syscall_frame == NULL)
+        return -1;
+
+    /* elf_load() blocks on the filesystem servers and the CPU may be reused by
+     * other syscalls, which would repoint cpu->syscall_frame. Capture the frame
+     * of this syscall now; it lives on t's kernel stack and survives the block. */
+    syscall_regs_t *regs = (syscall_regs_t *) cpu->syscall_frame;
+
+    process_t *tc = sched_execve_prep(path, argv, envp, cwd, false);
+
+    if (tc == NULL)
+        return -1;
+
+    process_regs_t *tc_regs =
+        (process_regs_t *) PHYS_TO_VIRT((uint64_t) tc->context);
+
+    uint64_t entry = tc_regs->rip;
+    uint64_t user_rsp = tc_regs->rsp;
+
+    addrspace_t *old_as = t->addrspace;
+
+    t->addrspace = tc->addrspace;
+    t->context = tc->context;
+    t->ustack_top = tc->ustack_top;
+    t->ustack_limit = tc->ustack_limit;
+
+    t->fs_base = 0;
+    write_msr(MSR_FS_BASE, 0);
+
+    tc->addrspace = NULL;
+    process_free(tc);
+
+    write_cr("cr3", VIRT_TO_PHYS((uint64_t) t->addrspace->PML4));
+
+    process_free_addrspace(old_as);
+
+    regs->rcx = entry;
+    regs->rip = entry;
+    regs->r11 = DEFAULT_RFLAGS;
+    regs->rsp = user_rsp;
+
+    klogi("exec(inplace): entry 0x%lx rsp 0x%lx\n", (unsigned long) entry,
+          (unsigned long) user_rsp);
+    return 0;
 }
 

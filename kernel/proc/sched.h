@@ -64,3 +64,5 @@ pid_t sched_get_pid(void);
 
 process_t *sched_execve(const char *path, const char *argv[],
                      const char *envp[], const char *cwd);
+int32_t sched_execve_inplace(const char *path, const char *argv[],
+                             const char *envp[], const char *cwd);

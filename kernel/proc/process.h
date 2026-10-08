@@ -296,3 +296,4 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
 
 process_t *process_fork(process_t * tp);
 void process_free(process_t * t);
+void process_free_addrspace(addrspace_t * as);

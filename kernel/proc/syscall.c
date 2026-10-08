@@ -2391,6 +2391,19 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     const char **kargv_p = (argv != NULL) ? (const char **) kargv : NULL;
     const char **kenvp_p = (envp != NULL) ? (const char **) kenvp : NULL;
 
+    if (t != NULL && t->mode == PROC_USER_MODE) {
+        int32_t r = sched_execve_inplace(kpath, kargv_p, kenvp_p, cwd);
+
+        if (r == 0) {
+            klogi("k_execve: inplace \"%s\" in process %ld\n", kpath, t->pid);
+            free_exec_argv(kargv);
+            free_exec_argv(kenvp);
+            kmfree(kpath);
+            cpu_set_errno(0);
+            return 0;
+        }
+    }
+
     /* The process server parses and maps the image. Fall back to the in-kernel
      * loader when the server is not registered. */
     if (t != NULL && router_lookup(SVC_PROC) != NULL

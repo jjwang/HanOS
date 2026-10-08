@@ -395,6 +395,42 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
     return tc;
 }
 
+void process_free_addrspace(addrspace_t * as)
+{
+    if (as == NULL
+        || __atomic_fetch_sub(&as->refs, 1, __ATOMIC_ACQ_REL) != 1)
+        return;
+
+    uint64_t mmap_num = vec_length(&as->mmap_list);
+
+    for (uint64_t i = 0; i < mmap_num; i++) {
+        mem_map_t m = vec_at(&as->mmap_list, i);
+
+        vmm_unmap(as, m.vaddr, m.np);
+        kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
+    }
+    vec_erase_all(&as->mmap_list);
+
+    uint64_t mem_num = vec_length(&as->mem_list);
+
+    for (uint64_t i = 0; i < mem_num; i++) {
+        /*
+         * Maybe it was already freed in unmap(), but it is also harmless for
+         * calling pmm_free() in which it will check if the referenced physical
+         * page is valid and then do free. VMM_UNMAP() invokes pmm_free() for us,
+         * but it will not free the records represented by uint64_t type in
+         * mem_list.
+         */
+        uint64_t m = vec_at(&as->mem_list, i);
+
+        pmm_free(m, 8, __func__, __LINE__);
+    }
+    vec_erase_all(&as->mem_list);
+
+    kmfree_chunk((void *) as->PML4, __func__, __LINE__);
+    kmfree((void *) as);
+}
+
 void process_free(process_t * t)
 {
     if (t->mode != PROC_USER_MODE) {
@@ -407,38 +443,8 @@ void process_free(process_t * t)
 
     /* Threads share the address space. Free it and its mappings only after the
      * last thread leaves. */
-    if (t->addrspace != NULL
-        && __atomic_fetch_sub(&t->addrspace->refs, 1, __ATOMIC_ACQ_REL) == 1) {
-        uint64_t mmap_num = vec_length(&t->addrspace->mmap_list);
-
-        for (uint64_t i = 0; i < mmap_num; i++) {
-            mem_map_t m = vec_at(&t->addrspace->mmap_list, i);
-
-            vmm_unmap(t->addrspace, m.vaddr, m.np);
-            kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
-        }
-        vec_erase_all(&t->addrspace->mmap_list);
-
-        uint64_t mem_num = vec_length(&t->addrspace->mem_list);
-
-        for (uint64_t i = 0; i < mem_num; i++) {
-            /*
-             * Maybe it was already freed in unmap(), but it is also
-             * harmless for calling pmm_free() in which it will check
-             * if the referenced physical page is valid and then
-             * do free. VMM_UNMAP() invokes pmm_free() for us, but it
-             * will not free the records represented by uint64_t type
-             * in mem_list.
-             */
-            uint64_t m = vec_at(&t->addrspace->mem_list, i);
-
-            pmm_free(m, 8, __func__, __LINE__);
-        }
-        vec_erase_all(&t->addrspace->mem_list);
-
-        kmfree_chunk((void *) t->addrspace->PML4, __func__, __LINE__);
-        kmfree((void *) t->addrspace);
-    }
+    if (t->addrspace != NULL)
+        process_free_addrspace(t->addrspace);
 
     handle_table_destroy(&t->handles);
 
