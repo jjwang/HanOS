@@ -852,8 +852,13 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
         }
     }
 
-    tc = process_make(tname, NULL, 0, PROC_USER_MODE,
-                   tp == NULL ? NULL : tp->addrspace);
+    /* The in-place path reuses the calling process' address space, so it must
+     * not map the temporary process' stack into it: that mapping would be
+     * freed together with the old address space while the process still runs
+     * on that stack. */
+    addrspace_t *pas = (fork_fds && tp != NULL) ? tp->addrspace : NULL;
+
+    tc = process_make(tname, NULL, 0, PROC_USER_MODE, pas);
 
     if (elf_load(tc, path, &entry, &aux)) {
         /* Need to release memory for process "tc" */
