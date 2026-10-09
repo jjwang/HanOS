@@ -235,6 +235,9 @@ static inline void mmio_inn(void *dst, const volatile void *src,
 
 void cpu_init(uint64_t cpuno);
 char *cpu_get_model_name();
+char *cpu_get_vendor(void);
+uint32_t cpu_get_family(void);
+uint32_t cpu_get_model(void);
 
 /**
  * @brief Description of a single CPUID leaf, register and bit to test

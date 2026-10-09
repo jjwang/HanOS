@@ -143,6 +143,17 @@ _Noreturn void kshell(pid_t pid)
         kprintf("\033[36mCPU Model   \033[0m: %s\n", cpu_model_name);
     }
 
+    kprintf("\033[36mCPU Vendor  \033[0m: %s\n", cpu_get_vendor());
+    kprintf("\033[36mCPU Family  \033[0m: 0x%x  Model 0x%x\n",
+            cpu_get_family(), cpu_get_model());
+
+    {
+        smp_info_t *smp = smp_get_info();
+
+        if (smp != NULL)
+            kprintf("\033[36mCPU Cores   \033[0m: %d\n", smp->num_cpus);
+    }
+
     {
         kprintf("\033[36mMemory      \033[0m: %d MB\n",
                 pmm_get_total_memory());

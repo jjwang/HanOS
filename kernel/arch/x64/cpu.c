@@ -193,3 +193,18 @@ char *cpu_get_model_name()
 {
     return cpu_model_name;
 }
+
+char *cpu_get_vendor(void)
+{
+    return cpu_manufacturer;
+}
+
+uint32_t cpu_get_family(void)
+{
+    return cpu_family;
+}
+
+uint32_t cpu_get_model(void)
+{
+    return cpu_model;
+}
