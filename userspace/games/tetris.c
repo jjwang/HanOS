@@ -196,11 +196,12 @@ static void draw(void)
                  WELL_ROW + BH, well_col);
 
     if (over) {
-        f += sprintf(frame + f,
-                     "\033[%d;%dH\033[41;37m GAME OVER \033[0m",
+        /* Reverse video reads white-on-black whatever the palette does to the
+         * ANSI colours. */
+        f += sprintf(frame + f, "\033[%d;%dH\033[7m GAME OVER \033[0m",
                      WELL_ROW + BH / 2, well_col + 6);
-        f += sprintf(frame + f, "\033[%d;%dH\033[33mscore %ld\033[0m",
-                     WELL_ROW + BH / 2 + 2, well_col + 7);
+        f += sprintf(frame + f, "\033[%d;%dH\033[7m score %-4ld \033[0m",
+                     WELL_ROW + BH / 2 + 2, well_col + 5);
     }
 
     fwrite(frame, 1, (size_t) f, stdout);

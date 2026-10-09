@@ -70,8 +70,15 @@ void game_menu(const char *s)
     int rows, cols;
 
     game_size(&rows, &cols);
-    (void) cols;
-    game_center(rows, s);
+
+    int len = (int) strlen(s);
+    int col = (cols - len) / 2;
+
+    if (col < 1)
+        col = 1;
+
+    /* Clear the row first: a shorter menu must not leave the old one behind. */
+    printf("\033[%d;1H\033[2K\033[%d;%dH\033[0m%s", rows, rows, col, s);
 }
 
 static int poll_byte(int timeout_ms)
