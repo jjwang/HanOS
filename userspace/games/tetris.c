@@ -153,18 +153,15 @@ static void lock_piece(void)
     soft_armed = false;
 }
 
-static void put_at(int row, int col, const char *s)
-{
-    printf("\033[%d;%dH%s", row, col, s);
-}
-
 static void draw(void)
 {
-    char line[BW * 8 + 16];
+    char line[BW * 12 + 24];
+    char frame[16384];
+    int f = 0;
 
-    printf("\033[?25l");
-    put_at(1, well_col, "\033[37mTETRIS  score");
-    printf(" %ld  lines %d  level %d\033[0m", score, lines, level);
+    f += sprintf(frame + f,
+                 "\033[?25l\033[1;%dH\033[37mTETRIS  score %ld  lines %d  level %d\033[0m",
+                 well_col, score, lines, level);
 
     for (int r = 0; r < BH; r++) {
         int o = 0;
@@ -184,13 +181,16 @@ static void draw(void)
                 o += sprintf(line + o, "\033[%dm[]", colors[v - 1]);
         }
         o += sprintf(line + o, "\033[0m|");
-        put_at(WELL_ROW + r, well_col, line);
+        f += sprintf(frame + f, "\033[%d;%dH%s", WELL_ROW + r, well_col, line);
     }
 
-    put_at(WELL_ROW + BH, well_col, "+--------------------+");
-    game_menu("arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
-    printf("\033[?25l");
+    f += sprintf(frame + f, "\033[%d;%dH+--------------------+\033[?25l",
+                 WELL_ROW + BH, well_col);
+
+    fwrite(frame, 1, (size_t) f, stdout);
     fflush(stdout);
+
+    game_menu("arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
 }
 
 static void restore_term(void)
