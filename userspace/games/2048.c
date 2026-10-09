@@ -40,6 +40,7 @@ static const char *BORDER = "+------+------+------+------+";
 static int board[N][N];
 static long score;
 static bool won;
+static bool over;
 
 static void put_at(int row, int col, const char *s)
 {
@@ -204,7 +205,9 @@ static void draw(void)
 {
     char line[N * 20 + 8], buf[64];
 
-    printf("\033[?25l\033[2J");
+    /* No full clear here: it blanks the screen on every pass and flickers. The
+     * board redraw overwrites every cell in place. */
+    printf("\033[?25l");
     game_center(1, "\033[1;37m2048\033[0m");
     sprintf(buf, "score %ld", score);
     game_center(2, buf);
@@ -234,6 +237,11 @@ static void draw(void)
             put_at(TAB_ROW + 2 + r * 2, tab_col, BORDER);
     }
     put_at(TAB_ROW + N * 2, tab_col, BORDER);
+
+    printf("\033[%d;1H\033[K", TAB_ROW + N * 2 + 4);
+    if (over)
+        game_center(TAB_ROW + N * 2 + 4,
+                    "\033[1;31mNo moves left.  r restart  q quit\033[0m");
 
     game_menu("w/a/s/d or arrows move  r restart  q quit");
     printf("\033[?25l");
@@ -269,16 +277,15 @@ int main(void)
     game_srand((uint32_t) game_ms());
     reset();
 
-    bool over = false;
+    over = false;
+    bool dirty = true;
+
+    printf("\033[2J");
 
     for (;;) {
-        draw();
-
-        if (over || game_over()) {
-            over = true;
-            game_center(TAB_ROW + N * 2 + 4,
-                        "\033[1;31mNo moves left.  r restart  q quit\033[0m");
-            fflush(stdout);
+        if (dirty) {
+            draw();
+            dirty = false;
         }
 
         int c = game_read_key(200);
@@ -288,6 +295,7 @@ int main(void)
         if (c == 'r') {
             reset();
             over = false;
+            dirty = true;
             continue;
         }
         if (over)
@@ -304,8 +312,11 @@ int main(void)
         else if (c == 's' || c == KEY_DOWN)
             dir = 3;
 
-        if (dir >= 0 && move(dir))
+        if (dir >= 0 && move(dir)) {
             spawn();
+            over = game_over();
+            dirty = true;
+        }
     }
 
     printf("\033[2J\033[?25h\033[H");
