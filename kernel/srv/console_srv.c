@@ -202,9 +202,12 @@ _Noreturn static void console_flush_kthread(pid_t pid)
 
             uint64_t n = 0;
             spinlock_acquire(&console_ring_lock);
-            while (n < IPC_WORDS - 1 && !console_ring_empty()) {
-                m.words[n++] = (uint8_t) console_ring[console_ring_tail];
+            while (n < (IPC_WORDS - 1) * 8 && !console_ring_empty()) {
+                m.words[n / 8] |=
+                    (uint64_t) (uint8_t) console_ring[console_ring_tail]
+                    << ((n % 8) * 8);
                 console_ring_tail = (console_ring_tail + 1) % CONSOLE_RING_SIZE;
+                n++;
             }
             spinlock_release(&console_ring_lock);
             m.words[IPC_WORDS - 1] = n;
