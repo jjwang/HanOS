@@ -27,7 +27,7 @@
 
 #define TTY_BUF_ADDR    0x20000000
 #define TTY_KEY_MAX     256
-#define TTY_CONSOLE_N   5       /* bytes per CONSOLE_WRITE_TAG message */
+#define TTY_CONSOLE_N   40      /* bytes per CONSOLE_WRITE_TAG message */
 #define OUT_MAX         (128 * 1024)
 
 static uint8_t keys[TTY_KEY_MAX];
@@ -73,7 +73,9 @@ static void out_flush(bool blocking)
         memset(&wm, 0, sizeof(wm));
         wm.tag = CONSOLE_WRITE_TAG;
         for (uint64_t j = 0; j < k; j++)
-            wm.words[j] = out_buf[(out_tail + (uint32_t) j) % OUT_MAX];
+            wm.words[j / 8] |=
+                (uint64_t) out_buf[(out_tail + (uint32_t) j) % OUT_MAX]
+                << ((j % 8) * 8);
         wm.words[5] = k;
 
         if (sys_ipc_send((int64_t) bi.console_ep, &wm) != 0) {

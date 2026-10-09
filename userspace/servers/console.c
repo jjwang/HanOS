@@ -52,6 +52,7 @@ extern psf1_t term_font_norm;
 #define COLOR_WHITE     0xFFFFFF
 
 #define ROW_MAX     512
+#define COL_MAX     192
 
 static uint8_t *fbio;
 static uint8_t *back;
@@ -66,7 +67,7 @@ static uint32_t term_y;
 static VTerm *vt;
 static VTermScreen *vs;
 
-static bool row_dirty[ROW_MAX];
+static bool cell_dirty[ROW_MAX][COL_MAX];
 
 /* Cursor state reported by libvterm and the cell currently drawn as a block. */
 static int32_t vterm_cur_row;
@@ -285,13 +286,12 @@ static void render_cell(uint32_t row, uint32_t col)
 
 static void render_dirty(void)
 {
-    for (uint32_t r = 0; r < rows && r < ROW_MAX; r++) {
-        if (!row_dirty[r])
-            continue;
-        for (uint32_t c = 0; c < cols; c++)
-            render_cell(r, c);
-        row_dirty[r] = false;
-    }
+    for (uint32_t r = 0; r < rows && r < ROW_MAX; r++)
+        for (uint32_t c = 0; c < cols && c < COL_MAX; c++)
+            if (cell_dirty[r][c]) {
+                render_cell(r, c);
+                cell_dirty[r][c] = false;
+            }
 }
 
 /* Repaint the previous cursor cell and draw the block when show is set. */
@@ -315,9 +315,14 @@ static int on_damage(VTermRect rect, void *user)
 {
     (void) user;
     for (int r = rect.start_row; r < rect.end_row && r < (int) rows
-         && r < ROW_MAX; r++)
-        if (r >= 0)
-            row_dirty[r] = true;
+         && r < ROW_MAX; r++) {
+        if (r < 0)
+            continue;
+        for (int c = rect.start_col;
+             c < rect.end_col && c < (int) cols && c < COL_MAX; c++)
+            if (c >= 0)
+                cell_dirty[r][c] = true;
+    }
     return 1;
 }
 
@@ -366,14 +371,14 @@ static void feed_msg(sys_ipc_msg_t * m)
     uint64_t n = m->words[5];
     /* The tty sends a bare LF; a real terminal maps NL to CR-NL on output. */
     static uint8_t prev = '\n';
-    char buf[12];
+    char buf[96];
     int32_t o = 0;
 
-    if (n > 5)
-        n = 5;
+    if (n > 40)
+        n = 40;
 
     for (uint64_t i = 0; i < n; i++) {
-        uint8_t c = (uint8_t) m->words[i];
+        uint8_t c = (uint8_t) (m->words[i / 8] >> ((i % 8) * 8));
 
         if (c == '\n' && prev != '\r')
             buf[o++] = '\r';
@@ -439,14 +444,15 @@ int32_t main(void)
     };
 
     vterm_screen_set_callbacks(vs, &callbacks, NULL);
-    vterm_screen_set_damage_merge(vs, VTERM_DAMAGE_ROW);
+    vterm_screen_set_damage_merge(vs, VTERM_DAMAGE_CELL);
     vterm_screen_enable_altscreen(vs, 1);
     vterm_screen_reset(vs, 1);
 
     /* Paint the empty terminal over the centre; the margins keep the
      * background. */
-    for (uint32_t r = 0; r < rows; r++)
-        row_dirty[r] = true;
+    for (uint32_t r = 0; r < rows && r < ROW_MAX; r++)
+        for (uint32_t c = 0; c < cols && c < COL_MAX; c++)
+            cell_dirty[r][c] = true;
     render_dirty();
     flush();
 
