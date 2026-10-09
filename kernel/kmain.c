@@ -150,8 +150,15 @@ _Noreturn void kshell(pid_t pid)
     {
         smp_info_t *smp = smp_get_info();
 
-        if (smp != NULL)
-            kprintf("\033[36mCPU Cores   \033[0m: %d\n", smp->num_cpus);
+        if (smp != NULL) {
+            uint32_t smt = cpu_get_smt_threads();
+            int logical = smp->num_cpus;
+
+            if (smt < 1)
+                smt = 1;
+            kprintf("\033[36mCPU Cores   \033[0m: %d logical, %d physical, %d thread(s)/core\n",
+                    logical, logical / (int) smt, smt);
+        }
     }
 
     {

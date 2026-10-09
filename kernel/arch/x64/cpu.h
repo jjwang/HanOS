@@ -238,6 +238,7 @@ char *cpu_get_model_name();
 char *cpu_get_vendor(void);
 uint32_t cpu_get_family(void);
 uint32_t cpu_get_model(void);
+uint32_t cpu_get_smt_threads(void);
 
 /**
  * @brief Description of a single CPUID leaf, register and bit to test

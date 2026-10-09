@@ -208,3 +208,39 @@ uint32_t cpu_get_model(void)
 {
     return cpu_model;
 }
+
+/* Threads per core from the extended topology leaves. Leaf 0x1F supersedes
+ * 0xB; each subleaf names its level in ECX[15:8] (1 = SMT, 2 = core) and the
+ * logical processors at that level in EBX[15:0]. The SMT level's count is the
+ * number of threads that share one physical core. */
+uint32_t cpu_get_smt_threads(void)
+{
+    uint32_t a, b, c, d;
+    uint32_t maxleaf;
+
+    cpuid(0, 0, &maxleaf, &b, &c, &d);
+
+    uint32_t leaf = 0;
+
+    if (maxleaf >= 0x1f)
+        leaf = 0x1f;
+    else if (maxleaf >= 0xb)
+        leaf = 0xb;
+
+    if (leaf == 0)
+        return 1;
+
+    for (uint32_t sub = 0; sub < 8; sub++) {
+        cpuid(leaf, sub, &a, &b, &c, &d);
+
+        if ((c & 0xff00) == 0)
+            break;
+        if ((c & 0xff00) == 0x0100) {
+            uint32_t threads = b & 0xffff;
+
+            return threads > 0 ? threads : 1;
+        }
+    }
+
+    return 1;
+}
