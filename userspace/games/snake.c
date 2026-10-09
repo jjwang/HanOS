@@ -155,7 +155,7 @@ static void draw(void)
     else if (paused)
         game_center(TAB_ROW + GH + 2, "\033[1;33mPaused\033[0m");
 
-    game_menu("w/a/s/d or arrows turn  eat $ to grow  p pause  q quit");
+    game_menu("arrow keys or w/a/s/d turn  eat $ to grow  p pause  q quit");
     printf("\033[?25l");
     fflush(stdout);
 }
