@@ -41,6 +41,8 @@ static int fx, fy;
 static int dx, dy;
 static int pending_dx, pending_dy;
 static long score;
+static bool paused;
+static bool dead;
 
 static void put_at(int row, int col, const char *s)
 {
@@ -94,7 +96,9 @@ static void draw(void)
 {
     char line[GW * 14 + 16];
 
-    printf("\033[?25l\033[2J");
+    /* No full clear here: it blanks the screen every frame and flickers. The
+     * grid redraw overwrites every cell in place. */
+    printf("\033[?25l");
     char buf[64];
 
     game_center(1, "\033[1;32mSNAKE\033[0m");
@@ -144,7 +148,14 @@ static void draw(void)
     o += sprintf(line + o, "+\033[0m");
     put_at(TAB_ROW + 1 + GH, tab_col, line);
 
-    game_menu("w/a/s/d or arrows turn  p pause  q quit");
+    printf("\033[%d;1H\033[K", TAB_ROW + GH + 2);
+    if (dead)
+        game_center(TAB_ROW + GH + 2,
+                    "\033[1;31mGame over.  r restart  q quit\033[0m");
+    else if (paused)
+        game_center(TAB_ROW + GH + 2, "\033[1;33mPaused\033[0m");
+
+    game_menu("w/a/s/d or arrows turn  eat $ to grow  p pause  q quit");
     printf("\033[?25l");
     fflush(stdout);
 }
@@ -206,19 +217,18 @@ int main(void)
     game_srand((uint32_t) game_ms());
     reset();
 
-    bool paused = false;
-    bool dead = false;
+    paused = false;
+    dead = false;
     long last = game_ms();
+    bool dirty = true;
+
+    printf("\033[2J");
 
     for (;;) {
-        draw();
-
-        if (dead)
-            game_center(TAB_ROW + GH + 2,
-                        "\033[1;31mGame over.  r restart  q quit\033[0m");
-        else if (paused)
-            game_center(TAB_ROW + GH + 2, "\033[1;33mPaused\033[0m");
-        fflush(stdout);
+        if (dirty) {
+            draw();
+            dirty = false;
+        }
 
         long speed = 140 - (score / 50) * 5;
 
@@ -234,11 +244,13 @@ int main(void)
             dead = false;
             paused = false;
             last = game_ms();
+            dirty = true;
             continue;
         }
         if (c == 'p') {
             paused = !paused;
             last = game_ms();
+            dirty = true;
             continue;
         }
 
@@ -265,6 +277,7 @@ int main(void)
                 last = now;
                 if (!step())
                     dead = true;
+                dirty = true;
             }
         }
     }
