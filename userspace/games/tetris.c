@@ -63,6 +63,7 @@ static int level;
 static long last_drop;
 static bool soft_armed = true;
 static long last_down;
+static bool over;
 
 static uint32_t rng = 0x12345678;
 
@@ -104,13 +105,20 @@ static void spawn(void)
     px = 3;
     py = 0;
     if (!fits(ptype, prot, px, py)) {
-        /* top out: reset the well */
-        memset(board, 0, sizeof(board));
-        score = 0;
-        lines = 0;
-        level = 1;
-        py = 0;
+        /* Top out: the next piece does not fit. End the game and keep the
+         * board so the player sees the final position. */
+        over = true;
     }
+}
+
+static void reset_game(void)
+{
+    memset(board, 0, sizeof(board));
+    score = 0;
+    lines = 0;
+    level = 1;
+    over = false;
+    spawn();
 }
 
 static void lock_piece(void)
@@ -171,7 +179,7 @@ static void draw(void)
             int v = board[r][c];
             int pr = r - py, pc = c - px;
 
-            if (v == 0 && pr >= 0 && pr < 4 && pc >= 0 && pc < 4
+            if (!over && v == 0 && pr >= 0 && pr < 4 && pc >= 0 && pc < 4
                 && cell(shapes[ptype][prot], pr, pc))
                 v = ptype + 1;
 
@@ -187,10 +195,19 @@ static void draw(void)
     f += sprintf(frame + f, "\033[%d;%dH+--------------------+\033[?25l",
                  WELL_ROW + BH, well_col);
 
+    if (over) {
+        f += sprintf(frame + f,
+                     "\033[%d;%dH\033[41;37m GAME OVER \033[0m",
+                     WELL_ROW + BH / 2, well_col + 6);
+        f += sprintf(frame + f, "\033[%d;%dH\033[33mscore %ld\033[0m",
+                     WELL_ROW + BH / 2 + 2, well_col + 7);
+    }
+
     fwrite(frame, 1, (size_t) f, stdout);
     fflush(stdout);
 
-    game_menu("arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
+    game_menu(over ? "GAME OVER  r restart  q quit"
+                   : "arrows or a/d move  w up rotate  s down  space drop  p pause  q quit");
 }
 
 static void restore_term(void)
@@ -236,7 +253,16 @@ int main(void)
         if (c != -1) {
             if (c == 'q')
                 break;
-            if (c == 'p') {
+            if (over) {
+                if (c == 'r') {
+                    reset_game();
+                    paused = false;
+                    last_drop = game_ms();
+                    soft_armed = true;
+                    last_down = 0;
+                    dirty = true;
+                }
+            } else if (c == 'p') {
                 paused = !paused;
                 dirty = true;
             } else if (!paused) {
@@ -274,7 +300,7 @@ int main(void)
          * must not slow the drop. */
         long ms = game_ms();
 
-        if (!paused && ms - last_drop >= gravity) {
+        if (!over && !paused && ms - last_drop >= gravity) {
             last_drop = ms;
             if (fits(ptype, prot, px, py + 1))
                 py++;
@@ -285,7 +311,7 @@ int main(void)
 
         /* Re-arm soft drop once the key has been quiet long enough to count as
          * released. */
-        if (!soft_armed && ms - last_down > SOFT_RELEASE_MS)
+        if (!over && !soft_armed && ms - last_down > SOFT_RELEASE_MS)
             soft_armed = true;
 
         /* Repaint only on a change, so a key is read within one short poll. */
