@@ -55,12 +55,14 @@ static long score;
 static int lines;
 static int level;
 
-/* A fresh piece ignores drops for a short window, so the input that finished
- * the previous piece does not immediately drive the new one. */
-#define SPAWN_HOLD_MS   250
+/* Soft drop is armed only after the key stops repeating. Locking a piece
+ * disarms it, so a key still held does not accelerate the next piece; the
+ * player must release and press again. */
+#define SOFT_RELEASE_MS 150
 
 static long last_drop;
-static long spawn_hold;
+static bool soft_armed = true;
+static long last_down;
 
 static uint32_t rng = 0x12345678;
 
@@ -148,7 +150,7 @@ static void lock_piece(void)
 
     spawn();
     last_drop = game_ms();
-    spawn_hold = last_drop + SPAWN_HOLD_MS;
+    soft_armed = false;
 }
 
 static void put_at(int row, int col, const char *s)
@@ -220,7 +222,8 @@ int main(void)
     bool dirty = true;
 
     last_drop = game_ms();
-    spawn_hold = last_drop + SPAWN_HOLD_MS;
+    soft_armed = true;
+    last_down = 0;
 
     for (;;) {
         long gravity = 700 - (level - 1) * 60;
@@ -249,13 +252,15 @@ int main(void)
                            && fits(ptype, (prot + 1) % 4, px, py)) {
                     prot = (prot + 1) % 4;
                     dirty = true;
-                } else if ((c == 's' || c == KEY_DOWN)
-                           && game_ms() >= spawn_hold) {
-                    if (fits(ptype, prot, px, py + 1))
-                        py++;
-                    else
-                        lock_piece();
-                    dirty = true;
+                } else if (c == 's' || c == KEY_DOWN) {
+                    last_down = game_ms();
+                    if (soft_armed) {
+                        if (fits(ptype, prot, px, py + 1))
+                            py++;
+                        else
+                            lock_piece();
+                        dirty = true;
+                    }
                 } else if (c == ' ') {
                     while (fits(ptype, prot, px, py + 1))
                         py++;
@@ -269,7 +274,7 @@ int main(void)
          * must not slow the drop. */
         long ms = game_ms();
 
-        if (!paused && ms >= spawn_hold && ms - last_drop >= gravity) {
+        if (!paused && ms - last_drop >= gravity) {
             last_drop = ms;
             if (fits(ptype, prot, px, py + 1))
                 py++;
@@ -277,6 +282,11 @@ int main(void)
                 lock_piece();
             dirty = true;
         }
+
+        /* Re-arm soft drop once the key has been quiet long enough to count as
+         * released. */
+        if (!soft_armed && ms - last_down > SOFT_RELEASE_MS)
+            soft_armed = true;
 
         /* Repaint only on a change, so a key is read within one short poll. */
         if (dirty) {
