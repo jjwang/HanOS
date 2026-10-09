@@ -71,14 +71,32 @@ void game_menu(const char *s)
 
     game_size(&rows, &cols);
 
+    /* Redraw the whole row: centre the text and pad with spaces so a shorter
+     * menu overwrites the previous one instead of leaving its tail. */
+    char line[160];
     int len = (int) strlen(s);
-    int col = (cols - len) / 2;
 
-    if (col < 1)
-        col = 1;
+    if (len > cols)
+        len = cols;
 
-    /* Clear the row first: a shorter menu must not leave the old one behind. */
-    printf("\033[%d;1H\033[2K\033[%d;%dH\033[0m%s", rows, rows, col, s);
+    int pad = (cols - len) / 2;
+
+    if (pad < 0)
+        pad = 0;
+
+    int i = 0;
+    int cap = (int) sizeof(line) - 1;
+
+    for (; i < pad && i < cap; i++)
+        line[i] = ' ';
+    for (int j = 0; j < len && i < cap; j++)
+        line[i++] = s[j];
+    for (; i < cols && i < cap; i++)
+        line[i] = ' ';
+    line[i] = '\0';
+
+    printf("\033[%d;1H\033[0m%s", rows, line);
+    fflush(stdout);
 }
 
 static int poll_byte(int timeout_ms)

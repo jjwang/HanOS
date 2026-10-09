@@ -121,6 +121,25 @@ static void reset_game(void)
     spawn();
 }
 
+/* Centre text in a space-wide band, so the game-over bar spans the whole
+ * well rather than hugging the words. */
+static void center_band(char *out, const char *text, int space)
+{
+    int n = (int) strlen(text);
+    int pad = (space - n) / 2;
+    int i = 0;
+
+    if (pad < 0)
+        pad = 0;
+    for (; i < pad; i++)
+        out[i] = ' ';
+    for (int j = 0; j < n && i < space; j++)
+        out[i++] = text[j];
+    while (i < space)
+        out[i++] = ' ';
+    out[i] = '\0';
+}
+
 static void lock_piece(void)
 {
     const uint16_t m = shapes[ptype][prot];
@@ -197,11 +216,18 @@ static void draw(void)
 
     if (over) {
         /* Reverse video reads white-on-black whatever the palette does to the
-         * ANSI colours. */
-        f += sprintf(frame + f, "\033[%d;%dH\033[7m GAME OVER \033[0m",
-                     WELL_ROW + BH / 2, well_col + 6);
-        f += sprintf(frame + f, "\033[%d;%dH\033[7m score %-4ld \033[0m",
-                     WELL_ROW + BH / 2 + 2, well_col + 5);
+         * ANSI colours. The bar spans the full well width. */
+        char b1[WELL_W + 1];
+        char b2[WELL_W + 1];
+        char sc[24];
+
+        snprintf(sc, sizeof(sc), "score %ld", score);
+        center_band(b1, "GAME OVER", WELL_W);
+        center_band(b2, sc, WELL_W);
+        f += sprintf(frame + f, "\033[%d;%dH\033[7m%s\033[0m",
+                     WELL_ROW + BH / 2 - 1, well_col, b1);
+        f += sprintf(frame + f, "\033[%d;%dH\033[7m%s\033[0m",
+                     WELL_ROW + BH / 2 + 1, well_col, b2);
     }
 
     fwrite(frame, 1, (size_t) f, stdout);
