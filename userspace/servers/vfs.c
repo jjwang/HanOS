@@ -27,6 +27,7 @@
 #include <protocol.h>
 #include <string.h>
 #include <sysfunc.h>
+#include <time.h>
 
 /* Where the server maps an incoming memory object (path or data). */
 #define VFS_BUF_VADDR       0x20000000
@@ -77,6 +78,7 @@ typedef struct {
     char *data;
     uint64_t size;
     uint64_t cap;
+    uint32_t mtime;
 } vfs_dyn_t;
 
 static vfs_ent_t ents[VFS_MAX_ENTS];
@@ -412,14 +414,18 @@ static int64_t idx_mtime(int32_t i)
     if (i == ROOT_INDEX)
         return root_mtime;
     if (idx_is_dyn(i))
-        return 0;
+        return dyns[i - ent_count].mtime;
     return ents[i].mtime;
 }
 
 static uint32_t idx_mode(int32_t i)
 {
-    if (i == ROOT_INDEX || idx_is_dyn(i))
+    if (i == ROOT_INDEX || idx_is_dir(i))
         return 0755;
+    if (idx_is_symlink(i))
+        return 0777;
+    if (idx_is_dyn(i))
+        return 0644;
     return (ents[i].mode != 0) ? ents[i].mode : 0644;
 }
 
@@ -468,6 +474,11 @@ static int32_t dyn_alloc(const char *path)
             dyns[i].used = false;
             return -1;
         }
+
+        struct timespec ts = { 0, 0 };
+
+        clock_gettime(CLOCK_REALTIME, &ts);
+        dyns[i].mtime = (uint32_t) ts.tv_sec;
         return ent_count + i;
     }
     return -1;
