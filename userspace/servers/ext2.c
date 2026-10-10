@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sysfunc.h>
+#include <time.h>
 
 #define SEC                 512
 #define EXT2_BLK_ADDR       0x20000000  /* block I/O memory-object mapping */
@@ -1243,9 +1244,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                 /* Fresh inode: regular file, mode 0644, one link. */
                 uint8_t ni[256];
+                struct timespec ts = { 0, 0 };
 
+                clock_gettime(CLOCK_REALTIME, &ts);
                 memset(ni, 0, sizeof(ni));
                 wr16(ni + 0, 0x81A4);
+                wr32(ni + 8, (uint32_t) ts.tv_sec);     /* atime */
+                wr32(ni + 12, (uint32_t) ts.tv_sec);    /* ctime */
+                wr32(ni + 16, (uint32_t) ts.tv_sec);    /* mtime */
                 wr16(ni + 26, 1);
                 inode_write(nino, ni);
 
