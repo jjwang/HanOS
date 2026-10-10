@@ -275,8 +275,25 @@ int main(int argc, char *argv[])
 
         int c = read_key();
 
-        if (c == 0x11)          /* Ctrl-Q */
-            break;
+        if (c == 0x11) {        /* Ctrl-Q */
+            if (!dirty)
+                break;
+
+            printf("\033[%d;1H\033[7m\033[K"
+                   " Save changes? [y]es [n]o, any other key cancels \033[0m",
+                   rows);
+            fflush(stdout);
+
+            int a = read_key();
+
+            if (a == 'y' || a == 'Y') {
+                save();
+                break;
+            }
+            if (a == 'n' || a == 'N')
+                break;
+            continue;           /* cancelled: redraw and keep editing */
+        }
         if (c == 0x13) {        /* Ctrl-S */
             save();
             continue;
