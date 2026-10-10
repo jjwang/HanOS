@@ -1,0 +1,13 @@
+<map id="kernel/arch/x64/madt.h" name="kernel/arch/x64/madt.h">
+<area shape="rect" id="Node000001" title="Definition of ACPI MADT (Multiple APIC Description Table) related data structures." alt="" coords="384,5,556,31"/>
+<area shape="rect" id="Node000002" href="$de/d52/acpi_8c.html" title="Implementation of ACPI (Advanced Configuration and Power Management Interface) functions." alt="" coords="5,79,169,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="396,36,150,81,149,76,395,31"/>
+<area shape="rect" id="Node000003" href="$d7/d00/apic_8c.html" title="Implementation of APIC (Advanced Programmable Interrupt Controller) functions." alt="" coords="193,79,357,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="427,38,308,81,306,76,425,33"/>
+<area shape="rect" id="Node000004" href="$dd/d61/ioapic_8c.html" title="Minimal I/O APIC redirection&#45;table programming." alt="" coords="382,79,558,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="473,44,473,79,467,79,467,44"/>
+<area shape="rect" id="Node000005" href="$de/d50/madt_8c.html" title="Implementation of ACPI MADT (Multiple APIC Description Table) functions." alt="" coords="582,79,753,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="515,33,636,76,634,81,514,38"/>
+<area shape="rect" id="Node000006" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="777,79,942,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="546,30,797,76,796,81,545,36"/>
+</map>

@@ -1,0 +1,16 @@
+<map id="kernel/device/display" name="kernel/device/display">
+<area shape="rect" id="node1" href="dir_6c699da4d1512d3b1b6868ecbfc1ccdf.html" title="display" alt="" coords="107,52,176,77"/>
+<area shape="rect" id="node2" href="dir_4a04b9aac4eefdd334a78e565f4616f2.html" title="arch" alt="" coords="5,125,56,151"/>
+<area shape="poly" id="edge1" href="dir_000003_000000.html" alt="" coords="125,80,62,120,59,115,122,75"/>
+<area shape="rect" id="edge1-headlabel" href="dir_000003_000000.html" title="8" alt="" coords="64,115,73,130"/>
+<area shape="rect" id="node3" href="dir_afe766e3af9a89d485242b31631c9c37.html" title="proc" alt="" coords="80,125,131,151"/>
+<area shape="poly" id="edge2" href="dir_000003_000011.html" alt="" coords="138,79,120,114,115,112,133,76"/>
+<area shape="rect" id="edge2-headlabel" href="dir_000003_000011.html" title="2" alt="" coords="122,106,132,120"/>
+<area shape="rect" id="node4" href="dir_b1e57d24e944d662f3ea8849fcb08ace.html" title="mm" alt="" coords="155,125,203,151"/>
+<area shape="poly" id="edge3" href="dir_000003_000010.html" alt="" coords="150,76,169,112,164,115,145,79"/>
+<area shape="rect" id="edge3-headlabel" href="dir_000003_000010.html" title="1" alt="" coords="167,98,176,113"/>
+<area shape="rect" id="node5" href="dir_c883bf649c7845365059c82cfcfc2919.html" title="lib" alt="" coords="227,125,266,151"/>
+<area shape="poly" id="edge4" href="dir_000003_000009.html" alt="" coords="160,75,220,115,217,120,157,80"/>
+<area shape="rect" id="edge4-headlabel" href="dir_000003_000009.html" title="11" alt="" coords="210,101,228,115"/>
+<area shape="rect" id="clust1" href="dir_4dc1b7c9c515ea8439ed34903c24ff05.html" title="device" alt="" coords="96,16,187,88"/>
+</map>

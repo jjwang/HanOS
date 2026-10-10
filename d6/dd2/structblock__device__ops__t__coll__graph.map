@@ -1,0 +1,5 @@
+<map id="block_device_ops_t" name="block_device_ops_t">
+<area shape="rect" id="Node000001" title="Operations table for a block (sector&#45;addressable) device." alt="" coords="5,93,155,119"/>
+<area shape="rect" id="Node000002" href="$dc/ddc/structdevice__info__t.html" title="Common device interface shared by all device types." alt="" coords="25,5,135,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="83,45,83,93,77,93,77,45"/>
+</map>

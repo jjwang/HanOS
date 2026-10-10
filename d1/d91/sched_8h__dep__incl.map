@@ -1,0 +1,59 @@
+<map id="kernel/proc/sched.h" name="kernel/proc/sched.h">
+<area shape="rect" id="Node000001" title="Definition of scheduling related functions." alt="" coords="2323,5,2471,31"/>
+<area shape="rect" id="Node000002" href="$d6/d85/hpet_8c.html" title="Implementation of HPET (High Precision Event Timer) functions." alt="" coords="5,86,172,111"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="2308,22,1885,26,1271,35,644,53,383,66,185,81,139,89,138,83,184,76,382,60,644,48,1271,30,1885,21,2308,17"/>
+<area shape="rect" id="Node000003" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="197,86,349,111"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="2309,22,1916,26,1352,35,780,53,541,66,361,81,319,89,318,83,360,76,541,60,780,48,1352,30,1916,21,2309,17"/>
+<area shape="rect" id="Node000004" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="373,86,538,111"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="2309,23,1948,28,1440,39,926,56,712,68,550,81,506,89,505,83,550,76,712,62,926,51,1440,33,1948,23,2309,18"/>
+<area shape="rect" id="Node000005" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="562,79,722,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="2309,23,1526,40,1069,57,878,68,734,81,723,83,722,78,734,76,878,63,1068,52,1525,35,2308,18"/>
+<area shape="rect" id="Node000006" href="$d0/d15/xhci_8c.html" title="Minimal xHCI host controller and USB HID pointer support." alt="" coords="746,86,925,111"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="2309,21,2071,22,1732,29,1338,47,1135,62,937,81,890,89,889,83,936,76,1135,57,1337,42,1732,24,2071,17,2309,16"/>
+<area shape="rect" id="Node000007" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="949,86,1063,111"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="2309,23,2042,29,1685,40,1332,57,1185,68,1074,81,1042,89,1041,83,1074,76,1185,63,1332,52,1685,35,2042,24,2309,18"/>
+<area shape="rect" id="Node000008" href="$d2/d42/ipc_8c.html" title="Implementation of synchronous IPC endpoints." alt="" coords="1087,86,1205,111"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="2309,24,1753,43,1443,59,1315,70,1217,81,1184,89,1183,83,1216,76,1314,64,1443,54,1753,37,2309,19"/>
+<area shape="rect" id="Node000009" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="1229,86,1377,111"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="2309,23,2138,26,1909,35,1650,53,1389,81,1350,89,1349,83,1388,76,1650,47,1909,30,2138,21,2308,17"/>
+<area shape="rect" id="Node000010" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="1401,86,1520,111"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="2309,23,2161,26,1967,36,1751,53,1533,81,1500,89,1499,83,1532,76,1750,48,1967,30,2160,21,2308,17"/>
+<area shape="rect" id="Node000011" href="$d6/d15/klog_8c.html" title="Implementation of kernel log related functions." alt="" coords="1545,86,1670,111"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="2309,25,2029,41,1856,58,1682,81,1648,89,1647,83,1682,76,1855,52,2029,36,2309,19"/>
+<area shape="rect" id="Node000012" href="$d5/db8/ipc__buf_8c.html" title="Implementation of bulk&#45;transfer helpers." alt="" coords="1695,86,1848,111"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="2309,29,2103,49,1860,81,1821,89,1820,83,1859,76,2103,44,2308,24"/>
+<area shape="rect" id="Node000013" href="$da/d77/uaccess_8c.html" title="Implementation of safe user&#45;space memory access helpers." alt="" coords="1872,86,2031,111"/>
+<area shape="poly" id="edge12_Node000001_Node000013" title=" " alt="" coords="2311,35,2042,81,2005,89,2004,83,2042,76,2310,30"/>
+<area shape="rect" id="Node000014" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="2055,86,2213,111"/>
+<area shape="poly" id="edge13_Node000001_Node000014" title=" " alt="" coords="2346,37,2173,89,2171,83,2345,32"/>
+<area shape="rect" id="Node000015" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="2238,86,2385,111"/>
+<area shape="poly" id="edge14_Node000001_Node000015" title=" " alt="" coords="2376,42,2326,88,2322,84,2372,38"/>
+<area shape="rect" id="Node000016" href="$d8/d36/signal_8c.html" title="Implementation of signal handling functions." alt="" coords="2409,86,2557,111"/>
+<area shape="poly" id="edge15_Node000001_Node000016" title=" " alt="" coords="2422,38,2472,84,2469,88,2418,42"/>
+<area shape="rect" id="Node000017" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="2582,86,2737,111"/>
+<area shape="poly" id="edge16_Node000001_Node000017" title=" " alt="" coords="2449,32,2622,83,2620,89,2447,37"/>
+<area shape="rect" id="Node000018" href="$d8/d42/router_8c.html" title="Implementation of the kernel&#45;side service router." alt="" coords="2761,86,2920,111"/>
+<area shape="poly" id="edge17_Node000001_Node000018" title=" " alt="" coords="2482,30,2749,76,2787,83,2786,89,2748,81,2481,35"/>
+<area shape="rect" id="Node000019" href="$de/dde/block__srv_8c.html" title="Spawn the userspace block server." alt="" coords="2945,86,3107,111"/>
+<area shape="poly" id="edge18_Node000001_Node000019" title=" " alt="" coords="2485,24,2690,44,2933,76,2974,83,2973,89,2932,81,2690,50,2485,29"/>
+<area shape="rect" id="Node000020" href="$d5/d73/console__srv_8c.html" title="Spawn the userspace console server and forward output to it." alt="" coords="3132,79,3272,119"/>
+<area shape="poly" id="edge19_Node000001_Node000020" title=" " alt="" coords="2485,20,2768,37,2944,53,3120,76,3132,78,3131,83,3119,81,2943,59,2768,42,2484,25"/>
+<area shape="rect" id="Node000021" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="3296,86,3452,111"/>
+<area shape="poly" id="edge20_Node000001_Node000021" title=" " alt="" coords="2484,18,2835,34,3059,51,3285,76,3326,83,3325,89,3284,81,3059,56,2835,39,2484,24"/>
+<area shape="rect" id="Node000022" href="$d2/dc5/fat32__srv_8c.html" title="Spawn and probe the userspace FAT32 server." alt="" coords="3476,86,3637,111"/>
+<area shape="poly" id="edge21_Node000001_Node000022" title=" " alt="" coords="2485,17,2664,21,2908,30,3185,48,3465,76,3508,83,3507,89,3464,81,3184,53,2908,35,2664,26,2485,23"/>
+<area shape="rect" id="Node000023" href="$dc/d70/input__srv_8c.html" title="Spawn and drive the userspace input server." alt="" coords="3662,86,3822,111"/>
+<area shape="poly" id="edge22_Node000001_Node000023" title=" " alt="" coords="2484,16,2692,18,2981,26,3313,44,3484,58,3650,76,3693,83,3693,89,3650,81,3483,63,3313,49,2981,31,2692,23,2484,22"/>
+<area shape="rect" id="Node000024" href="$d1/de9/net__srv_8c.html" title="Spawn the userspace network server." alt="" coords="3847,86,3995,111"/>
+<area shape="poly" id="edge23_Node000001_Node000024" title=" " alt="" coords="2485,18,3162,37,3550,54,3712,64,3834,76,3876,83,3875,89,3834,81,3711,69,3550,59,3162,42,2484,24"/>
+<area shape="rect" id="Node000025" href="$db/dda/pipe__srv_8c.html" title="Spawn the userspace pipe server." alt="" coords="4019,86,4174,111"/>
+<area shape="poly" id="edge24_Node000001_Node000025" title=" " alt="" coords="2484,18,3243,35,3684,52,3868,63,4008,76,4050,83,4049,89,4007,81,3868,69,3684,58,3243,40,2484,23"/>
+<area shape="rect" id="Node000026" href="$dd/d1b/process__srv_8c.html" title="Spawn the userspace process server." alt="" coords="4199,79,4339,119"/>
+<area shape="poly" id="edge25_Node000001_Node000026" title=" " alt="" coords="2484,17,2834,22,3326,32,3823,49,4030,61,4186,76,4199,78,4198,83,4186,81,4029,67,3822,54,3326,37,2834,27,2484,23"/>
+<area shape="rect" id="Node000027" href="$dc/d47/svc__monitor_8c.html" title="Restart a crashed service server." alt="" coords="4363,86,4543,111"/>
+<area shape="poly" id="edge26_Node000001_Node000027" title=" " alt="" coords="2485,18,2864,23,3404,33,3950,51,4179,62,4352,76,4400,83,4399,89,4351,81,4178,68,3950,56,3403,39,2864,28,2485,23"/>
+<area shape="rect" id="Node000028" href="$df/d5c/tty__srv_8c.html" title="Spawn and drive the userspace tty server." alt="" coords="4567,86,4712,111"/>
+<area shape="poly" id="edge27_Node000001_Node000028" title=" " alt="" coords="2485,17,2899,19,3498,28,4108,45,4363,59,4556,76,4596,83,4595,89,4555,81,4363,64,4108,51,3498,33,2899,25,2485,22"/>
+<area shape="rect" id="Node000029" href="$d9/de9/vfs__srv_8c.html" title="Spawn the userspace VFS server." alt="" coords="4737,86,4883,111"/>
+<area shape="poly" id="edge28_Node000001_Node000029" title=" " alt="" coords="2485,17,2928,19,3576,26,4239,44,4516,58,4725,76,4766,83,4765,89,4724,81,4515,63,4238,49,3576,32,2928,24,2485,22"/>
+</map>

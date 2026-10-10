@@ -1,0 +1,28 @@
+var gfx_8c =
+[
+    [ "gfx_clear_interrupts", "dc/da6/gfx_8c.html#a1883ee5d0fe0ef3b9249f04f05421ff4", null ],
+    [ "gfx_configure_cursor", "dc/da6/gfx_8c.html#a9db916adc235bafbe64fe407ca458784", null ],
+    [ "gfx_configure_plane", "dc/da6/gfx_8c.html#ab2685605683bfcc33f6f0d69545e0325", null ],
+    [ "gfx_configure_rc6", "dc/da6/gfx_8c.html#a479a9b0f77dab16bae40e91a0e09ecc2", null ],
+    [ "gfx_disable_cursor", "dc/da6/gfx_8c.html#a56a883074b28c7402a273e8cbd4004a9", null ],
+    [ "gfx_disable_interrupts", "dc/da6/gfx_8c.html#a839e1297fc8bf3a54486a5054d1ca7b3", null ],
+    [ "gfx_disable_pipe", "dc/da6/gfx_8c.html#acb31881e3f491941d397f79af31254b7", null ],
+    [ "gfx_disable_vga", "dc/da6/gfx_8c.html#af61d247c31b2ca7968634964a9c9dd5d", null ],
+    [ "gfx_enable_interrupts", "dc/da6/gfx_8c.html#a87f8d3be8e1450e33487b1bffca751ff", null ],
+    [ "gfx_enable_pipe", "dc/da6/gfx_8c.html#aa29c1965d934328d644267d53fb66a33", null ],
+    [ "gfx_get_display_info", "dc/da6/gfx_8c.html#ab644678b4534c3eb8dcae628daea016b", null ],
+    [ "gfx_get_gpu_freq", "dc/da6/gfx_8c.html#ac53b4ade41f31ee3258fde1d665ba516", null ],
+    [ "gfx_get_interrupts", "dc/da6/gfx_8c.html#aa22e68c36c62a033b1279c67888e6479", null ],
+    [ "gfx_get_pci", "dc/da6/gfx_8c.html#af5248effb3647da9fd3eddef3203de62", null ],
+    [ "gfx_get_perf_status", "dc/da6/gfx_8c.html#a7a1993875acf8d190689c3eaa744346f", null ],
+    [ "gfx_gtt_clear", "dc/da6/gfx_8c.html#a03f1e23bc8192d31cadda9f9f24713f2", null ],
+    [ "gfx_gtt_map", "dc/da6/gfx_8c.html#ae190ebc5024e1e6c5f518c8fc3499620", null ],
+    [ "gfx_gtt_write_entry", "dc/da6/gfx_8c.html#a9ee51e371a0d496d1995a3fcb0b126cc", null ],
+    [ "gfx_is_pipe_enabled", "dc/da6/gfx_8c.html#aece1a895a2983c98698aefd4feaa536e", null ],
+    [ "gfx_set_gpu_freq", "dc/da6/gfx_8c.html#a81e4250e60cbaaf6403f2ab0defc00f2", null ],
+    [ "gfx_set_plane_fb", "dc/da6/gfx_8c.html#a4750ee5fd049a8cc3bb9fb705f5722f9", null ],
+    [ "gfx_set_timing", "dc/da6/gfx_8c.html#aa191d4aae4c1b6f59ac6b89c941873ec", null ],
+    [ "gfx_test_advanced_features", "dc/da6/gfx_8c.html#a3dae6e4c15612fccfa5981b3a066e622", null ],
+    [ "gfx_wait_pipe_state", "dc/da6/gfx_8c.html#aec16c87eeee33d4ddb56cc3d46037da2", null ],
+    [ "gfx_wait_vblank", "dc/da6/gfx_8c.html#a3abbe48923305625f8a4f0e4162819be", null ]
+];

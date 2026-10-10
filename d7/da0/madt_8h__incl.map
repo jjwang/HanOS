@@ -1,0 +1,10 @@
+<map id="kernel/arch/x64/madt.h" name="kernel/arch/x64/madt.h">
+<area shape="rect" id="Node000001" title="Definition of ACPI MADT (Multiple APIC Description Table) related data structures." alt="" coords="5,5,177,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="7,152,77,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="89,32,71,80,52,139,47,138,66,78,84,30"/>
+<area shape="rect" id="Node000003" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="80,79,201,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="102,29,127,66,123,69,97,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="126,106,71,146,68,142,123,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="101,152,273,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="151,103,174,139,170,142,146,106"/>
+</map>

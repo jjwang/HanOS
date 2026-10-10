@@ -1,0 +1,10 @@
+<map id="userspace/bin" name="userspace/bin">
+<area shape="rect" id="node1" href="dir_2b72e056e8f8f45f6b4c64a3f74f09c7.html" title="include" alt="" coords="27,125,96,151"/>
+<area shape="rect" id="node2" href="dir_0a76b138dc6a19d2ed2a05e23c76f566.html" title="bin" alt="" coords="47,52,89,77"/>
+<area shape="poly" id="edge1" href="dir_000001_000006.html" alt="" coords="70,78,66,112,61,112,64,77"/>
+<area shape="rect" id="edge1-headlabel" href="dir_000001_000006.html" title="9" alt="" coords="68,101,77,115"/>
+<area shape="rect" id="node3" href="dir_dc43877d82dd332f9fb2071fcca799d6.html" title="kernel" alt="" coords="121,125,183,151"/>
+<area shape="poly" id="edge2" href="dir_000001_000008.html" alt="" coords="83,75,129,114,126,118,80,79"/>
+<area shape="rect" id="edge2-headlabel" href="dir_000001_000008.html" title="12" alt="" coords="121,100,138,114"/>
+<area shape="rect" id="clust1" href="dir_e97933879fd7fd8a82ba7d3e7b04caa6.html" title="userspace" alt="" coords="16,16,107,161"/>
+</map>

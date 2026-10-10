@@ -1,0 +1,7 @@
+<map id="net_sock_t" name="net_sock_t">
+<area shape="rect" id="Node000001" title="A datagram socket and its receive queue." alt="" coords="56,93,148,119"/>
+<area shape="rect" id="Node000002" href="$d3/d99/structtcp__seg__t.html" title="One unacknowledged outgoing segment." alt="" coords="5,5,89,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="64,41,97,91,92,94,60,44"/>
+<area shape="rect" id="Node000003" href="$df/ddf/structtcp__ooo__t.html" title="One out&#45;of&#45;order incoming segment." alt="" coords="114,5,199,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="144,44,112,94,107,91,140,41"/>
+</map>

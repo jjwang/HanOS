@@ -1,0 +1,14 @@
+<map id="kernel/lib/klog.h" name="kernel/lib/klog.h">
+<area shape="rect" id="Node000001" title="Definition of kernel log related functions." alt="" coords="115,5,242,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,80,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="158,33,78,75,76,70,156,28"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="104,79,179,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="175,32,156,68,151,65,170,30"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="181,152,251,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="184,30,212,138,207,139,179,32"/>
+<area shape="rect" id="Node000005" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="254,79,362,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="201,28,276,69,273,74,198,33"/>
+<area shape="poly" id="edge6_Node000005_Node000004" title=" " alt="" coords="295,106,243,146,240,141,292,102"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="276,152,359,177"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="312,104,317,138,311,139,307,105"/>
+</map>

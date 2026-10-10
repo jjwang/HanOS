@@ -1,0 +1,11 @@
+<map id="kernel/arch/x64/ioapic.h" name="kernel/arch/x64/ioapic.h">
+<area shape="rect" id="Node000001" title="Definition of the I/O APIC helpers." alt="" coords="277,5,454,31"/>
+<area shape="rect" id="Node000002" href="$d5/d05/idt_8c.html" title="Implementation of idt related functions." alt="" coords="5,79,160,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="307,37,129,81,128,76,306,31"/>
+<area shape="rect" id="Node000003" href="$dd/d61/ioapic_8c.html" title="Minimal I/O APIC redirection&#45;table programming." alt="" coords="184,79,360,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="341,41,289,81,286,76,338,37"/>
+<area shape="rect" id="Node000004" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="384,79,536,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="393,37,446,76,443,81,390,41"/>
+<area shape="rect" id="Node000005" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="561,79,679,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="420,32,579,76,578,81,419,37"/>
+</map>

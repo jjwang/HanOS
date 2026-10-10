@@ -1,0 +1,14 @@
+<map id="kernel/device/display/display_mode.h" name="kernel/device/display/display_mode.h">
+<area shape="rect" id="Node000001" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="181,5,341,45"/>
+<area shape="rect" id="Node000002" href="$d1/de2/display__mode_8c.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="5,93,165,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="212,54,125,96,123,91,209,49"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="123,181,283,221"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="247,59,231,94,217,141,208,182,203,181,212,140,225,92,242,56"/>
+<area shape="rect" id="Node000004" href="$d2/d93/skl__display_8h.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="240,93,400,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="284,55,309,92,305,95,280,58"/>
+<area shape="rect" id="Node000006" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="425,101,543,126"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="324,48,455,98,453,103,322,53"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="284,144,230,183,227,179,281,140"/>
+<area shape="rect" id="Node000005" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="307,181,467,221"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="345,143,374,179,370,183,341,146"/>
+</map>

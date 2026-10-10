@@ -1,0 +1,5 @@
+<map id="listcmd_t" name="listcmd_t">
+<area shape="rect" id="Node000001" title="Two commands run in sequence." alt="" coords="5,108,88,133"/>
+<area shape="rect" id="Node000002" href="$d5/d37/structcmd__t.html" title="Base header for a parsed shell command." alt="" coords="15,5,78,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="49,45,49,108,44,108,44,45"/>
+</map>

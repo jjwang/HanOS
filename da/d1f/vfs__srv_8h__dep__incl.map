@@ -1,0 +1,7 @@
+<map id="kernel/srv/vfs_srv.h" name="kernel/srv/vfs_srv.h">
+<area shape="rect" id="Node000001" title="Spawn the userspace VFS server and register it with the router." alt="" coords="69,5,217,31"/>
+<area shape="rect" id="Node000002" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="5,79,124,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="122,42,79,80,76,76,119,38"/>
+<area shape="rect" id="Node000003" href="$d9/de9/vfs__srv_8c.html" title="Spawn the userspace VFS server." alt="" coords="149,79,295,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="168,38,211,76,207,80,164,42"/>
+</map>

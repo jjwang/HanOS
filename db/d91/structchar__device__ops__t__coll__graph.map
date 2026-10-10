@@ -1,0 +1,5 @@
+<map id="char_device_ops_t" name="char_device_ops_t">
+<area shape="rect" id="Node000001" title="Operations table for a character (byte&#45;stream) device." alt="" coords="5,93,148,119"/>
+<area shape="rect" id="Node000002" href="$dc/ddc/structdevice__info__t.html" title="Common device interface shared by all device types." alt="" coords="22,5,131,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="79,45,79,93,74,93,74,45"/>
+</map>

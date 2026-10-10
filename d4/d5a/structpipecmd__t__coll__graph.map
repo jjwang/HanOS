@@ -1,0 +1,5 @@
+<map id="pipecmd_t" name="pipecmd_t">
+<area shape="rect" id="Node000001" title="Two commands joined by a pipe." alt="" coords="5,108,96,133"/>
+<area shape="rect" id="Node000002" href="$d5/d37/structcmd__t.html" title="Base header for a parsed shell command." alt="" coords="19,5,82,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="53,45,53,108,48,108,48,45"/>
+</map>

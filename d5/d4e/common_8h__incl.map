@@ -1,0 +1,7 @@
+<map id="userspace/games/common.h" name="userspace/games/common.h">
+<area shape="rect" id="Node000001" title="Shared terminal and timing runtime for the HanOS games." alt="" coords="5,5,215,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="18,79,101,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="104,33,78,69,73,66,99,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="125,79,196,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="121,29,147,66,142,69,116,33"/>
+</map>

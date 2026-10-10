@@ -1,0 +1,18 @@
+<map id="kernel/device/display/gfx.h" name="kernel/device/display/gfx.h">
+<area shape="rect" id="Node000001" title="Graphics device handling definitions." alt="" coords="403,5,563,45"/>
+<area shape="rect" id="Node000002" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="5,181,165,221"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="389,35,311,42,229,54,158,72,131,83,113,95,99,115,91,137,87,181,81,181,86,136,94,112,109,91,129,78,156,67,228,49,310,37,389,29"/>
+<area shape="rect" id="Node000003" href="$d2/d93/skl__display_8h.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="123,93,283,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="409,52,265,96,263,91,407,47"/>
+<area shape="rect" id="Node000005" href="$d0/d15/xhci_8c.html" title="Minimal xHCI host controller and USB HID pointer support." alt="" coords="307,101,485,126"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="456,57,410,102,406,98,452,53"/>
+<area shape="rect" id="Node000006" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="510,101,629,126"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="514,53,559,98,555,102,510,57"/>
+<area shape="rect" id="Node000007" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="652,101,807,126"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="551,47,697,98,696,103,549,52"/>
+<area shape="rect" id="Node000008" href="$dc/d70/input__srv_8c.html" title="Spawn and drive the userspace input server." alt="" coords="831,101,991,126"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="576,42,819,91,855,98,854,103,818,96,575,48"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="167,144,113,183,110,179,164,140"/>
+<area shape="rect" id="Node000004" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="189,181,349,221"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="228,143,257,179,252,183,224,146"/>
+</map>
