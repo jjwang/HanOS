@@ -425,6 +425,13 @@ bool gfx_init(void)
         }
     }
 
+    /* The firmware framebuffer keeps the pipe scanning, so the cursor plane
+     * can be armed on the same pipe even without the eDP modeset. */
+    if (limine_fb != NULL
+        && skl_cursor_init(&gfx_pci, &gfx_mgr, &gfx_gtt, limine_fb->width,
+                           limine_fb->height))
+        skl_cursor_selftest();
+
     return true;
 }
 
