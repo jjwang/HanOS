@@ -35,6 +35,7 @@
 #include <srv/tty_srv.h>
 #include <router/router.h>
 #include <proc/sched.h>
+#include <proc/syscall.h>
 #include <arch/x64/smp.h>
 
 /* Maximum one VFS request reads/writes. A large file reaches the caller in a
@@ -506,10 +507,18 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
 
     int64_t rc = (int64_t) rep.words[0];
 
-    if (rc == VFS_REDIRECT_FAT)
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+
+        if (rel == NULL) {
+            memobj_unref(mo);
+            return -1;
+        }
+        rc = ext2_unlink_path(rel);
+        kmfree(rel);
+    } else if (rc == VFS_REDIRECT_FAT) {
         rc = -30;               /* -EROFS: the FAT mount is read-only */
-    if (rc == VFS_REDIRECT_EXT)
-        rc = -30;               /* -EROFS: the ext2 mount is read-only */
+    }
     memobj_unref(mo);
     return rc;
 }
@@ -683,16 +692,24 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         if (rel == NULL)
             return VFS_INVALID_FD;
 
-        efd = ext2_open_path(rel, &size, &is_dir, &mode);
+        /* O_CREAT opens (and creates) through the ext2 server; a plain open
+         * only resolves an existing file. */
+        if (flags & O_CREAT)
+            efd = ext2_create_path(rel, &size);
+        else
+            efd = ext2_open_path(rel, &size, &is_dir, &mode);
 
         if (efd < 0) {
             kmfree(rel);
             return VFS_INVALID_FD;
         }
+
+        vfs_openmode_t wmode = ((flags & O_ACCMODE) == O_RDONLY)
+            ? VFS_MODE_READ : VFS_MODE_READWRITE;
+
         if (svc != NULL)
             *svc = SVC_EXT;
-        vfs_fd_t fd = vfs_open_server_svc(efd, rel, VFS_MODE_READ, size,
-                                          SVC_EXT);
+        vfs_fd_t fd = vfs_open_server_svc(efd, rel, wmode, size, SVC_EXT);
         kmfree(rel);
         return fd;
     }
@@ -887,7 +904,20 @@ int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
         return vfs_pipe_rw(desc->server_fd, PIPE_WRITE, len, (void *) buff);
     if (desc->svc == SVC_TTY)
         return tty_server_write(buff, len);
+    if (desc->svc == SVC_EXT)
+        return ext2_write_fd(desc->server_fd, len, buff);
     return vfs_server_write(desc->server_fd, len, buff);
+}
+
+int64_t vfs_truncate(vfs_fd_t fd, uint64_t newsize)
+{
+    vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
+
+    if (!desc || !desc->server)
+        return -1;
+    if (desc->svc == SVC_EXT)
+        return ext2_trunc_fd(desc->server_fd, newsize);
+    return -1;
 }
 
 int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable)

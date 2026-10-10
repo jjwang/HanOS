@@ -133,6 +133,23 @@ static void ext2_copy_out(memobj_t * mo, void *dst, uint64_t len, uint64_t off)
     }
 }
 
+static void ext2_copy_in(memobj_t * mo, const void *src, uint64_t len,
+                         uint64_t off)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done, chunk);
+        done += chunk;
+    }
+}
+
 static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
                               bool *is_dir, uint32_t *mode)
 {
@@ -156,12 +173,12 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
 
     int64_t rc = -1;
     if (router_forward(SVC_EXT, &req, &rep) && (int64_t) rep.words[0] == 0) {
-        if (tag == EXT2_OPEN) {
+        if (tag == EXT2_OPEN || tag == EXT2_CREATE) {
             rc = (int64_t) rep.words[1];
             if (size != NULL)
                 *size = rep.words[2];
             if (is_dir != NULL)
-                *is_dir = rep.words[3] != 0;
+                *is_dir = false;
         } else {
             if (size != NULL)
                 *size = rep.words[1];
@@ -175,6 +192,67 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
 
     memobj_unref(mo);
     return rc;
+}
+
+int64_t ext2_create_path(const char *path, uint64_t *size)
+{
+    return ext2_path_call(EXT2_CREATE, path, size, NULL, NULL);
+}
+
+int64_t ext2_unlink_path(const char *path)
+{
+    return ext2_path_call(EXT2_UNLINK, path, NULL, NULL, NULL);
+}
+
+int64_t ext2_write_fd(int64_t fd, uint64_t len, const void *buf)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = ext2_memobj(EXT2_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    if (len > EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF)
+        len = EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF;
+    ext2_copy_in(mo, buf, len, EXT2_IO_DATA_OFF);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_WRITE;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = len;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t n = -1;
+    if (router_forward(SVC_EXT, &req, &rep) && (int64_t) rep.words[0] == 0)
+        n = (int64_t) rep.words[1];
+
+    memobj_unref(mo);
+    return n;
+}
+
+int64_t ext2_trunc_fd(int64_t fd, uint64_t newsize)
+{
+    if (!ext2_active)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_TRUNC;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = newsize;
+
+    if (!router_forward(SVC_EXT, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    return (int64_t) rep.words[1];
 }
 
 static void ext2_fill_meta(ext2_meta_t * m, const ipc_msg_t * rep)

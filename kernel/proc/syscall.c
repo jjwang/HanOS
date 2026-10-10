@@ -1569,6 +1569,23 @@ int64_t k_fsync(int64_t fd)
     return 0;
 }
 
+int64_t k_ftruncate(int64_t fd, int64_t len)
+{
+    if (len < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    int64_t r = vfs_truncate((vfs_fd_t) fd, (uint64_t) len);
+
+    if (r < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+    cpu_set_errno(0);
+    return 0;
+}
+
 #define POLLIN      0x001
 #define POLLOUT     0x004
 #define POLLNVAL    0x020
@@ -3866,6 +3883,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_CLOCK_NANOSLEEP] = (syscall_ptr_t) k_clock_nanosleep,
     [SYSCALL_SCHED_YIELD] = (syscall_ptr_t) k_sched_yield,
     [SYSCALL_FSYNC] = (syscall_ptr_t) k_fsync,
+    [SYSCALL_FTRUNCATE] = (syscall_ptr_t) k_ftruncate,
     [SYSCALL_FDATASYNC] = (syscall_ptr_t) k_fsync,
     [SYSCALL_POLL] = (syscall_ptr_t) k_poll,
     [SYSCALL_SELECT] = (syscall_ptr_t) k_select,

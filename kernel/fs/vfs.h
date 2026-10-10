@@ -221,6 +221,7 @@ uint64_t vfs_tell(vfs_fd_t fd);
 int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence);
 int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff);
 int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff);
+int64_t vfs_truncate(vfs_fd_t fd, uint64_t newsize);
 
 /* Readiness of a pipe end: 1 when readable (data or EOF) and 1 when writable.
  * Returns 0, or -1 on error. */

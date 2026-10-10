@@ -168,6 +168,12 @@
 #define EXT2_SEEK           0x85        /* words[0]=fd, words[1]=off, words[2]=whence */
 #define EXT2_FSTAT          0x86        /* words[0]=fd; out: words[1]=size,
                                            words[2]=is_dir, words[3]=mode */
+#define EXT2_CREATE         0x87        /* in: path; out: words[1]=fd, words[2]=size */
+#define EXT2_WRITE          0x88        /* words[0]=fd, words[1]=len;
+                                           xfer[1]=buffer; out: words[1]=n,
+                                           words[2]=size */
+#define EXT2_TRUNC          0x89        /* words[0]=fd, words[1]=new size */
+#define EXT2_UNLINK         0x8a        /* in: path */
 #define VFS_REDIRECT_EXT    101         /* path belongs to the ext2 mount */
 #define EXT2_IO_BUF_SIZE    (64 * 1024) /* request buffer for a bulk transfer */
 #define EXT2_IO_DATA_OFF    4096        /* payload offset inside it */

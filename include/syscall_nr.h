@@ -54,6 +54,7 @@
 #define SYSCALL_FCNTL           72
 #define SYSCALL_FSYNC           74
 #define SYSCALL_FDATASYNC       75
+#define SYSCALL_FTRUNCATE       77
 #define SYSCALL_GETCWD          79
 #define SYSCALL_CHDIR           80
 #define SYSCALL_UNLINK          87
