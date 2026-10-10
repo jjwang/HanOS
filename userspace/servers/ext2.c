@@ -1235,7 +1235,21 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 uint32_t nino = alloc_inode();
 
-                if (nino == 0 || dir_add(pdir, pino, base, nino, 1) != 0) {
+                if (nino == 0) {
+                    free(path);
+                    rep->words[0] = (uint64_t) (int64_t) -28;
+                    break;
+                }
+
+                /* Fresh inode: regular file, mode 0644, one link. */
+                uint8_t ni[256];
+
+                memset(ni, 0, sizeof(ni));
+                wr16(ni + 0, 0x81A4);
+                wr16(ni + 26, 1);
+                inode_write(nino, ni);
+
+                if (dir_add(pdir, pino, base, nino, 1) != 0) {
                     free(path);
                     rep->words[0] = (uint64_t) (int64_t) -5;
                     break;
