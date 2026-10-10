@@ -201,7 +201,7 @@ static void send_char(uint64_t key_ep, uint8_t ch)
     else if (ch == 0x7f)
         send_key(key_ep, '\b');
     else if (ch == '\n' || ch == '\b' || ch == 0x1b || ch == '\t'
-             || (ch >= 0x20 && ch < 0x7f))
+             || (ch >= 0x01 && ch < 0x7f))
         send_key(key_ep, ch);
 }
 
@@ -334,8 +334,10 @@ static void ps2_drain(uint64_t key_ep)
             if (!key_down[sc]) {
                 char ch = keyboard_get_ascii(sc, shift, caps);
 
-                if (ctrl && (ch == 'd' || ch == 'D'))
-                    key_press(key_ep, sc, 0x04, false);
+                if (ctrl && ch >= 'a' && ch <= 'z')
+                    key_press(key_ep, sc, (uint8_t) (ch - 'a' + 1), false);
+                else if (ctrl && ch >= 'A' && ch <= 'Z')
+                    key_press(key_ep, sc, (uint8_t) (ch - 'A' + 1), false);
                 else if (ch != 0)
                     key_press(key_ep, sc, (uint8_t) ch, false);
                 else
