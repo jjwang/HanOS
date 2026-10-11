@@ -55,6 +55,10 @@ Apply the points above in `kernel/device/usb/xhci.c`.
 
 Starting a game from the stick was slow. `msc_bot` drained the event ring once per stage and then slept 1 ms; a USB transfer completes in microseconds, so every command cost at least 3 ms and loading a game ELF cost hundreds. Spin on the event ring (2000 drains) before yielding, so a fast transfer never sleeps.
 
+## Follow-up: port enumeration stall
+
+`port_reset` forced RxDetect and waited for U0 on every port. An empty port never reaches U0, so each burned the full timeout and enumeration took about ten seconds. Force the link only when a device is present or the port is Disabled; enumeration drops below a second.
+
 ## Files Changed
 
 | File | Change |
