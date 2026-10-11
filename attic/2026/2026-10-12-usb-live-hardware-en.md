@@ -51,6 +51,10 @@ Apply the points above in `kernel/device/usb/xhci.c`.
 - `userspace/servers/tty.c`: buffer the serial mirror per line so a key-by-key echo does not interleave with the kernel log.
 - `userspace/servers/input.c`: drop the Pause sequence consumption (it swallowed a following break code); drive the repeat from the keyboard's typematic with a confirmation window; probe the UART scratch register before enabling serial input.
 
+## Follow-up: BOT wait latency
+
+Starting a game from the stick was slow. `msc_bot` drained the event ring once per stage and then slept 1 ms; a USB transfer completes in microseconds, so every command cost at least 3 ms and loading a game ELF cost hundreds. Spin on the event ring (2000 drains) before yielding, so a fast transfer never sleeps.
+
 ## Files Changed
 
 | File | Change |

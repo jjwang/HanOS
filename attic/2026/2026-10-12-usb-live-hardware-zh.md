@@ -51,6 +51,10 @@
 - `userspace/servers/tty.c`：串口镜像按行缓冲，逐键 echo 不再与内核日志交错。
 - `userspace/servers/input.c`：去掉 Pause 序列消耗（它会吞掉后续 break 码）；重复改由键盘 typematic 驱动并加确认窗口；启用串口输入前探测 UART scratch 寄存器。
 
+## 后续：BOT 等待延迟
+
+从 U 盘启动游戏偏慢。`msc_bot` 每阶段只轮询一次事件环就 `sched_sleep(1)`；USB 传输是微秒级，导致每个命令至少 3ms，读一个游戏 ELF 要几百毫秒。改为先自旋轮询事件环（2000 次）再让出，快传输不再睡眠。
+
 ## 变更文件
 
 | 文件 | 变更 |
