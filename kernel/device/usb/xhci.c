@@ -660,6 +660,20 @@ static void msc_recover(void)
  * the shared bounce buffer at msc.data_phys. Each stage is doorbelled and waited
  * for on its own, because the controller stops fetching a ring once a transfer
  * descriptor completes. */
+
+/* Drain events until want have arrived. Spin first, since a USB transfer
+ * completes in microseconds; yield only when it is slow. */
+static void msc_wait_events(uint32_t want)
+{
+    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < want; i++) {
+        for (uint32_t j = 0; j < 2000 && msc_evt_seen < want; j++)
+            xhci_drain();
+
+        if (msc_evt_seen < want)
+            sched_sleep(1);
+    }
+}
+
 static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
                          bool in)
 {
@@ -691,11 +705,7 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
     asm volatile ("mfence":::"memory");
     ring_doorbell(msc.slot, msc.out_dci);
 
-    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
-        xhci_drain();
-        if (msc_evt_seen < 1)
-            sched_sleep(1);
-    }
+    msc_wait_events(1);
     if (msc_evt_seen < 1) {
         klogw("USB: msc CBW timeout\n");
         return false;
@@ -715,11 +725,7 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
         asm volatile ("mfence":::"memory");
         ring_doorbell(msc.slot, in ? msc.in_dci : msc.out_dci);
 
-        for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
-            xhci_drain();
-            if (msc_evt_seen < 1)
-                sched_sleep(1);
-        }
+        msc_wait_events(1);
         if (msc_evt_seen < 1) {
             klogw("USB: msc DATA timeout len %u\n", data_len);
             return false;
@@ -733,11 +739,7 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
     asm volatile ("mfence":::"memory");
     ring_doorbell(msc.slot, msc.in_dci);
 
-    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
-        xhci_drain();
-        if (msc_evt_seen < 1)
-            sched_sleep(1);
-    }
+    msc_wait_events(1);
     if (msc_evt_seen < 1) {
         klogw("USB: msc CSW timeout\n");
         return false;
