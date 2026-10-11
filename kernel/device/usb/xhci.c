@@ -34,6 +34,7 @@
 /* Capability registers. */
 #define CAP_CAPLENGTH       0x00
 #define CAP_HCSPARAMS1      0x04
+#define CAP_HCSPARAMS2      0x08
 #define CAP_HCCPARAMS1      0x10
 #define CAP_DBOFF           0x14
 #define CAP_RTSOFF          0x18
@@ -162,6 +163,7 @@ static uint32_t evt_deq;
 static uint32_t evt_cycle;
 
 static uint64_t *dcbaa;
+static uint64_t *scratch_array;     /* DCBAAP[0]: scratchpad page addresses */
 static xhci_input_ctx_t *input_ctx;
 
 static xhci_trb_t *ep0_ring;
@@ -845,6 +847,33 @@ void usb_hid_init(void)
         || input_ctx == NULL || ep0_ring == NULL || ctrl_buf == NULL) {
         kloge("USB: out of memory for xHCI structures\n");
         return;
+    }
+
+    /* Some controllers reserve scratchpad buffers and read their addresses
+     * from DCBAAP[0]. A missing array wedges the first command and leaves the
+     * whole controller unresponsive. */
+    uint32_t hcs2 = mmio_rd(CAP_HCSPARAMS2);
+    uint32_t nscratch = (((hcs2 >> 27) & 0x1f) << 5) | ((hcs2 >> 21) & 0x1f);
+
+    if (nscratch > 0) {
+        scratch_array =
+            dma_alloc((uint64_t) nscratch * sizeof(uint64_t), NULL);
+
+        if (scratch_array == NULL) {
+            kloge("USB: out of memory for scratchpad array\n");
+            return;
+        }
+        for (uint32_t i = 0; i < nscratch; i++) {
+            uint64_t phys;
+
+            if (dma_alloc(PAGE_SIZE, &phys) == NULL) {
+                kloge("USB: out of memory for scratchpad page\n");
+                return;
+            }
+            scratch_array[i] = phys;
+        }
+        dcbaa[0] = VIRT_TO_PHYS((uint64_t) scratch_array);
+        klogi("USB: %u scratchpad buffers\n", nscratch);
     }
 
     mmio_wr(op_base + OP_CONFIG, max_slots);
