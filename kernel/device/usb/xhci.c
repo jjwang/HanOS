@@ -544,16 +544,21 @@ static bool port_reset(uint8_t port, uint8_t * speed)
         | (1u << 21) | (1u << 22) | (1u << 23);
 
     /* Force the link through RxDetect (PLS = 5) with the Link State Write
-     * Strobe. This revives a port a prior hot reset left Disabled and returns
-     * a device the firmware already configured to Default, which Address
-     * Device needs. */
-    mmio_wr(op_base + OP_PORTSC(port), keep | (5u << 5) | (1u << 16));
+     * Strobe. This returns a device the firmware already configured to
+     * Default, which Address Device needs, and revives a port a prior hot
+     * reset left Disabled. An empty port (no connect, not Disabled) needs
+     * nothing, and waiting on it would stall the whole enumeration. */
+    uint8_t pls = (uint8_t) ((portsc >> 5) & 0xf);
 
-    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS; i++) {
-        portsc = mmio_rd(op_base + OP_PORTSC(port));
-        if (((portsc >> 5) & 0xf) == 0)
-            break;
-        pit_wait(1);
+    if ((portsc & PORTSC_CCS) || pls == 4) {
+        mmio_wr(op_base + OP_PORTSC(port), keep | (5u << 5) | (1u << 16));
+
+        for (uint32_t i = 0; i < XHCI_TIMEOUT_MS; i++) {
+            portsc = mmio_rd(op_base + OP_PORTSC(port));
+            if (((portsc >> 5) & 0xf) == 0)
+                break;
+            pit_wait(1);
+        }
     }
 
     if (!(portsc & PORTSC_CCS))
