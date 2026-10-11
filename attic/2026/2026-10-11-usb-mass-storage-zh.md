@@ -70,6 +70,6 @@ live USB 在 QEMU 下能进 shell，能跑游戏。Skylake 笔记本上游戏起
 
 ## 尚未完成
 
-- 在物理笔记本上确认 scratchpad 分配。
 - HID 设备在线时，与存储传输同时使用共享事件环的场景未测。
 - 数据翻转位靠 STALL 后的 `Reset Endpoint` 复位，未做端口显式复位。
+- 物理机的端口、所有权与 TRB 修复见 2026-10-12 记录。

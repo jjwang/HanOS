@@ -70,6 +70,6 @@ Allocate the scratchpad array and its pages, point `DCBAAP[0]` at the array, and
 
 ## Not yet done
 
-- Confirm the scratchpad allocation on the physical laptop.
 - Exercise the shared event ring with an HID device and a mass-storage transfer at once.
 - Reset the bulk data toggle without a stall, instead of resetting it inside `msc_recover`.
+- The physical-machine port, ownership and TRB fixes are in the 2026-10-12 note.
