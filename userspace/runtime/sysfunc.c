@@ -495,3 +495,26 @@ int64_t sys_mem_phys(int64_t handle, uint64_t offset)
     SYSCALL2(SYSCALL_MEM_PHYS, handle, offset);
     return ret;
 }
+
+int64_t sys_usb_block_info(void)
+{
+    int64_t ret, errno;
+    SYSCALL0(SYSCALL_USB_BLOCK_INFO);
+    return ret;
+}
+
+int64_t sys_usb_block_read(uint64_t lba, uint64_t count, void *buf)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_USB_BLOCK_READ, (int64_t) lba, (int64_t) count,
+             (int64_t) (uint64_t) buf);
+    return ret;
+}
+
+int64_t sys_usb_block_write(uint64_t lba, uint64_t count, const void *buf)
+{
+    int64_t ret, errno;
+    SYSCALL3(SYSCALL_USB_BLOCK_WRITE, (int64_t) lba, (int64_t) count,
+             (int64_t) (uint64_t) buf);
+    return ret;
+}

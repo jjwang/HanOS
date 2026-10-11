@@ -300,6 +300,24 @@ static int32_t ahci_write(uint32_t lba, uint8_t count, const uint8_t *buf)
     return ahci_cmd(CMD_WRITE_DMA_EXT, lba, count, bytes, true);
 }
 
+/* USB mass storage, served by the kernel when no AHCI disk is present. Data
+ * still travels through the buffer the caller mapped at BLOCK_BUF_VADDR. */
+static bool use_usb;
+
+static int32_t blk_read(uint32_t lba, uint8_t count, uint8_t *buf)
+{
+    if (use_usb)
+        return sys_usb_block_read(lba, count, buf) < 0 ? -1 : 0;
+    return ahci_read(lba, count, buf);
+}
+
+static int32_t blk_write(uint32_t lba, uint8_t count, const uint8_t *buf)
+{
+    if (use_usb)
+        return sys_usb_block_write(lba, count, buf) < 0 ? -1 : 0;
+    return ahci_write(lba, count, buf);
+}
+
 /* --- GPT partition layer ------------------------------------------------- */
 
 #define GPT_PART_MAX        8
@@ -332,7 +350,7 @@ static void gpt_load(void)
 {
     uint8_t sec[SECTOR_SIZE];
 
-    if (ahci_read(1, 1, sec) != 0)
+    if (blk_read(1, 1, sec) != 0)
         return;
     if (rd64(sec) != 0x5452415020494645ULL)     /* "EFI PART" */
         return;
@@ -351,7 +369,7 @@ static void gpt_load(void)
         const uint8_t *e;
         bool zero = true;
 
-        if (ahci_read((uint32_t) (entry_lba + i / per), 1, esec) != 0)
+        if (blk_read((uint32_t) (entry_lba + i / per), 1, esec) != 0)
             return;
 
         e = esec + (i % per) * esz;
@@ -392,9 +410,20 @@ int32_t main(void)
         dma_phys = bi.block_dma_phys;
         memset(dma, 0, DMA_SIZE);
         have_disk = (ahci_init() == 0);
-        if (have_disk)
-            gpt_load();
     }
+
+    if (!have_disk) {
+        int64_t usb = sys_usb_block_info();
+
+        if (usb > 0) {
+            use_usb = true;
+            sector_count = (uint32_t) usb;
+            have_disk = true;
+        }
+    }
+
+    if (have_disk)
+        gpt_load();
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -428,11 +457,11 @@ int32_t main(void)
 
             if (sys_mem_map(memh, BLOCK_BUF_VADDR, PROT_READ | PROT_WRITE) == 0) {
                 if (m.tag == BLOCK_READ)
-                    rc = ahci_read((uint32_t) m.words[0], (uint8_t) m.words[1],
-                                   buf);
+                    rc = blk_read((uint32_t) m.words[0], (uint8_t) m.words[1],
+                                  buf);
                 else
-                    rc = ahci_write((uint32_t) m.words[0], (uint8_t) m.words[1],
-                                    buf);
+                    rc = blk_write((uint32_t) m.words[0], (uint8_t) m.words[1],
+                                   buf);
                 sys_mem_unmap(memh, BLOCK_BUF_VADDR);
             }
             rep.words[0] = (uint64_t) (int64_t) (rc == 0 ? BLOCK_OK : BLOCK_ERR);

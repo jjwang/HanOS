@@ -21,3 +21,16 @@ void usb_hid_init(void);
 /* Run the bring-up from a dedicated kernel thread so a slow or stuck
  * enumeration cannot block the caller. */
 void usb_hid_start(void);
+
+/* USB mass storage (Bulk-Only Transport). usb_msc_ready() reports whether a
+ * device was enumerated and its SCSI handshake succeeded; the read/write calls
+ * move 512-byte sectors through the shared bounce buffer. */
+bool usb_msc_ready(void);
+uint32_t usb_msc_sectors(void);
+bool usb_msc_read(uint32_t lba, uint32_t count, void *buf);
+bool usb_msc_write(uint32_t lba, uint32_t count, const void *buf);
+
+/* Wait for the bring-up to finish, then report whether the device is usable.
+ * Returns false on timeout or when no device was found. */
+bool usb_msc_wait(uint32_t timeout_ms);
+

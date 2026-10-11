@@ -22,6 +22,7 @@
 #include <lib/klog.h>
 #include <lib/vector.h>
 #include <lib/kmalloc.h>
+#include <lib/spinlock.h>
 #include <mm/mm.h>
 #include <arch/x64/pci.h>
 #include <arch/x64/pit.h>
@@ -64,6 +65,7 @@
 #define TRB_ENABLE_SLOT     9
 #define TRB_ADDRESS_DEVICE  11
 #define TRB_CONFIGURE_EP    12
+#define TRB_RESET_EP        17
 #define TRB_EV_TRANSFER     32
 #define TRB_EV_CMD_COMPLETE 33
 
@@ -195,11 +197,43 @@ typedef struct {
 static hid_t hids[HID_MAX];
 static int32_t nhids;
 
+#define EP_TYPE_BULK_OUT    2
+#define EP_TYPE_BULK_IN     6
+
+/* USB mass storage, Bulk-Only Transport (class 8, subclass 6, protocol 0x50).
+ * One device is enough for a live USB. */
+static struct {
+    bool ready;
+    uint8_t slot;
+    uint8_t out_dci, in_dci;
+    uint16_t out_pkt, in_pkt;
+    xhci_trb_t *out_ring, *in_ring;
+    uint64_t out_ring_phys, in_ring_phys;
+    uint32_t out_enq, out_cycle, in_enq, in_cycle;
+    uint8_t *cbw, *csw;
+    uint64_t cbw_phys, csw_phys;
+    uint8_t *data;
+    uint64_t data_phys;
+    uint32_t data_cap;
+    uint32_t tag;
+    uint32_t sectors;           /* 512-byte sectors on the device */
+} msc;
+
 static bool xhci_inited;
+
+/* Set once the bring-up thread finished enumerating (successfully or not), so
+ * a consumer can wait for the mass-storage device instead of racing startup. */
+static volatile bool usb_bringup_done;
+
+/* The HID thread and the mass-storage transfers share one event ring, so a
+ * single locked drain serves both. */
+static spinlock_t evt_lock;
+static volatile uint32_t msc_evt_seen;
 
 vec_extern(pci_device_t, pci_devices);
 
 static _Noreturn void usb_hid_thread(pid_t pid);
+static uint32_t xhci_drain(void);
 
 static uint32_t mmio_rd(uint32_t off)
 {
@@ -331,6 +365,18 @@ static uint32_t send_command(uint8_t slot, uint32_t type, uint64_t param,
     asm volatile ("mfence":::"memory");
     ring_doorbell(0, 0);
     return wait_command(slot_out);
+}
+
+/* Reset one endpoint: clears a halt and restarts its data toggle. */
+static uint32_t reset_endpoint(uint8_t slot, uint8_t dci)
+{
+    ring_enqueue(cmd_ring, &cmd_enq, &cmd_cycle, cmd_ring_phys, 0, 0,
+                 (TRB_RESET_EP << 10) | ((uint32_t) dci << 16)
+                 | ((uint32_t) slot << 24));
+
+    asm volatile ("mfence":::"memory");
+    ring_doorbell(0, 0);
+    return wait_command(NULL);
 }
 
 /* Control transfer on EP0. Returns the completion code. */
@@ -497,6 +543,229 @@ static const char *usb_class_name(uint8_t cls)
     }
 }
 
+/* Configure the two bulk endpoints of the mass-storage device in one command. */
+static bool msc_configure(uint8_t slot, uint8_t out_dci, uint16_t out_pkt,
+                          uint64_t out_ring, uint8_t in_dci, uint16_t in_pkt,
+                          uint64_t in_ring)
+{
+    input_clear();
+    input_ctx->icc.add_flags = (1u << 0) | (1u << out_dci) | (1u << in_dci);
+    input_ctx->slot.dev_info =
+        ((out_dci > in_dci) ? out_dci : in_dci) << 27;
+
+    xhci_ep_ctx_t *eo = &input_ctx->ep[out_dci - 1];
+
+    eo->info2 = (EP_TYPE_BULK_OUT << 3) | (3 << 1)
+        | ((uint32_t) out_pkt << 16);
+    eo->deq = out_ring | 1u;
+
+    xhci_ep_ctx_t *ei = &input_ctx->ep[in_dci - 1];
+
+    ei->info2 = (EP_TYPE_BULK_IN << 3) | (3 << 1)
+        | ((uint32_t) in_pkt << 16);
+    ei->deq = in_ring | 1u;
+
+    asm volatile ("mfence":::"memory");
+    return send_command(slot, TRB_CONFIGURE_EP,
+                        VIRT_TO_PHYS((uint64_t) input_ctx), NULL) == CC_SUCCESS;
+}
+
+/* BOT error recovery: reset the device, clear the bulk endpoint halts and
+ * restart the endpoints so a stalled command does not wedge the pipe. */
+static void msc_recover(void)
+{
+    uint8_t out_addr = (uint8_t) ((msc.out_dci >> 1)
+                                  | ((msc.out_dci & 1) ? 0x80 : 0));
+    uint8_t in_addr = (uint8_t) ((msc.in_dci >> 1)
+                                 | ((msc.in_dci & 1) ? 0x80 : 0));
+
+    control_xfer(msc.slot, 0x21, 0xFF, 0, 0, 0, 0);
+    control_xfer(msc.slot, 0x02, 0x01, 0, out_addr, 0, 0);
+    control_xfer(msc.slot, 0x02, 0x01, 0, in_addr, 0, 0);
+    reset_endpoint(msc.slot, msc.out_dci);
+    reset_endpoint(msc.slot, msc.in_dci);
+}
+
+/* Bulk-Only Transport: CBW (out), optional data, CSW (in). The data buffer is
+ * the shared bounce buffer at msc.data_phys. Each stage is doorbelled and waited
+ * for on its own, because the controller stops fetching a ring once a transfer
+ * descriptor completes. */
+static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
+                         bool in)
+{
+    uint8_t *cbw = msc.cbw;
+
+    memset(cbw, 0, 31);
+    cbw[0] = 0x55;              /* "USBC" */
+    cbw[1] = 0x53;
+    cbw[2] = 0x42;
+    cbw[3] = 0x43;
+    cbw[4] = (uint8_t) msc.tag;
+    cbw[5] = (uint8_t) (msc.tag >> 8);
+    cbw[6] = (uint8_t) (msc.tag >> 16);
+    cbw[7] = (uint8_t) (msc.tag >> 24);
+    msc.tag++;
+    cbw[8] = (uint8_t) data_len;
+    cbw[9] = (uint8_t) (data_len >> 8);
+    cbw[10] = (uint8_t) (data_len >> 16);
+    cbw[11] = (uint8_t) (data_len >> 24);
+    cbw[12] = in ? 0x80 : 0x00;
+    cbw[13] = 0;
+    cbw[14] = cb_len;
+    memcpy(cbw + 15, cb, cb_len);
+
+    /* The CBW goes first and must complete before the data or CSW stage. */
+    msc_evt_seen = 0;
+    ring_enqueue(msc.out_ring, &msc.out_enq, &msc.out_cycle, msc.out_ring_phys,
+                 msc.cbw_phys, 31, (TRB_NORMAL << 10) | (1u << 5));
+    asm volatile ("mfence":::"memory");
+    ring_doorbell(msc.slot, msc.out_dci);
+
+    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
+        xhci_drain();
+        if (msc_evt_seen < 1)
+            sched_sleep(1);
+    }
+    if (msc_evt_seen < 1)
+        return false;
+
+    if (data_len != 0) {
+        msc_evt_seen = 0;
+        if (in) {
+            ring_enqueue(msc.in_ring, &msc.in_enq, &msc.in_cycle,
+                         msc.in_ring_phys, msc.data_phys, data_len,
+                         (TRB_NORMAL << 10) | (1u << 5));
+            asm volatile ("mfence":::"memory");
+            ring_doorbell(msc.slot, msc.in_dci);
+        } else {
+            ring_enqueue(msc.out_ring, &msc.out_enq, &msc.out_cycle,
+                         msc.out_ring_phys, msc.data_phys, data_len,
+                         (TRB_NORMAL << 10) | (1u << 5));
+            asm volatile ("mfence":::"memory");
+            ring_doorbell(msc.slot, msc.out_dci);
+        }
+        for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
+            xhci_drain();
+            if (msc_evt_seen < 1)
+                sched_sleep(1);
+        }
+        if (msc_evt_seen < 1)
+            return false;
+    }
+
+    /* The CSW arrives on the bulk-IN endpoint. */
+    msc_evt_seen = 0;
+    ring_enqueue(msc.in_ring, &msc.in_enq, &msc.in_cycle, msc.in_ring_phys,
+                 msc.csw_phys, 13, (TRB_NORMAL << 10) | (1u << 5));
+    asm volatile ("mfence":::"memory");
+    ring_doorbell(msc.slot, msc.in_dci);
+
+    for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
+        xhci_drain();
+        if (msc_evt_seen < 1)
+            sched_sleep(1);
+    }
+    if (msc_evt_seen < 1)
+        return false;
+
+    return msc.csw[0] == 0x55 && msc.csw[1] == 0x53 && msc.csw[2] == 0x42
+        && msc.csw[3] == 0x53 && msc.csw[12] == 0;
+}
+
+/* Retry a command after the BOT error recovery. */
+static bool msc_bot(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
+                    bool in)
+{
+    for (int32_t attempt = 0; attempt < 3; attempt++) {
+        if (msc_bot_once(cb, cb_len, data_len, in))
+            return true;
+
+        msc_recover();
+    }
+
+    return false;
+}
+
+static bool msc_scsi_ready(void)
+{
+    uint8_t cb[6] = { 0x00, 0, 0, 0, 0, 0 };    /* TEST UNIT READY */
+
+    return msc_bot(cb, 6, 0, false);
+}
+
+static bool msc_read_capacity(void)
+{
+    uint8_t cb[10] = { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    if (!msc_bot(cb, 10, 8, true))
+        return false;
+    uint32_t last = ((uint32_t) msc.data[0] << 24)
+        | ((uint32_t) msc.data[1] << 16) | ((uint32_t) msc.data[2] << 8)
+        | (uint32_t) msc.data[3];
+    uint32_t bs = ((uint32_t) msc.data[4] << 24)
+        | ((uint32_t) msc.data[5] << 16) | ((uint32_t) msc.data[6] << 8)
+        | (uint32_t) msc.data[7];
+
+    if (bs != 512)
+        return false;
+    msc.sectors = last + 1;
+    return true;
+}
+
+static bool msc_read10(uint32_t lba, uint16_t count)
+{
+    uint8_t cb[10] = { 0x28, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    cb[2] = (uint8_t) (lba >> 24);
+    cb[3] = (uint8_t) (lba >> 16);
+    cb[4] = (uint8_t) (lba >> 8);
+    cb[5] = (uint8_t) lba;
+    cb[7] = (uint8_t) (count >> 8);
+    cb[8] = (uint8_t) count;
+    return msc_bot(cb, 10, (uint32_t) count * 512, true);
+}
+
+static bool msc_write10(uint32_t lba, uint16_t count)
+{
+    uint8_t cb[10] = { 0x2a, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    cb[2] = (uint8_t) (lba >> 24);
+    cb[3] = (uint8_t) (lba >> 16);
+    cb[4] = (uint8_t) (lba >> 8);
+    cb[5] = (uint8_t) lba;
+    cb[7] = (uint8_t) (count >> 8);
+    cb[8] = (uint8_t) count;
+    return msc_bot(cb, 10, (uint32_t) count * 512, false);
+}
+
+bool usb_msc_ready(void)
+{
+    return msc.ready;
+}
+
+uint32_t usb_msc_sectors(void)
+{
+    return msc.sectors;
+}
+
+bool usb_msc_read(uint32_t lba, uint32_t count, void *buf)
+{
+    if (!msc.ready || count == 0 || count * 512 > msc.data_cap)
+        return false;
+    if (!msc_read10(lba, (uint16_t) count))
+        return false;
+    memcpy(buf, msc.data, (size_t) count * 512);
+    return true;
+}
+
+bool usb_msc_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (!msc.ready || count == 0 || count * 512 > msc.data_cap)
+        return false;
+    memcpy(msc.data, buf, (size_t) count * 512);
+    return msc_write10(lba, (uint16_t) count);
+}
+
 void usb_hid_init(void)
 {
     pci_device_t *dev = NULL;
@@ -504,6 +773,8 @@ void usb_hid_init(void)
     if (xhci_inited)
         return;
     xhci_inited = true;
+
+    spinlock_init(&evt_lock);
 
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t *d = &vec_at(&pci_devices, i);
@@ -661,6 +932,10 @@ void usb_hid_init(void)
         bool have_iface = false;
         bool have_hid = false;
         bool found = false;
+        bool have_msc = false;
+        uint8_t msc_sub = 0, msc_proto = 0;
+        uint8_t msc_out_addr = 0, msc_in_addr = 0;
+        uint16_t msc_out_pkt = 0, msc_in_pkt = 0;
 
         for (uint32_t off = 0; off + 1 < total;) {
             uint8_t len = desc[off];
@@ -673,26 +948,84 @@ void usb_hid_init(void)
                     iface_class = desc[off + 5];
                     have_iface = true;
                 }
-                if (desc[off + 5] == 3) {       /* HID class */
+                have_hid = (desc[off + 5] == 3);
+                have_msc = (desc[off + 5] == 8);
+                if (have_hid) {
                     hid_iface = desc[off + 2];
                     hid_proto = desc[off + 7];  /* 1 keyboard, 2 mouse */
-                    have_hid = true;
-                } else {
-                    have_hid = false;
                 }
-            } else if (dtype == 5 && have_hid) {        /* endpoint */
+                if (have_msc) {
+                    msc_sub = desc[off + 6];
+                    msc_proto = desc[off + 7];
+                }
+            } else if (dtype == 5) {    /* endpoint */
                 uint8_t addr = desc[off + 2];
                 uint8_t attr = desc[off + 3] & 0x3;
+                uint16_t pkt = (uint16_t) (desc[off + 4]
+                                           | (desc[off + 5] << 8));
 
-                if ((addr & 0x80) && attr == 3) {
+                if (have_hid && (addr & 0x80) && attr == 3) {
                     hid_interval = desc[off + 6];
-                    hid_max_packet = (uint16_t) (desc[off + 4]
-                                                 | (desc[off + 5] << 8));
+                    hid_max_packet = pkt;
                     found = true;
                     break;
                 }
+                if (have_msc && attr == 2) {
+                    if (addr & 0x80) {
+                        msc_in_addr = addr;
+                        msc_in_pkt = pkt;
+                    } else {
+                        msc_out_addr = addr;
+                        msc_out_pkt = pkt;
+                    }
+                }
             }
             off += len;
+        }
+
+        /* USB mass storage, Bulk-Only Transport. */
+        if (have_msc && msc_sub == 6 && msc_proto == 0x50
+            && msc_out_addr != 0 && msc_in_addr != 0 && !msc.ready) {
+            if (control_xfer(slot, 0x00, 9, cfg_value, 0, 0, 0) != CC_SUCCESS) {
+                kloge("USB: mass storage set configuration failed\n");
+                continue;
+            }
+
+            msc.slot = slot;
+            msc.out_dci = (uint8_t) (2 * (msc_out_addr & 0x0f));
+            msc.in_dci = (uint8_t) (2 * (msc_in_addr & 0x0f) + 1);
+            msc.out_pkt = msc_out_pkt;
+            msc.in_pkt = msc_in_pkt;
+            msc.out_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t),
+                                     &msc.out_ring_phys);
+            msc.in_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t),
+                                    &msc.in_ring_phys);
+            msc.cbw = dma_alloc(31, &msc.cbw_phys);
+            msc.csw = dma_alloc(13, &msc.csw_phys);
+            msc.data_cap = 64 * 1024;
+            msc.data = dma_alloc(msc.data_cap, &msc.data_phys);
+            msc.out_enq = 0;
+            msc.out_cycle = 1;
+            msc.in_enq = 0;
+            msc.in_cycle = 1;
+            msc.tag = 1;
+
+            if (msc.out_ring != NULL && msc.in_ring != NULL
+                && msc.cbw != NULL && msc.csw != NULL && msc.data != NULL
+                && msc_configure(slot, msc.out_dci, msc.out_pkt,
+                                 msc.out_ring_phys, msc.in_dci, msc.in_pkt,
+                                 msc.in_ring_phys)) {
+                if (msc_scsi_ready() && msc_read_capacity()) {
+                    msc.ready = true;
+                    klogi("USB: mass storage %u sectors (slot %u)\n",
+                          msc.sectors, slot);
+                } else {
+                    kloge("USB: mass storage SCSI init failed\n");
+                }
+            } else {
+                kloge("USB: mass storage configure failed\n");
+            }
+            continue;
         }
 
         if (!found
@@ -892,8 +1225,50 @@ static void hid_arm(hid_t * d)
     ring_doorbell(d->slot, d->dci);
 }
 
-/* One thread drains the event ring for every HID device, so the shared event
- * ring has a single owner. */
+/* Drain every pending transfer event and dispatch it. The HID thread and the
+ * mass-storage transfers share the event ring, so one locked drain serves both
+ * and neither steals the other's completions. */
+static uint32_t xhci_drain(void)
+{
+    xhci_trb_t ev;
+    uint32_t total = 0;
+
+    spinlock_acquire(&evt_lock);
+    while (poll_event(&ev)) {
+        if (((ev.control >> 10) & 0x3f) != TRB_EV_TRANSFER)
+            continue;
+
+        uint8_t slot = (uint8_t) (ev.control >> 24);
+        uint8_t dci = (uint8_t) ((ev.control >> 16) & 0x1f);
+        uint32_t cc = (ev.status >> 24) & 0xff;
+
+        total++;
+
+        if (msc.slot != 0 && slot == msc.slot) {
+            msc_evt_seen++;
+            continue;
+        }
+
+        for (int32_t i = 0; i < nhids; i++) {
+            hid_t *d = &hids[i];
+
+            if (d->slot != slot || d->dci != dci)
+                continue;
+            if (cc == CC_SUCCESS) {
+                if (d->protocol == HID_PROTO_KBD)
+                    hid_keyboard(d->buf);
+                else
+                    hid_mouse(d->buf);
+            }
+            hid_arm(d);
+            break;
+        }
+    }
+    spinlock_release(&evt_lock);
+    return total;
+}
+
+/* One thread drains the event ring for every HID device. */
 _Noreturn static void usb_hid_thread(pid_t pid)
 {
     (void) pid;
@@ -902,35 +1277,7 @@ _Noreturn static void usb_hid_thread(pid_t pid)
         hid_arm(&hids[i]);
 
     for (;;) {
-        xhci_trb_t ev;
-        bool got = false;
-
-        while (poll_event(&ev)) {
-            if (((ev.control >> 10) & 0x3f) != TRB_EV_TRANSFER)
-                continue;
-
-            uint8_t slot = (uint8_t) (ev.control >> 24);
-            uint8_t dci = (uint8_t) ((ev.control >> 16) & 0x1f);
-            uint32_t cc = (ev.status >> 24) & 0xff;
-
-            for (int32_t i = 0; i < nhids; i++) {
-                hid_t *d = &hids[i];
-
-                if (d->slot != slot || d->dci != dci)
-                    continue;
-                if (cc == CC_SUCCESS) {
-                    if (d->protocol == HID_PROTO_KBD)
-                        hid_keyboard(d->buf);
-                    else
-                        hid_mouse(d->buf);
-                }
-                hid_arm(d);
-                got = true;
-                break;
-            }
-        }
-
-        if (!got)
+        if (xhci_drain() == 0)
             sched_sleep(1);
     }
 }
@@ -941,8 +1288,18 @@ static _Noreturn void usb_init_thread(pid_t pid)
 {
     (void) pid;
     usb_hid_init();
+    usb_bringup_done = true;
     for (;;)
         sched_sleep(1000);
+}
+
+/* Wait for the bring-up to finish, then report whether the mass-storage device
+ * is usable. Returns false on timeout or when no device was found. */
+bool usb_msc_wait(uint32_t timeout_ms)
+{
+    for (uint32_t i = 0; i < timeout_ms && !usb_bringup_done; i++)
+        sched_sleep(1);
+    return msc.ready;
 }
 
 void usb_hid_start(void)
