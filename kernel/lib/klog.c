@@ -230,3 +230,25 @@ void klog_write_raw(const char *buf, uint64_t len)
             serial_write(buf[i]);
     spinlock_release(&klog_info_lock);
 }
+
+/* Copy the kernel log ring in order into dst, dropping ANSI escapes, and
+ * return the byte count (at most max). */
+uint64_t klog_read(char *dst, uint64_t max)
+{
+    uint64_t n = 0;
+    int32_t esc_state = 0;
+
+    spinlock_acquire(&klog_info_lock);
+    for (uint64_t i = klog_info.start; i != klog_info.end && n < max;) {
+        uint8_t c = klog_info.buff[i];
+
+        if (serial_keep(c, &esc_state) && n < max)
+            dst[n++] = (char) c;
+
+        i++;
+        if (i >= KLOG_BUFFER_SIZE)
+            i = 0;
+    }
+    spinlock_release(&klog_info_lock);
+    return n;
+}

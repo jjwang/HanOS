@@ -518,3 +518,10 @@ int64_t sys_usb_block_write(uint64_t lba, uint64_t count, const void *buf)
              (int64_t) (uint64_t) buf);
     return ret;
 }
+
+int64_t sys_klog(char *buf, uint64_t len)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_KLOG, (int64_t) (uint64_t) buf, (int64_t) len);
+    return ret;
+}

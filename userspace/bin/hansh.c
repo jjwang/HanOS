@@ -301,6 +301,26 @@ int32_t main(void)
                 dprintf(STDERR,
                         "mem: cannot display memory usage information\n");
             continue;
+        } else if (buf[0] == 'd' && buf[1] == 'm' && buf[2] == 'e'
+                   && buf[3] == 's' && buf[4] == 'g' && buf[5] == '\0') {
+            char *kb = sys_malloc(16384);
+
+            if (kb != NULL) {
+                int64_t n = sys_klog(kb, 16384);
+
+                if (n > 0)
+                    sys_write(STDOUT, kb, (uint64_t) n);
+            }
+            continue;
+        } else if (buf[0] == 'u' && buf[1] == 's' && buf[2] == 'b'
+                   && buf[3] == '\0') {
+            int64_t n = sys_usb_block_info();
+
+            if (n < 0)
+                dprintf(STDOUT, "usb: none\n");
+            else
+                dprintf(STDOUT, "usb: %ld sectors\n", n);
+            continue;
         } else if (buf[0] == 'l' && buf[1] == 's' && buf[2] == 'p'
                    && buf[3] == 'c' && buf[4] == 'i' && buf[5] == '\0') {
             if (sys_runcmd(buf) < 0)

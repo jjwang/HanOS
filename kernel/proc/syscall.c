@@ -1593,7 +1593,7 @@ int64_t k_ftruncate(int64_t fd, int64_t len)
 
 int64_t k_usb_block_info(void)
 {
-    if (!usb_msc_wait(3000)) {
+    if (!usb_msc_wait(8000)) {
         cpu_set_errno(ENODEV);
         return -1;
     }
@@ -1660,6 +1660,35 @@ int64_t k_usb_block_write(int64_t lba, int64_t count, int64_t uptr)
     kmfree(kbuf);
     cpu_set_errno(0);
     return (int64_t) bytes;
+}
+
+/* Copy the kernel log ring to userspace so a shell can show it (dmesg). The
+ * physical machine usually has no serial console to read the boot log from. */
+int64_t k_klog(char *ubuf, uint64_t len)
+{
+    if (ubuf == NULL || len == 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (len > KLOG_BUFFER_SIZE)
+        len = KLOG_BUFFER_SIZE;
+
+    char *kbuf = kmalloc(len);
+
+    if (kbuf == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+    uint64_t n = klog_read(kbuf, len);
+    int32_t rc = (int32_t) copy_to_user(ubuf, kbuf, n);
+
+    kmfree(kbuf);
+    if (rc != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    cpu_set_errno(0);
+    return (int64_t) n;
 }
 
 #define POLLIN      0x001
@@ -4042,7 +4071,8 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys,
     [SYSCALL_USB_BLOCK_INFO] = (syscall_ptr_t) k_usb_block_info,
     [SYSCALL_USB_BLOCK_READ] = (syscall_ptr_t) k_usb_block_read,
-    [SYSCALL_USB_BLOCK_WRITE] = (syscall_ptr_t) k_usb_block_write
+    [SYSCALL_USB_BLOCK_WRITE] = (syscall_ptr_t) k_usb_block_write,
+    [SYSCALL_KLOG] = (syscall_ptr_t) k_klog
 };
 
 void syscall_init(void)

@@ -106,6 +106,7 @@ static uint8_t *dma;
 static uint64_t dma_phys;
 static int32_t port = -1;
 static uint64_t sector_count;
+static char disk_model[40];
 
 static uint32_t r32(uint32_t off)
 {
@@ -244,6 +245,16 @@ static int32_t ahci_identify(void)
     } else {
         n = (uint32_t) id[60] | ((uint64_t) (uint32_t) id[61] << 16);
     }
+
+    /* Words 27..46 hold the model, byte-swapped within each word. */
+    for (int32_t i = 0; i < 20; i++) {
+        uint16_t w = id[27 + i];
+
+        disk_model[i * 2] = (char) (w >> 8);
+        disk_model[i * 2 + 1] = (char) w;
+    }
+    for (int32_t i = 39; i >= 0 && disk_model[i] == ' '; i--)
+        disk_model[i] = '\0';
 
     sector_count = n;
     return n > 0 ? 0 : -1;
@@ -403,23 +414,28 @@ int32_t main(void)
 
     bool have_disk = false;
 
+    /* Identify the ATA disk first so its model is reported even when the data
+     * comes from the USB stick. */
     if (bi.block_mmio_vaddr != 0 && bi.block_mmio_size != 0
         && bi.block_dma_vaddr != 0 && bi.block_dma_size >= DMA_SIZE) {
         abar = (volatile uint8_t *) (uint64_t) bi.block_mmio_vaddr;
         dma = (uint8_t *) (uint64_t) bi.block_dma_vaddr;
         dma_phys = bi.block_dma_phys;
         memset(dma, 0, DMA_SIZE);
-        have_disk = (ahci_init() == 0);
+        (void) ahci_init();
     }
 
-    if (!have_disk) {
-        int64_t usb = sys_usb_block_info();
+    /* Prefer the USB device. The live USB carries the kernel and the ext2 data
+     * on the same stick, so a laptop whose internal SATA disk the AHCI driver
+     * also finds must still read the stick, not the internal disk. */
+    int64_t usb = sys_usb_block_info();
 
-        if (usb > 0) {
-            use_usb = true;
-            sector_count = (uint32_t) usb;
-            have_disk = true;
-        }
+    if (usb > 0) {
+        use_usb = true;
+        sector_count = (uint32_t) usb;
+        have_disk = true;
+    } else if (sector_count > 0) {
+        have_disk = true;
     }
 
     if (have_disk)
@@ -438,6 +454,8 @@ int32_t main(void)
         if (m.tag == BLOCK_GET_INFO) {
             rep.words[0] = have_disk ? SECTOR_SIZE : 0;
             rep.words[1] = have_disk ? sector_count : 0;
+            if (disk_model[0] != '\0')
+                memcpy(&rep.words[2], disk_model, 20);
         } else if (m.tag == BLOCK_GET_PART) {
             uint32_t idx = (uint32_t) m.words[0];
 

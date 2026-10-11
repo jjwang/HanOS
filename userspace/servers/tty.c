@@ -93,11 +93,23 @@ static void out_flush(bool blocking)
  * drains, so the input path never stalls behind the display. */
 static void out_write(const uint8_t * p, uint64_t len)
 {
-    /* Mirror the output to the serial console; the kernel serialises it with
-     * its own log so the two streams do not interleave. A full-screen program
-     * (raw mode) is skipped: its control sequences would flood the log. */
-    if (tty_canon)
-        sys_serial_write((const char *) p, len);
+    /* Mirror the output to the serial console. The kernel serialises each
+     * write, and whole lines are buffered here so a process that writes a line
+     * one key at a time (the shell echo) does not interleave with the kernel
+     * log. A full-screen program (raw mode) is skipped: its control sequences
+     * would flood the log. */
+    static char ser_line[256];
+    static uint32_t ser_len;
+
+    if (tty_canon) {
+        for (uint64_t i = 0; i < len; i++) {
+            ser_line[ser_len++] = (char) p[i];
+            if (p[i] == '\n' || ser_len >= sizeof(ser_line)) {
+                sys_serial_write(ser_line, ser_len);
+                ser_len = 0;
+            }
+        }
+    }
 
     for (uint64_t i = 0; i < len; i++) {
         if (out_count >= OUT_MAX) {

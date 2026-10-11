@@ -134,6 +134,7 @@ int64_t sys_mem_phys(int64_t handle, uint64_t offset);
 int64_t sys_usb_block_info(void);
 int64_t sys_usb_block_read(uint64_t lba, uint64_t count, void *buf);
 int64_t sys_usb_block_write(uint64_t lba, uint64_t count, const void *buf);
+int64_t sys_klog(char *buf, uint64_t len);
 int32_t sys_proc_spawn(int32_t parent, const char *name);
 int32_t sys_proc_map(int32_t pid, uint64_t vaddr, int32_t memh, int32_t prot);
 int32_t sys_proc_set_entry(int32_t pid, uint64_t rip, uint64_t rsp);

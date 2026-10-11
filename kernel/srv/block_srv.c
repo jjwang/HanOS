@@ -175,11 +175,15 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
             object_unref(memobj_object(mo));
     } else {
         ipc_msg_t rep;
-        if (ipc_recv_timeout(reply, &rep, 3000) != 0) {
+        if (ipc_recv_timeout(reply, &rep, 12000) != 0) {
             klogw("block: tag 0x%lx timed out\n", (uint64_t)tag);
         } else if (tag == BLOCK_GET_INFO) {
+            char *model = (char *)&rep.words[2];
+
             klogi("block: GET_INFO sector_size %lu count %lu\n",
                   rep.words[0], rep.words[1]);
+            if (model[0] != '\0')
+                kprintf("\033[36mHard Disk   \033[0m: %.20s\n", model);
         } else if (tag == BLOCK_READ && mo != NULL) {
             uint8_t *b = (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, 0));
             klogi("block: READ lba %lu status %ld sig %02x%02x\n", lba,

@@ -54,6 +54,7 @@
 
 #define PORTSC_CCS          (1u << 0)
 #define PORTSC_PR           (1u << 4)
+#define PORTSC_PP           (1u << 9)
 #define PORTSC_CSC          (1u << 17)
 #define PORTSC_PRC          (1u << 21)
 
@@ -66,7 +67,7 @@
 #define TRB_ENABLE_SLOT     9
 #define TRB_ADDRESS_DEVICE  11
 #define TRB_CONFIGURE_EP    12
-#define TRB_RESET_EP        17
+#define TRB_RESET_EP        14
 #define TRB_EV_TRANSFER     32
 #define TRB_EV_CMD_COMPLETE 33
 
@@ -209,6 +210,7 @@ static struct {
     uint8_t slot;
     uint8_t out_dci, in_dci;
     uint16_t out_pkt, in_pkt;
+    uint8_t out_burst, in_burst;
     xhci_trb_t *out_ring, *in_ring;
     uint64_t out_ring_phys, in_ring_phys;
     uint32_t out_enq, out_cycle, in_enq, in_cycle;
@@ -291,9 +293,7 @@ static uint64_t ring_enqueue(xhci_trb_t * ring, uint32_t * enq,
 
     uint64_t addr = ring_phys + (uint64_t) (*enq) * sizeof(xhci_trb_t);
 
-    *enq = (*enq + 1) % RING_NUM;
-    if (*enq == 0)
-        *cycle ^= 1;
+    (*enq)++;
     return addr;
 }
 
@@ -390,25 +390,24 @@ static uint32_t control_xfer(uint8_t slot, uint8_t bm_request, uint8_t request,
 
     if (length > 0)
         trt = (bm_request & 0x80) ? 3 : 2;      /* device-to-host : host-to-device */
-    {
-        uint64_t setup = (uint64_t) bm_request
-            | ((uint64_t) request << 8)
-            | ((uint64_t) value << 16)
-            | ((uint64_t) index << 32)
-            | ((uint64_t) length << 48);
 
-        /* The setup and data stages chain to the status stage, which carries
-         * the interrupt-on-completion. */
-        ring_enqueue(ep0_ring, &ep0_enq, &ep0_cycle, ep0_ring_phys, setup, 8,
-                     (TRB_SETUP << 10) | (1u << 6) | (1u << 4)
-                     | ((uint32_t) trt << 16));
-    }
+    uint64_t setup = (uint64_t) bm_request
+        | ((uint64_t) request << 8)
+        | ((uint64_t) value << 16)
+        | ((uint64_t) index << 32)
+        | ((uint64_t) length << 48);
+
+    /* The controller links the control stages by TRB type, so no chain bit is
+     * set; Linux's xhci_queue_ctrl_tx does the same. */
+    ring_enqueue(ep0_ring, &ep0_enq, &ep0_cycle, ep0_ring_phys, setup, 8,
+                 (TRB_SETUP << 10) | (1u << 6) | ((uint32_t) trt << 16));
 
     if (length > 0) {
         uint32_t dir = (bm_request & 0x80) ? (1u << 16) : 0;
+        uint32_t isp = (bm_request & 0x80) ? (1u << 2) : 0;     /* short packet */
 
         ring_enqueue(ep0_ring, &ep0_enq, &ep0_cycle, ep0_ring_phys, buf_phys,
-                     length, (TRB_DATA << 10) | dir | (1u << 4));
+                     length, (TRB_DATA << 10) | isp | dir);
         /* The status stage runs opposite to the data stage. */
         ring_enqueue(ep0_ring, &ep0_enq, &ep0_cycle, ep0_ring_phys, 0, 0,
                      (TRB_STATUS << 10)
@@ -420,7 +419,15 @@ static uint32_t control_xfer(uint8_t slot, uint8_t bm_request, uint8_t request,
 
     asm volatile ("mfence":::"memory");
     ring_doorbell(slot, 1);     /* EP0 DCI = 1 */
-    return wait_transfer(slot, 1);
+
+    uint32_t cc = wait_transfer(slot, 1);
+
+    /* A control IN that returns fewer bytes than requested completes with a
+     * short packet (13). That is a valid transfer: the config descriptor is
+     * shorter than the 255 bytes asked for. */
+    if (cc == 13)
+        cc = CC_SUCCESS;
+    return cc;
 }
 
 static void input_clear(void)
@@ -428,8 +435,27 @@ static void input_clear(void)
     memset(input_ctx, 0, sizeof(*input_ctx));
 }
 
-static bool address_device(uint8_t slot, uint8_t port, uint8_t speed,
-                           xhci_dev_ctx_t * dev_ctx)
+/* Retry a control transfer: a device just past its port reset may not answer
+ * the first request. */
+static uint32_t control_xfer_retry(uint8_t slot, uint8_t bm_request,
+                                   uint8_t request, uint16_t value,
+                                   uint16_t index, uint16_t length,
+                                   uint64_t buf_phys)
+{
+    uint32_t cc = 0;
+
+    for (int32_t i = 0; i < 5; i++) {
+        cc = control_xfer(slot, bm_request, request, value, index, length,
+                          buf_phys);
+        if (cc == CC_SUCCESS)
+            break;
+        pit_wait(20);
+    }
+    return cc;
+}
+
+static uint32_t address_device(uint8_t slot, uint8_t port, uint8_t speed,
+                               xhci_dev_ctx_t * dev_ctx)
 {
     uint32_t max_packet = 8;
 
@@ -442,7 +468,9 @@ static bool address_device(uint8_t slot, uint8_t port, uint8_t speed,
     input_ctx->icc.add_flags = (1u << 0) | (1u << 1);
     input_ctx->slot.dev_info = ((uint32_t) speed << 20) | (1u << 27);
     input_ctx->slot.dev_info2 = (uint32_t) port << 16;
-    input_ctx->slot.dev_state = slot;   /* device address */
+    /* The Device Address stays 0: the controller assigns slot ID as the
+     * address, and a non-zero value here fails Address Device on real Intel
+     * controllers. */
     input_ctx->ep[0].info2 = (EP_TYPE_CONTROL << 3) | (3 << 1)
         | (max_packet << 16);
     input_ctx->ep[0].deq = ep0_ring_phys | 1u;  /* DCS = 1 */
@@ -450,7 +478,7 @@ static bool address_device(uint8_t slot, uint8_t port, uint8_t speed,
     dcbaa[slot] = VIRT_TO_PHYS((uint64_t) dev_ctx);
     asm volatile ("mfence":::"memory");
     return send_command(slot, TRB_ADDRESS_DEVICE,
-                        VIRT_TO_PHYS((uint64_t) input_ctx), NULL) == CC_SUCCESS;
+                        VIRT_TO_PHYS((uint64_t) input_ctx), NULL);
 }
 
 static bool configure_endpoint(uint8_t slot, uint8_t dci, uint8_t interval,
@@ -473,28 +501,68 @@ static bool configure_endpoint(uint8_t slot, uint8_t dci, uint8_t interval,
                         VIRT_TO_PHYS((uint64_t) input_ctx), NULL) == CC_SUCCESS;
 }
 
+/* The firmware's USB Legacy Support keeps the controller's ports under SMI
+ * control after a BIOS boot, which makes Address Device fail with a USB
+ * transaction error. Take OS ownership through the OS Owned Semaphore and wait
+ * for the BIOS Owned Semaphore to clear. */
+static void take_ownership(void)
+{
+    uint32_t hcc1 = mmio_rd(CAP_HCCPARAMS1);
+    uint32_t off = ((hcc1 >> 16) & 0xffff) << 2;
+
+    for (int32_t guard = 0; off != 0 && off < 0x10000 && guard < 32; guard++) {
+        uint32_t d0 = mmio_rd(off);
+
+        if (d0 == 0 || d0 == 0xffffffffu)
+            break;
+
+        if ((d0 & 0xff) == 1) { /* USB Legacy Support */
+            mmio_wr(off, d0 | (1u << 24));      /* OS Owned Semaphore */
+
+            for (uint32_t i = 0; i < 100; i++) {
+                if (!(mmio_rd(off) & (1u << 16)))
+                    break;
+                pit_wait(1);
+            }
+            klogi("USB: legacy handoff, d0 %08x\n", mmio_rd(off));
+            break;
+        }
+        off += ((d0 >> 8) & 0xff) << 2;
+    }
+}
+
 static bool port_reset(uint8_t port, uint8_t * speed)
 {
     uint32_t portsc = mmio_rd(op_base + OP_PORTSC(port));
 
-    if (!(portsc & PORTSC_CCS))
-        return false;
+    /* Keep only the bits a write should preserve: port power, the wake enables
+     * and the remove flag. Never write the read value back, or PORT_RESET
+     * (bit 4) is re-asserted and a USB3 port drops to Disabled. */
+    uint32_t keep = portsc & (PORTSC_PP | (1u << 25) | (1u << 26)
+                              | (1u << 27) | (1u << 30));
+    uint32_t change = (1u << 17) | (1u << 18) | (1u << 19) | (1u << 20)
+        | (1u << 21) | (1u << 22) | (1u << 23);
 
-    mmio_wr(op_base + OP_PORTSC(port), portsc | PORTSC_PR);
+    /* Force the link through RxDetect (PLS = 5) with the Link State Write
+     * Strobe. This revives a port a prior hot reset left Disabled and returns
+     * a device the firmware already configured to Default, which Address
+     * Device needs. */
+    mmio_wr(op_base + OP_PORTSC(port), keep | (5u << 5) | (1u << 16));
 
     for (uint32_t i = 0; i < XHCI_TIMEOUT_MS; i++) {
         portsc = mmio_rd(op_base + OP_PORTSC(port));
-        if (portsc & PORTSC_PRC)
+        if (((portsc >> 5) & 0xf) == 0)
             break;
         pit_wait(1);
     }
 
-    if (!(portsc & PORTSC_PRC))
+    if (!(portsc & PORTSC_CCS))
         return false;
 
-    mmio_wr(op_base + OP_PORTSC(port),
-            (portsc & ~(PORTSC_PRC | PORTSC_CSC)) | PORTSC_PRC | PORTSC_CSC);
-    *speed = (uint8_t) (portsc & 0xf);
+    /* Clear the change bits. */
+    mmio_wr(op_base + OP_PORTSC(port), keep | change);
+
+    *speed = (uint8_t) ((portsc >> 10) & 0xf);
     return true;
 }
 
@@ -558,13 +626,13 @@ static bool msc_configure(uint8_t slot, uint8_t out_dci, uint16_t out_pkt,
     xhci_ep_ctx_t *eo = &input_ctx->ep[out_dci - 1];
 
     eo->info2 = (EP_TYPE_BULK_OUT << 3) | (3 << 1)
-        | ((uint32_t) out_pkt << 16);
+        | ((uint32_t) msc.out_burst << 8) | ((uint32_t) out_pkt << 16);
     eo->deq = out_ring | 1u;
 
     xhci_ep_ctx_t *ei = &input_ctx->ep[in_dci - 1];
 
     ei->info2 = (EP_TYPE_BULK_IN << 3) | (3 << 1)
-        | ((uint32_t) in_pkt << 16);
+        | ((uint32_t) msc.in_burst << 8) | ((uint32_t) in_pkt << 16);
     ei->deq = in_ring | 1u;
 
     asm volatile ("mfence":::"memory");
@@ -616,7 +684,7 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
     cbw[14] = cb_len;
     memcpy(cbw + 15, cb, cb_len);
 
-    /* The CBW goes first and must complete before the data or CSW stage. */
+    /* CBW (out). */
     msc_evt_seen = 0;
     ring_enqueue(msc.out_ring, &msc.out_enq, &msc.out_cycle, msc.out_ring_phys,
                  msc.cbw_phys, 31, (TRB_NORMAL << 10) | (1u << 5));
@@ -628,37 +696,40 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
         if (msc_evt_seen < 1)
             sched_sleep(1);
     }
-    if (msc_evt_seen < 1)
+    if (msc_evt_seen < 1) {
+        klogw("USB: msc CBW timeout\n");
         return false;
+    }
 
+    /* Data stage: one NORMAL TRB for the whole length, like Linux. */
     if (data_len != 0) {
         msc_evt_seen = 0;
-        if (in) {
+        if (in)
             ring_enqueue(msc.in_ring, &msc.in_enq, &msc.in_cycle,
                          msc.in_ring_phys, msc.data_phys, data_len,
-                         (TRB_NORMAL << 10) | (1u << 5));
-            asm volatile ("mfence":::"memory");
-            ring_doorbell(msc.slot, msc.in_dci);
-        } else {
+                         (TRB_NORMAL << 10) | (1u << 2) | (1u << 5));
+        else
             ring_enqueue(msc.out_ring, &msc.out_enq, &msc.out_cycle,
                          msc.out_ring_phys, msc.data_phys, data_len,
                          (TRB_NORMAL << 10) | (1u << 5));
-            asm volatile ("mfence":::"memory");
-            ring_doorbell(msc.slot, msc.out_dci);
-        }
+        asm volatile ("mfence":::"memory");
+        ring_doorbell(msc.slot, in ? msc.in_dci : msc.out_dci);
+
         for (uint32_t i = 0; i < XHCI_TIMEOUT_MS && msc_evt_seen < 1; i++) {
             xhci_drain();
             if (msc_evt_seen < 1)
                 sched_sleep(1);
         }
-        if (msc_evt_seen < 1)
+        if (msc_evt_seen < 1) {
+            klogw("USB: msc DATA timeout len %u\n", data_len);
             return false;
+        }
     }
 
-    /* The CSW arrives on the bulk-IN endpoint. */
+    /* CSW (in). */
     msc_evt_seen = 0;
     ring_enqueue(msc.in_ring, &msc.in_enq, &msc.in_cycle, msc.in_ring_phys,
-                 msc.csw_phys, 13, (TRB_NORMAL << 10) | (1u << 5));
+                 msc.csw_phys, 13, (TRB_NORMAL << 10) | (1u << 2) | (1u << 5));
     asm volatile ("mfence":::"memory");
     ring_doorbell(msc.slot, msc.in_dci);
 
@@ -667,8 +738,10 @@ static bool msc_bot_once(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
         if (msc_evt_seen < 1)
             sched_sleep(1);
     }
-    if (msc_evt_seen < 1)
+    if (msc_evt_seen < 1) {
+        klogw("USB: msc CSW timeout\n");
         return false;
+    }
 
     return msc.csw[0] == 0x55 && msc.csw[1] == 0x53 && msc.csw[2] == 0x42
         && msc.csw[3] == 0x53 && msc.csw[12] == 0;
@@ -682,6 +755,9 @@ static bool msc_bot(const uint8_t * cb, uint8_t cb_len, uint32_t data_len,
         if (msc_bot_once(cb, cb_len, data_len, in))
             return true;
 
+        klogw("USB: msc op %02x len %u attempt %ld failed csw %02x%02x st %u\n",
+              cb[0], data_len, (int64_t) attempt, msc.csw[0], msc.csw[1],
+              msc.csw[12]);
         msc_recover();
     }
 
@@ -693,6 +769,29 @@ static bool msc_scsi_ready(void)
     uint8_t cb[6] = { 0x00, 0, 0, 0, 0, 0 };    /* TEST UNIT READY */
 
     return msc_bot(cb, 6, 0, false);
+}
+
+/* Ask the device for its vendor and product strings and report them, so the
+ * boot log names the stick instead of the xHCI controller. */
+static void msc_inquiry(void)
+{
+    uint8_t cb[6] = { 0x12, 0, 0, 0, 36, 0 };
+
+    if (!msc_bot(cb, 6, 36, true))
+        return;
+
+    char vendor[9];
+    char product[17];
+
+    memcpy(vendor, msc.data + 8, 8);
+    vendor[8] = '\0';
+    memcpy(product, msc.data + 16, 16);
+    product[16] = '\0';
+    for (int32_t i = 7; i >= 0 && vendor[i] == ' '; i--)
+        vendor[i] = '\0';
+    for (int32_t i = 15; i >= 0 && product[i] == ' '; i--)
+        product[i] = '\0';
+    kprintf("\033[36mU-Disk      \033[0m: %s %s\n", vendor, product);
 }
 
 static bool msc_read_capacity(void)
@@ -827,6 +926,7 @@ void usb_hid_init(void)
     klogi("USB: xHCI %04x:%04x caplen %u slots %u ports %u\n", dev->vendor_id,
           dev->device_id, caplen, max_slots, max_ports);
 
+
     /* Reset and wait for the controller to come back. */
     mmio_wr(op_base + OP_USBCMD, 0);
     mmio_wr(op_base + OP_USBCMD, USBCMD_HCRST);
@@ -853,7 +953,7 @@ void usb_hid_init(void)
      * from DCBAAP[0]. A missing array wedges the first command and leaves the
      * whole controller unresponsive. */
     uint32_t hcs2 = mmio_rd(CAP_HCSPARAMS2);
-    uint32_t nscratch = (((hcs2 >> 27) & 0x1f) << 5) | ((hcs2 >> 21) & 0x1f);
+    uint32_t nscratch = ((hcs2 >> 16) & 0x3e0) | ((hcs2 >> 27) & 0x1f);
 
     if (nscratch > 0) {
         scratch_array =
@@ -895,11 +995,17 @@ void usb_hid_init(void)
     mmio_wr(rt_base + 0x00, 1u << 1);   /* IMAN: IE */
     mmio_wr(op_base + OP_USBCMD, USBCMD_RS | USBCMD_INTE);
 
+    take_ownership();
+
     for (uint8_t port = 1; port <= max_ports; port++) {
         uint8_t speed;
 
         if (!port_reset(port, &speed))
             continue;
+
+        /* Give the device time to settle after the port reset before it is
+         * addressed. */
+        pit_wait(100);
 
         /* The commands share one EP0 ring; reinit it per device. */
         memset(ep0_ring, 0, (RING_NUM + 1) * sizeof(xhci_trb_t));
@@ -907,47 +1013,78 @@ void usb_hid_init(void)
         ep0_cycle = 1;
 
         uint8_t slot = 0;
+        uint32_t slot_cc = send_command(0, TRB_ENABLE_SLOT, 0, &slot);
 
-        if (send_command(0, TRB_ENABLE_SLOT, 0, &slot) != CC_SUCCESS
-            || slot == 0) {
-            kloge("USB: enable slot on port %u failed\n", port);
+        if (slot_cc != CC_SUCCESS || slot == 0) {
+            kloge("USB: enable slot on port %u failed cc %u\n", port, slot_cc);
             continue;
         }
 
-        xhci_dev_ctx_t *dev_ctx = dma_alloc(sizeof(*dev_ctx), NULL);
+        /* A USB3 port does not report a usable speed in the USB2 speed field.
+         * Try each speed until Address Device succeeds; once addressed, the
+         * device is in the Addressed state and a second Address Device only
+         * returns Context State Error, so read the descriptor here. */
+        uint8_t *desc = ctrl_buf;
+        static const uint8_t cand[4] = { 4, 3, 2, 1 };
+        bool addressed = false;
+        xhci_dev_ctx_t *dev_ctx = NULL;
 
-        if (dev_ctx == NULL)
-            continue;
+        for (uint32_t ci = 0; ci < 4 && !addressed; ci++) {
+            dev_ctx = dma_alloc(sizeof(*dev_ctx), NULL);
 
-        if (!address_device(slot, port, speed, dev_ctx)) {
-            kloge("USB: address device on port %u failed (speed %u)\n", port,
-                  speed);
+            if (dev_ctx == NULL)
+                break;
+
+            memset(ep0_ring, 0, (RING_NUM + 1) * sizeof(xhci_trb_t));
+            ep0_enq = 0;
+            ep0_cycle = 1;
+            speed = cand[ci];
+
+            uint32_t addr_cc = address_device(slot, port, speed, dev_ctx);
+
+            if (addr_cc != CC_SUCCESS) {
+                klogi("USB: port %u speed %u address cc %u\n", port, speed,
+                      addr_cc);
+                continue;
+            }
+
+            uint32_t dcc = control_xfer_retry(slot, 0x80, 6, 1 << 8, 0, 18,
+                                              ctrl_buf_phys);
+
+            if (dcc == CC_SUCCESS && desc[0] == 18)
+                addressed = true;
+            break;
+        }
+
+        if (!addressed) {
+            kloge("USB: address device port %u failed\n", port);
             continue;
         }
         klogi("USB: port %u addressed as slot %u (speed %u)\n", port, slot,
               speed);
 
-        /* Descriptors share one DMA buffer. */
-        uint8_t *desc = ctrl_buf;
-
-        uint32_t cc = control_xfer(slot, 0x80, 6, 1 << 8, 0, 18, ctrl_buf_phys);
-
-        if (cc != CC_SUCCESS) {
-            kloge("USB: device descriptor on port %u failed (cc %u)\n", port,
-                  cc);
-            continue;
-        }
-
-        klogi("USB: port %u idVendor %02x%02x idProduct %02x%02x\n", port,
-              desc[9], desc[8], desc[11], desc[10]);
+        klogi("USB: port %u idVendor %02x%02x idProduct %02x%02x maxpkt %u\n",
+              port, desc[9], desc[8], desc[11], desc[10], desc[7]);
 
         uint16_t vid = (uint16_t) (desc[8] | (desc[9] << 8));
         uint16_t pid = (uint16_t) (desc[10] | (desc[11] << 8));
 
-        /* Full configuration descriptor. */
-        if (control_xfer(slot, 0x80, 6, 2 << 8, 0, 255,
-                         ctrl_buf_phys) != CC_SUCCESS) {
-            kloge("USB: config descriptor on port %u failed\n", port);
+        /* Configuration descriptor: read the 9-byte header first to learn
+         * wTotalLength, then read exactly that many bytes. A large single
+         * control read of 255 bytes fails on real controllers. */
+        uint32_t cfg_cc = control_xfer_retry(slot, 0x80, 6, 2 << 8, 0, 9,
+                                             ctrl_buf_phys);
+        uint16_t cfg_total = (uint16_t) (desc[2] | (desc[3] << 8));
+
+        if (cfg_cc == CC_SUCCESS && cfg_total > 9) {
+            if (cfg_total > 255)
+                cfg_total = 255;
+            cfg_cc = control_xfer_retry(slot, 0x80, 6, 2 << 8, 0, cfg_total,
+                                        ctrl_buf_phys);
+        }
+        if (cfg_cc != CC_SUCCESS) {
+            kloge("USB: config descriptor on port %u failed cc %u total %u\n",
+                  port, cfg_cc, cfg_total);
             continue;
         }
 
@@ -965,6 +1102,8 @@ void usb_hid_init(void)
         uint8_t msc_sub = 0, msc_proto = 0;
         uint8_t msc_out_addr = 0, msc_in_addr = 0;
         uint16_t msc_out_pkt = 0, msc_in_pkt = 0;
+        uint8_t msc_out_burst = 0, msc_in_burst = 0;
+        int32_t msc_last_ep = 0;
 
         for (uint32_t off = 0; off + 1 < total;) {
             uint8_t len = desc[off];
@@ -1003,11 +1142,18 @@ void usb_hid_init(void)
                     if (addr & 0x80) {
                         msc_in_addr = addr;
                         msc_in_pkt = pkt;
+                        msc_last_ep = 1;
                     } else {
                         msc_out_addr = addr;
                         msc_out_pkt = pkt;
+                        msc_last_ep = 2;
                     }
                 }
+            } else if (dtype == 0x30) { /* SuperSpeed endpoint companion */
+                if (msc_last_ep == 1)
+                    msc_in_burst = desc[off + 2] & 0x0f;
+                else if (msc_last_ep == 2)
+                    msc_out_burst = desc[off + 2] & 0x0f;
             }
             off += len;
         }
@@ -1025,8 +1171,11 @@ void usb_hid_init(void)
             msc.in_dci = (uint8_t) (2 * (msc_in_addr & 0x0f) + 1);
             msc.out_pkt = msc_out_pkt;
             msc.in_pkt = msc_in_pkt;
+            msc.out_burst = msc_out_burst;
+            msc.in_burst = msc_in_burst;
             msc.out_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t),
                                      &msc.out_ring_phys);
+
             msc.in_ring = dma_alloc((RING_NUM + 1) * sizeof(xhci_trb_t),
                                     &msc.in_ring_phys);
             msc.cbw = dma_alloc(31, &msc.cbw_phys);
@@ -1048,6 +1197,7 @@ void usb_hid_init(void)
                     msc.ready = true;
                     klogi("USB: mass storage %u sectors (slot %u)\n",
                           msc.sectors, slot);
+                    msc_inquiry();
                 } else {
                     kloge("USB: mass storage SCSI init failed\n");
                 }

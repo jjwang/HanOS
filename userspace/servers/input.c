@@ -32,13 +32,15 @@
 /* COM1 register offsets from the base address. */
 #define UART_IER    1
 #define UART_LSR    5
+#define UART_SCR    7
 
-/* Software key repeat, the way the Linux keyboard driver does it: emit the key
- * once on press, then repeat it after an initial delay at a fixed period. The
- * hardware typematic is ignored (a make code for an already-held key), so the
- * rate is ours and stays bounded whatever the keyboard sends. */
+/* Software key repeat: one key on press, then repeats after a delay at a fixed
+ * period. If the keyboard's own typematic shows up (a make code for a key
+ * already down), the repeat stops once those makes stop, so a lost break code
+ * cannot leave a key repeating on its own. */
 #define REPEAT_DELAY_MS     250
 #define REPEAT_PERIOD_MS    40
+#define REPEAT_CONFIRM_MS   120
 
 static uint16_t serial_base;
 
@@ -112,21 +114,30 @@ static void mouse_init(void)
     mouse_read();
 }
 
-/* Tell the keyboard to start scanning and drain its ACK. The firmware often
- * leaves scanning off, so the controller delivers no scancode until this. */
-static void keyboard_init(void)
+/* Send a keyboard command and drain its ACK. */
+static void keyboard_cmd(uint8_t cmd)
 {
     mouse_wait(1);
-    outb(PORT_DATA, 0xF4);      /* enable scanning */
+    outb(PORT_DATA, cmd);
 
     for (uint32_t t = 0; t < 100000; t++) {
         uint8_t s = inb(PORT_CMD);
 
         if (s & 0x01) {
             inb(PORT_DATA);     /* ACK (0xFA) */
-            break;
+            return;
         }
     }
+}
+
+/* Set a fixed typematic (30 cps after 250 ms), then start scanning. The
+ * firmware often leaves scanning off, and a fixed typematic makes the repeat
+ * rate independent of the keyboard's stored setting. */
+static void keyboard_init(void)
+{
+    keyboard_cmd(0xF3);
+    keyboard_cmd(0x00);
+    keyboard_cmd(0xF4);
 }
 
 static void send_key(uint64_t key_ep, uint64_t ch)
@@ -220,7 +231,10 @@ static int repeat_id = -1;
 static uint8_t repeat_payload;
 static bool repeat_arrow;
 static long repeat_next;
+static bool repeat_typematic;   /* the keyboard is sending its own repeats */
+static long repeat_make_ms;     /* time of the last make of the repeat key */
 
+/* Deliver a new press and start the software repeat. */
 static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
 {
     key_down[idx] = true;
@@ -233,6 +247,8 @@ static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
     repeat_payload = payload;
     repeat_arrow = arrow;
     repeat_next = now_ms() + REPEAT_DELAY_MS;
+    repeat_typematic = false;
+    repeat_make_ms = now_ms();
 }
 
 static void key_release(uint8_t idx)
@@ -248,6 +264,13 @@ static void repeat_tick(uint64_t key_ep)
         return;
 
     long now = now_ms();
+
+    /* The keyboard repeats the held key itself. Once those makes stop the key
+     * is up, so stop here too: a lost break cannot run the repeat away. */
+    if (repeat_typematic && now - repeat_make_ms > REPEAT_CONFIRM_MS) {
+        repeat_id = -1;
+        return;
+    }
 
     if (now < repeat_next)
         return;
@@ -315,8 +338,14 @@ static void ps2_drain(uint64_t key_ep)
             if (pressed) {
                 uint8_t fin = arrow_final(sc);
 
-                if (fin != 0 && !key_down[idx])
-                    key_press(key_ep, idx, fin, true);
+                if (fin != 0) {
+                    if (!key_down[idx])
+                        key_press(key_ep, idx, fin, true);
+                    else if (repeat_id == idx) {
+                        repeat_typematic = true;
+                        repeat_make_ms = now_ms();
+                    }
+                }
             } else {
                 key_release(idx);
             }
@@ -331,17 +360,25 @@ static void ps2_drain(uint64_t key_ep)
         } else if (sc == KB_LCTRL) {
             ctrl = pressed;
         } else if (pressed) {
-            if (!key_down[sc]) {
-                char ch = keyboard_get_ascii(sc, shift, caps);
+            char ch = keyboard_get_ascii(sc, shift, caps);
+            uint8_t payload = 0;
 
-                if (ctrl && ch >= 'a' && ch <= 'z')
-                    key_press(key_ep, sc, (uint8_t) (ch - 'a' + 1), false);
-                else if (ctrl && ch >= 'A' && ch <= 'Z')
-                    key_press(key_ep, sc, (uint8_t) (ch - 'A' + 1), false);
-                else if (ch != 0)
-                    key_press(key_ep, sc, (uint8_t) ch, false);
-                else
-                    key_down[sc] = true;
+            if (ctrl && ch >= 'a' && ch <= 'z')
+                payload = (uint8_t) (ch - 'a' + 1);
+            else if (ctrl && ch >= 'A' && ch <= 'Z')
+                payload = (uint8_t) (ch - 'A' + 1);
+            else if (ch != 0)
+                payload = (uint8_t) ch;
+
+            if (payload != 0) {
+                if (!key_down[sc])
+                    key_press(key_ep, sc, payload, false);
+                else if (repeat_id == sc) {
+                    repeat_typematic = true;
+                    repeat_make_ms = now_ms();
+                }
+            } else {
+                key_down[sc] = true;    /* unmapped key: track state only */
             }
         } else {
             key_release(sc);
@@ -374,6 +411,15 @@ static void serial_init_rx(void)
     if (serial_base == 0)
         return;
 
+    /* Probe the scratch register. A machine with no COM port, or one with a
+     * floating RX line, would otherwise feed noise onto the key path. */
+    outb(serial_base + UART_SCR, 0x5a);
+    if (inb(serial_base + UART_SCR) != 0x5a)
+        return;
+    outb(serial_base + UART_SCR, 0xa5);
+    if (inb(serial_base + UART_SCR) != 0xa5)
+        return;
+
     /* The kernel leaves the UART with all interrupts off; enable only the
      * received-data interrupt. */
     uint8_t ier = inb(serial_base + UART_IER);
@@ -397,12 +443,19 @@ int32_t main(void)
     serial_init_rx();
 
     for (;;) {
-        /* Wake on an interrupt, or early enough to emit the next repeat. */
+        /* Wake on an interrupt, or early enough to emit the next repeat, or to
+         * notice that the keyboard stopped its own repeats. */
         long timeout = 1000;
 
         if (repeat_id >= 0) {
             long rem = repeat_next - now_ms();
 
+            if (repeat_typematic) {
+                long conf = repeat_make_ms + REPEAT_CONFIRM_MS - now_ms();
+
+                if (conf < rem)
+                    rem = conf;
+            }
             timeout = (rem > 0) ? rem : 0;
         }
 
