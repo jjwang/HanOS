@@ -36,6 +36,12 @@ live U 盘第一分区放内核与 initrd，第二分区放 ext2 游戏。块服
 - 增加 `msc_recover()`：Bulk-Only Mass Storage Reset、两个批量端点的 ClearFeature(ENDPOINT_HALT)、每端点的 xHCI `Reset Endpoint`（`TRB_RESET_EP`）命令。失败后恢复再重试。
 - HID 线程与存储传输共用一个事件环。用 `evt_lock` 串行化，统一走 `xhci_drain()`。
 
+## 物理机
+
+live USB 在 QEMU 下能进 shell，能跑游戏。Skylake 笔记本上游戏起不来。该控制器预留 scratchpad 缓冲。`HCSPARAMS2` 报告一个以上，控制器从 `DCBAAP[0]` 读它们的页地址。QEMU 报告 0，缺数组的问题被掩盖。缺了它，第一条命令永不完成，控制器一直无响应。
+
+分配 scratchpad 数组和各页。令 `DCBAAP[0]` 指向数组，打印数量。
+
 ## 接入
 
 - 新增系统调用 `SYS_USB_BLOCK_INFO/READ/WRITE`（`0x434-0x436`）与 `sys_usb_block_*`。
@@ -46,7 +52,7 @@ live U 盘第一分区放内核与 initrd，第二分区放 ext2 游戏。块服
 
 | 文件 | 变更 |
 |------|------|
-| `kernel/device/usb/xhci.c` | USB 大容量存储 BOT 与 SCSI；共享 `xhci_drain`；`msc_recover` 含 Reset Endpoint |
+| `kernel/device/usb/xhci.c` | USB 大容量存储 BOT 与 SCSI；共享 `xhci_drain`；`msc_recover` 含 Reset Endpoint；scratchpad 缓冲 |
 | `kernel/device/usb/xhci.h` | 导出 `usb_msc_ready/sectors/read/write/wait` |
 | `kernel/proc/syscall.c` | `k_usb_block_info/read/write` |
 | `include/syscall_nr.h` | `SYSCALL_USB_BLOCK_INFO/READ/WRITE` |
@@ -64,5 +70,6 @@ live U 盘第一分区放内核与 initrd，第二分区放 ext2 游戏。块服
 
 ## 尚未完成
 
+- 在物理笔记本上确认 scratchpad 分配。
 - HID 设备在线时，与存储传输同时使用共享事件环的场景未测。
 - 数据翻转位靠 STALL 后的 `Reset Endpoint` 复位，未做端口显式复位。

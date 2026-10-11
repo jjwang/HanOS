@@ -36,6 +36,12 @@ A Bulk-Only Transport transfer needs three doorbelled stages on two endpoints. O
 - Add `msc_recover()`: a Bulk-Only Mass Storage Reset, a ClearFeature(ENDPOINT_HALT) on both bulk endpoints, and an xHCI `Reset Endpoint` (`TRB_RESET_EP`) command per endpoint. Retry a command after recovery.
 - Share the one event ring between the HID thread and the mass-storage transfers through `evt_lock` and a single `xhci_drain()`.
 
+## Physical machine
+
+The live USB booted to the shell and ran the games under QEMU, but the games would not start on a Skylake laptop. The controller there reserves scratchpad buffers: `HCSPARAMS2` reports one or more and the controller reads their page addresses from `DCBAAP[0]`. QEMU reports zero, so the missing array went unnoticed. Without it the first command never completes and the controller stays unresponsive.
+
+Allocate the scratchpad array and its pages, point `DCBAAP[0]` at the array, and log the count.
+
 ## Integration
 
 - Add syscalls `SYS_USB_BLOCK_INFO/READ/WRITE` (`0x434-0x436`) and `sys_usb_block_*`.
@@ -46,7 +52,7 @@ A Bulk-Only Transport transfer needs three doorbelled stages on two endpoints. O
 
 | File | Change |
 |------|--------|
-| `kernel/device/usb/xhci.c` | USB mass storage BOT and SCSI; shared `xhci_drain`; `msc_recover` with Reset Endpoint |
+| `kernel/device/usb/xhci.c` | USB mass storage BOT and SCSI; shared `xhci_drain`; `msc_recover` with Reset Endpoint; scratchpad buffers |
 | `kernel/device/usb/xhci.h` | export `usb_msc_ready/sectors/read/write/wait` |
 | `kernel/proc/syscall.c` | `k_usb_block_info/read/write` |
 | `include/syscall_nr.h` | `SYSCALL_USB_BLOCK_INFO/READ/WRITE` |
@@ -64,5 +70,6 @@ A Bulk-Only Transport transfer needs three doorbelled stages on two endpoints. O
 
 ## Not yet done
 
+- Confirm the scratchpad allocation on the physical laptop.
 - Exercise the shared event ring with an HID device and a mass-storage transfer at once.
 - Reset the bulk data toggle without a stall, instead of resetting it inside `msc_recover`.
