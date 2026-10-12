@@ -34,13 +34,13 @@
 #define UART_LSR    5
 #define UART_SCR    7
 
-/* Software key repeat: one key on press, then repeats after a delay at a fixed
- * period. If the keyboard's own typematic shows up (a make code for a key
- * already down), the repeat stops once those makes stop, so a lost break code
- * cannot leave a key repeating on its own. */
-#define REPEAT_DELAY_MS     250
+/* Software key repeat: one key on press, then repeats at a fixed period once
+ * the keyboard's own typematic starts (a make code for a key already down). A
+ * tap shorter than the keyboard's typematic delay never repeats, and the repeat
+ * stops when those makes stop, so a lost break code cannot run a key away. */
 #define REPEAT_PERIOD_MS    40
 #define REPEAT_CONFIRM_MS   120
+#define REPEAT_DEBOUNCE_MS  25
 
 static uint16_t serial_base;
 
@@ -227,14 +227,18 @@ static long now_ms(void)
 /* Physical key state, so a repeat make code is told apart from a real press.
  * The extended (arrow) keys use the high bit of the index. */
 static bool key_down[256];
+static long key_release_ms[256];        /* debounce a make after a recent break */
 static int repeat_id = -1;
 static uint8_t repeat_payload;
 static bool repeat_arrow;
+static bool repeat_started;             /* the keyboard's typematic began */
+static uint8_t repeat_makes;            /* make codes seen for the down key */
 static long repeat_next;
 static bool repeat_typematic;   /* the keyboard is sending its own repeats */
 static long repeat_make_ms;     /* time of the last make of the repeat key */
 
-/* Deliver a new press and start the software repeat. */
+/* Deliver a new press and arm the repeat. The repeat waits for the keyboard's
+ * typematic, so a tap that ends before then does not repeat. */
 static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
 {
     key_down[idx] = true;
@@ -246,7 +250,8 @@ static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
     repeat_id = idx;
     repeat_payload = payload;
     repeat_arrow = arrow;
-    repeat_next = now_ms() + REPEAT_DELAY_MS;
+    repeat_started = false;
+    repeat_makes = 0;
     repeat_typematic = false;
     repeat_make_ms = now_ms();
 }
@@ -254,21 +259,44 @@ static void key_press(uint64_t key_ep, uint8_t idx, uint8_t payload, bool arrow)
 static void key_release(uint8_t idx)
 {
     key_down[idx] = false;
-    if (repeat_id == idx)
+    key_release_ms[idx] = now_ms();
+    if (repeat_id == idx) {
         repeat_id = -1;
+        repeat_started = false;
+        repeat_makes = 0;
+    }
+}
+
+/* The keyboard sent a make for a held key. A real typematic sends makes at its
+ * rate, so wait for the second before repeating: one stray make is not a hold.
+ * The software repeat then caps the rate whatever the keyboard sends. */
+static void repeat_begin(void)
+{
+    long now = now_ms();
+
+    repeat_typematic = true;
+    repeat_make_ms = now;
+    if (repeat_makes < 2)
+        repeat_makes++;
+    if (repeat_started || repeat_makes < 2)
+        return;
+
+    repeat_started = true;
+    repeat_next = now;
 }
 
 static void repeat_tick(uint64_t key_ep)
 {
-    if (repeat_id < 0)
+    if (repeat_id < 0 || !repeat_started)
         return;
 
     long now = now_ms();
 
-    /* The keyboard repeats the held key itself. Once those makes stop the key
-     * is up, so stop here too: a lost break cannot run the repeat away. */
+    /* Once the keyboard's makes stop the key is up, so stop here too: a lost
+     * break cannot run the repeat away. */
     if (repeat_typematic && now - repeat_make_ms > REPEAT_CONFIRM_MS) {
         repeat_id = -1;
+        repeat_started = false;
         return;
     }
 
@@ -339,11 +367,12 @@ static void ps2_drain(uint64_t key_ep)
                 uint8_t fin = arrow_final(sc);
 
                 if (fin != 0) {
-                    if (!key_down[idx])
-                        key_press(key_ep, idx, fin, true);
-                    else if (repeat_id == idx) {
-                        repeat_typematic = true;
-                        repeat_make_ms = now_ms();
+                    if (!key_down[idx]) {
+                        if (now_ms() - key_release_ms[idx]
+                            >= REPEAT_DEBOUNCE_MS)
+                            key_press(key_ep, idx, fin, true);
+                    } else if (repeat_id == idx) {
+                        repeat_begin();
                     }
                 }
             } else {
@@ -371,11 +400,11 @@ static void ps2_drain(uint64_t key_ep)
                 payload = (uint8_t) ch;
 
             if (payload != 0) {
-                if (!key_down[sc])
-                    key_press(key_ep, sc, payload, false);
-                else if (repeat_id == sc) {
-                    repeat_typematic = true;
-                    repeat_make_ms = now_ms();
+                if (!key_down[sc]) {
+                    if (now_ms() - key_release_ms[sc] >= REPEAT_DEBOUNCE_MS)
+                        key_press(key_ep, sc, payload, false);
+                } else if (repeat_id == sc) {
+                    repeat_begin();
                 }
             } else {
                 key_down[sc] = true;    /* unmapped key: track state only */
