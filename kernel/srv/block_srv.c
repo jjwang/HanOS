@@ -203,6 +203,8 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
     object_unref(endpoint_object(reply));       /* our own ref */
 }
 
+/* Ask the block server for the media info once, both to confirm it answers and
+ * to print the disk model. */
 void block_server_probe(void)
 {
     endpoint_t *ep = block_in_ep;
@@ -210,35 +212,4 @@ void block_server_probe(void)
         return;
 
     block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL);
-
-    /* Report the GPT partitions. */
-    for (uint64_t i = 0; i < 4; i++)
-        block_probe_rpc(ep, BLOCK_GET_PART, i, 0, NULL);
-
-    /* Read sector 0 (the MBR) through a memory object and check its signature. */
-    memobj_t *mo = memobj_create(512);
-    if (mo != NULL) {
-        block_probe_rpc(ep, BLOCK_READ, 0, 1, mo);
-        memobj_unref(mo);
-    }
-
-    /* Write a pattern to a scratch sector in the GPT gap and read it back. */
-    memobj_t *wo = memobj_create(512);
-    if (wo != NULL) {
-        uint8_t *w = (uint8_t *) PHYS_TO_VIRT(memobj_page(wo, 0));
-
-        memset(w, 0, 512);
-        memcpy(w, "HANOS-BLOCK", 11);
-        block_probe_rpc(ep, BLOCK_WRITE, 40, 1, wo);
-        memobj_unref(wo);
-
-        memobj_t *ro = memobj_create(512);
-        if (ro != NULL) {
-            block_probe_rpc(ep, BLOCK_READ, 40, 1, ro);
-            uint8_t *r = (uint8_t *) PHYS_TO_VIRT(memobj_page(ro, 0));
-            klogi("block: WRITE/READ lba40 %s\n",
-                  memcmp(r, "HANOS-BLOCK", 11) == 0 ? "OK" : "FAIL");
-            memobj_unref(ro);
-        }
-    }
 }

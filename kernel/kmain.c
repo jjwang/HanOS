@@ -223,25 +223,16 @@ _Noreturn void kshell(pid_t pid)
         klogw("fat32: no block server, skipping\n");
     else if (!fat32_server_start())
         klogw("fat32: server failed to start\n");
-    else
-        fat32_server_probe();
     if (!block_server_active())
         klogw("ext2: no block server, skipping\n");
     else if (!ext2_server_start())
         klogw("ext2: server failed to start\n");
     if (!vfs_server_start())
         klogw("vfs: server failed to start\n");
-    else {
-        vfs_server_probe();
-        if (ext2_server_active())
-            ext2_server_probe();
-    }
     if (!pipe_server_start())
         klogw("pipe: server failed to start\n");
     if (!process_server_start())
         klogw("process: server failed to start\n");
-    else
-        process_server_probe();
     if (!net_server_start())
         klogw("net: server failed to start\n");
 
