@@ -1115,11 +1115,15 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len)
     *out_buf = NULL;
     *out_len = 0;
 
+    /* Read initrd files straight from the image. The VFS server only serves
+     * paths the initrd does not carry, such as the ext2 volume. */
+    if (initrd_load(path, out_buf, out_len) == 0)
+        return 0;
+
     if (router_lookup(SVC_FS) != NULL)
         return vfs_load_via_server(path, out_buf, out_len);
 
-    /* Early boot: read the file straight from the initrd image. */
-    return initrd_load(path, out_buf, out_len);
+    return -1;
 }
 
 uint64_t vfs_tell(vfs_fd_t fd)
