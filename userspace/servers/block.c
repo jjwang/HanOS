@@ -20,6 +20,7 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 #include <bootinfo.h>
 #include <protocol.h>
@@ -49,6 +50,7 @@
 #define P_TFD               0x20
 #define P_SIG               0x24
 #define P_SSTS              0x28
+#define P_SCTL              0x2c
 #define P_SERR              0x30
 #define P_CI                0x38
 
@@ -57,6 +59,8 @@
 #define CMD_FRE             0x00000010u
 #define CMD_FR              0x00004000u
 #define CMD_CR              0x00008000u
+#define CMD_ICC_MASK        0xf0000000u
+#define CMD_ICC_ACTIVE      0x10000000u     /* ICC = 1: interface active */
 #define TFD_ERR             0x00000001u
 #define TFD_DF              0x00000020u
 #define IS_TFES             0x40000000u
@@ -135,6 +139,11 @@ static int32_t port_start(int32_t p)
 
     uint32_t cmd = pr32((uint32_t) p, P_CMD);
 
+    /* Wake the port interface. The firmware may have left it idle; the
+     * controller does not process commands until ICC is Active. */
+    pw32((uint32_t) p, P_CMD, (cmd & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
+
+    cmd = pr32((uint32_t) p, P_CMD);
     cmd &= ~CMD_ST;
     pw32((uint32_t) p, P_CMD, cmd);
     for (int32_t t = 0; t < 100000 && (pr32((uint32_t) p, P_CMD) & CMD_CR); t++)
@@ -183,7 +192,7 @@ static int32_t ahci_cmd(uint8_t cmd, uint64_t lba, uint16_t count,
     memset(tbl, 0, sizeof(*tbl));
 
     fis[0] = FIS_REG_H2D;
-    fis[1] = 0x80;              /* command, not control */
+    fis[1] = 0x80;              /* C=1: this FIS is a command, not a control update */
     fis[2] = cmd;
     fis[3] = 0;
     fis[4] = (uint8_t) lba;
@@ -260,6 +269,29 @@ static int32_t ahci_identify(void)
     return n > 0 ? 0 : -1;
 }
 
+/* Bring a port the firmware left idle up to DET=3 with a COMRESET. Only a
+ * port that reports a device signature is reset; an empty port reads
+ * 0xffffffff and is left alone. */
+static void port_bringup(uint32_t p)
+{
+    if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
+        return;
+    if (pr32(p, P_SIG) == 0xffffffffu || pr32(p, P_SIG) == 0)
+        return;
+
+    struct timespec ts = { 0, 1000000L };       /* 1 ms */
+
+    pw32(p, P_SCTL, 1);         /* DET=1: COMRESET */
+    nanosleep(&ts, NULL);
+    pw32(p, P_SCTL, 0);
+
+    for (int32_t i = 0; i < 200; i++) {
+        if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
+            return;
+        nanosleep(&ts, NULL);
+    }
+}
+
 /* Find the first ATA disk on an AHCI port and identify it. */
 static int32_t ahci_init(void)
 {
@@ -269,12 +301,18 @@ static int32_t ahci_init(void)
 
     w32(HOST_GHC, r32(HOST_GHC) | GHC_AE);
 
+    /* Bring up ports the firmware left idle before probing them. */
+    for (uint32_t p = 0; p < nports; p++) {
+        if (pi & (1u << p))
+            port_bringup(p);
+    }
+
     for (uint32_t p = 0; p < nports; p++) {
         if (!(pi & (1u << p)))
             continue;
         if ((pr32(p, P_SSTS) & SSTS_DET_MASK) != 3)
             continue;
-        if (pr32(p, P_SIG) != 0x00000101u)  /* ATA disk */
+        if (pr32(p, P_SIG) != 0x00000101u)      /* ATA disk */
             continue;
 
         port = (int32_t) p;
