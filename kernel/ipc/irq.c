@@ -84,6 +84,11 @@ void irq_ack(irq_obj_t *io)
 
 bool irq_deliver(uint32_t irq)
 {
+    return irq_deliver_data(irq, 0);
+}
+
+bool irq_deliver_data(uint32_t irq, uint64_t data)
+{
     if (irq >= IRQ_TABLE_SIZE)
         return false;
 
@@ -102,6 +107,7 @@ bool irq_deliver(uint32_t irq)
     memset(&m, 0, sizeof(m));
     m.tag = IRQ_NOTIFY_TAG;
     m.words[0] = irq;
+    m.words[1] = data;
     ipc_send(ep, &m);
     return true;
 }

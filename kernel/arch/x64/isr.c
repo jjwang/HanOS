@@ -208,9 +208,28 @@ void exc_handler_proc(
     /* If a userspace driver has bound this line, deliver a notification and
      * let the driver service the device instead of running the in-kernel
      * handler. */
-    if (excno >= IRQ0 && excno < IRQ0 + 16 && irq_deliver(excno - IRQ0)) {
-        irq_eoi(excno);
-        return;
+    if (excno >= IRQ0 && excno < IRQ0 + 16) {
+        uint64_t data = 0;
+
+        /* On some machines the keyboard byte reaches the i8042 a short while
+         * after the IRQ, so wait for it here (with a real delay) and forward
+         * it. Reading in the handler rather than a userspace server also beats
+         * the context switch that can lose the byte. */
+        if (excno == IRQ0 + 1) {
+            for (int32_t i = 0; i < 2000; i++) {
+                if (port_inb(0x64) & 0x01) {
+                    data = (uint64_t) port_inb(0x60);
+                    break;
+                }
+                for (volatile int32_t d = 0; d < 500; d++)
+                    ;
+            }
+        }
+
+        if (irq_deliver_data(excno - IRQ0, data)) {
+            irq_eoi(excno);
+            return;
+        }
     }
 
     /* Process other exceptions and interrupts */

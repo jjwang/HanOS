@@ -100,13 +100,22 @@ static void mouse_init(void)
     outb(PORT_CMD, 0xAE);       /* enable the keyboard port */
     outb(PORT_CMD, 0xA8);       /* enable the mouse port */
 
-    /* Configuration byte: keyboard IRQ (bit 0), mouse IRQ (bit 1), system flag
-     * (bit 2) and translation (bit 6). Writing a fixed value avoids the racy
-     * read-modify-write that could otherwise disable the keyboard. */
+    /* Configuration byte: read the firmware value and keep its settings (in
+     * particular the translation bit), then make sure both interrupts are
+     * enabled and neither port disabled. Writing a fixed value could clear a
+     * bit the firmware set and break the keyboard. */
+    mouse_wait(1);
+    outb(PORT_CMD, 0x20);
+    mouse_wait(0);
+    uint8_t ctr = inb(PORT_DATA);
+
+    ctr &= (uint8_t) ~0x30;     /* clear KBDDIS and AUXDIS */
+    ctr |= 0x03;                /* set KBDINT and AUXINT */
+
     mouse_wait(1);
     outb(PORT_CMD, 0x60);
     mouse_wait(1);
-    outb(PORT_DATA, 0x47);
+    outb(PORT_DATA, ctr);
 
     mouse_write(0xF6);          /* default settings */
     mouse_read();
@@ -326,9 +335,81 @@ static uint8_t arrow_final(uint8_t sc)
     return 0;
 }
 
+/* Decode one PS/2 byte. The kernel reads the port and hands the byte over,
+ * because on some machines the i8042 byte does not survive to this process. */
+static void ps2_byte(uint64_t key_ep, uint8_t raw)
+{
+    if (raw == 0xe0) {          /* extended prefix: the next byte picks a key */
+        ext = true;
+        return;
+    }
+    if (raw == 0xe1) {          /* pause/break, ignore */
+        ext = false;
+        return;
+    }
+
+    uint8_t sc = raw & 0x7f;
+    bool pressed = !(raw & 0x80);
+    bool was_ext = ext;
+
+    ext = false;
+
+    if (was_ext) {
+        uint8_t idx = (uint8_t) (sc | 0x80);
+
+        if (pressed) {
+            uint8_t fin = arrow_final(sc);
+
+            if (fin != 0) {
+                if (!key_down[idx]) {
+                    if (now_ms() - key_release_ms[idx] >= REPEAT_DEBOUNCE_MS)
+                        key_press(key_ep, idx, fin, true);
+                } else if (repeat_id == idx) {
+                    repeat_begin();
+                }
+            }
+        } else {
+            key_release(idx);
+        }
+        return;
+    }
+
+    if (sc == KB_LSHIFT || sc == KB_RSHIFT) {
+        shift = pressed;
+    } else if (sc == KB_CAPS_LOCK) {
+        if (pressed)
+            caps = !caps;
+    } else if (sc == KB_LCTRL) {
+        ctrl = pressed;
+    } else if (pressed) {
+        char ch = keyboard_get_ascii(sc, shift, caps);
+        uint8_t payload = 0;
+
+        if (ctrl && ch >= 'a' && ch <= 'z')
+            payload = (uint8_t) (ch - 'a' + 1);
+        else if (ctrl && ch >= 'A' && ch <= 'Z')
+            payload = (uint8_t) (ch - 'A' + 1);
+        else if (ch != 0)
+            payload = (uint8_t) ch;
+
+        if (payload != 0) {
+            if (!key_down[sc]) {
+                if (now_ms() - key_release_ms[sc] >= REPEAT_DEBOUNCE_MS)
+                    key_press(key_ep, sc, payload, false);
+            } else if (repeat_id == sc) {
+                repeat_begin();
+            }
+        } else {
+            key_down[sc] = true;    /* unmapped key: track state only */
+        }
+    } else {
+        key_release(sc);
+    }
+}
+
 static void ps2_drain(uint64_t key_ep)
 {
-    for (;;) {
+    for (uint32_t n = 0; n < 32; n++) {
         int64_t status = sys_ioport_access(0, PORT_CMD, 1, 0);
         if (status < 0 || !(status & 0x01))
             break;
@@ -343,75 +424,7 @@ static void ps2_drain(uint64_t key_ep)
             continue;
         }
 
-        uint8_t raw = (uint8_t) code;
-
-        if (raw == 0xe0) {      /* extended prefix: the next byte picks a key */
-            ext = true;
-            continue;
-        }
-        if (raw == 0xe1) {      /* pause/break, ignore */
-            ext = false;
-            continue;
-        }
-
-        uint8_t sc = raw & 0x7f;
-        bool pressed = !(raw & 0x80);
-        bool was_ext = ext;
-
-        ext = false;
-
-        if (was_ext) {
-            uint8_t idx = (uint8_t) (sc | 0x80);
-
-            if (pressed) {
-                uint8_t fin = arrow_final(sc);
-
-                if (fin != 0) {
-                    if (!key_down[idx]) {
-                        if (now_ms() - key_release_ms[idx]
-                            >= REPEAT_DEBOUNCE_MS)
-                            key_press(key_ep, idx, fin, true);
-                    } else if (repeat_id == idx) {
-                        repeat_begin();
-                    }
-                }
-            } else {
-                key_release(idx);
-            }
-            continue;
-        }
-
-        if (sc == KB_LSHIFT || sc == KB_RSHIFT) {
-            shift = pressed;
-        } else if (sc == KB_CAPS_LOCK) {
-            if (pressed)
-                caps = !caps;
-        } else if (sc == KB_LCTRL) {
-            ctrl = pressed;
-        } else if (pressed) {
-            char ch = keyboard_get_ascii(sc, shift, caps);
-            uint8_t payload = 0;
-
-            if (ctrl && ch >= 'a' && ch <= 'z')
-                payload = (uint8_t) (ch - 'a' + 1);
-            else if (ctrl && ch >= 'A' && ch <= 'Z')
-                payload = (uint8_t) (ch - 'A' + 1);
-            else if (ch != 0)
-                payload = (uint8_t) ch;
-
-            if (payload != 0) {
-                if (!key_down[sc]) {
-                    if (now_ms() - key_release_ms[sc] >= REPEAT_DEBOUNCE_MS)
-                        key_press(key_ep, sc, payload, false);
-                } else if (repeat_id == sc) {
-                    repeat_begin();
-                }
-            } else {
-                key_down[sc] = true;    /* unmapped key: track state only */
-            }
-        } else {
-            key_release(sc);
-        }
+        ps2_byte(key_ep, (uint8_t) code);
     }
 }
 
@@ -422,13 +435,18 @@ static void serial_drain(uint64_t key_ep)
     if (serial_base == 0)
         return;
 
-    for (;;) {
+    for (uint32_t n = 0; n < 32; n++) {
         int64_t lsr = sys_ioport_access(0, serial_base + UART_LSR, 1, 0);
         if (lsr < 0 || !(lsr & 0x01))
             break;
 
         int64_t data = sys_ioport_access(0, serial_base, 1, 0);
         if (data < 0)
+            break;
+
+        /* A floating bus on a machine without COM1 reads 0xff; it is not a
+         * key and would otherwise keep the loop alive forever. */
+        if ((uint8_t) data == 0xff)
             break;
 
         send_char(key_ep, (uint8_t) data);
@@ -443,11 +461,15 @@ static void serial_init_rx(void)
     /* Probe the scratch register. A machine with no COM port, or one with a
      * floating RX line, would otherwise feed noise onto the key path. */
     outb(serial_base + UART_SCR, 0x5a);
-    if (inb(serial_base + UART_SCR) != 0x5a)
+    if (inb(serial_base + UART_SCR) != 0x5a) {
+        serial_base = 0;
         return;
+    }
     outb(serial_base + UART_SCR, 0xa5);
-    if (inb(serial_base + UART_SCR) != 0xa5)
+    if (inb(serial_base + UART_SCR) != 0xa5) {
+        serial_base = 0;
         return;
+    }
 
     /* The kernel leaves the UART with all interrupts off; enable only the
      * received-data interrupt. */
@@ -472,7 +494,7 @@ int32_t main(void)
     serial_init_rx();
 
     for (;;) {
-        /* Wake on an interrupt, or early enough to emit the next repeat, or to
+        /* Wake on an interrupt, or early enough to emit the next repeat or
          * notice that the keyboard stopped its own repeats. */
         long timeout = 1000;
 
@@ -492,6 +514,8 @@ int32_t main(void)
         int32_t r = sys_ipc_recv_timeout((int64_t) bi.irq_ep, &m, timeout);
 
         if (r == 0 && m.tag == IRQ_NOTIFY_TAG) {
+            if (m.words[1] != 0)
+                ps2_byte(bi.key_ep, (uint8_t) m.words[1]);
             ps2_drain(bi.key_ep);
             serial_drain(bi.key_ep);
         }

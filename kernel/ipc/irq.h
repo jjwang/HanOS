@@ -48,3 +48,6 @@ void irq_ack(irq_obj_t *io);
 /* Notify the endpoint bound to an IRQ line. Returns true when the line was
  * handled by a bound object, in which case the caller must still send EOI. */
 bool irq_deliver(uint32_t irq);
+
+/* Same, carrying one word (for example a scancode the kernel already read). */
+bool irq_deliver_data(uint32_t irq, uint64_t data);
