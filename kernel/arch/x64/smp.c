@@ -265,7 +265,7 @@ void smp_init()
     smp_info->cpus[0].is_bsp = false;
 
     for (uint64_t i = 0; i < cpunum; i++) {
-        if (apic_read_reg(APIC_REG_ID) == lapics[i]->apic_id) {
+        if (((apic_read_reg(APIC_REG_ID) >> 24) & 0xff) == lapics[i]->apic_id) {
             smp_info->cpus[0].cpu_id = lapics[i]->apic_id;
             smp_info->cpus[0].lapic_id = lapics[i]->apic_id;
             smp_info->cpus[0].proc_id = lapics[i]->proc_id;
@@ -296,7 +296,7 @@ void smp_init()
     /* loop through the lapic's present and initialize them one by one */
     for (uint64_t i = 0; i < cpunum; i++) {
         uint64_t coreid = 0;
-        if (apic_read_reg(APIC_REG_ID) != lapics[i]->apic_id) {
+        if (((apic_read_reg(APIC_REG_ID) >> 24) & 0xff) != lapics[i]->apic_id) {
             coreid = smp_info->num_cpus;
         } else {
             /* It is a bootstrap processor */
