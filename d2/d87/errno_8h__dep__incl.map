@@ -1,0 +1,13 @@
+<map id="kernel/lib/errno.h" name="kernel/lib/errno.h">
+<area shape="rect" id="Node000001" title="Error number definitions for the HanOS kernel library." alt="" coords="325,5,457,31"/>
+<area shape="rect" id="Node000002" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="5,79,119,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="326,36,116,81,115,76,325,31"/>
+<area shape="rect" id="Node000003" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="143,79,298,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="352,38,250,81,248,76,350,33"/>
+<area shape="rect" id="Node000004" href="$de/d77/ls_8c.html" title="List directory contents." alt="" coords="322,79,461,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="394,44,394,79,389,79,389,44"/>
+<area shape="rect" id="Node000005" href="$de/db3/faulttest_8c.html" title="Trigger user&#45;mode CPU exceptions and check the signal." alt="" coords="485,79,671,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="435,33,548,76,547,81,433,38"/>
+<area shape="rect" id="Node000006" href="$d0/dfa/sigtest_8c.html" title="Deliver a signal to a process spinning in user mode." alt="" coords="695,79,871,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="468,30,720,76,719,81,467,36"/>
+</map>

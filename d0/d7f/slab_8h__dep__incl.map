@@ -1,0 +1,7 @@
+<map id="kernel/mm/slab.h" name="kernel/mm/slab.h">
+<area shape="rect" id="Node000001" title="Slab allocator definitions." alt="" coords="87,5,222,31"/>
+<area shape="rect" id="Node000002" href="$d9/d39/alloc_8c.html" title="Implementation of memory allocation functions." alt="" coords="5,79,144,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="134,42,90,80,86,76,130,38"/>
+<area shape="rect" id="Node000003" href="$d4/dc6/slab_8c.html" title="Implementation of slab allocator." alt="" coords="169,79,303,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="180,38,224,76,221,80,176,42"/>
+</map>

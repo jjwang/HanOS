@@ -1,0 +1,38 @@
+<map id="userspace/servers/block.c" name="userspace/servers/block.c">
+<area shape="rect" id="Node000001" title="Userspace AHCI (SATA) block server." alt="" coords="521,5,712,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="542,152,625,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="615,32,601,79,589,139,584,138,595,78,610,30"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="359,299,429,324"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="712,28,803,47,840,60,864,77,894,121,904,143,908,165,908,187,903,209,892,231,876,253,853,265,812,275,692,291,443,310,443,305,691,286,811,270,851,260,872,249,888,228,898,207,903,186,903,165,899,144,890,123,860,81,837,65,801,52,711,33"/>
+<area shape="rect" id="Node000004" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="247,79,311,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="563,33,325,83,324,78,562,28"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="649,152,737,177"/>
+<area shape="poly" id="edge12_Node000001_Node000009" title=" " alt="" coords="621,30,629,64,644,103,673,141,669,144,640,105,624,65,616,31"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="655,79,741,104"/>
+<area shape="poly" id="edge13_Node000001_Node000010" title=" " alt="" coords="631,29,676,68,673,72,628,33"/>
+<area shape="rect" id="Node000011" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="451,79,521,104"/>
+<area shape="poly" id="edge14_Node000001_Node000011" title=" " alt="" coords="597,33,520,74,518,70,594,28"/>
+<area shape="rect" id="Node000013" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="765,79,849,104"/>
+<area shape="poly" id="edge18_Node000001_Node000013" title=" " alt="" coords="648,28,764,71,762,76,646,33"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="276,105,266,133,257,170,256,212,260,231,268,249,284,267,303,281,346,298,344,303,300,285,280,271,264,252,255,233,250,212,252,170,261,131,271,103"/>
+<area shape="rect" id="Node000005" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="81,152,203,177"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="258,106,178,148,175,143,256,102"/>
+<area shape="rect" id="Node000008" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="279,225,408,251"/>
+<area shape="poly" id="edge10_Node000004_Node000008" title=" " alt="" coords="287,103,335,212,330,214,282,106"/>
+<area shape="poly" id="edge6_Node000005_Node000003" title=" " alt="" coords="152,176,181,212,201,231,223,248,253,265,285,279,346,297,345,302,284,284,251,270,221,253,198,235,177,215,148,179"/>
+<area shape="rect" id="Node000006" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="31,225,152,251"/>
+<area shape="poly" id="edge7_Node000005_Node000006" title=" " alt="" coords="136,179,110,216,105,213,131,176"/>
+<area shape="poly" id="edge8_Node000006_Node000003" title=" " alt="" coords="141,248,346,296,344,301,139,253"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="5,299,177,324"/>
+<area shape="poly" id="edge9_Node000006_Node000007" title=" " alt="" coords="94,251,94,285,89,285,89,251"/>
+<area shape="poly" id="edge11_Node000008_Node000003" title=" " alt="" coords="354,249,380,286,376,289,350,253"/>
+<area shape="poly" id="edge15_Node000011_Node000002" title=" " alt="" coords="503,102,558,141,555,146,500,106"/>
+<area shape="poly" id="edge17_Node000011_Node000003" title=" " alt="" coords="473,106,452,126,434,153,426,179,425,200,426,223,422,251,408,287,403,286,417,250,421,223,420,200,421,178,429,151,448,123,469,102"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="443,152,518,177"/>
+<area shape="poly" id="edge16_Node000011_Node000012" title=" " alt="" coords="488,105,485,139,480,138,482,104"/>
+<area shape="poly" id="edge19_Node000013_Node000003" title=" " alt="" coords="805,106,784,141,769,162,750,179,713,205,673,228,589,264,509,289,444,304,442,299,508,283,587,259,670,223,710,201,747,175,765,158,780,138,800,103"/>
+<area shape="poly" id="edge22_Node000013_Node000009" title=" " alt="" coords="790,106,724,147,722,142,788,102"/>
+<area shape="rect" id="Node000014" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="788,225,861,251"/>
+<area shape="poly" id="edge20_Node000013_Node000014" title=" " alt="" coords="811,104,824,211,819,212,806,105"/>
+<area shape="poly" id="edge21_Node000014_Node000003" title=" " alt="" coords="788,250,769,253,444,306,443,300,768,248,787,244"/>
+</map>

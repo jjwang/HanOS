@@ -1,0 +1,10 @@
+<map id="userspace/include/sysfunc.h" name="userspace/include/sysfunc.h">
+<area shape="rect" id="Node000001" title="System call function declarations and related macros." alt="" coords="5,5,211,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="35,152,106,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="96,33,77,53,61,80,58,109,64,138,58,139,53,110,56,78,72,50,92,29"/>
+<area shape="rect" id="Node000003" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="71,79,145,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="111,31,111,65,105,65,105,31"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="169,79,257,104"/>
+<area shape="poly" id="edge4_Node000001_Node000004" title=" " alt="" coords="126,28,186,69,184,73,123,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="104,106,85,141,81,139,99,103"/>
+</map>

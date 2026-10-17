@@ -1,0 +1,9 @@
+<map id="kernel/mm/pmm_ops.h" name="kernel/mm/pmm_ops.h">
+<area shape="rect" id="Node000001" title="Pluggable physical memory allocator interface." alt="" coords="160,5,332,31"/>
+<area shape="rect" id="Node000002" href="$dc/d8f/buddy_8c.html" title="Buddy allocator implementation for physical memory management." alt="" coords="5,79,151,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="208,38,107,81,104,76,205,34"/>
+<area shape="rect" id="Node000003" href="$d7/ddc/pmm_8c.html" title="Implementation of physical memory management functions." alt="" coords="175,79,317,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="249,44,249,79,243,79,243,44"/>
+<area shape="rect" id="Node000004" href="$d0/d57/pmm__ops_8c.html" title="Physical memory allocator interface implementation." alt="" coords="341,79,511,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="288,33,398,76,396,81,286,38"/>
+</map>

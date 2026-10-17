@@ -1,0 +1,17 @@
+<map id="kernel/device/display/edid.h" name="kernel/device/display/edid.h">
+<area shape="rect" id="Node000001" title="EDID (Extended Display Identification Data) definitions." alt="" coords="299,5,459,45"/>
+<area shape="rect" id="Node000002" href="$d8/d04/display__mode_8h.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="240,93,400,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="360,58,335,95,331,92,356,55"/>
+<area shape="rect" id="Node000007" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="425,189,543,214"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="399,56,479,187,475,190,395,59"/>
+<area shape="rect" id="Node000003" href="$d1/de2/display__mode_8c.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="5,181,165,221"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="257,141,138,184,136,179,255,136"/>
+<area shape="rect" id="Node000004" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="123,269,283,309"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="273,143,250,161,230,183,219,204,212,227,206,269,201,269,207,226,214,202,226,180,246,157,270,138"/>
+<area shape="rect" id="Node000005" href="$d2/d93/skl__display_8h.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="240,181,400,221"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="323,147,323,181,317,181,317,147"/>
+<area shape="poly" id="edge7_Node000002_Node000007" title=" " alt="" coords="369,137,463,186,461,191,367,142"/>
+<area shape="poly" id="edge5_Node000005_Node000004" title=" " alt="" coords="284,232,230,271,227,267,281,228"/>
+<area shape="rect" id="Node000006" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="307,269,467,309"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="345,231,374,267,370,271,341,234"/>
+</map>

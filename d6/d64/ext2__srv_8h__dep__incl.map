@@ -1,0 +1,11 @@
+<map id="kernel/srv/ext2_srv.h" name="kernel/srv/ext2_srv.h">
+<area shape="rect" id="Node000001" title="Spawn the userspace ext2 server." alt="" coords="203,5,361,31"/>
+<area shape="rect" id="Node000002" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="5,79,119,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="234,37,98,81,97,76,233,32"/>
+<area shape="rect" id="Node000003" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="143,79,261,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="261,42,217,80,213,76,257,38"/>
+<area shape="rect" id="Node000004" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="285,79,439,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="307,38,351,76,347,80,303,42"/>
+<area shape="rect" id="Node000005" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="464,79,620,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="338,32,501,76,499,81,336,37"/>
+</map>

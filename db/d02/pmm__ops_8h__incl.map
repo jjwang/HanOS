@@ -1,0 +1,9 @@
+<map id="kernel/mm/pmm_ops.h" name="kernel/mm/pmm_ops.h">
+<area shape="rect" id="Node000001" title="Pluggable physical memory allocator interface." alt="" coords="56,5,228,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,76,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="127,33,70,73,67,68,124,28"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="101,79,183,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="145,31,145,65,139,65,139,31"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="208,79,380,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="168,28,258,70,256,75,165,33"/>
+</map>

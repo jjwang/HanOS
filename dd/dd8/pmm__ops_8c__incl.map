@@ -1,0 +1,27 @@
+<map id="kernel/mm/pmm_ops.c" name="kernel/mm/pmm_ops.c">
+<area shape="rect" id="Node000001" title="Physical memory allocator interface implementation." alt="" coords="129,5,299,31"/>
+<area shape="rect" id="Node000002" href="$d0/d39/pmm__ops_8h.html" title="Pluggable physical memory allocator interface." alt="" coords="27,225,155,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="210,32,107,214,102,212,205,30"/>
+<area shape="rect" id="Node000006" href="$df/d1f/panic_8h.html" title="Definition of panic related data structures." alt="" coords="289,79,419,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="238,28,320,70,318,75,235,33"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="369,299,440,324"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="142,248,356,296,355,302,141,253"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="242,299,325,324"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="123,248,240,291,238,296,121,253"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="5,299,177,324"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="94,251,94,285,89,285,89,251"/>
+<area shape="poly" id="edge6_Node000006_Node000003" title=" " alt="" coords="389,102,429,119,475,145,518,180,536,201,551,224,556,240,553,255,543,267,530,278,494,294,455,304,453,299,492,289,527,273,540,264,548,253,550,241,546,226,532,204,514,184,472,149,427,124,387,107"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="462,225,537,251"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="368,103,480,213,476,217,364,106"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="179,225,254,251"/>
+<area shape="poly" id="edge8_Node000006_Node000008" title=" " alt="" coords="345,106,239,217,235,214,341,103"/>
+<area shape="rect" id="Node000009" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="313,152,395,177"/>
+<area shape="poly" id="edge9_Node000006_Node000009" title=" " alt="" coords="357,104,357,138,351,138,351,104"/>
+<area shape="poly" id="edge12_Node000009_Node000003" title=" " alt="" coords="368,176,386,197,402,224,409,256,409,285,404,285,403,256,397,226,382,200,364,179"/>
+<area shape="poly" id="edge11_Node000009_Node000007" title=" " alt="" coords="379,175,465,217,462,222,376,180"/>
+<area shape="poly" id="edge10_Node000009_Node000008" title=" " alt="" coords="333,180,252,221,250,217,331,175"/>
+<area shape="rect" id="Node000010" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="279,225,387,251"/>
+<area shape="poly" id="edge13_Node000009_Node000010" title=" " alt="" coords="353,178,343,213,337,211,348,177"/>
+<area shape="poly" id="edge15_Node000010_Node000003" title=" " alt="" coords="346,249,385,287,381,291,343,253"/>
+<area shape="poly" id="edge14_Node000010_Node000004" title=" " alt="" coords="327,253,301,289,297,286,322,249"/>
+</map>
