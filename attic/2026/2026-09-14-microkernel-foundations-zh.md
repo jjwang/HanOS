@@ -70,15 +70,6 @@
 - 新增 `copy_user_path()` 辅助。
 - `k_read`、`k_write`、`k_fstat`、`k_readdir` 校验缓冲区。
 - 输出时使用 `copy_to_user`/`clear_user`。
-
-## 尚未完成
-
-- `k_execve` 的 argv/envp 与信号结构仍直接访问。
-- 用于安全拷贝的 `#PF` 修复。
-- 当前拷贝先校验范围，但无法从缺页中恢复。
-- 把 `syscall_funcs[]` 接到服务路由器。
-- 路由模块已实现，但尚无 syscall 调用它。
-
 ## 变更文件
 
 | 文件 | 变更 |

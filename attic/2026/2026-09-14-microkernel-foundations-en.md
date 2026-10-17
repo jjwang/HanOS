@@ -46,13 +46,6 @@ Typed notification built on an endpoint (`notify_publish` / `notify_subscribe`).
 ### Conversions
 
 The user-buffer syscalls now go through the uaccess layer: `k_openat`, `k_getcwd`, `k_chdir`, `k_unlink`, `k_chmod`, `k_faccessat`, `k_fstatat`, `k_readlink` copy paths/strings into the kernel first (a new `copy_user_path()` helper), while `k_read`, `k_write`, `k_fstat` and `k_readdir` validate the buffer and use `copy_to_user`/`clear_user` for output.
-
-## Not yet done
-
-- `k_execve` argv/envp and the signal structures are still accessed directly.
-- `#PF` fixup for fault-safe copies — the current copies validate the range before dereferencing but do not recover from a fault.
-- Wiring `syscall_funcs[]` through the service router (the router module is implemented but no syscall calls it yet).
-
 ## Files Changed
 
 | File | Change |

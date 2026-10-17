@@ -63,8 +63,3 @@ A probe showed the syscall handler used the caller's user stack. Changing the ad
 - Interactive `ls /`, `pwd`, `ls /bin`, and pipelines: correct, no faults.
 - Loop `tetris` then `q` 20 times: the prompt returns every time.
 - `musltest` completes: `pipe-ok`, `nanosleep ok`, `mustest: done`.
-
-## Not yet done
-
-- The in-place path allocates a temporary process per exec. Replace it with a direct reset of the current process.
-- The process server still keeps shadow state. Move fork/exec/exit/wait authority into the kernel.

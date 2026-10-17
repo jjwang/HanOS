@@ -77,8 +77,3 @@ Bulk transfers:
 - QEMU live USB (`-device qemu-xhci -device usb-storage`): `block: PART 0 start`, `ext2: read /assets/readme.txt`, `execute "/data/bin/tetris"`, no read failure.
 - Physical Skylake laptop: the shell runs `tetris`, `snake` and `2048` from `/data/bin` repeatedly; `U-Disk      : Kingston DataTraveler 3.0`.
 - Headless `cdrom.iso`: `name "hansh"`, no panic, no exception, no corrupt.
-
-## Not yet done
-
-- Exercise the shared event ring with an HID device and a mass-storage transfer at once.
-- Reset the bulk data toggle without a stall, instead of resetting it inside `msc_recover`.

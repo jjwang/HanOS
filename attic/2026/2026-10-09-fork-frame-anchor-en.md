@@ -61,7 +61,3 @@ Read the frame as `syscall_regs_t`, which matches the `push_all` layout, and reb
 - Mixed command loop, 105 commands, on `-smp 1` and `-smp 4`: no faults. Before the fix, 8.
 - Game loop of `tetris` then `q`, 10 times: the prompt returns every time.
 - `musltest`: completes (`pipe-ok`, `nanosleep ok`, `mustest: done`).
-
-## Not yet done
-
-- `process_regs_t` still declares the general registers in the reverse order of the saved frame. `process_make` builds the initial frame with it. The registers are zero today, so it stays harmless. Unify the two layouts.

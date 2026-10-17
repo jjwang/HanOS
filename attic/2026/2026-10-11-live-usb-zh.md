@@ -77,8 +77,3 @@ live U 盘第一分区放内核与 initrd，第二分区放 ext2 游戏。内核
 - QEMU live USB（`-device qemu-xhci -device usb-storage`）：`block: PART 0 start`、`ext2: read /assets/readme.txt`、`execute "/data/bin/tetris"`，无读失败。
 - 物理 Skylake 笔记本：shell 反复从 `/data/bin` 运行 `tetris`、`snake`、`2048`；`U-Disk      : Kingston DataTraveler 3.0`。
 - `cdrom.iso` 无盘启动：`name "hansh"`，无 panic、无 exception、无 corrupt。
-
-## 尚未完成
-
-- HID 设备在线时，与存储传输同时使用共享事件环的场景未测。
-- 数据翻转位靠 STALL 后的 `Reset Endpoint` 复位，未做端口显式复位。
