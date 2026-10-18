@@ -310,7 +310,18 @@ static int32_t ahci_init(void)
 
     /* Bring up ports the firmware left idle before probing them. */
     for (uint32_t p = 0; p < nports; p++) {
+        uint32_t ssts;
+        uint32_t sig;
+
         if (!(pi & (1u << p)))
+            continue;
+        ssts = pr32(p, P_SSTS);
+        sig = pr32(p, P_SIG);
+        /* Empty QEMU and PCH ports can keep a stale 0xffff0101 signature
+         * while DET is 0. Do not spend the reset wait on those. */
+        if (sig == 0xffffffffu
+            || ((ssts & SSTS_DET_MASK) == 0
+                && (sig == 0 || (sig >> 16) == 0xffff)))
             continue;
         port_bringup(p);
     }
