@@ -13,3 +13,6 @@ release/hdd.img
 # Doxygen output
 html/
 latex/
+
+# Temporary third-party downloads and build output
+3rdparty/build/

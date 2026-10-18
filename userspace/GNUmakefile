@@ -1,3 +1,6 @@
+# Do not apply built-in suffix rules to third-party sources.
+MAKEFLAGS += -r
+
 CC       := x86_64-elf-gcc
 LD       := $(CC)
 AS       := $(CC)
@@ -9,17 +12,22 @@ ASM_FLAGS:= -f elf64 -I.
 INDENT   := indent -kr -i4 -nut
 
 # musl provides the C library. The HanOS syscall and keycode runtime lives in
-# userspace/runtime and links next to musl.
-MUSL      := ../3rdparty/musl
-MUSL_LIB  := $(MUSL)/lib
-MUSL_CRT1 := $(MUSL)/obj/crt/crt1.o
-MUSL_CRTI := $(MUSL)/obj/crt/x86_64/crti.o
-MUSL_CRTN := $(MUSL)/obj/crt/x86_64/crtn.o
+# userspace/runtime and links next to musl. The source and build output stay in
+# 3rdparty/build; the HanOS port files stay in 3rdparty/musl.
+MUSL       := ../3rdparty/build/musl
+MUSL_HANOS := ../3rdparty/musl
+MUSL_LIB   := $(MUSL)/lib
+MUSL_CRT1  := $(MUSL)/obj/crt/crt1.o
+MUSL_CRTI  := $(MUSL)/obj/crt/x86_64/crti.o
+MUSL_CRTN  := $(MUSL)/obj/crt/x86_64/crtn.o
 
-# libvterm: the VT emulator behind the console server.
-VTERM      := ../3rdparty/libvterm
-VTERM_C    := $(wildcard $(VTERM)/src/*.c)
-VTERM_OBJS := $(VTERM_C:.c=.o)
+# libvterm: the VT emulator behind the console server. The source and objects
+# live in 3rdparty/build.
+VTERM_BUILD := ../3rdparty/build/libvterm
+VTERM_STAMP := $(VTERM_BUILD)/.fetched
+VTERM_NAMES := encoding keyboard mouse parser pen screen state unicode vterm
+VTERM_C     := $(addprefix $(VTERM_BUILD)/src/,$(addsuffix .c,$(VTERM_NAMES)))
+VTERM_OBJS  := $(VTERM_C:.c=.o)
 
 LC_FLAGS :=                 \
 	-std=gnu11              \
@@ -29,7 +37,7 @@ LC_FLAGS :=                 \
 	-I$(MUSL)/obj/include   \
 	-I$(MUSL)/include       \
 	-I. -Iinclude -I.. -I../include                \
-	-I$(VTERM)/include -I$(VTERM)                  \
+	-I$(VTERM_BUILD)/include -I$(VTERM_BUILD)      \
 	-ffreestanding          \
 	-fno-pic                \
 	-fno-omit-frame-pointer \
@@ -41,7 +49,7 @@ LC_FLAGS :=                 \
 LD_FLAGS :=                 \
 	-no-pie                 \
 	-nostdlib               \
-	-T../musl/linker.ld     \
+	-T$(MUSL_HANOS)/linker.ld \
 	-O2 -mcmodel=large
 
 LIB_FILES :=
@@ -70,17 +78,17 @@ DISK_APPS := games/tetris games/2048 games/snake
 
 .PHONY: clean all musl
 
-all: $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(DISK_APPS)
+all: $(MUSL_LIB)/libc.a $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(DISK_APPS)
 	mkdir -p ../initrd/bin
 	cp $(CELF) $(CONSOLE) ../initrd/bin
 
 musl: $(MUSL_LIB)/libc.a
 
 # Rebuild musl only when a port input changes, not for README edits.
-MUSL_INPUTS := ../musl/build.sh ../musl/syscall_arch.h ../musl/__set_thread_area.s
+MUSL_INPUTS := $(MUSL_HANOS)/build.sh $(MUSL_HANOS)/syscall_arch.h $(MUSL_HANOS)/__set_thread_area.s
 
 $(MUSL_LIB)/libc.a: $(MUSL_INPUTS)
-	../musl/build.sh
+	$(MUSL_HANOS)/build.sh
 
 $(MUSL_CRT1) $(MUSL_CRTI) $(MUSL_CRTN): $(MUSL_LIB)/libc.a
 
@@ -101,6 +109,8 @@ _help.o: _help.c
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 -include $(C_DEPS)
+$(C_OBJS) $(RUNTIME_OBJS) $(VTERM_OBJS) _help.o: | $(MUSL_LIB)/libc.a
+servers/console.o: | $(VTERM_STAMP)
 $(C_OBJS): %.o: %.c
 	@echo Compiling $^ ...
 	$(CC) -MM $(LC_FLAGS) -MT $@ -MF $(patsubst %.o, %.d, $@) $<
@@ -116,16 +126,27 @@ $(ASM_OBJS): %.o: %.asm
 	@echo Compiling $^ ...
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
-$(VTERM_OBJS): %.o: %.c
-	@echo Compiling $^ ...
+$(VTERM_STAMP):
+	@mkdir -p $(VTERM_BUILD)
+	curl -L https://github.com/neovim/libvterm/archive/refs/tags/v0.3.3.tar.gz \
+		| tar xz -C $(VTERM_BUILD) --strip-components=1
+	@touch $@
+
+$(VTERM_BUILD)/src/%.c: $(VTERM_STAMP)
+	@test -f $@
+
+$(VTERM_OBJS): $(VTERM_BUILD)/src/%.o: $(VTERM_BUILD)/src/%.c
+	@mkdir -p $(dir $@)
+	@echo Compiling $< ...
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 # The encoding tables are generated from the .tbl files at build time.
-$(VTERM)/src/encoding/%.inc: $(VTERM)/src/encoding/%.tbl
-	@perl -CSD $(VTERM)/tbl2inc_c.pl $< > $@
+$(VTERM_BUILD)/src/encoding/%.inc: $(VTERM_BUILD)/src/encoding/%.tbl
+	@mkdir -p $(dir $@)
+	@perl -CSD $(VTERM_BUILD)/tbl2inc_c.pl $< > $@
 
-$(VTERM)/src/encoding.o: $(VTERM)/src/encoding/uk.inc \
-	$(VTERM)/src/encoding/DECdrawing.inc
+$(VTERM_BUILD)/src/encoding.o: $(VTERM_BUILD)/src/encoding/uk.inc \
+	$(VTERM_BUILD)/src/encoding/DECdrawing.inc
 
 $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
@@ -144,5 +165,6 @@ $(DISK_APPS): %: %.o games/common.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 
 clean:
-	rm -rf $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) $(VTERM_OBJS) sh.sym
+	rm -f $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) $(VTERM_OBJS) sh.sym
+	rm -f $(VTERM_BUILD)/src/encoding/uk.inc $(VTERM_BUILD)/src/encoding/DECdrawing.inc
 	rm -rf ../initrd/bin/* _help.c _help.o
