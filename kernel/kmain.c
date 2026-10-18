@@ -243,7 +243,7 @@ _Noreturn void kshell(pid_t pid)
 
     /* Print the disk summary before the shell when the block server answers
      * quickly. Fall back to a background retry when it is still busy. */
-    if (!block_server_probe(3000))
+    if (!block_server_probe(6000))
         block_server_probe_start();
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };

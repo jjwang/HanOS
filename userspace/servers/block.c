@@ -139,16 +139,15 @@ static int32_t port_start(int32_t p)
 
     uint32_t cmd = pr32((uint32_t) p, P_CMD);
 
-    /* Stop the port first. AHCI ignores an ICC write while ST stays 1, so the
-     * interface never leaves Idle if ICC is written before ST is cleared. */
+    /* Wake the port interface. The firmware may have left it idle; the
+     * controller does not process commands until ICC is Active. */
+    pw32((uint32_t) p, P_CMD, (cmd & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
+
+    cmd = pr32((uint32_t) p, P_CMD);
     cmd &= ~CMD_ST;
     pw32((uint32_t) p, P_CMD, cmd);
     for (int32_t t = 0; t < 100000 && (pr32((uint32_t) p, P_CMD) & CMD_CR); t++)
         ;
-
-    /* Wake the interface; the firmware may have left it Idle. */
-    cmd = pr32((uint32_t) p, P_CMD);
-    pw32((uint32_t) p, P_CMD, (cmd & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
 
     cmd = pr32((uint32_t) p, P_CMD);
     cmd &= ~CMD_FRE;
@@ -280,26 +279,20 @@ static void port_bringup(uint32_t p)
 
     if (det == 3)               /* link up */
         return;
-    if (det == 0)               /* no device behind the port */
-        return;
     if (pr32(p, P_SIG) == 0xffffffffu || pr32(p, P_SIG) == 0)
         return;
 
-    struct timespec ts = { 0, 1000000L };       /* 1 ms */
+    /* A powered-down disk can report DET 0 with a valid signature. Give it a
+     * short reset; an empty port with a stale signature must not cost 2 s. */
+    uint32_t wait_ms = (det == 0) ? 500 : 2000;
 
-    /* Stop the port, then wake the interface. AHCI ignores an ICC write while
-     * ST stays 1, which is the state the firmware leaves the port in; Linux
-     * does the same in ahci_power_up(). */
-    pw32(p, P_CMD, pr32(p, P_CMD) & ~CMD_ST);
-    for (int32_t i = 0; i < 100000 && (pr32(p, P_CMD) & CMD_CR); i++)
-        ;
-    pw32(p, P_CMD, (pr32(p, P_CMD) & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
+    struct timespec ts = { 0, 1000000L };       /* 1 ms */
 
     pw32(p, P_SCTL, 1);         /* DET=1: COMRESET */
     nanosleep(&ts, NULL);
     pw32(p, P_SCTL, 0);
 
-    for (int32_t i = 0; i < 2000; i++) {
+    for (uint32_t i = 0; i < wait_ms; i++) {
         if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
             return;
         nanosleep(&ts, NULL);
