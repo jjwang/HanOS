@@ -217,8 +217,6 @@ _Noreturn void kshell(pid_t pid)
         klogw("tty: server failed to start\n");
     if (!block_server_start())
         klogw("block: server failed to start\n");
-    else
-        block_server_probe();
     if (!block_server_active())
         klogw("fat32: no block server, skipping\n");
     else if (!fat32_server_start())
@@ -238,6 +236,15 @@ _Noreturn void kshell(pid_t pid)
 
     /* Restart a server when its process dies. */
     svc_monitor_start();
+
+    /* Finish USB enumeration before the shell so the device lines belong to
+     * the boot summary. The wait is bounded. */
+    usb_bringup_wait(5000);
+
+    /* Print the disk summary before the shell when the block server answers
+     * quickly. Fall back to a background retry when it is still busy. */
+    if (!block_server_probe(3000))
+        block_server_probe_start();
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {

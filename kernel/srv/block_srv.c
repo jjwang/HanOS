@@ -140,12 +140,12 @@ endpoint_t *block_server_endpoint(void)
 /* Send one request, moving a reply endpoint (and optionally a memory object)
  * to the server, then log the reply. Runs in a kernel task (low-level IPC; a
  * kernel process has no user buffer to go through k_ipc_send). */
-static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
-                            uint64_t count, memobj_t *mo)
+static bool block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
+                            uint64_t count, memobj_t *mo, int32_t timeout_ms)
 {
     endpoint_t *reply = endpoint_create();
     if (reply == NULL)
-        return;
+        return false;
 
     object_ref(endpoint_object(reply)); /* the reference moved to the server */
 
@@ -173,10 +173,14 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
         object_unref(endpoint_object(reply));
         if (mo != NULL)
             object_unref(memobj_object(mo));
+        object_unref(endpoint_object(reply));
+        return false;
     } else {
         ipc_msg_t rep;
-        if (ipc_recv_timeout(reply, &rep, 12000) != 0) {
+        if (ipc_recv_timeout(reply, &rep, timeout_ms) != 0) {
             klogw("block: tag 0x%lx timed out\n", (uint64_t)tag);
+            object_unref(endpoint_object(reply));
+            return false;
         } else if (tag == BLOCK_GET_INFO) {
             char *model = (char *)&rep.words[2];
 
@@ -201,15 +205,32 @@ static void block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
     }
 
     object_unref(endpoint_object(reply));       /* our own ref */
+    return true;
 }
 
 /* Ask the block server for the media info once, both to confirm it answers and
  * to print the disk model. */
-void block_server_probe(void)
+bool block_server_probe(int32_t timeout_ms)
 {
     endpoint_t *ep = block_in_ep;
     if (ep == NULL)
-        return;
+        return false;
 
-    block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL);
+    return block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL, timeout_ms);
+}
+
+static _Noreturn void block_probe_thread(pid_t pid)
+{
+    (void) pid;
+    block_server_probe(12000);
+    for (;;)
+        sched_sleep(1000);
+}
+
+void block_server_probe_start(void)
+{
+    process_t *th = sched_new("blkprobe", block_probe_thread, false);
+
+    if (th != NULL)
+        sched_add(th);
 }

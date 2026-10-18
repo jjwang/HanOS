@@ -24,4 +24,8 @@ bool block_server_active(void);
 endpoint_t *block_server_endpoint(void);
 
 /* Round-trip BLOCK_GET_INFO; used to verify the server path at boot. */
-void block_server_probe(void);
+bool block_server_probe(int32_t timeout_ms);
+
+/* Run the probe from a kernel thread so a slow disk or USB bring-up does not
+ * delay the shell. */
+void block_server_probe_start(void);

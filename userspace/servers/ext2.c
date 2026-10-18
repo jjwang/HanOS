@@ -1401,7 +1401,15 @@ int32_t main(void)
         /* The kernel sets the bootinfo before the process is runnable. */
     }
 
-    mount();
+    /* The block server may still be waiting for the USB bring-up. Retry the
+     * mount instead of leaving /data unavailable for the rest of the boot. */
+    for (int32_t i = 0; i < 10 && !mounted; i++) {
+        struct timespec ts = { 0, 100000000L };
+
+        mount();
+        if (!mounted)
+            nanosleep(&ts, NULL);
+    }
 
     for (;;) {
         sys_ipc_msg_t m;
