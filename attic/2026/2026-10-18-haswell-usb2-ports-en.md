@@ -50,10 +50,17 @@ The EHCI driver had three more faults:
 - Take the BIOS legacy handoff and scan both EHCI controllers.
 - Use HPET delays. PIT waits do not advance in the block syscall context.
 
+### AHCI
+
+- Wake the AHCI interface before clearing `ST`.
+- Reset a port that reports DET 0 with a valid signature. Skylake can report DET 0 while the disk is powered down; Haswell reports DET 1 or 3. Empty ports have no signature and are skipped.
+- Wait 500 ms for DET 0 and 2 s for DET 1/2.
+- Identify the ATA disk before the USB preference takes effect, so the model stays in the summary when the data comes from the U disk.
+
 ### Boot flow
 
 - Wait up to 5 s for the USB bring-up thread before the shell. The `U-Disk` and controller lines belong to the boot summary.
-- Probe the block server with a 3 s timeout before the shell. Retry in `blkprobe` on timeout.
+- Probe the block server with a 6 s timeout before the shell. Retry in `blkprobe` on timeout.
 - Retry the ext2 mount ten times. The block server may still wait for USB on the first request.
 - Grow the kernel log ring to 48 KiB. A 64 KiB ring resets the Haswell before serial init.
 - Add `dmesg [keyword...]`. A line prints when it contains every keyword, case-insensitive.
@@ -96,6 +103,6 @@ The EHCI driver had three more faults:
 - xHCI routing: move the PCH IDs into a table. Add other Intel PCH generations and quirks.
 - Power: suspend, resume, over-current and port power recovery.
 - Performance: event-driven completion. Batch bulk transfers. Reduce busy polling.
-- Boot: replace the 5 s USB wait and the 3 s block probe with a readiness signal. Enter the shell early when no USB is present.
+- Boot: replace the 5 s USB wait and the 6 s block probe with a readiness signal. Enter the shell early when no USB is present.
 - DMA and IOMMU: record the EHCI 32-bit limit. Add IOMMU mappings when the firmware enables it.
 - Test matrix: Haswell, Skylake, QEMU EHCI and xHCI, USB2 and USB3 sticks, hubs and hotplug.
