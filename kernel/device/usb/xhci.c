@@ -31,6 +31,11 @@
 #include <device/display/gfx.h>
 #include <device/usb/xhci.h>
 
+/* Intel Lynx Point xHCI PCI config registers. */
+#define XHCI_USB2PR         0xd0
+#define XHCI_USB2PRM        0xd4
+#define XHCI_USB2PR_HCSEL   0x7fff
+
 /* Capability registers. */
 #define CAP_CAPLENGTH       0x00
 #define CAP_HCSPARAMS1      0x04
@@ -50,6 +55,7 @@
 #define USBCMD_RS           (1u << 0)
 #define USBCMD_HCRST        (1u << 1)
 #define USBCMD_INTE         (1u << 2)
+#define USBSTS_HCH          (1u << 0)
 #define USBSTS_CNR          (1u << 11)
 
 #define PORTSC_CCS          (1u << 0)
@@ -549,6 +555,34 @@ static bool port_reset(uint8_t port, uint8_t * speed)
      * reset left Disabled. An empty port (no connect, not Disabled) needs
      * nothing, and waiting on it would stall the whole enumeration. */
     uint8_t pls = (uint8_t) ((portsc >> 5) & 0xf);
+    uint8_t psiv = (uint8_t) ((portsc >> 10) & 0xf);
+
+    if (portsc & PORTSC_CCS)
+        klogi("USB: port %u connect pls %u speed %u\n", (uint32_t) port,
+              (uint32_t) pls, (uint32_t) psiv);
+
+    /* A USB2 port reaches Default through a USB reset on PORT_RESET. The
+     * RxDetect transition below only applies to USB3 ports. */
+    if ((portsc & PORTSC_CCS) && psiv >= 1 && psiv <= 3) {
+        mmio_wr(op_base + OP_PORTSC(port), keep | PORTSC_PR);
+
+        for (uint32_t i = 0; i < XHCI_TIMEOUT_MS; i++) {
+            portsc = mmio_rd(op_base + OP_PORTSC(port));
+            if (!(portsc & PORTSC_PR))
+                break;
+            pit_wait(1);
+        }
+
+        if (portsc & PORTSC_PR)
+            return false;
+        if (!(portsc & PORTSC_CCS))
+            return false;
+
+        mmio_wr(op_base + OP_PORTSC(port), keep | change);
+
+        *speed = (uint8_t) ((portsc >> 10) & 0xf);
+        return true;
+    }
 
     if ((portsc & PORTSC_CCS) || pls == 4) {
         mmio_wr(op_base + OP_PORTSC(port), keep | (5u << 5) | (1u << 16));
@@ -848,17 +882,19 @@ static bool msc_write10(uint32_t lba, uint16_t count)
 
 bool usb_msc_ready(void)
 {
-    return msc.ready;
+    return msc.ready || ehci_msc_ready();
 }
 
 uint32_t usb_msc_sectors(void)
 {
-    return msc.sectors;
+    return msc.ready ? msc.sectors : ehci_msc_sectors();
 }
 
 bool usb_msc_read(uint32_t lba, uint32_t count, void *buf)
 {
-    if (!msc.ready || count == 0 || count * 512 > msc.data_cap)
+    if (!msc.ready)
+        return ehci_msc_read(lba, count, buf);
+    if (count == 0 || count * 512 > msc.data_cap)
         return false;
     if (!msc_read10(lba, (uint16_t) count))
         return false;
@@ -868,10 +904,33 @@ bool usb_msc_read(uint32_t lba, uint32_t count, void *buf)
 
 bool usb_msc_write(uint32_t lba, uint32_t count, const void *buf)
 {
-    if (!msc.ready || count == 0 || count * 512 > msc.data_cap)
+    if (!msc.ready)
+        return ehci_msc_write(lba, count, buf);
+    if (count == 0 || count * 512 > msc.data_cap)
         return false;
     memcpy(msc.data, buf, (size_t) count * 512);
     return msc_write10(lba, (uint16_t) count);
+}
+
+/* Route the USB2 ports to xHCI. The Lynx Point BIOS leaves them on EHCI by
+ * default, but a full-speed device on EHCI needs a companion/TT that this PCH
+ * does not provide. xHCI handles USB2 natively. */
+static void xhci_route_usb2(pci_device_t *dev)
+{
+    if (dev->vendor_id != 0x8086)
+        return;
+    if (dev->device_id != 0x9c31 && dev->device_id != 0x8c31)
+        return;
+
+    uint32_t id = PCI_MAKE_ID(dev->bus, dev->device, dev->func);
+    uint32_t mask = pci_ind(id, XHCI_USB2PRM);
+    uint32_t route = pci_ind(id, XHCI_USB2PR);
+
+    route &= ~XHCI_USB2PR_HCSEL;
+    route |= XHCI_USB2PR_HCSEL & mask;
+    pci_outd(id, XHCI_USB2PR, route);
+    klogi("USB: xHCI USB2 route %08x mask %08x now %08x\n", route, mask,
+          pci_ind(id, XHCI_USB2PR));
 }
 
 void usb_hid_init(void)
@@ -883,6 +942,20 @@ void usb_hid_init(void)
     xhci_inited = true;
 
     spinlock_init(&evt_lock);
+
+    /* List every USB host controller once. UHCI and OHCI entries matter on
+     * machines that route full-speed ports to a companion. */
+    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
+        pci_device_t *d = &vec_at(&pci_devices, i);
+        uint32_t id = PCI_MAKE_ID(d->bus, d->device, d->func);
+        uint32_t cls = pci_ind(id, PCI_CLASS_PERIHPERALS);
+
+        if ((cls >> 24) == PCI_CLASS_SERIAL_BUS
+            && ((cls >> 16) & 0xff) == 0x03)
+            klogi("USB: PCI %02x:%02x.%x %04x:%04x class %06x\n",
+                  d->bus, d->device, d->func, d->vendor_id, d->device_id,
+                  cls >> 8);
+    }
 
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t *d = &vec_at(&pci_devices, i);
@@ -898,6 +971,12 @@ void usb_hid_init(void)
             break;
         }
     }
+    if (dev != NULL)
+        xhci_route_usb2(dev);
+
+    /* Probe the USB 2.0 controller after the routing step. */
+    ehci_init();
+
     if (dev == NULL) {
         klogi("USB: no xHCI controller found\n");
         return;
@@ -1000,14 +1079,43 @@ void usb_hid_init(void)
     mmio_wr64(rt_base + 0x30, VIRT_TO_PHYS((uint64_t) erst));   /* ERSTBA */
     mmio_wr64(rt_base + 0x38, evt_ring_phys);   /* ERDP */
     mmio_wr(rt_base + 0x00, 1u << 1);   /* IMAN: IE */
-    mmio_wr(op_base + OP_USBCMD, USBCMD_RS | USBCMD_INTE);
-
     take_ownership();
 
-    for (uint8_t port = 1; port <= max_ports; port++) {
-        uint8_t speed;
+    mmio_wr(op_base + OP_USBCMD, USBCMD_RS | USBCMD_INTE);
 
-        if (!port_reset(port, &speed))
+    /* Wait for the controller to leave the halted state. Port registers read
+     * as zero while HCH stays set. */
+    for (uint32_t i = 0; i < 1000; i++) {
+        if (!(mmio_rd(op_base + OP_USBSTS) & USBSTS_HCH))
+            break;
+        pit_wait(1);
+    }
+    if (mmio_rd(op_base + OP_USBSTS) & USBSTS_HCH)
+        klogw("USB: xHCI stays halted\n");
+
+    /* Power every port the firmware left off. Devices stay disconnected
+     * while PORTSC.PP is clear, so the scan sees no CCS. */
+    uint32_t powered = 0;
+
+    for (uint8_t port = 1; port <= max_ports; port++) {
+        uint32_t portsc = mmio_rd(op_base + OP_PORTSC(port));
+
+        if (!(portsc & PORTSC_PP)) {
+            mmio_wr(op_base + OP_PORTSC(port), PORTSC_PP);
+            powered++;
+        }
+    }
+    if (powered)
+        klogi("USB: xHCI powered %u ports\n", powered);
+
+    /* The boot device was configured by the firmware. A controller reset and
+     * handoff drop the port state; give the link time to report CCS again. */
+    pit_wait(500);
+
+    for (uint8_t port = 1; port <= max_ports; port++) {
+        uint8_t port_speed;
+
+        if (!port_reset(port, &port_speed))
             continue;
 
         /* Give the device time to settle after the port reset before it is
@@ -1027,12 +1135,13 @@ void usb_hid_init(void)
             continue;
         }
 
-        /* A USB3 port does not report a usable speed in the USB2 speed field.
-         * Try each speed until Address Device succeeds; once addressed, the
-         * device is in the Addressed state and a second Address Device only
-         * returns Context State Error, so read the descriptor here. */
+        /* Try the speed the port reports, then slower speeds. Address Device
+         * only succeeds with the matching speed. Once addressed, a second
+         * Address Device returns Context State Error, so read the descriptor
+         * here. */
         uint8_t *desc = ctrl_buf;
-        static const uint8_t cand[4] = { 4, 3, 2, 1 };
+        uint8_t first = (port_speed >= 1 && port_speed <= 4) ? port_speed : 4;
+        uint8_t speed = first;
         bool addressed = false;
         xhci_dev_ctx_t *dev_ctx = NULL;
 
@@ -1045,7 +1154,9 @@ void usb_hid_init(void)
             memset(ep0_ring, 0, (RING_NUM + 1) * sizeof(xhci_trb_t));
             ep0_enq = 0;
             ep0_cycle = 1;
-            speed = cand[ci];
+            speed = (uint8_t) (first - ci);
+            if (speed < 1)
+                break;
 
             uint32_t addr_cc = address_device(slot, port, speed, dev_ctx);
 
@@ -1485,7 +1596,14 @@ bool usb_msc_wait(uint32_t timeout_ms)
 {
     for (uint32_t i = 0; i < timeout_ms && !usb_bringup_done; i++)
         sched_sleep(1);
-    return msc.ready;
+    return usb_msc_ready();
+}
+
+bool usb_bringup_wait(uint32_t timeout_ms)
+{
+    for (uint32_t i = 0; i < timeout_ms && !usb_bringup_done; i++)
+        sched_sleep(1);
+    return usb_bringup_done;
 }
 
 void usb_hid_start(void)
