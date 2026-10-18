@@ -40,7 +40,10 @@
 /* *INDENT-OFF* */
 static command_help_t help_msg[] = { 
     {"<help> cd",       "Change current directoy."},
+    {"<help> dmesg [keyword...]", "Print kernel log lines containing all keywords."},
+    {"<help> lspci",    "List PCI devices."},
     {"<help> mem",      "Display memory usage information."},
+    {"<help> usb",      "Report the USB block device."},
 };
 /* *INDENT-ON* */
 
@@ -262,7 +265,7 @@ static char *getcmd(void)
             buf[i] = '\0';
             continue;
         }
-        if (buf[i] == '\n') {
+        if (buf[i] == '\r' || buf[i] == '\n') {
             buf[i] = '\0';
             break;
         }
@@ -275,6 +278,60 @@ static char *getcmd(void)
     line = buf;
     cap = limit;
     return buf;
+}
+
+#define DMESG_SIZE (64 * 1024)
+
+static char dmesg_buf[DMESG_SIZE];
+
+/* Case-insensitive substring search over one log line. */
+static bool dmesg_line_has(const char *line, size_t len,
+                           const char *needle, size_t n)
+{
+    if (n == 0)
+        return true;
+
+    for (size_t i = 0; i + n <= len; i++) {
+        size_t j = 0;
+
+        while (j < n) {
+            char a = line[i + j];
+            char b = needle[j];
+
+            if (a >= 'a' && a <= 'z')
+                a = (char) (a - 32);
+            if (b >= 'a' && b <= 'z')
+                b = (char) (b - 32);
+            if (a != b)
+                break;
+            j++;
+        }
+        if (j == n)
+            return true;
+    }
+    return false;
+}
+
+/* A line matches when it contains every space-separated keyword. */
+static bool dmesg_line_match(const char *line, size_t len, const char *filter)
+{
+    const char *p = filter;
+
+    while (*p != '\0') {
+        const char *start;
+
+        while (*p == ' ')
+            p++;
+        if (*p == '\0')
+            break;
+
+        start = p;
+        while (*p != '\0' && *p != ' ')
+            p++;
+        if (!dmesg_line_has(line, len, start, (size_t) (p - start)))
+            return false;
+    }
+    return true;
 }
 
 int32_t main(void)
@@ -302,14 +359,34 @@ int32_t main(void)
                         "mem: cannot display memory usage information\n");
             continue;
         } else if (buf[0] == 'd' && buf[1] == 'm' && buf[2] == 'e'
-                   && buf[3] == 's' && buf[4] == 'g' && buf[5] == '\0') {
-            char *kb = sys_malloc(16384);
+                   && buf[3] == 's' && buf[4] == 'g'
+                   && (buf[5] == '\0' || buf[5] == ' ')) {
+            char *filter = buf + 5;
 
-            if (kb != NULL) {
-                int64_t n = sys_klog(kb, 16384);
+            while (*filter == ' ')
+                filter++;
 
-                if (n > 0)
-                    sys_write(STDOUT, kb, (uint64_t) n);
+            int64_t n = sys_klog(dmesg_buf, DMESG_SIZE);
+
+            if (n > 0) {
+                if (*filter == '\0') {
+                    sys_write(STDOUT, dmesg_buf, (uint64_t) n);
+                } else {
+                    char *p = dmesg_buf;
+                    char *end = p + n;
+
+                    while (p < end) {
+                        char *nl = memchr(p, '\n', (size_t) (end - p));
+                        size_t len = nl ? (size_t) (nl - p + 1)
+                            : (size_t) (end - p);
+
+                        if (dmesg_line_match(p, len, filter))
+                            sys_write(STDOUT, p, len);
+                        if (nl == NULL)
+                            break;
+                        p = nl + 1;
+                    }
+                }
             }
             continue;
         } else if (buf[0] == 'u' && buf[1] == 's' && buf[2] == 'b'
