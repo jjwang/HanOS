@@ -22,6 +22,7 @@
 #include <router/router.h>
 #include <srv/svc_monitor.h>
 
+/** @brief One restartable service entry */
 typedef struct {
     service_restart_fn_t fn;
     const char *name;

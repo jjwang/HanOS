@@ -117,7 +117,7 @@ static net_sock_t socks[NET_MAX_SOCKS];
 static bootinfo_t bi;
 static bool msg_deferred;
 
-/* A poll() waiter: the kernel wake key registered by the caller. */
+/** @brief A poll waiter on a socket */
 typedef struct {
     bool used;
     int32_t sock;
@@ -278,6 +278,7 @@ typedef struct[[gnu::packed]] {
 
 #define ARP_CACHE_N 8
 
+/** @brief One ARP cache entry */
 typedef struct {
     bool used;
     uint32_t ip;

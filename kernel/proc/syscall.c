@@ -64,6 +64,7 @@ typedef int64_t(*syscall_ptr_t) (void);
 #define EFD_NONBLOCK        0x800
 #define EVENTFD_MAX         16
 
+/** @brief One eventfd object */
 typedef struct {
     bool used;
     uint64_t counter;
@@ -77,12 +78,14 @@ static eventfd_obj_t eventfds[EVENTFD_MAX];
 #define EPOLL_MAX           16
 #define EPOLL_FD_MAX        32
 
+/** @brief One watched descriptor in an epoll object */
 typedef struct {
     int32_t fd;
     uint32_t events;
     uint64_t data;
 } epoll_item_t;
 
+/** @brief One epoll object */
 typedef struct {
     bool used;
     int32_t count;
@@ -1718,6 +1721,7 @@ static bool fd_is_valid(int32_t fd)
     return process_fd_get(fd, NULL, NULL, NULL, NULL, NULL) == 0;
 }
 
+/** @brief Kernel copy of struct pollfd */
 struct pollfd_k {
     int32_t fd;
     int16_t events;

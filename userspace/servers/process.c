@@ -50,10 +50,14 @@ typedef struct {
 
 static proc_fd_t table[PROC_PID_MAX][PROC_FD_MAX];
 
-/* Parent/child bookkeeping for wait/exit. The kernel reports fork and exit
- * events; the server decides when a child is reapable. A process counts as
- * exited only after it exits and all of its children are gone, so a parent that
- * exec'd (spawn then exit) stays waitable until its replacement finishes. */
+/**
+ * @brief Parent/child bookkeeping for wait and exit
+ *
+ * The kernel reports fork and exit events; the server decides when a child is
+ * reapable. A process counts as exited only after it exits and all of its
+ * children are gone, so a parent that exec'd (spawn then exit) stays waitable
+ * until its replacement finishes.
+ */
 typedef struct {
     bool used;
     int32_t ppid;
@@ -239,6 +243,7 @@ static void close_cloexec(int32_t pid)
 #define EXEC_PROT_READ       0x1
 #define EXEC_PROT_WRITE      0x2
 
+/** @brief ELF64 file header */
 typedef struct {
     uint8_t ident[16];
     uint16_t type, machine;
@@ -248,6 +253,7 @@ typedef struct {
     uint16_t ehsize, phentsize, phnum, shentsize, shnum, shstrndx;
 } elf64_hdr_t;
 
+/** @brief ELF64 program header */
 typedef struct {
     uint32_t type, flags;
     uint64_t offset, vaddr, paddr, filesz, memsz, align;

@@ -58,8 +58,12 @@ static pipe_t pipes[PIPE_MAX];
 static end_t ends[PIPE_END_MAX];
 static bootinfo_t bi;
 
-/* A read or write that cannot make progress is held here until data or space
- * becomes available, then answered. */
+/**
+ * @brief A deferred pipe read or write
+ *
+ * A read or write that cannot make progress is held here until data or space
+ * becomes available, then answered.
+ */
 typedef struct {
     bool used;
     int32_t pipe;
@@ -74,8 +78,11 @@ typedef struct {
 static pipe_wait_t waits[PIPE_WAIT_MAX];
 static bool msg_deferred;
 
-/* A poll() waiter: the kernel wake key registered by the caller. The key is
- * echoed back to the kernel when the pipe state changes. */
+/**
+ * @brief A poll waiter on a pipe endpoint
+ *
+ * The kernel wake key is echoed back when the pipe state changes.
+ */
 typedef struct {
     bool used;
     int32_t fd;

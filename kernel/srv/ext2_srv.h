@@ -21,7 +21,7 @@
 bool ext2_server_start(void);
 bool ext2_server_active(void);
 
-/* Inode metadata reported by stat/fstat. */
+/** @brief Inode metadata reported by stat and fstat */
 typedef struct {
     uint64_t size;
     bool is_dir;

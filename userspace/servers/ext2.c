@@ -967,6 +967,7 @@ static uint32_t path_resolve(const char *path)
     return ino;
 }
 
+/** @brief Open file state in the ext2 server */
 typedef struct {
     bool used;
     uint32_t ino;

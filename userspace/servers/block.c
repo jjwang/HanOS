@@ -390,6 +390,7 @@ static int32_t blk_write(uint32_t lba, uint8_t count, const uint8_t *buf)
 
 #define GPT_PART_MAX        8
 
+/** @brief One GPT partition range */
 typedef struct {
     bool used;
     uint64_t start;
