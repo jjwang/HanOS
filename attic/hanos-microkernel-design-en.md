@@ -376,11 +376,11 @@ HanOS keeps address spaces, processes, IPC and interrupts in the kernel and move
 
 ## References
 
-- Source: `kernel/`, `userspace/`, `musl/`.
+- Source: `kernel/`, `userspace/`, `3rdparty/`.
 - Kernel C library: `kernel/lib/`.
 - Shared wire headers: `include/protocol.h`, `include/bootinfo.h`, `include/syscall_nr.h`.
 - Userspace runtime: `userspace/runtime/`, `userspace/include/`.
-- musl port: `musl/syscall_arch.h`, `musl/__set_thread_area.s`, `musl/linker.ld`, `musl/build.sh`.
+- musl port: `3rdparty/musl/syscall_arch.h`, `3rdparty/musl/__set_thread_area.s`, `3rdparty/musl/linker.ld`, `3rdparty/musl/build.sh`.
 - Kernel IPC and objects: `kernel/ipc/{ipc.c,object.c,irq.c}`.
 - Router: `kernel/router/router.c`.
 - Servers: `userspace/servers/`.

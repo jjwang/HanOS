@@ -37,10 +37,10 @@ make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（lib/）
 userspace/  用户态程序（servers/、bin/、test/）与 HanOS 运行时
 include/    内核与用户态共享的线协议头
-musl/       musl 构建与 HanOS 移植层
+3rdparty/   musl 与 libvterm 的 HanOS 移植层；build/ 放下载与输出
 ```
 
-musl 的构建说明见 `musl/README.md`。
+musl 的构建说明见 `3rdparty/musl/README.md`。
 
 ## 文档
 

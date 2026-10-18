@@ -6,25 +6,27 @@ The kernel does not use it.
 ## Layout
 
 ```
-3rdparty/libvterm/          vendored libvterm source (not tracked)
+3rdparty/libvterm/          HanOS note (this file)
+3rdparty/build/libvterm/    source, objects and generated tables (not tracked)
 userspace/GNUmakefile       builds libvterm and links it into servers/console
 ```
 
 ## Vendor the source
 
-Fetch libvterm 0.3.3 and unpack it into `3rdparty/libvterm`:
+The userspace build downloads libvterm 0.3.3 into `3rdparty/build/libvterm`
+when the source is missing. To vendor manually:
 
 ```
-mkdir -p 3rdparty/libvterm
+mkdir -p 3rdparty/build
 curl -L https://github.com/neovim/libvterm/archive/refs/tags/v0.3.3.tar.gz \
-    | tar xz -C 3rdparty/libvterm --strip-components=1
+    | tar xz -C 3rdparty/build/libvterm --strip-components=1
 ```
 
 ## Build
 
-The userspace build compiles `src/*.c`, generates the encoding tables from the
-`.tbl` files, and links the objects into `servers/console` only. No extra step
-is needed.
+The userspace build compiles `src/*.c` in `3rdparty/build/libvterm`, generates
+the encoding tables there, and links the objects into `servers/console` only.
+No extra step is needed.
 
 ## Use
 

@@ -376,11 +376,11 @@ HanOS 把地址空间、进程、IPC 与中断留在内核，把文件系统、�
 
 ## 参考资料
 
-- 源码：`kernel/`、`userspace/`、`musl/`。
+- 源码：`kernel/`、`userspace/`、`3rdparty/`。
 - 内核 C 库：`kernel/lib/`。
 - 共享线协议头：`include/protocol.h`、`include/bootinfo.h`、`include/syscall_nr.h`。
 - 用户态运行时：`userspace/runtime/`、`userspace/include/`。
-- musl 移植：`musl/syscall_arch.h`、`musl/__set_thread_area.s`、`musl/linker.ld`、`musl/build.sh`。
+- musl 移植：`3rdparty/musl/syscall_arch.h`、`3rdparty/musl/__set_thread_area.s`、`3rdparty/musl/linker.ld`、`3rdparty/musl/build.sh`。
 - 内核 IPC 与对象：`kernel/ipc/{ipc.c,object.c,irq.c}`。
 - 路由器：`kernel/router/router.c`。
 - 服务：`userspace/servers/`。

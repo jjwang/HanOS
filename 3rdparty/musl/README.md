@@ -5,20 +5,22 @@ HanOS userspace links against musl. The kernel does not.
 ## Layout
 
 ```
-musl/syscall_arch.h         HanOS syscall backend for musl
-musl/__set_thread_area.s    TLS setup through SYSCALL_SET_FS_BASE
-musl/linker.ld              userspace link script
-musl/build.sh               copies the overrides and builds musl
-3rdparty/musl/              vendored musl source (not tracked)
+3rdparty/musl/syscall_arch.h       HanOS syscall backend for musl
+3rdparty/musl/__set_thread_area.s  TLS setup through SYSCALL_SET_FS_BASE
+3rdparty/musl/linker.ld            userspace link script
+3rdparty/musl/build.sh             downloads and builds musl
+3rdparty/build/musl/               source and build output (not tracked)
 ```
 
 ## Vendor the source
 
-Fetch musl 1.2.5 and unpack it into `3rdparty/musl`:
+`3rdparty/musl/build.sh` downloads musl 1.2.5 into `3rdparty/build/musl` when
+the source is missing. To vendor manually:
 
 ```
-mkdir -p 3rdparty/musl
-curl -L https://musl.libc.org/releases/musl-1.2.5.tar.gz | tar xz -C 3rdparty/musl --strip-components=1
+mkdir -p 3rdparty/build
+curl -L https://musl.libc.org/releases/musl-1.2.5.tar.gz \
+    | tar xz -C 3rdparty/build/musl --strip-components=1
 ```
 
 ## Build
@@ -27,21 +29,22 @@ curl -L https://musl.libc.org/releases/musl-1.2.5.tar.gz | tar xz -C 3rdparty/mu
 make -C userspace musl
 ```
 
-The userspace build runs `musl/build.sh` on demand. To build alone:
+The userspace build runs `3rdparty/musl/build.sh` on demand. To build alone:
 
 ```
-musl/build.sh
+3rdparty/musl/build.sh
 ```
 
-`musl/build.sh` copies `syscall_arch.h` and `__set_thread_area.s` into the source tree, then runs:
+The script downloads the source when needed, copies `syscall_arch.h` and
+`__set_thread_area.s` into the build tree, then runs:
 
 ```
 ./configure --target=x86_64-hanos --disable-shared --enable-static \
-    CC=x86_64-elf-gcc CFLAGS='-mcmodel=large -mno-red-zone'
+    CC=x86_64-elf-gcc CFLAGS='-mcmodel=large -mno-red-zone -Wno-return-local-addr'
 make AR=x86_64-elf-ar RANLIB=x86_64-elf-ranlib
 ```
 
-Output is `3rdparty/musl/lib/libc.a` plus the `crt` objects.
+Output is `3rdparty/build/musl/lib/libc.a` plus the `crt` objects.
 
 ## Port notes
 
