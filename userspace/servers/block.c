@@ -139,15 +139,16 @@ static int32_t port_start(int32_t p)
 
     uint32_t cmd = pr32((uint32_t) p, P_CMD);
 
-    /* Wake the port interface. The firmware may have left it idle; the
-     * controller does not process commands until ICC is Active. */
-    pw32((uint32_t) p, P_CMD, (cmd & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
-
-    cmd = pr32((uint32_t) p, P_CMD);
+    /* Stop the port first. AHCI ignores an ICC write while ST stays 1, so the
+     * interface never leaves Idle if ICC is written before ST is cleared. */
     cmd &= ~CMD_ST;
     pw32((uint32_t) p, P_CMD, cmd);
     for (int32_t t = 0; t < 100000 && (pr32((uint32_t) p, P_CMD) & CMD_CR); t++)
         ;
+
+    /* Wake the interface; the firmware may have left it Idle. */
+    cmd = pr32((uint32_t) p, P_CMD);
+    pw32((uint32_t) p, P_CMD, (cmd & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
 
     cmd = pr32((uint32_t) p, P_CMD);
     cmd &= ~CMD_FRE;
@@ -274,18 +275,31 @@ static int32_t ahci_identify(void)
  * 0xffffffff and is left alone. */
 static void port_bringup(uint32_t p)
 {
-    if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
+    uint32_t ssts = pr32(p, P_SSTS);
+    uint32_t det = ssts & SSTS_DET_MASK;
+
+    if (det == 3)               /* link up */
+        return;
+    if (det == 0)               /* no device behind the port */
         return;
     if (pr32(p, P_SIG) == 0xffffffffu || pr32(p, P_SIG) == 0)
         return;
 
     struct timespec ts = { 0, 1000000L };       /* 1 ms */
 
+    /* Stop the port, then wake the interface. AHCI ignores an ICC write while
+     * ST stays 1, which is the state the firmware leaves the port in; Linux
+     * does the same in ahci_power_up(). */
+    pw32(p, P_CMD, pr32(p, P_CMD) & ~CMD_ST);
+    for (int32_t i = 0; i < 100000 && (pr32(p, P_CMD) & CMD_CR); i++)
+        ;
+    pw32(p, P_CMD, (pr32(p, P_CMD) & ~CMD_ICC_MASK) | CMD_ICC_ACTIVE);
+
     pw32(p, P_SCTL, 1);         /* DET=1: COMRESET */
     nanosleep(&ts, NULL);
     pw32(p, P_SCTL, 0);
 
-    for (int32_t i = 0; i < 200; i++) {
+    for (int32_t i = 0; i < 2000; i++) {
         if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
             return;
         nanosleep(&ts, NULL);
@@ -303,8 +317,9 @@ static int32_t ahci_init(void)
 
     /* Bring up ports the firmware left idle before probing them. */
     for (uint32_t p = 0; p < nports; p++) {
-        if (pi & (1u << p))
-            port_bringup(p);
+        if (!(pi & (1u << p)))
+            continue;
+        port_bringup(p);
     }
 
     for (uint32_t p = 0; p < nports; p++) {
