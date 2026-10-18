@@ -23,7 +23,8 @@
 
 #include <lib/spinlock.h>
 
-#define KLOG_BUFFER_SIZE       (4096 * 4)
+/* 64 KiB breaks the Haswell boot before serial init; keep the ring below it. */
+#define KLOG_BUFFER_SIZE       (4096 * 12)
 
 typedef enum {
     KLOG_LEVEL_VERBOSE,
