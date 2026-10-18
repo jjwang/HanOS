@@ -14,9 +14,11 @@ HanOS 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用�
 - 用户态 console 服务绘制帧缓冲终端。内核写日志。
 - 虚拟内存用 buddy、slab、bitmap 分配器。支持可共享内存对象。
 - 读取 PS/2 键盘和鼠标。USB HID 指针驱动硬件光标。
-- VFS 挂载 initrd ramfs 和只读 FAT32 驱动。FAT32 服务经用户态块服务读盘。
-- 用户态 shell 提供 `ls`、`cat`、`wc`、`pwd`、`rm`、`echo`。
-- 用户态链接 musl。内核保留一个精简的 freestanding C 库。
+- 经 xHCI 与 EHCI 读 USB 存储，Lynx Point 的 USB2 端口路由到 xHCI。
+- VFS 挂载 initrd ramfs、只读 FAT32 与数据分区上的 ext2，块服务读 AHCI 与 USB 存储。
+- 用户态 shell 提供 `ls`、`cat`、`wc`、`pwd`、`rm`、`echo`、`edit`、`dmesg`、`usb`、`lspci`。
+- shell 可运行终端游戏 `tetris`、`2048`、`snake`。
+- 用户态链接 musl，内核保留一个精简的 freestanding C 库。
 
 ## 构建
 
@@ -41,6 +43,39 @@ include/    内核与用户态共享的线协议头
 ```
 
 musl 的构建说明见 `3rdparty/musl/README.md`。
+
+## 游戏
+
+ext2 数据分区带三个终端游戏。shell 先查 `/bin`，再查 `/data/bin`。游戏名可直接运行。live U 盘与 `make run-hdd` 用同一布局。
+
+- `tetris`：堆叠落下的方块，消行。
+- `2048`：合并相同数字，凑到 2048。
+- `snake`：吃 `$` 食物，变长，避开墙与自身。
+
+| 游戏 | 操作 |
+|------|------|
+| `tetris` | A/D 或方向键移动；W/上键旋转；S/下键软降；空格硬降；P 暂停；Q 退出 |
+| `2048` | W/A/S/D 或方向键移动；R 重开；Q 退出 |
+| `snake` | W/A/S/D 或方向键转向；P 暂停；Q 退出 |
+
+## 硬件
+
+已测物理机：
+
+- Haswell-ULT（i5-4300U，Lynx Point-LP）：内核把 USB2 端口从 EHCI 路由到 xHCI，live U 盘枚举成功，ext2 分区挂载，游戏可运行。
+- Skylake（i5-6200U，Sunrise Point-LP）：xHCI 存储枚举成功，内置 AHCI 盘报出型号，ext2 分区挂载，游戏可运行。
+
+QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。
+
+已知限制：
+
+- USB 不支持热插拔。
+- 开机前插好 U 盘。
+- USB2 路由只适用 Lynx Point。
+- 其他 Intel 代际要补 quirk。
+- EHCI 上无 xHCI 路由的全速设备未验证。
+
+USB 工作记录见 `attic/2026/2026-10-18-haswell-usb2-ports-zh.md`。
 
 ## 文档
 

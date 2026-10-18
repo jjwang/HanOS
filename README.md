@@ -14,8 +14,10 @@ Current features:
 - Draw a framebuffer terminal from a userspace console server; log to the kernel.
 - Manage virtual memory with buddy, slab, and bitmap allocators; share memory objects.
 - Read a PS/2 keyboard and mouse; drive the hardware cursor from a USB HID pointer.
-- Mount a VFS over an initrd ramfs and a read-only FAT32 driver. The FAT32 server reads the disk through a userspace block server.
-- Run a userspace shell with `ls`, `cat`, `wc`, `pwd`, `rm`, and `echo`.
+- Drive USB mass storage over xHCI and EHCI, and route Lynx Point USB2 ports to xHCI.
+- Mount a VFS over an initrd ramfs, a read-only FAT32 server and an ext2 server on the data partition, and read AHCI and USB storage through the block server.
+- Run a userspace shell with `ls`, `cat`, `wc`, `pwd`, `rm`, `echo`, `edit`, `dmesg`, `usb`, and `lspci`.
+- Run the terminal games `tetris`, `2048`, and `snake` from the shell.
 - Link userspace against musl; keep the kernel on a small freestanding C library.
 
 ## Building
@@ -41,6 +43,38 @@ include/    wire headers shared by the kernel and userspace
 ```
 
 See `3rdparty/musl/README.md` for the musl build.
+
+## Games
+
+The ext2 data partition carries three terminal games. The shell looks in `/bin` and then `/data/bin`, so the names run from any directory. The live USB image and `make run-hdd` use the same layout.
+
+- `tetris`: stack the falling pieces and clear lines.
+- `2048`: merge equal tiles and reach 2048.
+- `snake`: eat the `$` food, grow, and avoid the walls and your tail.
+
+| Game | Keys |
+|------|------|
+| `tetris` | A/D or arrows move; W/Up rotate; S/Down soft drop; Space hard drop; P pause; Q quit |
+| `2048` | W/A/S/D or arrows move; R restart; Q quit |
+| `snake` | W/A/S/D or arrows turn; P pause; Q quit |
+
+## Hardware
+
+Tested physical machines:
+
+- Haswell-ULT (i5-4300U, Lynx Point-LP): the kernel routes the USB2 ports from EHCI to xHCI, the live U disk enumerates, the ext2 partition mounts, and the games run.
+- Skylake (i5-6200U, Sunrise Point-LP): xHCI storage enumerates, the internal AHCI disk reports its model, the ext2 partition mounts, and the games run.
+
+QEMU covers BIOS and UEFI boot, AHCI disks, and EHCI/xHCI USB storage.
+
+Known limits:
+
+- USB hotplug is not supported.
+- Plug the U disk in before boot.
+- The Lynx Point USB2 route is PCH-specific. Other Intel generations need a quirk.
+- A full-speed device on EHCI without xHCI routing is not validated.
+
+See `attic/2026/2026-10-18-haswell-usb2-ports-en.md` for the USB work.
 
 ## Documentation
 
