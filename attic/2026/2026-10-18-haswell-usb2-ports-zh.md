@@ -53,7 +53,8 @@ EHCI 驱动还有三处故障：
 ### AHCI
 
 - 清 `ST` 前先置 ICC Active。
-- DET 为 0 且签名有效的端口照常复位。Skylake 的盘休眠时会报 DET 0。Haswell 报 DET 1 或 3。空端口没有签名，直接跳过。
+- DET 为 0 且签名有效的端口照常复位。Skylake 的盘休眠时会报 DET 0。Haswell 报 DET 1 或 3。
+- DET 为 0 且签名高 16 位为 `0xffff` 的端口跳过。这是空端口的残留签名。复位等待每个端口约 800 ms。
 - DET 0 等 500 ms。DET 1/2 等 2 秒。
 - USB 优先生效前先识别 ATA 盘。数据来自 U 盘时，型号仍留在摘要里。
 
@@ -87,7 +88,8 @@ EHCI 驱动还有三处故障：
 - QEMU xHCI：SuperSpeed 存储与高速键盘枚举。
 - 无盘 `cdrom.iso`：日志含 `name "hansh"`。无 panic、exception、corrupt 行。
 - Haswell：路由报告打印。U 盘报 30277632 个扇区。`/data` 挂载。`tetris`、`2048`、`snake` 运行。
-- Haswell 启动顺序：`U-Disk`、`Hard Disk` 与 USB 行先于 shell 打印。
+- Skylake：`U-Disk : Kingston DataTraveler 3.0` 与 `Hard Disk : SanDisk SD8TB8U256G1` 先于 shell 打印。
+- Haswell 与 Skylake 启动顺序：`U-Disk`、`Hard Disk` 与 USB 行先于 shell 打印。
 
 ## TODO
 

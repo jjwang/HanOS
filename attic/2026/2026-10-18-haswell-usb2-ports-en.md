@@ -53,7 +53,8 @@ The EHCI driver had three more faults:
 ### AHCI
 
 - Wake the AHCI interface before clearing `ST`.
-- Reset a port that reports DET 0 with a valid signature. Skylake can report DET 0 while the disk is powered down; Haswell reports DET 1 or 3. Empty ports have no signature and are skipped.
+- Reset a port that reports DET 0 with a valid signature. Skylake can report DET 0 while the disk is powered down; Haswell reports DET 1 or 3.
+- Skip a DET 0 port whose signature has the `0xffff` high half. These are stale empty-port signatures; a reset wait costs about 800 ms per port.
 - Wait 500 ms for DET 0 and 2 s for DET 1/2.
 - Identify the ATA disk before the USB preference takes effect, so the model stays in the summary when the data comes from the U disk.
 
@@ -87,7 +88,8 @@ The EHCI driver had three more faults:
 - QEMU xHCI: SuperSpeed storage and high-speed keyboard enumerate.
 - Headless `cdrom.iso`: `name "hansh"` appears; no panic, exception or corrupt line.
 - Haswell: the xHCI route report prints; the U disk shows 30277632 sectors; `/data` mounts; `tetris`, `2048` and `snake` run.
-- Haswell boot order: `U-Disk`, `Hard Disk` and the USB lines print before the shell.
+- Skylake: `U-Disk : Kingston DataTraveler 3.0` and `Hard Disk : SanDisk SD8TB8U256G1` print before the shell.
+- Haswell and Skylake boot order: `U-Disk`, `Hard Disk` and the USB lines print before the shell.
 
 ## TODO
 
