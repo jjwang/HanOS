@@ -450,7 +450,7 @@ static uint32_t control_xfer_retry(uint8_t slot, uint8_t bm_request,
 {
     uint32_t cc = 0;
 
-    for (int32_t i = 0; i < 5; i++) {
+    for (int32_t i = 0; i < 2; i++) {
         cc = control_xfer(slot, bm_request, request, value, index, length,
                           buf_phys);
         if (cc == CC_SUCCESS)
@@ -915,22 +915,28 @@ bool usb_msc_write(uint32_t lba, uint32_t count, const void *buf)
 /* Route the USB2 ports to xHCI. The Lynx Point BIOS leaves them on EHCI by
  * default, but a full-speed device on EHCI needs a companion/TT that this PCH
  * does not provide. xHCI handles USB2 natively. */
-static void xhci_route_usb2(pci_device_t *dev)
+static bool xhci_route_usb2(pci_device_t *dev)
 {
     if (dev->vendor_id != 0x8086)
-        return;
-    if (dev->device_id != 0x9c31 && dev->device_id != 0x8c31)
-        return;
+        return false;
+    /* Lynx Point and Wildcat Point, LP and H. */
+    if (dev->device_id != 0x9c31 && dev->device_id != 0x8c31
+        && dev->device_id != 0x9cb1 && dev->device_id != 0x8cb1)
+        return false;
 
     uint32_t id = PCI_MAKE_ID(dev->bus, dev->device, dev->func);
     uint32_t mask = pci_ind(id, XHCI_USB2PRM);
     uint32_t route = pci_ind(id, XHCI_USB2PR);
+    uint32_t want = XHCI_USB2PR_HCSEL & mask;
 
     route &= ~XHCI_USB2PR_HCSEL;
-    route |= XHCI_USB2PR_HCSEL & mask;
+    route |= want;
     pci_outd(id, XHCI_USB2PR, route);
+    uint32_t now = pci_ind(id, XHCI_USB2PR);
+
     klogi("USB: xHCI USB2 route %08x mask %08x now %08x\n", route, mask,
-          pci_ind(id, XHCI_USB2PR));
+          now);
+    return want != 0 && (now & want) == want;
 }
 
 void usb_hid_init(void)
@@ -971,11 +977,17 @@ void usb_hid_init(void)
             break;
         }
     }
-    if (dev != NULL)
-        xhci_route_usb2(dev);
+    bool routed = false;
 
-    /* Probe the USB 2.0 controller after the routing step. */
-    ehci_init();
+    if (dev != NULL)
+        routed = xhci_route_usb2(dev);
+
+    /* The routed controller owns the USB2 ports. Skip the EHCI reset and its
+     * settle wait; it has no device left to enumerate. */
+    if (routed)
+        klogi("USB: EHCI skipped after USB2 route\n");
+    else
+        ehci_init();
 
     if (dev == NULL) {
         klogi("USB: no xHCI controller found\n");
@@ -1110,7 +1122,7 @@ void usb_hid_init(void)
 
     /* The boot device was configured by the firmware. A controller reset and
      * handoff drop the port state; give the link time to report CCS again. */
-    pit_wait(500);
+    pit_wait(200);
 
     for (uint8_t port = 1; port <= max_ports; port++) {
         uint8_t port_speed;
