@@ -269,23 +269,9 @@ static int32_t ahci_identify(void)
     return n > 0 ? 0 : -1;
 }
 
-/* Bring a port the firmware left idle up to DET=3 with a COMRESET. Only a
- * port that reports a device signature is reset; an empty port reads
- * 0xffffffff and is left alone. */
-static void port_bringup(uint32_t p)
+/* Send a COMRESET and wait for the link. */
+static bool ahci_reset_link(uint32_t p, uint32_t wait_ms)
 {
-    uint32_t ssts = pr32(p, P_SSTS);
-    uint32_t det = ssts & SSTS_DET_MASK;
-
-    if (det == 3)               /* link up */
-        return;
-    if (pr32(p, P_SIG) == 0xffffffffu || pr32(p, P_SIG) == 0)
-        return;
-
-    /* A powered-down disk can report DET 0 with a valid signature. Give it a
-     * short reset; an empty port with a stale signature must not cost 2 s. */
-    uint32_t wait_ms = (det == 0) ? 500 : 2000;
-
     struct timespec ts = { 0, 1000000L };       /* 1 ms */
 
     pw32(p, P_SCTL, 1);         /* DET=1: COMRESET */
@@ -294,9 +280,33 @@ static void port_bringup(uint32_t p)
 
     for (uint32_t i = 0; i < wait_ms; i++) {
         if ((pr32(p, P_SSTS) & SSTS_DET_MASK) == 3)
-            return;
+            return true;
         nanosleep(&ts, NULL);
     }
+    return false;
+}
+
+/* Bring a port the firmware left idle up to DET=3. Only a port that reports a
+ * device signature is reset. An ATA signature gets a second, longer reset; a
+ * powered-down disk can miss the first one. */
+static bool port_bringup(uint32_t p)
+{
+    uint32_t ssts = pr32(p, P_SSTS);
+    uint32_t det = ssts & SSTS_DET_MASK;
+    uint32_t sig = pr32(p, P_SIG);
+
+    if (det == 3)               /* link up */
+        return true;
+    if (sig == 0xffffffffu || sig == 0)
+        return false;
+
+    uint32_t wait_ms = (det == 0) ? 1000 : 2000;
+
+    if (ahci_reset_link(p, wait_ms))
+        return true;
+    if (sig == 0x00000101u)     /* ATA disk */
+        return ahci_reset_link(p, 2000);
+    return false;
 }
 
 /* Find the first ATA disk on an AHCI port and identify it. */
@@ -308,20 +318,11 @@ static int32_t ahci_init(void)
 
     w32(HOST_GHC, r32(HOST_GHC) | GHC_AE);
 
-    /* Bring up ports the firmware left idle before probing them. */
+    /* Bring up ports the firmware left idle before probing them. A disk that
+     * the firmware powered down can report DET 0 with a stale-looking
+     * signature, so reset every implemented port that carries a signature. */
     for (uint32_t p = 0; p < nports; p++) {
-        uint32_t ssts;
-        uint32_t sig;
-
         if (!(pi & (1u << p)))
-            continue;
-        ssts = pr32(p, P_SSTS);
-        sig = pr32(p, P_SIG);
-        /* Empty QEMU and PCH ports can keep a stale 0xffff0101 signature
-         * while DET is 0. Do not spend the reset wait on those. */
-        if (sig == 0xffffffffu
-            || ((ssts & SSTS_DET_MASK) == 0
-                && (sig == 0 || (sig >> 16) == 0xffff)))
             continue;
         port_bringup(p);
     }
@@ -335,10 +336,15 @@ static int32_t ahci_init(void)
             continue;
 
         port = (int32_t) p;
-        if (port_start(port) != 0)
-            continue;
-        if (ahci_identify() == 0)
-            return 0;
+        for (int32_t attempt = 0; attempt < 2; attempt++) {
+            if (port_start(port) == 0 && ahci_identify() == 0)
+                return 0;
+            if (attempt == 0) {
+                (void) ahci_reset_link(port, 2000);
+                if ((pr32(p, P_SSTS) & SSTS_DET_MASK) != 3)
+                    break;
+            }
+        }
     }
 
     return -1;
@@ -371,6 +377,7 @@ static int32_t ahci_write(uint32_t lba, uint8_t count, const uint8_t *buf)
 /* USB mass storage, served by the kernel when no AHCI disk is present. Data
  * still travels through the buffer the caller mapped at BLOCK_BUF_VADDR. */
 static bool use_usb;
+static bool have_disk;
 
 static int32_t blk_read(uint32_t lba, uint8_t count, uint8_t *buf)
 {
@@ -462,30 +469,9 @@ static void gpt_load(void)
     }
 }
 
-int32_t main(void)
+/* Attach the USB block device after the ATA model has been reported. */
+static void usb_attach(void)
 {
-    bootinfo_t bi;
-
-    while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
-        /* The kernel sets the bootinfo before the process is runnable. */
-    }
-
-    bool have_disk = false;
-
-    /* Identify the ATA disk first so its model is reported even when the data
-     * comes from the USB stick. */
-    if (bi.block_mmio_vaddr != 0 && bi.block_mmio_size != 0
-        && bi.block_dma_vaddr != 0 && bi.block_dma_size >= DMA_SIZE) {
-        abar = (volatile uint8_t *) (uint64_t) bi.block_mmio_vaddr;
-        dma = (uint8_t *) (uint64_t) bi.block_dma_vaddr;
-        dma_phys = bi.block_dma_phys;
-        memset(dma, 0, DMA_SIZE);
-        (void) ahci_init();
-    }
-
-    /* Prefer the USB device. The live USB carries the kernel and the ext2 data
-     * on the same stick, so a laptop whose internal SATA disk the AHCI driver
-     * also finds must still read the stick, not the internal disk. */
     int64_t usb = sys_usb_block_info();
 
     if (usb > 0) {
@@ -498,12 +484,48 @@ int32_t main(void)
 
     if (have_disk)
         gpt_load();
+}
+
+int32_t main(void)
+{
+    bootinfo_t bi;
+
+    while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
+        /* The kernel sets the bootinfo before the process is runnable. */
+    }
+
+    /* Identify the ATA disk first so its model is reported even when the data
+     * comes from the USB stick. */
+    if (bi.block_mmio_vaddr != 0 && bi.block_mmio_size != 0
+        && bi.block_dma_vaddr != 0 && bi.block_dma_size >= DMA_SIZE) {
+        abar = (volatile uint8_t *) (uint64_t) bi.block_mmio_vaddr;
+        dma = (uint8_t *) (uint64_t) bi.block_dma_vaddr;
+        dma_phys = bi.block_dma_phys;
+        memset(dma, 0, DMA_SIZE);
+        (void) ahci_init();
+    }
+    have_disk = sector_count > 0;
+
+    bool usb_checked = false;
 
     for (;;) {
         sys_ipc_msg_t m;
 
         if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0)
             continue;
+
+        /* Report the ATA model before the slower USB attach. The next request
+         * waits for USB and the GPT partitions. */
+        bool early_info = false;
+
+        if (!usb_checked) {
+            if (m.tag == BLOCK_GET_INFO) {
+                early_info = true;
+            } else {
+                usb_attach();
+                usb_checked = true;
+            }
+        }
 
         sys_ipc_msg_t rep;
         memset(&rep, 0, sizeof(rep));
@@ -550,6 +572,11 @@ int32_t main(void)
         if (reply != 0) {
             sys_ipc_send(reply, &rep);
             sys_handle_close(reply);
+        }
+
+        if (early_info) {
+            usb_attach();
+            usb_checked = true;
         }
     }
 
