@@ -44,8 +44,14 @@ static pci_device_desc_t device_table[] = {
     { 0x8086, 0x0166, "3rd Gen Core processor Graphics Controller" },
     { 0x8086, 0x0A04, "Haswell-ULT DRAM Controller" },
     { 0x8086, 0x0A0C, "Haswell-ULT HD Audio Controller" },
-    { 0x8086, 0x0A16, "Haswell-ULT Integrated Graphics Controller" },
+    { 0x8086, 0x0A16, "Haswell-ULT GT2 [HD Graphics 4400]" },
     { 0x8086, 0x153A, "Ethernet Connection I217-LM" },
+    { 0x8086, 0x1559, "Ethernet Connection I218-V" },
+    { 0x8086, 0x155A, "Ethernet Connection I218-LM" },
+    { 0x8086, 0x15A0, "Ethernet Connection (2) I218-LM" },
+    { 0x8086, 0x15A1, "Ethernet Connection (2) I218-V" },
+    { 0x8086, 0x15A2, "Ethernet Connection (3) I218-LM" },
+    { 0x8086, 0x15A3, "Ethernet Connection (3) I218-V" },
     { 0x8086, 0x100E, "Gigabit Ethernet Controller" },
     { 0x8086, 0x10D3, "82574L Gigabit Network Connection" },
     { 0x8086, 0x10EA, "82577LM Gigabit Network Connection" },
@@ -53,7 +59,9 @@ static pci_device_desc_t device_table[] = {
     { 0x8086, 0x1570, "Ethernet Connection I219-V" },
     { 0x8086, 0x1604, "Broadwell-U Host Bridge -OPI" },
     { 0x8086, 0x160C, "Broadwell-U Audio Controller" },
-    { 0x8086, 0x1616, "HD Graphics 5500" },
+    { 0x8086, 0x1606, "Broadwell-U GT1 [HD Graphics]" },
+    { 0x8086, 0x1616, "Broadwell-U GT2 [HD Graphics 5500]" },
+    { 0x8086, 0x161E, "Broadwell-U GT3 [Iris Graphics 6100]" },
     { 0x8086, 0x1904,
      "Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers"
      },
@@ -87,6 +95,7 @@ static pci_device_desc_t device_table[] = {
      "440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled)" },
     /* Realtek */
     { 0x10EC, 0x8139, "RTL-8100/8101L/8139 pci Fast Ethernet Adapter" },
+    { 0x10EC, 0x8168, "RTL8111/8168/8411 PCI Express Gigabit Ethernet" },
     /* QEMU */
     { 0x1234, 0x1111, "QEMU Virtual Video Controller" },
     /* VirtualBox */
