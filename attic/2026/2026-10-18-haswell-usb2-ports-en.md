@@ -27,7 +27,7 @@ The EHCI driver had three more faults:
 - Read `USB2PR` at xHCI PCI config 0xd0 and `USB2PRM` at 0xd4.
 - Clear the low 15 route bits, then set the bits allowed by the mask.
 - Write the result back to 0xd0 before the controller scan.
-- Guard the write by Intel 9c31 and 8c31. xHCI handles USB2 natively, so the full-speed device needs no EHCI TT.
+- Guard the write by Intel 9c31, 8c31, 9cb1 and 8cb1 (Lynx Point and Wildcat Point). xHCI handles USB2 natively, so the full-speed device needs no EHCI TT.
 
 ### xHCI
 
@@ -54,17 +54,26 @@ The EHCI driver had three more faults:
 
 - Wake the AHCI interface before clearing `ST`.
 - Reset a port that reports DET 0 with a valid signature. Skylake can report DET 0 while the disk is powered down; Haswell reports DET 1 or 3.
-- Skip a DET 0 port whose signature has the `0xffff` high half. These are stale empty-port signatures; a reset wait costs about 800 ms per port.
-- Wait 500 ms for DET 0 and 2 s for DET 1/2.
+- Reset a DET 0 port even when its signature looks stale. A disk powered down by the firmware can still link after the reset.
+- Wait 1 s for DET 0 and 2 s for DET 1/2. Empty ports wait out the reset too.
+- Retry a failed COMRESET on an ATA signature with a 2 s wait.
+- Retry port start and IDENTIFY once after a link reset.
 - Identify the ATA disk before the USB preference takes effect, so the model stays in the summary when the data comes from the U disk.
 
 ### Boot flow
 
 - Wait up to 5 s for the USB bring-up thread before the shell. The `U-Disk` and controller lines belong to the boot summary.
-- Probe the block server with a 6 s timeout before the shell. Retry in `blkprobe` on timeout.
+- Probe the block server with a 12 s timeout before the shell. Retry in `blkprobe` on timeout.
+- The block server answers the first GET_INFO with the ATA model before it attaches USB, so the Hard Disk line prints before init.
 - Retry the ext2 mount ten times. The block server may still wait for USB on the first request.
 - Grow the kernel log ring to 48 KiB. A 64 KiB ring resets the Haswell before serial init.
 - Add `dmesg [keyword...]`. A line prints when it contains every keyword, case-insensitive.
+
+### Boot time
+
+- Skip the EHCI reset and its settle wait when the USB2 route readback confirms the move to xHCI.
+- Wait 200 ms for the xHCI link after the controller reset, not 500 ms.
+- Try the device descriptor twice, not five times. A port that never answers no longer costs 2.5 s before the shell.
 
 ## Files Changed
 
@@ -105,6 +114,6 @@ The EHCI driver had three more faults:
 - xHCI routing: move the PCH IDs into a table. Add other Intel PCH generations and quirks.
 - Power: suspend, resume, over-current and port power recovery.
 - Performance: event-driven completion. Batch bulk transfers. Reduce busy polling.
-- Boot: replace the 5 s USB wait and the 6 s block probe with a readiness signal. Enter the shell early when no USB is present.
+- Boot: replace the 5 s USB wait and the 12 s block probe with a readiness signal. Enter the shell early when no USB is present.
 - DMA and IOMMU: record the EHCI 32-bit limit. Add IOMMU mappings when the firmware enables it.
 - Test matrix: Haswell, Skylake, QEMU EHCI and xHCI, USB2 and USB3 sticks, hubs and hotplug.

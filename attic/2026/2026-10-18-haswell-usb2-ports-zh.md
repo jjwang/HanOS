@@ -27,7 +27,7 @@ EHCI 驱动还有三处故障：
 - 读 xHCI PCI 配置 0xd0 的 `USB2PR` 与 0xd4 的 `USB2PRM`。
 - 清低 15 位路由位。按掩码置位。
 - 扫描控制器前写回 0xd0。
-- 写入限定 Intel 9c31 与 8c31。xHCI 原生处理 USB2。全速设备不再走 EHCI TT。
+- 写入限定 Intel 9c31、8c31、9cb1、8cb1。xHCI 原生处理 USB2。全速设备不再走 EHCI TT。
 
 ### xHCI
 
@@ -54,17 +54,26 @@ EHCI 驱动还有三处故障：
 
 - 清 `ST` 前先置 ICC Active。
 - DET 为 0 且签名有效的端口照常复位。Skylake 的盘休眠时会报 DET 0。Haswell 报 DET 1 或 3。
-- DET 为 0 且签名高 16 位为 `0xffff` 的端口跳过。这是空端口的残留签名。复位等待每个端口约 800 ms。
-- DET 0 等 500 ms。DET 1/2 等 2 秒。
+- DET 为 0 且签名看似残留的端口也复位。固件下电的盘在复位后仍可连上。
+- DET 0 等 1 秒。DET 1/2 等 2 秒。空端口同样等待复位。
+- ATA 签名端口首次 COMRESET 失败后，再试一次 2 秒等待。
+- 链路复位后，端口启动与 IDENTIFY 各重试一次。
 - USB 优先生效前先识别 ATA 盘。数据来自 U 盘时，型号仍留在摘要里。
 
 ### 启动流程
 
 - shell 前等 USB 线程最多 5 秒。`U-Disk` 行与控制器行归入启动摘要。
-- shell 前探测块服务，超时 6 秒。超时后交给 `blkprobe` 线程。
+- shell 前探测块服务，超时 12 秒。超时后交给 `blkprobe` 线程。
+- 块服务先回 ATA 型号，随后接入 USB。`Hard Disk` 行先于 init 打印。
 - ext2 挂载重试 10 次。块服务首次请求时可能还在等 USB。
 - 内核日志环改为 48 KiB。64 KiB 会让 Haswell 在串口初始化前复位。
 - 新增 `dmesg [关键词...]`。每个关键词都出现才打印该行。匹配不分大小写。
+
+### 启动耗时
+
+- USB2 路由读回确认后，跳过 EHCI 复位与其等待。
+- xHCI 控制器复位后等链路 200 ms，不再等 500 ms。
+- 设备描述符只试两次，不再试五次。无响应的端口不再让 shell 多等 2.5 秒。
 
 ## 改动文件
 
@@ -105,6 +114,6 @@ EHCI 驱动还有三处故障：
 - xHCI 路由：PCH ID 改成表驱动。补其他 Intel PCH 与 quirk。
 - 电源：挂起、恢复、过流、端口供电恢复。
 - 性能：完成改为事件驱动。合并批量传输。减少忙轮询。
-- 启动：用就绪信号替代 5 秒 USB 等待与 6 秒块探测。无 USB 时提前进 shell。
+- 启动：用就绪信号替代 5 秒 USB 等待与 12 秒块探测。无 USB 时提前进 shell。
 - DMA 与 IOMMU：记录 EHCI 32 位限制。固件开启 IOMMU 时补映射。
 - 测试矩阵：Haswell、Skylake、QEMU EHCI 与 xHCI、USB2 与 USB3 盘、Hub、热插拔。
