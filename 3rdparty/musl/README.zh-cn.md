@@ -1,11 +1,11 @@
-# HanOS 上的 musl
+# 汉风操作系统 (HanOS) 上的 musl
 
-HanOS 用户态链接 musl。内核不链接 musl。
+汉风操作系统 (HanOS) 用户态链接 musl。内核不链接 musl。
 
 ## 目录
 
 ```
-musl/syscall_arch.h         musl 的 HanOS 系统调用后端
+musl/syscall_arch.h         musl 的汉风操作系统 (HanOS) 系统调用后端
 musl/__set_thread_area.s    用 SYSCALL_SET_FS_BASE 建立 TLS
 musl/linker.ld              用户态链接脚本
 musl/build.sh               拷贝覆盖文件并编译 musl
@@ -45,11 +45,11 @@ make AR=x86_64-elf-ar RANLIB=x86_64-elf-ranlib
 
 ## 移植要点
 
-- 系统调用遵循 Linux x86-64 ABI。`include/syscall_nr.h` 为内核和用户态定义号。POSIX 调用沿用 Linux 号，HanOS 独有调用用 `0x400` 以上。
-- `syscall_arch.h` 让 POSIX 调用直接沿用 Linux 号，只映射 HanOS 独有调用。它把 `statx`、`getdents64`、`fcntl`、`readv`、`writev` 请求转成 HanOS 处理函数。
+- 系统调用遵循 Linux x86-64 ABI。`include/syscall_nr.h` 为内核和用户态定义号。POSIX 调用沿用 Linux 号，汉风操作系统 (HanOS) 独有调用用 `0x400` 以上。
+- `syscall_arch.h` 让 POSIX 调用直接沿用 Linux 号，只映射汉风操作系统 (HanOS) 独有调用。它把 `statx`、`getdents64`、`fcntl`、`readv`、`writev` 请求转成汉风操作系统 (HanOS) 处理函数。
 - `__set_thread_area.s` 发起 `SYSCALL_SET_FS_BASE`（`0x401`）。原始的 `arch_prctl` 会触发异常。
 - `linker.ld` 把用户态加载到 `0x0000400000000000`，并为 musl 启动定义 `_DYNAMIC`。
-- 必须加 `-mno-red-zone`。HanOS 的系统调用处理函数跑在用户栈上，内核栈帧会覆盖 128 字节红区。不加该标志时，`readdir` 这类大局部变量会读到被破坏的数据。
+- 必须加 `-mno-red-zone`。汉风操作系统 (HanOS) 的系统调用处理函数跑在用户栈上，内核栈帧会覆盖 128 字节红区。不加该标志时，`readdir` 这类大局部变量会读到被破坏的数据。
 
 ## 尚不支持
 
