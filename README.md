@@ -71,7 +71,7 @@ Programs live in the initrd and on the ext2 data partition. The shell looks in `
 Tested physical machines:
 
 - Haswell-ULT (i5-4300U, Lynx Point-LP): the kernel routes the USB2 ports from EHCI to xHCI, the live U disk enumerates, the ext2 partition mounts, the panel runs at its native eDP mode, and the games run.
-- Broadwell-U (Wildcat Point-LP): the same USB2 route and native eDP path work; the ext2 partition mounts, and the games run.
+- Broadwell-U (i5-5200U, Wildcat Point-LP): the same USB2 route and native eDP path work; the ext2 partition mounts, and the games run.
 - Skylake (i5-6200U, Sunrise Point-LP): xHCI storage enumerates, the internal AHCI disk reports its model, native eDP comes from EDID, and the games run.
 
 QEMU covers BIOS and UEFI boot, AHCI disks, and EHCI/xHCI USB storage.

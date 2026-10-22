@@ -71,7 +71,7 @@ musl 的构建说明见 `3rdparty/musl/README.md`。
 已测物理机：
 
 - Haswell-ULT（i5-4300U，Lynx Point-LP）：内核把 USB2 端口从 EHCI 路由到 xHCI。live U 盘枚举成功。ext2 分区挂载。面板按原生 eDP 模式显示。游戏可运行。
-- Broadwell-U（Wildcat Point-LP）：同一 USB2 路由与原生 eDP 路径可用。ext2 分区挂载。游戏可运行。
+- Broadwell-U（i5-5200U，Wildcat Point-LP）：同一 USB2 路由与原生 eDP 路径可用。ext2 分区挂载。游戏可运行。
 - Skylake（i5-6200U，Sunrise Point-LP）：xHCI 存储枚举成功。内置 AHCI 盘报出型号。EDID 给出原生 eDP 模式。游戏可运行。
 
 QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。

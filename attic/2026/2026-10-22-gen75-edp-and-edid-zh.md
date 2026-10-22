@@ -2,7 +2,7 @@
 
 ## 结果
 
-Haswell-ULT、Broadwell-U、Skylake 笔记本按面板原生模式启动。终端、游戏、硬件光标正常。内核按顺序选模式。顺序：Limine EDID、OpRegion EDID、OpRegion VBT、AUX EDID、固件 eDP 时序。
+Haswell-ULT、Broadwell-U（i5-5200U）、Skylake 笔记本按面板原生模式启动。终端、游戏、硬件光标正常。内核按顺序选模式。顺序：Limine EDID、OpRegion EDID、OpRegion VBT、AUX EDID、固件 eDP 时序。
 
 ## 现象
 
@@ -100,7 +100,7 @@ GOP 把 800x600 pipe 放大到面板。pipe 源保持 800x600。eDP 转码器保
 - 内核与用户态 clean 构建无 `-Wall -Wextra` 警告。
 - QEMU 到 `hansh`，无 panic、exception、corrupt 行。
 - Haswell-ULT：原生模式，终端与游戏正常。硬件光标可见。
-- Broadwell-U：同一 Gen7.5 路径，原生模式。
+- Broadwell-U（i5-5200U）：同一 Gen7.5 路径，原生模式。
 - Skylake：EDID 给出原生模式。光标可见。
 - `dmesg edid` 用一行报告所选来源。
 

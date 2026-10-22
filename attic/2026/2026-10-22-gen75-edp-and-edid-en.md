@@ -2,7 +2,7 @@
 
 ## Result
 
-Haswell-ULT, Broadwell-U and Skylake laptops boot at the panel's native mode. The console, games and hardware cursor work. The kernel selects the mode from Limine EDID, OpRegion EDID, OpRegion VBT, eDP AUX EDID, then the firmware's eDP transcoder timing.
+Haswell-ULT, Broadwell-U (i5-5200U) and Skylake laptops boot at the panel's native mode. The console, games and hardware cursor work. The kernel selects the mode from Limine EDID, OpRegion EDID, OpRegion VBT, eDP AUX EDID, then the firmware's eDP transcoder timing.
 
 ## Symptom
 
@@ -100,7 +100,7 @@ Remove the code for these paths. The VBT module keeps only the OpRegion and ASLE
 - Kernel and userspace build with no `-Wall -Wextra` warnings.
 - QEMU reaches `hansh` with no panic, exception or corrupt line.
 - Haswell-ULT: native panel mode, terminal and games; hardware cursor visible.
-- Broadwell-U: native panel mode after the same Gen7.5 path.
+- Broadwell-U (i5-5200U): native panel mode after the same Gen7.5 path.
 - Skylake: native panel mode from EDID; cursor visible.
 - `dmesg edid` reports the selected source as one line.
 
