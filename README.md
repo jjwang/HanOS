@@ -44,9 +44,11 @@ include/    wire headers shared by the kernel and userspace
 
 See `3rdparty/musl/README.md` for the musl build.
 
-## Games
+## Programs
 
-The ext2 data partition carries three terminal games. The shell looks in `/bin` and then `/data/bin`, so the names run from any directory. The live USB image and `make run-hdd` use the same layout.
+Programs live in the initrd and on the ext2 data partition. The shell looks in `/bin` and then `/data/bin`, so a name runs from any directory. The live USB image and `make run-hdd` use the same layout.
+
+### Games
 
 - `tetris`: stack the falling pieces and clear lines.
 - `2048`: merge equal tiles and reach 2048.
@@ -58,12 +60,19 @@ The ext2 data partition carries three terminal games. The shell looks in `/bin` 
 | `2048` | W/A/S/D or arrows move; R restart; Q quit |
 | `snake` | W/A/S/D or arrows turn; P pause; Q quit |
 
+### Tools
+
+- `ls`, `cat`, `wc`, `pwd`, `rm`, `echo`, `edit`
+- `dmesg [keyword...]`, `usb`, `lspci`
+- `help`, `hansh`
+
 ## Hardware
 
 Tested physical machines:
 
-- Haswell-ULT (i5-4300U, Lynx Point-LP): the kernel routes the USB2 ports from EHCI to xHCI, the live U disk enumerates, the ext2 partition mounts, and the games run.
-- Skylake (i5-6200U, Sunrise Point-LP): xHCI storage enumerates, the internal AHCI disk reports its model, the ext2 partition mounts, and the games run.
+- Haswell-ULT (i5-4300U, Lynx Point-LP): the kernel routes the USB2 ports from EHCI to xHCI, the live U disk enumerates, the ext2 partition mounts, the panel runs at its native eDP mode, and the games run.
+- Broadwell-U (Wildcat Point-LP): the same USB2 route and native eDP path work; the ext2 partition mounts, and the games run.
+- Skylake (i5-6200U, Sunrise Point-LP): xHCI storage enumerates, the internal AHCI disk reports its model, native eDP comes from EDID, and the games run.
 
 QEMU covers BIOS and UEFI boot, AHCI disks, and EHCI/xHCI USB storage.
 
@@ -71,11 +80,13 @@ Known limits:
 
 - USB hotplug is not supported.
 - Plug the U disk in before boot.
-- The Lynx Point USB2 route is PCH-specific. Other Intel generations need a quirk.
+- The USB2 route covers Lynx Point and Wildcat Point. Other Intel PCH generations need a quirk.
 - A full-speed device on EHCI without xHCI routing is not validated.
+- A panel without EDID uses the firmware eDP timing. Native mode stays unavailable when the firmware scans at 800x600.
+- Other Intel GPU and PCH IDs need a table entry.
 
-See `attic/2026/2026-10-18-haswell-usb2-ports-en.md` for the USB work.
+See `attic/2026/2026-10-22-gen75-edp-and-edid-en.md` for the graphics work. See `attic/2026/2026-10-18-haswell-usb2-ports-en.md` for the USB work.
 
 ## Documentation
 
-`doxygen Doxyfile` generates the HTML docs. A GitHub Action publishes them to GitHub Pages on every push to `mainline`.
+`doxygen Doxyfile` generates the HTML docs. A GitHub Action publishes them to [GitHub Pages](https://jjwang.github.io/HanOS/) on every push to `mainline`.

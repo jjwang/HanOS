@@ -22,7 +22,7 @@ HanOS 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用�
 
 ## 构建
 
-安装 `x86_64-elf` 交叉工具链、`nasm`、`xorriso`。先克隆 Limine，再构建并运行：
+安装 `x86_64-elf` 交叉工具链、`nasm`、`xorriso`。先克隆 Limine。然后构建、运行：
 
 ```
 make limine
@@ -31,7 +31,7 @@ make run        # 用 QEMU 启动
 make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 ```
 
-`make run-hdd` 生成 FAT 格式磁盘镜像，并从它启动。需要 `mtools` 和 `sgdisk`。
+`make run-hdd` 生成 FAT 格式磁盘镜像。从它启动。需要 `mtools` 和 `sgdisk`。
 
 ## 目录结构
 
@@ -44,9 +44,11 @@ include/    内核与用户态共享的线协议头
 
 musl 的构建说明见 `3rdparty/musl/README.md`。
 
-## 游戏
+## 程序
 
-ext2 数据分区带三个终端游戏。shell 先查 `/bin`，再查 `/data/bin`。游戏名可直接运行。live U 盘与 `make run-hdd` 用同一布局。
+程序放在 initrd 与 ext2 数据分区。shell 先查 `/bin`，再查 `/data/bin`。程序名可在任意目录运行。live U 盘与 `make run-hdd` 用同一布局。
+
+### 游戏
 
 - `tetris`：堆叠落下的方块，消行。
 - `2048`：合并相同数字，凑到 2048。
@@ -58,12 +60,19 @@ ext2 数据分区带三个终端游戏。shell 先查 `/bin`，再查 `/data/bin
 | `2048` | W/A/S/D 或方向键移动；R 重开；Q 退出 |
 | `snake` | W/A/S/D 或方向键转向；P 暂停；Q 退出 |
 
+### 工具
+
+- `ls`、`cat`、`wc`、`pwd`、`rm`、`echo`、`edit`
+- `dmesg [关键词...]`、`usb`、`lspci`
+- `help`、`hansh`
+
 ## 硬件
 
 已测物理机：
 
-- Haswell-ULT（i5-4300U，Lynx Point-LP）：内核把 USB2 端口从 EHCI 路由到 xHCI，live U 盘枚举成功，ext2 分区挂载，游戏可运行。
-- Skylake（i5-6200U，Sunrise Point-LP）：xHCI 存储枚举成功，内置 AHCI 盘报出型号，ext2 分区挂载，游戏可运行。
+- Haswell-ULT（i5-4300U，Lynx Point-LP）：内核把 USB2 端口从 EHCI 路由到 xHCI。live U 盘枚举成功。ext2 分区挂载。面板按原生 eDP 模式显示。游戏可运行。
+- Broadwell-U（Wildcat Point-LP）：同一 USB2 路由与原生 eDP 路径可用。ext2 分区挂载。游戏可运行。
+- Skylake（i5-6200U，Sunrise Point-LP）：xHCI 存储枚举成功。内置 AHCI 盘报出型号。EDID 给出原生 eDP 模式。游戏可运行。
 
 QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。
 
@@ -71,12 +80,13 @@ QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。
 
 - USB 不支持热插拔。
 - 开机前插好 U 盘。
-- USB2 路由只适用 Lynx Point。
-- 其他 Intel 代际要补 quirk。
+- USB2 路由覆盖 Lynx Point 与 Wildcat Point。其他 Intel PCH 代际要补 quirk。
 - EHCI 上无 xHCI 路由的全速设备未验证。
+- 面板无 EDID 时用固件 eDP 时序。固件按 800x600 扫描时拿不到原生模式。
+- 其他 Intel GPU 与 PCH ID 要补表项。
 
-USB 工作记录见 `attic/2026/2026-10-18-haswell-usb2-ports-zh.md`。
+显卡工作记录见 `attic/2026/2026-10-22-gen75-edp-and-edid-zh.md`。USB 工作记录见 `attic/2026/2026-10-18-haswell-usb2-ports-zh.md`。
 
 ## 文档
 
-`doxygen Doxyfile` 生成 HTML 文档。GitHub Action 在推送到 `mainline` 时发布到 GitHub Pages。
+`doxygen Doxyfile` 生成 HTML 文档。GitHub Action 在推送到 `mainline` 时发布到 [GitHub Pages](https://jjwang.github.io/HanOS/)。
