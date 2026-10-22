@@ -28,6 +28,12 @@
  */
 typedef struct {
     uint32_t id;
+    uint16_t device_id;
+    bool gen9;                  /* Skylake display path */
+    bool pte64;                 /* 64-bit GTT entries (Gen8+) */
+
+    uint32_t gtt_offset;
+    uint32_t gtt_size;
 
     volatile void *aperture_bar;
     volatile void *mmio_bar;
@@ -47,6 +53,7 @@ typedef struct {
 
     uint32_t num_total_entries; /* How many entries in the GTT */
     uint32_t num_mappable_entries;      /* How many can be mapped at once */
+    bool pte64;                 /* 64-bit GTT entries (Gen8+) */
 
     volatile uint64_t *entries;
 } gfx_gtt_t;

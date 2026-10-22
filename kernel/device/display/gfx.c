@@ -33,11 +33,61 @@
 #include <device/display/gfx_reg.h>
 #include <device/display/skl_display.h>
 #include <device/display/display_mode.h>
+#include <device/display/edid_read.h>
+#include <device/display/vbt.h>
 #include <device/display/fb.h>
 #include <lib/kmalloc.h>
 
-#define DEVICE_HD520                0x1916  /* Skylake GT2 integrated graphics */
-#define DEVICE_SUNRISE_POINT        0x9D00  /* Skylake PCH (LPC), matched by high byte */
+#define PCH_SUNRISE_POINT           0x9D00  /* Skylake PCH (LPC), high byte */
+#define PCH_LYNX_POINT              0x9C00  /* Haswell/Broadwell PCH, high byte */
+
+enum {
+    GFX_GEN7_5 = 0,             /* Haswell */
+    GFX_GEN8 = 1,               /* Broadwell */
+    GFX_GEN9 = 2,               /* Skylake */
+};
+
+/* Identify the display generation from the iGPU device id. Returns -1 for
+ * unsupported devices. */
+static int gfx_generation(uint16_t device_id)
+{
+    switch (device_id) {
+    /* Skylake GT1/GT2/GT3/GT3e/GT4e. */
+    case 0x1902: case 0x1906: case 0x190B: case 0x190E:
+    case 0x1912: case 0x1916: case 0x191B: case 0x191D: case 0x191E:
+    case 0x1921: case 0x1923: case 0x1926: case 0x1927: case 0x192A:
+    case 0x192B: case 0x192D: case 0x1932: case 0x193A: case 0x193B:
+    case 0x193D:
+        return GFX_GEN9;
+    /* Broadwell GT1/GT2/GT3/GT3e. */
+    case 0x1602: case 0x1606: case 0x160A: case 0x160B: case 0x160D:
+    case 0x160E: case 0x1612: case 0x1616: case 0x161A: case 0x161E:
+    case 0x1622: case 0x1626: case 0x162A: case 0x162B: case 0x162D:
+    case 0x162E:
+        return GFX_GEN8;
+    /* Haswell desktop GT1/GT2/GT3. */
+    case 0x0402: case 0x0406: case 0x040A: case 0x040B: case 0x040E:
+    case 0x0412: case 0x0416: case 0x041A: case 0x041E: case 0x0422:
+    case 0x0426:
+    /* Haswell-ULT GT1/GT2/GT3. */
+    case 0x0A06: case 0x0A0E: case 0x0A16: case 0x0A1E: case 0x0A26:
+    /* Haswell Crystal Well GT1/GT2/GT3. */
+    case 0x0D06: case 0x0D16: case 0x0D26:
+        return GFX_GEN7_5;
+    default:
+        return -1;
+    }
+}
+
+static bool gfx_is_gen9(uint16_t device_id)
+{
+    return gfx_generation(device_id) == GFX_GEN9;
+}
+
+static bool gfx_supported_device(uint16_t device_id)
+{
+    return gfx_generation(device_id) >= 0;
+}
 
 static const uint32_t GMS_TO_SIZE[] = {
     0 * MB,                     /* GMS_0MB */
@@ -66,21 +116,25 @@ static gfx_gtt_t gfx_gtt = { 0 };
 static gfx_mem_manager_t gfx_mgr = { 0 };
 static gfx_fb_t gfx_fb = { 0 };
 
-bool gfx_validate_chipset(void)
+bool gfx_validate_chipset(uint16_t device_id)
 {
-    /* The Skylake display engine needs the Sunrise Point PCH. Find it in the
-     * enumerated PCI devices instead of assuming the 00:1f.0 LPC location. */
+    uint16_t pch = gfx_is_gen9(device_id) ? PCH_SUNRISE_POINT : PCH_LYNX_POINT;
+    const char *name = gfx_is_gen9(device_id) ? "Sunrise Point"
+        : "Lynx/Wildcat Point";
+
+    /* Find the PCH in the enumerated devices instead of assuming the 00:1f.0
+     * LPC location. */
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i);
         if (dev.vendor_id == VENDOR_INTEL
-            && (dev.device_id & 0xFF00) == DEVICE_SUNRISE_POINT) {
-            klogd("GFX: Sunrise Point PCH %02x:%02x.%d (id 0x%04x)\n",
+            && (dev.device_id & 0xFF00) == pch) {
+            klogd("GFX: %s PCH %02x:%02x.%d (id 0x%04x)\n", name,
                   dev.bus, dev.device, dev.func, dev.device_id);
             return true;
         }
     }
 
-    kloge("GFX: Sunrise Point PCH (0x%04x) not found\n", DEVICE_SUNRISE_POINT);
+    kloge("GFX: %s PCH (0x%04x) not found\n", name, pch);
     return false;
 }
 
@@ -104,12 +158,22 @@ void gfx_init_pci(gfx_pci_t * pci, pci_device_t dev)
      * Ref: https://01.org/sites/default/files/documentation/intel-gfx-prm-
      *      osrc-hsw-pcie-config-registers.pdf#page=129
      *
-     * Gen8+ (Skylake) has a 16 MB GTTMMADR with GTTADR at the 8 MB offset;
-     * Gen6/7 has a 4 MB GTTMMADR with GTTADR at the 2 MB offset. */
+     * Gen9 has a 16 MB GTTMMADR with GTTADR at the 8 MB offset;
+     * Gen7.5 has a 4 MB GTTMMADR with GTTADR at the 2 MB offset. */
     pci_get_bar(&bar, id, 0);
+    pci->id = id;
     pci->mmio_bar = (volatile void *) PHYS_TO_VIRT(bar.u.address);
-    pci->gtt_addr =
-        (volatile uint64_t *) ((uint8_t *) pci->mmio_bar + 8 * MB);
+    pci->device_id = dev.device_id;
+    pci->gen9 = gfx_is_gen9(dev.device_id);
+    /* Haswell Gen7.5 has 32-bit GTT entries; Broadwell Gen8 and Skylake
+     * Gen9 have 64-bit entries. */
+    pci->pte64 = gfx_generation(dev.device_id) >= GFX_GEN8;
+    /* GTTADR starts half way into GTTMMADR: 2 MB into a 4 MB BAR on
+     * Haswell, 8 MB into a 16 MB BAR on Broadwell and Skylake. */
+    pci->gtt_offset = pci->pte64 ? 8 * MB : 2 * MB;
+    pci->gtt_size = pci->pte64 ? 8 * MB : 2 * MB;
+    pci->gtt_addr = (volatile uint64_t *)
+        ((uint8_t *) pci->mmio_bar + pci->gtt_offset);
     klogi("\tGTTMMADR: 0x%lx (%ld MB) on address space 0x%016lx\n",
           (uint64_t) bar.u.address, bar.size / MB, as);
 
@@ -153,45 +217,30 @@ void gfx_init_gtt(gfx_pci_t * pci, gfx_gtt_t * gtt, pci_device_t dev)
     gtt->stolen_mem_size = GMS_TO_SIZE[gms];
 
     int32_t ggms = (ggc >> GGC_GGMS_SHIFT) & GGC_GGMS_MASK;
-    gtt->gtt_mem_size = 0;
 
-    switch (ggms) {
-    case GGMS_None:
-        gtt->gtt_mem_size = 0;
-        break;
-
-    case GGMS_1MB:
-        gtt->gtt_mem_size = 1 * MB;
-        break;
-
-    case GGMS_2MB:
-        gtt->gtt_mem_size = 2 * MB;
-        break;
-
-    default:
-        gtt->gtt_mem_size = -1;
-        break;
-    }
+    /* The GTTMMADR BAR fixes the GTT size: Gen9 has 8 MB, Gen7.5 has 2 MB.
+     * GGC.GGMS describes the stolen-memory allocation, not this BAR region,
+     * and reads back zero on some Haswell/Broadwell firmware. */
+    gtt->gtt_mem_size = pci->gtt_size;
+    gtt->pte64 = pci->pte64;
+    klogd("GFX: GGC.GGMS %d, GTT BAR region %u MB (%u-bit entries)\n", ggms,
+          gtt->gtt_mem_size / MB, gtt->pte64 ? 64 : 32);
 
     gtt->stolen_mem_base = bdsm & BDSM_ADDR_MASK;
 
-    gtt->num_total_entries = gtt->gtt_mem_size / sizeof(uint64_t);
+    gtt->num_total_entries =
+        gtt->gtt_mem_size / (gtt->pte64 ? sizeof(uint64_t) : sizeof(uint32_t));
     gtt->num_mappable_entries = pci->aperture_size >> GTT_PAGE_SHIFT;
     gtt->entries = pci->gtt_addr;
 
     /* The firmware has already mapped its framebuffer at GPU address 0, so
-     * these words reveal the hardware GTT entry layout (and confirm where the
-     * GTT actually lives). */
+     * these words reveal the hardware GTT entry layout. Read through the
+     * selected GTT offset; the other half of a 4 MB BAR is not mapped. */
     {
-        volatile uint32_t *g8 =
-            (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 8 * MB);
-        volatile uint32_t *g2 =
-            (volatile uint32_t *) ((uint8_t *) pci->mmio_bar + 2 * MB);
+        volatile uint32_t *g = (volatile uint32_t *) pci->gtt_addr;
 
         for (uint32_t i = 0; i < 8; i++)
-            klogi("\tGTT+8MB[%u] 0x%08x\n", i, g8[i]);
-        for (uint32_t i = 0; i < 8; i++)
-            klogi("\tGTT+2MB[%u] 0x%08x\n", i, g2[i]);
+            klogi("\tGTT[%u] 0x%08x\n", i, g[i]);
     }
 
     klogi("GTT Config:\n");
@@ -283,10 +332,11 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev)
     pci_device_t dev = { 0 };
     bool found = false;
 
-    /* Find the supported Intel HD Graphics device */
+    /* Find a supported Intel HD Graphics device. */
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         dev = vec_at(&pci_devices, i);
-        if (dev.vendor_id != VENDOR_INTEL || dev.device_id != DEVICE_HD520) {
+        if (dev.vendor_id != VENDOR_INTEL
+            || !gfx_supported_device(dev.device_id)) {
             continue;
         }
         klogi("Found GFX device %02x:%02x.%01x - %04x:%04x %s\n",
@@ -300,7 +350,7 @@ bool pci_get_gfx_device(pci_device_t * gfx_dev)
         return false;
     }
 
-    if (!gfx_validate_chipset()) {
+    if (!gfx_validate_chipset(dev.device_id)) {
         memset(&dev, 0, sizeof(pci_device_t));
         return false;
     }
@@ -347,9 +397,55 @@ void gfx_cursor_move(int32_t dx, int32_t dy)
     skl_cursor_move(dx, dy);
 }
 
+/* Read the native timing the firmware programmed into the eDP transcoder.
+ * When no EDID/VBT is exposed, the GOP still trains the eDP link at the
+ * panel's native mode and scales the 800x600 boot pipe up to it, so the
+ * transcoder timing registers hold the real panel timing. */
+static bool gfx_mode_from_hw(gfx_pci_t * pci, display_mode_t * mode)
+{
+    uint32_t ht = gfx_ind(pci, 0x6F000);
+    uint32_t hs = gfx_ind(pci, 0x6F008);
+    uint32_t vt = gfx_ind(pci, 0x6F00C);
+    uint32_t vs = gfx_ind(pci, 0x6F014);
+    uint32_t hactive = (ht & 0xffff) + 1;
+    uint32_t htotal = ((ht >> 16) & 0xffff) + 1;
+    uint32_t vactive = (vt & 0xffff) + 1;
+    uint32_t vtotal = ((vt >> 16) & 0xffff) + 1;
+    uint32_t hsync_start = (hs & 0xffff) + 1;
+    uint32_t hsync_end = ((hs >> 16) & 0xffff) + 1;
+    uint32_t vsync_start = (vs & 0xffff) + 1;
+    uint32_t vsync_end = ((vs >> 16) & 0xffff) + 1;
+
+    if (hactive < 640 || hactive > 4096 || vactive < 480 || vactive > 4096)
+        return false;
+    if (htotal <= hactive || vtotal <= vactive)
+        return false;
+
+    mode->hactive = hactive;
+    mode->hblank = htotal - hactive;
+    mode->hsync_offset = (hsync_start > hactive) ? hsync_start - hactive : 0;
+    mode->hsync_pulse = (hsync_end > hsync_start) ? hsync_end - hsync_start : 0;
+    mode->vactive = vactive;
+    mode->vblank = vtotal - vactive;
+    mode->vsync_offset = (vsync_start > vactive) ? vsync_start - vactive : 0;
+    mode->vsync_pulse = (vsync_end > vsync_start) ? vsync_end - vsync_start : 0;
+
+    mode->valid = true;
+    mode->from_edid = false;
+    mode->preferred = true;
+    mode->interlaced = false;
+    mode->hsync_positive = false;
+    mode->vsync_positive = false;
+    mode->pixel_clock_khz = 0;
+    mode->pitch = hactive * 4;
+    mode->refresh_hz = 0;
+    return true;
+}
+
 bool gfx_init(void)
 {
     pci_device_t dev = { 0 };
+    uint8_t edid[sizeof(edid_info_t)];
 
     if (!pci_get_gfx_device(&dev))
         return false;
@@ -358,6 +454,52 @@ bool gfx_init(void)
     gfx_init_gtt(&gfx_pci, &gfx_gtt, dev);
     gfx_init_mem_manager(&gfx_pci, &gfx_gtt, &gfx_mgr);
 
+    /* Resolve the panel mode in i915 order: Limine EDID, OpRegion EDID,
+     * OpRegion VBT, eDP AUX EDID, then the firmware's eDP timing. */
+    const display_mode_t *boot_mode = display_mode_get_boot();
+    display_mode_t edid_mode;
+    display_mode_t vbt_mode;
+    display_mode_t hw_mode;
+    bool from_limine = boot_mode->from_edid;
+    bool from_opregion = false;
+    bool from_vbt = false;
+    bool from_aux = false;
+    bool from_hw = false;
+    bool have_edid = false;
+
+    if (!from_limine) {
+        have_edid = edid_read_opregion(dev, edid, sizeof(edid));
+        from_opregion = have_edid;
+
+        if (!have_edid && vbt_panel_mode(&gfx_pci, dev, &vbt_mode)) {
+            boot_mode = &vbt_mode;
+            from_vbt = true;
+        }
+
+        if (!have_edid && !from_vbt) {
+            have_edid = edid_read_aux(&gfx_pci, edid, sizeof(edid));
+            from_aux = have_edid;
+        }
+
+        if (have_edid) {
+            if (display_mode_from_edid((edid_info_t *) edid, &edid_mode)) {
+                boot_mode = display_mode_get_boot();
+                display_mode_log(&edid_mode);
+            } else {
+                have_edid = false;
+            }
+        }
+
+        if (!have_edid && !from_vbt
+            && gfx_mode_from_hw(&gfx_pci, &hw_mode)) {
+            boot_mode = &hw_mode;
+            from_hw = true;
+        }
+    }
+
+    klogi("GFX: EDID: sources L=%d O=%d V=%d A=%d H=%d\n",
+          from_limine, from_opregion, from_vbt, from_aux, from_hw);
+
     klogi("GFX: state before self-test:\n");
     skl_display_dump(&gfx_pci);
 
@@ -365,7 +507,6 @@ bool gfx_init(void)
 
     /* Take over the display with a real mode set at the boot mode. If the
      * pipeline cannot be programmed, keep the firmware aperture frame. */
-    const display_mode_t *boot_mode = display_mode_get_boot();
     {
         fb_info_t *cur = fb_get();
         klogi("GFX: firmware fb 0x%016lx %ux%u pitch %u backbuffer %p\n",
@@ -393,15 +534,44 @@ bool gfx_init(void)
         }
     }
 
-    if (boot_mode != NULL
-        && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, boot_mode, &gfx_fb)) {
+    /* The Limine framebuffer geometry has no blanking. If the selected mode
+     * is only that geometry, prefer the firmware's eDP transcoder timing. */
+    const display_mode_t *use_mode = boot_mode;
+    bool have_hw = false;
+
+    if ((use_mode == NULL || use_mode->hblank == 0)
+        && gfx_mode_from_hw(&gfx_pci, &hw_mode)) {
+        use_mode = &hw_mode;
+        have_hw = true;
+    }
+
+    if (use_mode != NULL
+        && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, use_mode,
+                            &gfx_fb)) {
+        boot_mode = use_mode;
         gfx_attach_fb(&gfx_fb);
         if (skl_cursor_init(&gfx_pci, &gfx_mgr, &gfx_gtt, gfx_fb.width,
                             gfx_fb.height))
             skl_cursor_selftest();
-        klogi("GFX: mode set took over the display\n");
+        klogi("GFX: mode set took over the display (%ux%u)\n",
+              gfx_fb.width, gfx_fb.height);
         return true;
     }
+
+    /* Retry with the hardware eDP timing when the first mode failed. */
+    if (!have_hw && gfx_mode_from_hw(&gfx_pci, &hw_mode)
+        && skl_edp_set_mode(&gfx_pci, &gfx_mgr, &gfx_gtt, &hw_mode,
+                            &gfx_fb)) {
+        boot_mode = &hw_mode;
+        gfx_attach_fb(&gfx_fb);
+        if (skl_cursor_init(&gfx_pci, &gfx_mgr, &gfx_gtt, gfx_fb.width,
+                            gfx_fb.height))
+            skl_cursor_selftest();
+        klogi("GFX: mode set took over the display from eDP timing (%ux%u)\n",
+              gfx_fb.width, gfx_fb.height);
+        return true;
+    }
+
     klogw("GFX: mode set failed, keeping the firmware framebuffer\n");
 
     /* The BIOS GOP already scans the aperture (GMADR) through a trained eDP
@@ -486,9 +656,18 @@ uint64_t gfx_addr(gfx_mem_manager_t * mgr, void *phy_addr)
  */
 void gfx_gtt_write_entry(gfx_gtt_t * gtt, uint32_t index, uint64_t phys)
 {
-    uint64_t entry = phys & ~(uint64_t)(GTT_PAGE_SIZE - 1);
-    entry |= GTT_ENTRY_VALID;
-    gtt->entries[index] = entry;
+    if (gtt->pte64) {
+        uint64_t entry = phys & ~(uint64_t)(GTT_PAGE_SIZE - 1);
+
+        entry |= GTT_ENTRY_VALID;
+        gtt->entries[index] = entry;
+    } else {
+        uint32_t entry = (uint32_t)(phys & 0xFFFFFFFFu)
+            & ~(uint32_t)(GTT_PAGE_SIZE - 1);
+
+        entry |= GTT_ENTRY_VALID;
+        ((volatile uint32_t *) gtt->entries)[index] = entry;
+    }
 }
 
 /**
@@ -509,6 +688,11 @@ uint32_t gfx_gtt_map(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t phys,
 
     uint32_t start_idx = (uint32_t)(gpu_addr >> GTT_PAGE_SHIFT);
     uint32_t num_pages = (uint32_t)NUM_PAGES(size);
+
+    if (!gtt->pte64 && phys + size > 0x100000000ULL) {
+        kloge("GFX: gfx_gtt_map: 0x%016lx is above the 32-bit GTT\n", phys);
+        return 0;
+    }
 
     if (start_idx + num_pages > gtt->num_total_entries) {
         kloge("GFX: gfx_gtt_map: range [%u, %u) exceeds GTT size %u\n",
@@ -539,8 +723,12 @@ void gfx_gtt_clear(gfx_gtt_t * gtt, uint64_t gpu_addr, uint64_t size)
     uint32_t start_idx = (uint32_t)(gpu_addr >> GTT_PAGE_SHIFT);
     uint32_t num_pages = (uint32_t)NUM_PAGES(size);
 
-    for (uint32_t i = 0; i < num_pages && (start_idx + i) < gtt->num_total_entries; i++) {
-        gtt->entries[start_idx + i] = 0;
+    for (uint32_t i = 0; i < num_pages
+         && (start_idx + i) < gtt->num_total_entries; i++) {
+        if (gtt->pte64)
+            gtt->entries[start_idx + i] = 0;
+        else
+            ((volatile uint32_t *) gtt->entries)[start_idx + i] = 0;
     }
     (void)gtt->entries[start_idx];
 }
@@ -591,21 +779,21 @@ bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_gtt_t * gtt, gfx_object_t * obj,
 bool gfx_edp_panel_on(gfx_pci_t * pci)
 {
     uint32_t pp = gfx_ind(pci, PP_CONTROL);
-    if (pp & PP_CONTROL_POWER_STATE) {
-        klogd("GFX: eDP panel already on (PP_CONTROL=0x%08x)\n", pp);
-        return true;
-    }
+
+    /* VDD_FORCE is source-side panel power and gates the EDID EEPROM. Keep it
+     * asserted even when the panel power state is already on. */
     pp |= PP_CONTROL_POWER_STATE | PP_CONTROL_VDD_FORCE;
     gfx_outd(pci, PP_CONTROL, pp);
 
-    int32_t timeout = 200000;
-    while (timeout-- > 0) {
+    for (int32_t timeout = 200; timeout-- > 0;) {
         if (gfx_ind(pci, PP_STATUS) & PP_STATUS_ON)
             return true;
         pit_wait(1);
     }
-    kloge("GFX: eDP panel power-on timeout\n");
-    return false;
+
+    /* The panel may already be driven by the firmware without PP_STATUS_ON.
+     * Do not block the boot on this; the AUX read can still proceed. */
+    return true;
 }
 
 bool gfx_edp_panel_off(gfx_pci_t * pci)

@@ -155,20 +155,20 @@ static void transcoder_timing(gfx_pci_t * pci, uint8_t tr,
 
 /* Point plane 1 of pipe A at the GTT-mapped framebuffer. */
 static void plane_configure(gfx_pci_t * pci, const display_mode_t * m,
-                            uint64_t gfx_addr, uint32_t pitch)
+                            uint64_t gfx_addr, uint32_t pitch,
+                            uint32_t format)
 {
     gfx_outd(pci, PLANE_CTL_1_A, 0);
     gfx_outd(pci, PLANE_OFFSET_1_A, 0);
     gfx_outd(pci, PLANE_POS_1_A, 0);
     gfx_outd(pci, PLANE_SIZE_1_A,
              (m->vactive - 1) << 16 | (m->hactive - 1));
-    gfx_outd(pci, PLANE_STRIDE_1_A, pitch / 64);
+    gfx_outd(pci, PLANE_STRIDE_1_A, pci->gen9 ? pitch / 64 : pitch);
     /* The control register self-arms because the plane was just disabled; the
      * surface write that follows arms the whole double-buffered plane state at
      * the next vblank (i915 skl_plane_update_arm writes CTL then SURF). */
     gfx_outd(pci, PLANE_CTL_1_A,
-             PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB8888
-             | PLANE_CTL_TILED_LINEAR);
+             PLANE_CTL_ENABLE | format | PLANE_CTL_TILED_LINEAR);
     gfx_outd(pci, PLANE_SURF_1_A, (uint32_t) gfx_addr);
     (void) gfx_ind(pci, PLANE_SURF_1_A);
 }
@@ -192,6 +192,7 @@ typedef struct {
         plane_size;
     uint32_t blc_ctl, blc_ctl2;
     uint32_t plane_buf_cfg, plane_wm_trans, plane_wm[8];
+    uint32_t hsw_wm0;
 } modeset_state_t;
 
 static void modeset_save(gfx_pci_t * pci, modeset_state_t * s)
@@ -225,12 +226,16 @@ static void modeset_save(gfx_pci_t * pci, modeset_state_t * s)
     s->plane_offset = gfx_ind(pci, PLANE_OFFSET_1_A);
     s->plane_pos = gfx_ind(pci, PLANE_POS_1_A);
     s->plane_size = gfx_ind(pci, PLANE_SIZE_1_A);
-    s->blc_ctl = gfx_ind(pci, BLC_PWM_CTL);
-    s->blc_ctl2 = gfx_ind(pci, BLC_PWM_CTL2);
-    s->plane_buf_cfg = gfx_ind(pci, PLANE_BUF_CFG_1A);
-    s->plane_wm_trans = gfx_ind(pci, PLANE_WM_TRANS_1A);
-    for (uint32_t i = 0; i < 8; i++)
-        s->plane_wm[i] = gfx_ind(pci, PLANE_WM_1A(i));
+    if (pci->gen9) {
+        s->blc_ctl = gfx_ind(pci, BLC_PWM_CTL);
+        s->blc_ctl2 = gfx_ind(pci, BLC_PWM_CTL2);
+        s->plane_buf_cfg = gfx_ind(pci, PLANE_BUF_CFG_1A);
+        s->plane_wm_trans = gfx_ind(pci, PLANE_WM_TRANS_1A);
+        for (uint32_t i = 0; i < 8; i++)
+            s->plane_wm[i] = gfx_ind(pci, PLANE_WM_1A(i));
+    } else {
+        s->hsw_wm0 = gfx_ind(pci, HSW_WM0_PIPE_A);
+    }
 }
 
 static void modeset_restore(gfx_pci_t * pci, const modeset_state_t * s)
@@ -265,12 +270,16 @@ static void modeset_restore(gfx_pci_t * pci, const modeset_state_t * s)
     gfx_outd(pci, PLANE_SIZE_1_A, s->plane_size);
     gfx_outd(pci, PLANE_SURF_1_A, s->plane_surf);
     gfx_outd(pci, PLANE_CTL_1_A, s->plane_ctl);
-    gfx_outd(pci, BLC_PWM_CTL, s->blc_ctl);
-    gfx_outd(pci, BLC_PWM_CTL2, s->blc_ctl2);
-    gfx_outd(pci, PLANE_BUF_CFG_1A, s->plane_buf_cfg);
-    gfx_outd(pci, PLANE_WM_TRANS_1A, s->plane_wm_trans);
-    for (uint32_t i = 0; i < 8; i++)
-        gfx_outd(pci, PLANE_WM_1A(i), s->plane_wm[i]);
+    if (pci->gen9) {
+        gfx_outd(pci, BLC_PWM_CTL, s->blc_ctl);
+        gfx_outd(pci, BLC_PWM_CTL2, s->blc_ctl2);
+        gfx_outd(pci, PLANE_BUF_CFG_1A, s->plane_buf_cfg);
+        gfx_outd(pci, PLANE_WM_TRANS_1A, s->plane_wm_trans);
+        for (uint32_t i = 0; i < 8; i++)
+            gfx_outd(pci, PLANE_WM_1A(i), s->plane_wm[i]);
+    } else {
+        gfx_outd(pci, HSW_WM0_PIPE_A, s->hsw_wm0);
+    }
     gfx_outd(pci, PIPEACONF, s->pipeaconf);
     klogi("GFX: modeset: restored firmware display state\n");
 }
@@ -286,9 +295,18 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
         return false;
     }
 
+    /* Gen7.5 needs real blanking and a pixel clock. The geometry-only fallback
+     * has neither, so keep the firmware scanout instead of programming an
+     * invalid timing. VBT timings are accepted even without an EDID flag. */
+    if (!pci->gen9 && (mode->hblank == 0 || mode->vblank == 0)) {
+        klogw("GFX: modeset: Gen7.5 needs blanking, keeping firmware\n");
+        return false;
+    }
+
     modeset_save(pci, &saved);
-    klogi("GFX: modeset: %ux%u @ %u Hz (pixel clock %u kHz)\n", mode->hactive,
-          mode->vactive, mode->refresh_hz, mode->pixel_clock_khz);
+    klogi("GFX: modeset: %s %ux%u @ %u Hz (pixel clock %u kHz)\n",
+          pci->gen9 ? "Gen9" : "Gen7.5", mode->hactive, mode->vactive,
+          mode->refresh_hz, mode->pixel_clock_khz);
 
     uint32_t pitch = (mode->hactive * 4 + 63) & ~63u;
     uint64_t fbsize = (uint64_t) pitch * mode->vactive;
@@ -313,15 +331,24 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     if (!power_well_on(pci, PWR_WELL_CTL1, PWR_WELL_CTL1_DC_REQ,
                        PWR_WELL_CTL1_DC_STATE, "DC"))
         goto fail;
-    if (!power_well_on(pci, PWR_WELL_CTL2, PWR_WELL_DDI_A_REQ,
-                       PWR_WELL_DDI_A_STATE, "DDI-A"))
+    if (pci->gen9
+        && !power_well_on(pci, PWR_WELL_CTL2, PWR_WELL_DDI_A_REQ,
+                          PWR_WELL_DDI_A_STATE, "DDI-A"))
         goto fail;
 
-    /* The GOP trained the eDP link and enabled DPLL0; require that. */
-    if (!(gfx_ind(pci, DPLL_STATUS) & DPLL0_LOCK)) {
-        kloge("GFX: modeset: DPLL0 not locked (status 0x%08x)\n",
-              gfx_ind(pci, DPLL_STATUS));
-        goto fail;
+    /* The GOP trained the eDP link. Gen9 uses DPLL0; Gen7.5 keeps the
+     * firmware's LCPLL and port clock select, so only check that LCPLL is
+     * locked when it is the selected source. */
+    if (pci->gen9) {
+        if (!(gfx_ind(pci, DPLL_STATUS) & DPLL0_LOCK)) {
+            kloge("GFX: modeset: DPLL0 not locked (status 0x%08x)\n",
+                  gfx_ind(pci, DPLL_STATUS));
+            goto fail;
+        }
+    } else {
+        klogi("GFX: modeset: LCPLL 0x%08x port clock 0x%08x\n",
+              gfx_ind(pci, HSW_LCPLL_CTL),
+              gfx_ind(pci, HSW_PORT_CLK_SEL_A));
     }
 
     if (!panel_power_on(pci))
@@ -340,8 +367,14 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     /* command.txt: the pipe must be confirmed off before the clock tree
      * (CDCLK/PLL) is touched, so treat a failure here as fatal. */
     pit_wait(20);
-    if (!wait_pipe_off(pci))
-        goto fail;
+    if (!wait_pipe_off(pci)) {
+        /* Gen9 changes CDCLK/PLL below, so a live pipe is fatal. Gen7.5 keeps
+         * the firmware clocks; continue after the disable writes even if the
+         * frame counter does not confirm the stop. */
+        if (pci->gen9)
+            goto fail;
+        klogw("GFX: modeset: Gen7.5 pipe stop not confirmed, continuing\n");
+    }
     gfx_outd(pci, TRANS_DDI_FUNC_CTL_EDP, 0);
     gfx_outd(pci, DDI_BUF_CTL_A, 0);
     gfx_outd(pci, DP_TP_CTL_A, DP_TP_CTL_ENABLE | DP_TP_CTL_LINK_TRAIN_IDLE);
@@ -349,10 +382,13 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     gfx_outd(pci, DP_TP_CTL_A, 0);
     pit_wait(1);
     /* PLL / clock: gate the port's DDI clock (i915 skl_ddi_disable_clock).
-     * LCPLL1 itself stays on because it also feeds CDCLK. */
-    gfx_outd(pci, DPLL_CTRL2,
-             gfx_ind(pci, DPLL_CTRL2) | DPLL_CTRL2_DDI_CLK_OFF(0));
-    pit_wait(1);
+     * LCPLL1 itself stays on because it also feeds CDCLK. Gen7.5 selects the
+     * port clock through PORT_CLK_SEL, which the firmware already set. */
+    if (pci->gen9) {
+        gfx_outd(pci, DPLL_CTRL2,
+                 gfx_ind(pci, DPLL_CTRL2) | DPLL_CTRL2_DDI_CLK_OFF(0));
+        pit_wait(1);
+    }
 
     /* Bring the display out of the DC5/DC6 low-power states so the pipe
      * registers are not gated. */
@@ -367,20 +403,19 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     }
 
     /* Configure order per command.txt: CDCLK -> PLL -> DDI_BUF_TRANS -> AUX
-     * training. CDCLK keeps the firmware's value. */
-    gfx_outd(pci, CDCLK_CTL, gfx_ind(pci, CDCLK_CTL));
+     * training. Keep the firmware's clock values on both generations. */
+    if (pci->gen9) {
+        gfx_outd(pci, CDCLK_CTL, gfx_ind(pci, CDCLK_CTL));
 
-    /* PLL (DPLL0 / LCPLL1): it stays on (it also feeds CDCLK); the port's DDI
-     * clock is re-enabled in the enable phase via DPLL_CTRL2. */
-
-    /* Select DPLL0 as the port A DDI clock and ungate it (i915
-     * skl_ddi_enable_clock). */
-    gfx_outd(pci, DPLL_CTRL2,
-             (gfx_ind(pci, DPLL_CTRL2)
-              & ~(DPLL_CTRL2_DDI_CLK_OFF(0)
-                  | DPLL_CTRL2_DDI_CLK_SEL_MASK(0)))
-             | DPLL_CTRL2_DDI_CLK_SEL(0, 0)
-             | DPLL_CTRL2_DDI_SEL_OVERRIDE(0));
+        /* Select DPLL0 as the port A DDI clock and ungate it (i915
+         * skl_ddi_enable_clock). */
+        gfx_outd(pci, DPLL_CTRL2,
+                 (gfx_ind(pci, DPLL_CTRL2)
+                  & ~(DPLL_CTRL2_DDI_CLK_OFF(0)
+                      | DPLL_CTRL2_DDI_CLK_SEL_MASK(0)))
+                 | DPLL_CTRL2_DDI_CLK_SEL(0, 0)
+                 | DPLL_CTRL2_DDI_SEL_OVERRIDE(0));
+    }
 
     /* DDI_BUF_TRANS: keep the firmware's 7-entry buffer translation table. */
     for (uint32_t i = 0; i < 7; i++)
@@ -466,17 +501,31 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     gfx_outd(pci, PS_CTRL_2A, 0);
     gfx_outd(pci, PS_WIN_POS_2A, 0);
     gfx_outd(pci, PS_WIN_SZ_2A, 0);
-    /* The firmware sized the plane's data buffer and watermark for its small
-     * boot plane, so give the plane the whole display data buffer and a
-     * generous FIFO watermark to sustain the full-resolution fetch. */
-    gfx_outd(pci, PLANE_BUF_CFG_1A, PLANE_BUF_END(445) | PLANE_BUF_START(0));
-    for (uint32_t lvl = 0; lvl < 8; lvl++)
-        gfx_outd(pci, PLANE_WM_1A(lvl),
-                 PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(32));
-    gfx_outd(pci, PLANE_WM_TRANS_1A,
-             PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(32));
+    uint32_t plane_format = PLANE_CTL_FORMAT_XRGB8888;
 
-    plane_configure(pci, mode, obj.gfx_addr, pitch);
+    if (pci->gen9) {
+        /* The firmware sized the plane's data buffer and watermark for its
+         * small boot plane, so give the plane the whole display data buffer
+         * and a generous FIFO watermark to sustain the full-resolution fetch. */
+        gfx_outd(pci, PLANE_BUF_CFG_1A, PLANE_BUF_END(445) | PLANE_BUF_START(0));
+        for (uint32_t lvl = 0; lvl < 8; lvl++)
+            gfx_outd(pci, PLANE_WM_1A(lvl),
+                     PLANE_WM_EN | PLANE_WM_IGNORE_LINES
+                     | PLANE_WM_BLOCKS(32));
+        gfx_outd(pci, PLANE_WM_TRANS_1A,
+                 PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(32));
+    } else {
+        /* The primary plane keeps the firmware's 32bpp format bits. Raise the
+         * single pipe watermark so the larger line fetch cannot underrun. */
+        plane_format = saved.plane_ctl & (0xfu << 26);
+        if (plane_format == 0)
+            plane_format = DISPPLANE_BGRX888;
+        gfx_outd(pci, HSW_WM0_PIPE_A,
+                 HSW_WM0_PRIMARY(0x1ff) | HSW_WM0_SPRITE(0x3f)
+                 | HSW_WM0_CURSOR(0x3f));
+    }
+
+    plane_configure(pci, mode, obj.gfx_addr, pitch, plane_format);
     wait_vblank(pci);
     /* Re-arm the source size on the pipe, both eDP transcoder copies and the
      * plane window once the pipe and plane are running: enabling the eDP pipe
@@ -492,7 +541,10 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
              (mode->vactive - 1) << 16 | (mode->hactive - 1));
     gfx_outd(pci, PLANE_SURF_1_A, (uint32_t) obj.gfx_addr);
     wait_vblank(pci);
-    backlight_on(pci, 0xFFFF);
+    if (pci->gen9)
+        backlight_on(pci, 0xFFFF);
+    else
+        klogi("GFX: modeset: keeping the firmware backlight\n");
 
     /* refresh = pixel_clock / (htotal * vtotal); measuring it reveals the
      * pixel clock the pipe is actually running at (and thus whether the DP
@@ -525,6 +577,30 @@ bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
 }
 
 /* Minimal DP AUX native read of the DPCD (diagnostics only). */
+/* Program the AUX control register. Gen9 keeps the firmware's sync fields
+ * and timeout; Gen7.5 must set the bit-clock divider and precharge that i915
+ * g4x_get_aux_send_ctl() writes. */
+static void aux_send(gfx_pci_t * pci, uint32_t msg_size)
+{
+    uint32_t ctl = gfx_ind(pci, DDI_AUX_CTL_A) & ~DDI_AUX_CTL_MSG_SIZE(0x1f);
+
+    ctl |= DDI_AUX_CTL_SEND_BUSY | DDI_AUX_CTL_DONE
+        | DDI_AUX_CTL_INTERRUPT | DDI_AUX_CTL_RECEIVE_ERROR
+        | DDI_AUX_CTL_MSG_SIZE(msg_size);
+
+    if (pci->gen9) {
+        ctl |= DDI_AUX_CTL_TIME_OUT_MAX;
+    } else {
+        ctl &= ~(3u << 26);                 /* timeout field */
+        ctl &= ~(0xfu << 16);               /* precharge field */
+        ctl &= ~0x7ffu;                     /* bit-clock divider */
+        ctl |= DDI_AUX_CTL_TIME_OUT_400US | DDI_AUX_CTL_PRECHARGE_2US(3)
+            | DDI_AUX_CTL_BIT_CLOCK_2X(225);
+    }
+
+    gfx_outd(pci, DDI_AUX_CTL_A, ctl);
+}
+
 static bool aux_dpcd_read(gfx_pci_t * pci, uint32_t addr, uint8_t * buf,
                           uint32_t len)
 {
@@ -542,11 +618,7 @@ static bool aux_dpcd_read(gfx_pci_t * pci, uint32_t addr, uint8_t * buf,
              ((uint32_t) tx[0] << 24) | ((uint32_t) tx[1] << 16)
              | ((uint32_t) tx[2] << 8) | (uint32_t) tx[3]);
 
-    gfx_outd(pci, DDI_AUX_CTL_A,
-             (gfx_ind(pci, DDI_AUX_CTL_A) & ~DDI_AUX_CTL_MSG_SIZE(0x1f))
-             | DDI_AUX_CTL_SEND_BUSY | DDI_AUX_CTL_DONE
-             | DDI_AUX_CTL_INTERRUPT | DDI_AUX_CTL_TIME_OUT_MAX
-             | DDI_AUX_CTL_RECEIVE_ERROR | DDI_AUX_CTL_MSG_SIZE(4));
+    aux_send(pci, 4);
 
     for (i = 0; i < 1000000; i++) {
         uint32_t st = gfx_ind(pci, DDI_AUX_CTL_A);
@@ -598,11 +670,7 @@ static bool aux_dpcd_write(gfx_pci_t * pci, uint32_t addr, const uint8_t * buf,
         gfx_outd(pci, DDI_AUX_DATA_A0 + (i / 4) * 4, v);
     }
 
-    gfx_outd(pci, DDI_AUX_CTL_A,
-             (gfx_ind(pci, DDI_AUX_CTL_A) & ~DDI_AUX_CTL_MSG_SIZE(0x1f))
-             | DDI_AUX_CTL_SEND_BUSY | DDI_AUX_CTL_DONE
-             | DDI_AUX_CTL_INTERRUPT | DDI_AUX_CTL_TIME_OUT_MAX
-             | DDI_AUX_CTL_RECEIVE_ERROR | DDI_AUX_CTL_MSG_SIZE(len + 4));
+    aux_send(pci, len + 4);
 
     for (i = 0; i < 1000000; i++) {
         uint32_t st = gfx_ind(pci, DDI_AUX_CTL_A);
@@ -613,6 +681,198 @@ static bool aux_dpcd_write(gfx_pci_t * pci, uint32_t addr, const uint8_t * buf,
     }
 
     return (gfx_ind(pci, DDI_AUX_CTL_A) & DDI_AUX_CTL_DONE) != 0;
+}
+
+/* Bare I2C address packet. The 3-byte form starts or closes an I2C-over-AUX
+ * transaction without a data phase. */
+static bool aux_i2c_bare(gfx_pci_t * pci, uint32_t addr, bool read, bool mot)
+{
+    uint32_t header;
+    uint32_t i;
+
+    header = ((uint32_t) ((read ? DP_AUX_I2C_READ : DP_AUX_I2C_WRITE)
+                          | (mot ? DP_AUX_I2C_MOT : 0)) << 4)
+        | ((addr >> 16) & 0xf);
+    header = (header << 24) | (((addr >> 8) & 0xff) << 16)
+        | ((addr & 0xff) << 8);
+    gfx_outd(pci, DDI_AUX_DATA_A0, header);
+    aux_send(pci, 3);
+
+    for (i = 0; i < 1000000; i++) {
+        uint32_t st = gfx_ind(pci, DDI_AUX_CTL_A);
+
+        if (st & (DDI_AUX_CTL_DONE | DDI_AUX_CTL_TIME_OUT_ERROR
+                  | DDI_AUX_CTL_RECEIVE_ERROR))
+            break;
+    }
+
+    return (gfx_ind(pci, DDI_AUX_CTL_A) & DDI_AUX_CTL_DONE) != 0;
+}
+
+/* Minimal I2C-over-AUX write. The MOT bit keeps the bus for a following
+ * read, which is how the panel exposes its EDID. */
+static bool aux_i2c_write(gfx_pci_t * pci, uint32_t addr, const uint8_t * buf,
+                          uint32_t len, bool mot)
+{
+    uint8_t tx[20];
+    uint32_t i, j;
+    uint8_t cmd = DP_AUX_I2C_WRITE | (mot ? DP_AUX_I2C_MOT : 0);
+
+    if (len == 0 || len > 16)
+        return false;
+
+    tx[0] = (uint8_t) ((cmd << 4) | ((addr >> 16) & 0xf));
+    tx[1] = (addr >> 8) & 0xff;
+    tx[2] = addr & 0xff;
+    tx[3] = (uint8_t) (len - 1);
+    for (i = 0; i < len; i++)
+        tx[4 + i] = buf[i];
+
+    for (i = 0; i < len + 4; i += 4) {
+        uint32_t v = 0;
+
+        for (j = 0; j < 4 && i + j < len + 4; j++)
+            v |= (uint32_t) tx[i + j] << (8 * (3 - j));
+        gfx_outd(pci, DDI_AUX_DATA_A0 + (i / 4) * 4, v);
+    }
+
+    aux_send(pci, len + 4);
+
+    for (i = 0; i < 1000000; i++) {
+        uint32_t st = gfx_ind(pci, DDI_AUX_CTL_A);
+
+        if (st & (DDI_AUX_CTL_DONE | DDI_AUX_CTL_TIME_OUT_ERROR
+                  | DDI_AUX_CTL_RECEIVE_ERROR))
+            break;
+    }
+
+    return (gfx_ind(pci, DDI_AUX_CTL_A) & DDI_AUX_CTL_DONE) != 0;
+}
+
+/* Minimal I2C-over-AUX read. */
+static bool aux_i2c_read(gfx_pci_t * pci, uint32_t addr, uint8_t * buf,
+                         uint32_t len, bool mot)
+{
+    uint32_t header;
+    uint8_t rx[20];
+    uint32_t i, j;
+
+    if (len == 0 || len > 16)
+        return false;
+
+    header = ((uint32_t) ((DP_AUX_I2C_READ | (mot ? DP_AUX_I2C_MOT : 0))
+                          << 4) | ((addr >> 16) & 0xf)) << 24;
+    header |= ((addr >> 8) & 0xff) << 16;
+    header |= (addr & 0xff) << 8;
+    header |= len - 1;
+    gfx_outd(pci, DDI_AUX_DATA_A0, header);
+    aux_send(pci, 4);
+
+    for (i = 0; i < 1000000; i++) {
+        uint32_t st = gfx_ind(pci, DDI_AUX_CTL_A);
+
+        if (st & (DDI_AUX_CTL_DONE | DDI_AUX_CTL_TIME_OUT_ERROR
+                  | DDI_AUX_CTL_RECEIVE_ERROR))
+            break;
+    }
+
+    if ((gfx_ind(pci, DDI_AUX_CTL_A) & DDI_AUX_CTL_DONE) == 0)
+        return false;
+
+    /* The reply is one status byte followed by the requested data. */
+    for (i = 0; i < len + 1; i += 4) {
+        uint32_t v = gfx_ind(pci, DDI_AUX_DATA_A0 + (i / 4) * 4);
+
+        for (j = 0; j < 4 && i + j < len + 1; j++)
+            rx[i + j] = (uint8_t) (v >> (8 * (3 - j)));
+    }
+    if ((rx[0] >> 4) != 0)
+        return false;
+
+    for (i = 0; i < len; i++)
+        buf[i] = rx[i + 1];
+
+    return true;
+}
+
+/* Read one EDID chunk. Match the DRM I2C-over-AUX sequence: bare address,
+ * offset write, bare read address, data read, then a stopped address. */
+static bool edid_read_chunk(gfx_pci_t * pci, uint32_t addr, uint8_t offset,
+                            uint8_t * buf, uint32_t len)
+{
+    for (uint32_t retry = 0; retry < 8; retry++) {
+        bool ok;
+
+        ok = aux_i2c_bare(pci, addr, false, true)
+            && aux_i2c_write(pci, addr, &offset, 1, true)
+            && aux_i2c_bare(pci, addr, true, true)
+            && aux_i2c_read(pci, addr, buf, len, true)
+            && aux_i2c_bare(pci, addr, true, false);
+        if (ok)
+            return true;
+
+        /* Some panels stop after the offset write instead of using a
+         * repeated start. Try that form as well. */
+        ok = aux_i2c_bare(pci, addr, false, false)
+            && aux_i2c_write(pci, addr, &offset, 1, false)
+            && aux_i2c_bare(pci, addr, true, false)
+            && aux_i2c_read(pci, addr, buf, len, false);
+        if (ok)
+            return true;
+
+        /* Panels may answer AUX_DEFER while their DDC engine settles. */
+        pit_wait(2);
+    }
+
+    return false;
+}
+
+/* Read the first 128 Bytes of EDID over the eDP AUX I2C channel. */
+bool skl_edid_read(gfx_pci_t * pci, uint8_t * buf, uint32_t len)
+{
+    static const uint8_t header[8] = {
+        0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00
+    };
+    uint8_t block[128];
+    uint32_t i;
+
+    if (buf == NULL || len == 0)
+        return false;
+    if (len > sizeof(block))
+        len = sizeof(block);
+
+    {
+        static const uint8_t d0 = 0x01;
+
+        if (!aux_dpcd_write(pci, 0x600, &d0, 1))
+            klogw("GFX: EDID: DPCD 0x600 D0 write failed\n");
+    }
+
+    for (uint32_t addr_i = 0; addr_i < 2; addr_i++) {
+        uint32_t addr = addr_i == 0 ? DP_EDID_I2C_ADDR : 0xa0;
+        bool complete = true;
+
+        for (i = 0; i < sizeof(block); i += 16) {
+            uint8_t offset = (uint8_t) i;
+            uint32_t chunk = sizeof(block) - i;
+
+            if (chunk > 16)
+                chunk = 16;
+
+            if (!edid_read_chunk(pci, addr, offset, block + i, chunk)) {
+                complete = false;
+                break;
+            }
+        }
+        if (complete)
+            break;
+    }
+
+    if (memcmp(block, header, sizeof(header)) != 0)
+        return false;
+
+    memcpy(buf, block, len);
+    return true;
 }
 
 /* A concise summary of the display state that matters for a mode set: the
@@ -627,10 +887,19 @@ void skl_display_dump(gfx_pci_t * pci)
     if (aux_dpcd_read(pci, 0x100, d, 8))
         klogi("GFX: display: DPCD 100 %02x %02x %02x %02x %02x %02x %02x "
               "%02x\n", d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
-    klogi("GFX: display: PWR_WELL1 0x%08x PWR_WELL2 0x%08x CDCLK 0x%08x "
-          "LCPLL1 0x%08x DPLL_STATUS 0x%08x\n", gfx_ind(pci, PWR_WELL_CTL1),
-          gfx_ind(pci, PWR_WELL_CTL2), gfx_ind(pci, CDCLK_CTL),
-          gfx_ind(pci, LCPLL1_CTL), gfx_ind(pci, DPLL_STATUS));
+    if (pci->gen9) {
+        klogi("GFX: display: PWR_WELL1 0x%08x PWR_WELL2 0x%08x CDCLK 0x%08x "
+              "LCPLL1 0x%08x DPLL_STATUS 0x%08x\n",
+              gfx_ind(pci, PWR_WELL_CTL1), gfx_ind(pci, PWR_WELL_CTL2),
+              gfx_ind(pci, CDCLK_CTL), gfx_ind(pci, LCPLL1_CTL),
+              gfx_ind(pci, DPLL_STATUS));
+    } else {
+        klogi("GFX: display: PWR_WELL1 0x%08x LCPLL 0x%08x PORT_CLK 0x%08x "
+              "CDCLK 0x%08x\n", gfx_ind(pci, PWR_WELL_CTL1),
+              gfx_ind(pci, HSW_LCPLL_CTL),
+              gfx_ind(pci, HSW_PORT_CLK_SEL_A),
+              gfx_ind(pci, HSW_CDCLK_FREQ));
+    }
     klogi("GFX: display: PIPEACONF 0x%08x PIPEASRC 0x%08x PIPESTAT 0x%08x "
           "TRANS_DDI 0x%08x MSA_MISC 0x%08x\n", gfx_ind(pci, PIPEACONF),
           gfx_ind(pci, PIPEASRC), gfx_ind(pci, 0x70024),
@@ -834,14 +1103,17 @@ bool skl_cursor_init(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
     cursor.x = (int32_t) width / 2;
     cursor.y = (int32_t) height / 2;
 
-    /* A small data-buffer allocation and watermark so the cursor fetch is not
-     * starved; the primary plane uses blocks 0..445. */
-    gfx_outd(pci, CUR_BUF_CFG, PLANE_BUF_END(477) | PLANE_BUF_START(446));
-    for (uint32_t lvl = 0; lvl < 8; lvl++)
-        gfx_outd(pci, CUR_WM_0 + lvl * 4,
+    if (pci->gen9) {
+        /* A small data-buffer allocation and watermark so the cursor fetch is
+         * not starved; the primary plane uses blocks 0..445. */
+        gfx_outd(pci, CUR_BUF_CFG, PLANE_BUF_END(477) | PLANE_BUF_START(446));
+        for (uint32_t lvl = 0; lvl < 8; lvl++)
+            gfx_outd(pci, CUR_WM_0 + lvl * 4,
+                     PLANE_WM_EN | PLANE_WM_IGNORE_LINES
+                     | PLANE_WM_BLOCKS(32));
+        gfx_outd(pci, CUR_WM_TRANS,
                  PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(32));
-    gfx_outd(pci, CUR_WM_TRANS,
-             PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(32));
+    }
 
     /* Square 64x64 ARGB: FBC off, then control, position and finally base
      * (the CURBASE write arms the double-buffered cursor state). */

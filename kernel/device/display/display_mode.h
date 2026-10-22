@@ -28,6 +28,7 @@
 typedef struct {
     bool valid;
     bool from_edid;
+    bool preferred;
 
     uint32_t pixel_clock_khz;
 

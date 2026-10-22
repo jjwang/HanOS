@@ -348,7 +348,7 @@ void kmain(void)
      * the pipeline at the boot resolution (EDID preferred, else the current
      * framebuffer geometry). */
     display_mode_t display_mode;
-    if (fb->edid_size == sizeof(edid_info_t)
+    if (fb->edid != NULL && fb->edid_size >= sizeof(edid_info_t)
         && display_mode_from_edid((edid_info_t *) fb->edid, &display_mode)) {
         display_mode_log(&display_mode);
     } else {
@@ -374,7 +374,7 @@ void kmain(void)
     klogi("Init syscall...\n");
     syscall_init();
 
-    if (fb->edid_size == sizeof(edid_info_t)) {
+    if (fb->edid != NULL && fb->edid_size >= sizeof(edid_info_t)) {
         edid_info_t *edid = (edid_info_t *) fb->edid;
         klogi("EDID: version %ld.%ld, screen size %dcm * %dcm\n",
               edid->edid_version, edid->edid_revision, edid->max_hor_size,

@@ -336,6 +336,20 @@
 #define PWR_WELL_DDI_A_REQ              (1 << 3)
 #define PWR_WELL_DDI_A_STATE            (1 << 2)
 
+/* Haswell/Broadwell Gen7.5 Clocks and Watermarks */
+#define HSW_LCPLL_CTL                   0x130040
+#define HSW_LCPLL_PLL_LOCK              (1u << 30)
+#define HSW_PORT_CLK_SEL_A              0x46140
+#define HSW_CDCLK_FREQ                  0x46200
+
+#define HSW_WM0_PIPE_A                  0x45100
+#define HSW_WM0_PRIMARY_MASK            (0xffffu << 16)
+#define HSW_WM0_PRIMARY(x)              (((x) & 0xffffu) << 16)
+#define HSW_WM0_SPRITE_MASK             (0xffu << 8)
+#define HSW_WM0_SPRITE(x)               (((x) & 0xffu) << 8)
+#define HSW_WM0_CURSOR_MASK             0xffu
+#define HSW_WM0_CURSOR(x)               ((x) & 0xffu)
+
 /* Skylake Gen9 Display — CDCLK / DPLL */
 #define LCPLL1_CTL                      0x46010
 #define LCPLL_PLL_ENABLE                (1u << 31)
@@ -375,11 +389,19 @@
 #define DDI_AUX_CTL_INTERRUPT           (1u << 29)
 #define DDI_AUX_CTL_TIME_OUT_ERROR      (1u << 28)
 #define DDI_AUX_CTL_TIME_OUT_MAX        (3u << 26)
+#define DDI_AUX_CTL_TIME_OUT_400US      (0u << 26)
+#define DDI_AUX_CTL_PRECHARGE_2US(n)    (((n) & 0xfu) << 16)
+#define DDI_AUX_CTL_BIT_CLOCK_2X(n)     (((n) & 0x7ffu) << 0)
 #define DDI_AUX_CTL_RECEIVE_ERROR       (1u << 25)
 #define DDI_AUX_CTL_MSG_SIZE(n)         ((n) << 20)
 /* Skylake wants the FW sync pulse (32) and sync pulse (32) fields set. */
 #define DDI_AUX_CTL_SKL_SYNC            (((32 - 1) << 5) | (32 - 1))
 #define DDI_AUX_DATA_A0                 0x64014
+
+#define DP_AUX_I2C_WRITE                0x0
+#define DP_AUX_I2C_READ                 0x1
+#define DP_AUX_I2C_MOT                  0x4
+#define DP_EDID_I2C_ADDR                0x50
 
 /* Skylake Gen9 Display — Transcoder DDI Function Control */
 #define TRANS_DDI_FUNC_CTL_A            0x60400
@@ -440,7 +462,8 @@
 #define PLANE_CTL_FORMAT_XRGB           (4u << 24) /* 32bpp XRGB/BGRX linear */
 #define PLANE_CTL_TILED_LINEAR          (0u << 10)
 
-#define PLANE_STRIDE_1_A                0x70188   /* stride in 64-byte units */
+/* Gen9: 64-byte units; Gen7.5: bytes (i915 DSPSTRIDE). */
+#define PLANE_STRIDE_1_A                0x70188
 #define PLANE_POS_1_A                   0x7018C   /* (y<<16)|x */
 #define PLANE_SIZE_1_A                  0x70190   /* (h-1)<<16|(w-1) */
 #define PLANE_SURF_1_A                  0x7019C   /* surface GPU addr, triggers flip */

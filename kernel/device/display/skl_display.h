@@ -28,6 +28,10 @@
 bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
                       const display_mode_t * mode, gfx_fb_t * out_fb);
 
+/* Raw EDID read over the eDP AUX I2C channel. edid.c calls this after
+ * powering the panel VDD and validates the result. */
+bool skl_edid_read(gfx_pci_t * pci, uint8_t * buf, uint32_t len);
+
 /* Log the current display pipeline registers (read-only). */
 void skl_display_dump(gfx_pci_t * pci);
 
