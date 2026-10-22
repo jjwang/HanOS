@@ -72,6 +72,7 @@ static pci_device_desc_t device_table[] = {
     { 0x8086, 0x9CB1, "Wildcat Point-LP USB xHCI Controller" },
     { 0x8086, 0x9CBA, "Wildcat Point-LP MEI Controller #1" },
     { 0x8086, 0x9CC3, "Wildcat Point-LP LPC Controller" },
+    { 0x8086, 0x1903, "Skylake/Kaby Lake Host Thermal Subsystem" },
     { 0x8086, 0x1904,
      "Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers"
      },
