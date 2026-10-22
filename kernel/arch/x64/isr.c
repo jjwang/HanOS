@@ -217,7 +217,14 @@ void exc_handler_proc(
          * the context switch that can lose the byte. */
         if (excno == IRQ0 + 1) {
             for (int32_t i = 0; i < 2000; i++) {
-                if (port_inb(0x64) & 0x01) {
+                uint8_t st = port_inb(0x64);
+
+                if (st & 0x01) {
+                    /* A mouse (aux) byte must not be forwarded as a keyboard
+                     * scancode: leave it in the controller for the input
+                     * server's drain, which routes by the 0x20 status bit. */
+                    if (st & 0x20)
+                        break;
                     data = (uint64_t) port_inb(0x60);
                     break;
                 }
