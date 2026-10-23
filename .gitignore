@@ -6,7 +6,6 @@ kernel/hanos.sym
 cdrom.iso
 initrd.tar
 kernel/_symbols.*
-kernel/3rd-party/boot/
 kernel/arch/x64/trampoline.bin
 release/hdd.img
 

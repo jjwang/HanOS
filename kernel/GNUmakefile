@@ -96,8 +96,8 @@ $(KERNELOBJ): $(TRAMPOLINEBLOB) $(OBJS)
 	$(LD) $(LD_FLAGS) $(OBJS) -o $@
 
 $(BOOT_DIR)/limine.h:
-	$(shell [ -d "$(BOOT_DIR)" ] || mkdir -p $(BOOT_DIR))
-	@if [ ! -e "$(BOOT_DIR)/limine.h" ]; then wget -P $(BOOT_DIR) https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h; fi
+	@echo "missing vendored $(BOOT_DIR)/limine.h" >&2
+	@exit 1
 
 -include $(C_DEPS)
 
