@@ -17,7 +17,7 @@ components are included in the source tree or used at build time.
   - musl is Copyright (C) 2005-2020 Rich Felker and contributors.
   - MIT License.
 - **libvterm build note** — `3rdparty/libvterm/README.md`.
-  - libvterm is Copyright (C) 2008-2023 Paul Evans and contributors.
+  - libvterm is Copyright (c) 2008 Paul Evans.
   - MIT License.
 
 The musl and libvterm sources are downloaded into `3rdparty/build/` at build
