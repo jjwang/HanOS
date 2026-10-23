@@ -23,7 +23,7 @@ The result is a kernel that owns address spaces, process creation, IPC and inter
 The system has three layers.
 
 - The kernel runs in ring 0. It provides scheduling, virtual memory, the kernel object and handle model, IPC endpoints, interrupt objects, the service router and the syscall table.
-- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the ATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, or the network.
+- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the SATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, or the network.
 - The programs run in ring 3 and link musl; musl issues the syscalls.
 
 Services are addressed by a service id. The kernel's router maps a service id to the endpoint of the owning server.
@@ -291,13 +291,13 @@ The server parses the GPT at start and records each used entry's LBA range. `BLO
 
 ### 5.5 fat32
 
-The FAT32 server is a read-only client of the block server. At start it reads the boot sector, validates the FAT32 signature and records the geometry. It walks directories with 8.3 names and follows a file's cluster chain.
+The FAT32 server is a client of the block server. It mounts partition 0 through `BLOCK_GET_PART`, reads the boot sector and records the geometry. It walks directories with 8.3 names and long names, follows a file's cluster chain, and serves create, write, truncate and unlink. Writes use 8.3 names; reads accept long names.
 
 Descriptors are server state. `FAT_OPEN` parses a path and returns a descriptor; `FAT_READ` advances its offset; `FAT_SEEK` repositions it; `FAT_FSTAT` reports size and directory flag; `FAT_READDIR` lists one entry. `FAT_STAT` reports a path without opening it. Paths travel at offset 0 of a buffer memory object and file data at `VFS_IO_DATA_OFF`.
 
 ### 5.6 vfs
 
-The VFS server serves the initrd namespace. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories, sizes, modes and modification times. It also keeps a small set of files created at runtime in RAM.
+The VFS server serves the initrd namespace. At start it parses the ustar archive the kernel mapped read-only and builds an index of files, directories, sizes, modes and modification times. It also keeps a small set of files created at runtime and stores them in `/.vfs-store` on ext2.
 
 The server owns path resolution and the FAT mount. A path request carries the process working directory and the path; the server joins and normalizes them. When the result is under `/fat`, the server writes the mount-relative path back and replies `VFS_REDIRECT_FAT`; the kernel then issues the request to the FAT server. The kernel builds no path.
 
@@ -338,7 +338,7 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 
 ### 5.10 ext2
 
-The ext2 server is a read-only client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE` and `EXT2_SEEK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode, owner, link count and modification time, so `ls -l` shows the real values. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd; the shell resolves a command in `/bin`, then in `/data/bin`. `exec` loads an image from the volume by the same redirect, and `vfs_load_file` reads it in large chunks.
+The ext2 server is a client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE`, `EXT2_SEEK`, `EXT2_CREATE`, `EXT2_WRITE`, `EXT2_TRUNC` and `EXT2_UNLINK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode, owner, link count and modification time, so `ls -l` shows the real values. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd; the shell resolves a command in `/bin`, then in `/data/bin`. `exec` loads an image from the volume by the same redirect, and `vfs_load_file` reads it in large chunks.
 
 ## 6. Boot sequence
 
@@ -359,7 +359,7 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 ## 7. Limitations
 
 - There is a single instance of each service; a crash of a server stops that domain.
-- The FAT32 server is read-only and handles 8.3 names.
+- FAT32 writes use 8.3 names; long names remain readable. FAT directories stay read-only.
 - The block server drives AHCI (SATA) with DMA. A legacy ATA PIO port is no longer used.
 - SVC_MM and SVC_MISC are reserved but unused.
 - TCP has no congestion control; the send queue holds four segments and the receive window follows the free buffer space.
@@ -367,7 +367,7 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 - VFS runtime files live in RAM and do not persist.
 - The xHCI driver enumerates every port but drives only a HID boot keyboard and pointer. It uses one controller and skips a controller with 64-byte contexts. A USB network or wireless adapter is logged by vendor:product and class, not driven.
 - A signal handler entered on the timer path returns through `rt_sigreturn` and `sysret`, so the interrupted `rcx` is not restored. The syscall ABI already clobbers `rcx`; only user code that interrupts with a live value in `rcx` observes it.
-- `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT mounts stay read-only.
+- `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT directories stay read-only. Runtime entries persist in `/.vfs-store`.
 - A set of syscalls still returns `ENOSYS`, for example `signalfd`, `getppid`, `chmod`, and `symlinkat` on the FAT mount.
 
 ## 8. Conclusion

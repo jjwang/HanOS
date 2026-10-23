@@ -1,4 +1,4 @@
-# 汉风操作系统 (HanOS) - 基于微内核的通用操作系统
+# 汉操作系统 (HanOS) - 基于微内核的通用操作系统
 
 [English](https://github.com/jjwang/HanOS/blob/mainline/README.md) | [中文](https://github.com/jjwang/HanOS/blob/mainline/README.zh-cn.md)
 
@@ -6,7 +6,7 @@
 ![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-汉风操作系统 (HanOS) 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用户态。块设备驱动运行在用户态。服务进程通过 IPC 层通信。
+汉操作系统 (HanOS) 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用户态。块设备驱动运行在用户态。服务进程通过 IPC 层通信。
 
 当前功能：
 
@@ -37,9 +37,9 @@ make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 
 ```
 kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（lib/）
-userspace/  用户态程序（servers/、bin/、test/）与汉风操作系统 (HanOS) 运行时
+userspace/  用户态程序（servers/、bin/、test/）与汉操作系统 (HanOS) 运行时
 include/    内核与用户态共享的线协议头
-3rdparty/   musl 与 libvterm 的汉风操作系统 (HanOS) 移植层；build/ 放下载与输出
+3rdparty/   musl 与 libvterm 的汉操作系统 (HanOS) 移植层；build/ 放下载与输出
 ```
 
 musl 的构建说明见 `3rdparty/musl/README.md`。
