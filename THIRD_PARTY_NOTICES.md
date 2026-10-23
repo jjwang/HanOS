@@ -23,3 +23,11 @@ components are included in the source tree or used at build time.
 The musl and libvterm sources are downloaded into `3rdparty/build/` at build
 time and are not part of this source tree. Their licenses apply to the built
 objects and images.
+
+## Build-time bootloader
+
+- **Limine** — cloned into `limine/` at build time.
+  - Copyright (C) 2019-2024 mintsuki and contributors.
+  - BSD 2-Clause License.
+  - Its binaries are copied into `cdrom.iso` and `release/hdd.img`.
+  - The license text is in the upstream `limine/LICENSE`.
