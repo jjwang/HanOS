@@ -43,11 +43,14 @@ jobs:
 
       - name: Boot test
         run: |
-          if [ ! -e /dev/kvm ]; then
-            echo "KVM is unavailable; skipping the boot test"
-            exit 0
+          if [ -e /dev/kvm ]; then
+            ACCEL=kvm
+            CPU=host
+          else
+            ACCEL=tcg
+            CPU=max
           fi
-          HANOS_QEMU_ACCEL=kvm HANOS_QEMU_CPU=host \
+          HANOS_QEMU_ACCEL="$ACCEL" HANOS_QEMU_CPU="$CPU" \
             ./scripts/ci-boot-test.sh
 
       - name: Upload ISO
