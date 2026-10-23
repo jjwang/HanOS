@@ -5,6 +5,10 @@ extern k_print_log
 extern syscall_post
 
 syscall_handler:
+    ; The user context leaves GS.base at zero. Swap in the per-CPU pointer
+    ; before touching the per-CPU slots.
+    swapgs
+
     ; Run the handler on the process kernel stack: save the caller RSP in the
     ; per-CPU slot, then switch RSP to the kernel stack top.
     mov [gs:16], rsp        ; save user rsp
@@ -45,8 +49,6 @@ syscall_handler:
     ; pop all registers except rax which is used for storing return value
     pop_all_syscall
 
-    swapgs
-
     ; Linux convention: a handler reports an error as -1 plus a per-CPU errno.
     ; Convert that to a negative errno in rax. Keep -1 when errno is 0 so a
     ; handler that uses -1 as a non-error result is not turned into success.
@@ -58,9 +60,24 @@ syscall_handler:
     neg rdx
     mov rax, rdx
 .done:
+    ; SYSRET leaves GS.base at zero on this path. Copy the current kernel
+    ; GS.base into KERN_GS_BASE, then swap it back for the next syscall.
+    push r10
+    push rcx
+    push rdx
+    mov r10, rax
+    mov ecx, 0xc0000101
+    rdmsr
+    mov ecx, 0xc0000102
+    wrmsr
+    mov rax, r10
+    pop rdx
+    pop rcx
+    pop r10
+
     ; r15 points at the frame's r15 slot; the user rsp lives 16 below it.
-    mov rsp, [r15 - 16]      ; restore the (possibly moved) user stack
-    mov r15, [r15]           ; restore the user r15
+    mov rsp, [r15 - 16]
+    mov r15, [r15]
 
     swapgs
 
