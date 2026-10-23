@@ -141,6 +141,9 @@ $(VTERM_OBJS): $(VTERM_BUILD)/src/%.o: $(VTERM_BUILD)/src/%.c
 	$(CC) $(LC_FLAGS) -c $< -o $@
 
 # The encoding tables are generated from the .tbl files at build time.
+$(VTERM_BUILD)/src/encoding/%.tbl: $(VTERM_STAMP)
+	@test -f $@
+
 $(VTERM_BUILD)/src/encoding/%.inc: $(VTERM_BUILD)/src/encoding/%.tbl
 	@mkdir -p $(dir $@)
 	@perl -CSD $(VTERM_BUILD)/tbl2inc_c.pl $< > $@
