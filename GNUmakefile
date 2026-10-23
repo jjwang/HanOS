@@ -70,7 +70,7 @@ $(HDD_IMAGE): limine initrd kernel
 	sgdisk $(HDD_IMAGE) -n 1:2048:+96M -t 1:ef00 -n 2:198656:0 -t 2:8300
 	./limine/limine bios-install $(HDD_IMAGE)
 	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
-	mformat -i $(HDD_IMAGE).esp ::
+	mformat -F -i $(HDD_IMAGE).esp ::
 	mmd -i $(HDD_IMAGE).esp ::/EFI ::/EFI/BOOT
 	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf initrd.tar limine.conf limine/limine-bios.sys ::/
 	mcopy -i $(HDD_IMAGE).esp limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT

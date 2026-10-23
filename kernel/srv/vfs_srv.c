@@ -21,6 +21,7 @@
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <srv/vfs_srv.h>
+#include <srv/ext2_srv.h>
 #include <srv/svc_monitor.h>
 #include <ipc/ipc.h>
 #include <mm/ipc_buf.h>
@@ -54,6 +55,16 @@ static void vfs_spawn_attach(process_t * tc)
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
     bi->service_ep = h;
+
+    endpoint_t *ext2 = ext2_server_endpoint();
+
+    if (ext2 != NULL) {
+        handle_t he = handle_alloc(&tc->handles, endpoint_object(ext2),
+                                   HANDLE_RIGHT_SEND);
+
+        if (he != HANDLE_INVALID)
+            bi->ext2_ep = he;
+    }
 
     /* Hand the server the initrd read-only so it can serve the namespace. */
     void *iaddr = NULL;

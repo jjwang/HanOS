@@ -6,7 +6,7 @@
  @verbatim
 
   Declares the FAT32 server spawn/status helpers and the kernel-side
-  stat/read/readdir clients used by the /fat path routing.
+  stat/read/write clients used by the /fat path routing.
 
  @endverbatim
 
@@ -28,8 +28,12 @@ int64_t fat32_read_fd(int64_t fd, uint64_t len, void *buf);
 int64_t fat32_seek_fd(int64_t fd, uint64_t off, int64_t whence);
 int64_t fat32_close_fd(int64_t fd);
 int64_t fat32_fstat_fd(int64_t fd, uint64_t *size, bool *is_dir);
-/* Read directory entry `index` (0-based) of an open directory: returns 0, or
- * -2 at the end. */
+int64_t fat32_create_path(const char *path, uint64_t *size);
+int64_t fat32_write_fd(int64_t fd, uint64_t len, const void *buf);
+int64_t fat32_trunc_fd(int64_t fd, uint64_t newsize);
+int64_t fat32_unlink_path(const char *path);
+/* Read the next entry of an open directory. The server keeps the cursor, so
+ * `index` is informational. Returns 0, or -2 at the end. */
 int64_t fat32_readdir_fd(int64_t fd, uint64_t index, char *name,
                          uint64_t namesz, uint64_t *size, bool *is_dir);
 

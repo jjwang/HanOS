@@ -205,12 +205,12 @@ _Noreturn void kshell(pid_t pid)
     }
 
     /* The disk lines are printed once their servers identify the media:
-     * the block server names the ATA disk, the USB worker names the stick.
+     * the block server names the SATA disk, the USB worker names the stick.
      * A PCI class here would only name the controller. */
 
     /* Start all programs. Boot order: console -> input -> tty -> block ->
-     * fat32 -> vfs -> pipe -> init, so each server's dependency (tty on the
-     * console endpoint, fat32 on the block server) is up first. */
+     * fat32 -> ext2 -> vfs -> pipe -> process -> init, so each server's
+     * dependency is up first. */
     if (!input_server_start())
         klogw("input: server failed to start\n");
     if (!tty_server_start())
@@ -241,10 +241,11 @@ _Noreturn void kshell(pid_t pid)
      * the boot summary. The wait is bounded. */
     usb_bringup_wait(5000);
 
-    /* Print the disk summary before the shell when the block server answers
-     * quickly. Fall back to a background retry when it is still busy. */
-    if (!block_server_probe(12000))
-        block_server_probe_start();
+    /* Print the disk summary before the shell. The probe runs in a thread so a
+     * slow disk or USB bring-up does not block the boot path; wait for it so
+     * init never prints before the disk lines. */
+    block_server_probe_start();
+    block_server_probe_wait();
 #if ENABLE_BASH
     const char *argv[] = { "/usr/bin/bash", "--login", NULL };
     const char *envp[] = {

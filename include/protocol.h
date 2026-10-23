@@ -137,10 +137,10 @@
 #define TTY_SETMODE         0x64        /* words[0]=echo, words[1]=canonical */
 #define TTY_EAGAIN          (-11)
 
-/* FAT32 server (a read-only block-server client). File descriptors are server
- * state: FAT_OPEN returns a fd, FAT_READ advances its offset. The path goes at
- * offset 0 and file data at VFS_IO_DATA_OFF of a buffer memory object in
- * xfer[1]; FAT_STAT (path) and FAT_FSTAT (fd) report size/is_dir. */
+/* FAT32 server (a block-server client). File descriptors are server state:
+ * FAT_OPEN returns a fd, FAT_READ advances its offset. The path goes at offset
+ * 0 and file data at VFS_IO_DATA_OFF of a buffer memory object in xfer[1];
+ * FAT_STAT (path) and FAT_FSTAT (fd) report size/is_dir. */
 #define FAT_READ            0x70        /* words[0]=fd, words[1]=len;
                                            out: words[1]=bytes, words[2]=size */
 #define FAT_STAT            0x71        /* in: path; out: words[1]=size, words[2]=is_dir */
@@ -152,6 +152,12 @@
 #define FAT_SEEK            0x75        /* words[0]=fd, words[1]=off, words[2]=whence;
                                            out: words[1]=pos */
 #define FAT_FSTAT           0x76        /* words[0]=fd; out: words[1]=size, words[2]=is_dir */
+#define FAT_CREATE          0x77        /* in: path; out: words[1]=fd, words[2]=size */
+#define FAT_WRITE           0x78        /* words[0]=fd, words[1]=len;
+                                           xfer[1]=buffer; out: words[1]=n,
+                                           words[2]=size */
+#define FAT_TRUNC           0x79        /* words[0]=fd, words[1]=new size */
+#define FAT_UNLINK          0x7a        /* in: path */
 
 /* ext2 server. The path and data layout matches the FAT server: the path sits
  * at offset 0 and file data or a directory name at VFS_IO_DATA_OFF of the

@@ -608,6 +608,376 @@ static char *buf_read_str(const uint8_t *buf, uint64_t buflen, uint64_t * pos)
     return out;
 }
 
+/* --- runtime file persistence ------------------------------------------- */
+
+#define VFS_STORE_PATH      "/.vfs-store"
+#define VFS_STORE_ADDR      0x22000000
+#define VFS_STORE_BUF       EXT2_IO_BUF_SIZE
+#define VFS_STORE_MAX       (256 * 1024)
+#define VFS_STORE_MAGIC     0x3153465648ULL     /* "HVFS1" */
+#define VFS_STORE_VERSION   1
+
+typedef struct[[gnu::packed]] {
+    uint64_t magic;
+    uint32_t version;
+    uint32_t count;
+} store_hdr_t;
+
+static bool store_ready;
+
+static bool store_put_u32(uint8_t *p, uint64_t *off, uint64_t cap, uint32_t v)
+{
+    if (*off + 4 > cap)
+        return false;
+    p[(*off)++] = (uint8_t) v;
+    p[(*off)++] = (uint8_t) (v >> 8);
+    p[(*off)++] = (uint8_t) (v >> 16);
+    p[(*off)++] = (uint8_t) (v >> 24);
+    return true;
+}
+
+static uint32_t store_get_u32(const uint8_t *p)
+{
+    return (uint32_t) p[0] | ((uint32_t) p[1] << 8)
+        | ((uint32_t) p[2] << 16) | ((uint32_t) p[3] << 24);
+}
+
+/* Send one request to the ext2 server. The request buffer holds the path at
+ * offset 0 or the data at EXT2_IO_DATA_OFF. Returns 0 on a successful reply. */
+static int64_t store_ext_call(uint64_t tag, uint64_t w0, uint64_t w1,
+                              const char *path, const void *data,
+                              uint64_t len, sys_ipc_msg_t *out,
+                              void *rdst, uint64_t rcap)
+{
+    if (bi.ext2_ep == 0)
+        return -1;
+
+    int64_t memh = sys_mem_alloc(VFS_STORE_BUF);
+    if (memh < 0)
+        return -1;
+
+    if (sys_mem_map(memh, VFS_STORE_ADDR, PROT_READ | PROT_WRITE) != 0) {
+        sys_handle_close(memh);
+        return -1;
+    }
+
+    uint8_t *buf = (uint8_t *) (uint64_t) VFS_STORE_ADDR;
+
+    if (path != NULL) {
+        uint64_t n = strlen(path) + 1;
+
+        if (n > EXT2_IO_DATA_OFF)
+            n = EXT2_IO_DATA_OFF;
+        memcpy(buf, path, n);
+        buf[n - 1] = '\0';
+    }
+    if (data != NULL && len > 0) {
+        if (len > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+            len = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+        memcpy(buf + EXT2_IO_DATA_OFF, data, len);
+    }
+    sys_mem_unmap(memh, VFS_STORE_ADDR);
+
+    int64_t reply = sys_ep_create();
+    if (reply < 0) {
+        sys_handle_close(memh);
+        return -1;
+    }
+
+    int64_t reply_send = sys_handle_dup(reply);
+    int64_t memh_send = sys_handle_dup(memh);
+
+    if (reply_send < 0 || memh_send < 0) {
+        if (reply_send >= 0)
+            sys_handle_close(reply_send);
+        if (memh_send >= 0)
+            sys_handle_close(memh_send);
+        sys_handle_close(reply);
+        sys_handle_close(memh);
+        return -1;
+    }
+
+    sys_ipc_msg_t m;
+
+    memset(&m, 0, sizeof(m));
+    m.tag = tag;
+    m.words[0] = w0;
+    m.words[1] = w1;
+    m.xfer[0] = reply_send;
+    m.xfer[1] = memh_send;
+    m.xfer_count = 2;
+
+    int64_t rc = -1;
+
+    if (sys_ipc_send((int64_t) bi.ext2_ep, &m) == 0
+        && sys_ipc_recv_timeout(reply, out, 2000) == 0
+        && (int64_t) out->words[0] >= 0) {
+        rc = 0;
+        if (rdst != NULL && out->words[1] > 0) {
+            uint64_t n = out->words[1];
+
+            if (n > rcap)
+                n = rcap;
+            if (sys_mem_map(memh, VFS_STORE_ADDR, PROT_READ) == 0) {
+                memcpy(rdst, (void *) (uint64_t) VFS_STORE_ADDR
+                       + EXT2_IO_DATA_OFF, n);
+                sys_mem_unmap(memh, VFS_STORE_ADDR);
+            }
+        }
+    }
+
+    sys_handle_close(reply);
+    sys_handle_close(memh);
+    return rc;
+}
+
+static int64_t store_ext_open(const char *path, uint64_t *size)
+{
+    sys_ipc_msg_t rep;
+
+    if (store_ext_call(EXT2_OPEN, 0, 0, path, NULL, 0, &rep, NULL, 0) != 0)
+        return -1;
+    if (size != NULL)
+        *size = rep.words[2];
+    return (int64_t) rep.words[1];
+}
+
+static int64_t store_ext_create(const char *path, uint64_t *size)
+{
+    sys_ipc_msg_t rep;
+
+    if (store_ext_call(EXT2_CREATE, 0, 0, path, NULL, 0, &rep, NULL, 0) != 0)
+        return -1;
+    if (size != NULL)
+        *size = rep.words[2];
+    return (int64_t) rep.words[1];
+}
+
+static int64_t store_ext_read(int64_t fd, uint64_t len, void *dst)
+{
+    sys_ipc_msg_t rep;
+
+    if (len > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+        len = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+    if (store_ext_call(EXT2_READ, (uint64_t) fd, len, NULL, NULL, 0,
+                       &rep, dst, len) != 0)
+        return -1;
+
+    uint64_t n = rep.words[1];
+
+    if (n > len)
+        n = len;
+    return (int64_t) n;
+}
+
+static int64_t store_ext_write(int64_t fd, uint64_t len, const void *src)
+{
+    sys_ipc_msg_t rep;
+
+    if (len > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+        len = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+    if (store_ext_call(EXT2_WRITE, (uint64_t) fd, len, NULL, src, len,
+                       &rep, NULL, 0) != 0)
+        return -1;
+    return (int64_t) rep.words[1];
+}
+
+static int64_t store_ext_trunc(int64_t fd, uint64_t size)
+{
+    sys_ipc_msg_t rep;
+
+    if (store_ext_call(EXT2_TRUNC, (uint64_t) fd, size, NULL, NULL, 0,
+                       &rep, NULL, 0) != 0)
+        return -1;
+    return (int64_t) rep.words[1];
+}
+
+static void store_ext_close(int64_t fd)
+{
+    sys_ipc_msg_t rep;
+
+    store_ext_call(EXT2_CLOSE, (uint64_t) fd, 0, NULL, NULL, 0, &rep, NULL, 0);
+}
+
+static void store_load(void)
+{
+    uint64_t size = 0;
+    int64_t fd = -1;
+
+    for (int32_t i = 0; i < 20 && fd < 0; i++) {
+        fd = store_ext_open(VFS_STORE_PATH, &size);
+        if (fd < 0) {
+            struct timespec ts = { 0, 50000000L };
+
+            nanosleep(&ts, NULL);
+        }
+    }
+    if (fd < 0)
+        return;
+    if (size == 0 || size > VFS_STORE_MAX) {
+        store_ext_close(fd);
+        return;
+    }
+
+    uint8_t *buf = malloc((uint64_t) size);
+    uint64_t done = 0;
+
+    if (buf == NULL) {
+        store_ext_close(fd);
+        return;
+    }
+    while (done < size) {
+        int64_t n = store_ext_read(fd, size - done, buf + done);
+
+        if (n <= 0)
+            break;
+        done += (uint64_t) n;
+    }
+    store_ext_close(fd);
+
+    if (done != size) {
+        free(buf);
+        return;
+    }
+
+    store_hdr_t *h = (store_hdr_t *) buf;
+
+    if (h->magic != VFS_STORE_MAGIC || h->version != VFS_STORE_VERSION) {
+        free(buf);
+        return;
+    }
+
+    uint64_t off = sizeof(*h);
+
+    for (uint32_t i = 0; i < h->count && i < VFS_MAX_DYN; i++) {
+        if (off + 11 > size)
+            break;
+        uint8_t type = buf[off++];
+        uint8_t nlen = buf[off++];
+        off += 2;
+        uint32_t dlen = store_get_u32(buf + off);
+        off += 4;
+        uint32_t mtime = store_get_u32(buf + off);
+        off += 4;
+        if (off + nlen > size || off + nlen + dlen > size)
+            break;
+
+        char name[VFS_NAME_MAX + 1];
+        uint64_t nl = (nlen < VFS_NAME_MAX) ? nlen : VFS_NAME_MAX;
+
+        memcpy(name, buf + off, nl);
+        name[nl] = '\0';
+        off += nlen;
+
+        const uint8_t *data = buf + off;
+
+        off += dlen;
+
+        int32_t idx = -1;
+
+        if (type == 1)
+            idx = dyn_create_dir(name);
+        else if (type == 2) {
+            char *target = malloc(dlen + 1);
+
+            if (target != NULL) {
+                memcpy(target, data, dlen);
+                target[dlen] = '\0';
+                idx = dyn_create_symlink(name, target);
+                free(target);
+            }
+        } else if (type == 0) {
+            idx = dyn_create(name);
+            if (idx >= 0) {
+                vfs_dyn_t *d = &dyns[idx - ent_count];
+                uint64_t n = (dlen < d->cap) ? dlen : d->cap;
+
+                memcpy(d->data, data, n);
+                d->size = n;
+            }
+        }
+        if (idx >= 0)
+            dyns[idx - ent_count].mtime = mtime;
+    }
+    free(buf);
+}
+
+static void store_save(void)
+{
+    if (!store_ready || bi.ext2_ep == 0)
+        return;
+
+    uint8_t *buf = malloc(VFS_STORE_MAX);
+    if (buf == NULL)
+        return;
+
+    store_hdr_t *h = (store_hdr_t *) buf;
+    uint64_t off = sizeof(*h);
+    uint32_t count = 0;
+
+    h->magic = VFS_STORE_MAGIC;
+    h->version = VFS_STORE_VERSION;
+
+    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+        if (!dyns[i].used)
+            continue;
+        uint64_t nlen = strlen(dyns[i].name);
+        uint64_t dlen = 0;
+        uint8_t type = dyns[i].is_dir ? 1 : (dyns[i].is_symlink ? 2 : 0);
+
+        if (nlen > VFS_NAME_MAX + 1 || off + 11 + nlen > VFS_STORE_MAX)
+            break;
+        if (type == 2)
+            dlen = (dyns[i].target != NULL) ? strlen(dyns[i].target) : 0;
+        else if (type == 0)
+            dlen = dyns[i].size;
+        if (off + 11 + nlen + dlen > VFS_STORE_MAX)
+            break;
+
+        buf[off++] = type;
+        buf[off++] = (uint8_t) nlen;
+        buf[off++] = 0;
+        buf[off++] = 0;
+        store_put_u32(buf, &off, VFS_STORE_MAX, (uint32_t) dlen);
+        store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mtime);
+        memcpy(buf + off, dyns[i].name, nlen);
+        off += nlen;
+        if (type == 2 && dlen > 0)
+            memcpy(buf + off, dyns[i].target, dlen);
+        else if (type == 0 && dlen > 0)
+            memcpy(buf + off, dyns[i].data, dlen);
+        off += dlen;
+        count++;
+    }
+
+    h->count = count;
+
+    int64_t fd = store_ext_create(VFS_STORE_PATH, NULL);
+
+    if (fd < 0) {
+        free(buf);
+        return;
+    }
+    store_ext_trunc(fd, 0);
+    uint64_t done = 0;
+
+    while (done < off) {
+        uint64_t n = off - done;
+
+        if (n > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+            n = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+        int64_t w = store_ext_write(fd, n, buf + done);
+
+        if (w <= 0)
+            break;
+        done += (uint64_t) w;
+        if ((uint64_t) w < n)
+            break;
+    }
+    store_ext_close(fd);
+    free(buf);
+}
+
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
     if (m->tag == VFS_PING) {
@@ -756,8 +1126,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         if (e == -1 && (flags & O_CREAT)) {
             char *norm = norm_dir(abs);
 
-            if (norm != NULL && norm[0] != '\0')
+            if (norm != NULL && norm[0] != '\0') {
                 e = dyn_create(norm);
+                if (e != -1)
+                    store_save();
+            }
             free(norm);
         }
 
@@ -866,6 +1239,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fds[fd - 1].off += n;
             if (fds[fd - 1].off > d->size)
                 d->size = fds[fd - 1].off;
+            if (n > 0)
+                store_save();
             rep->words[0] = 0;
             rep->words[1] = n;
         }
@@ -1064,6 +1439,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
                     dyns[e - ent_count].used = false;
+                    store_save();
                     rep->words[0] = 0;
                 } else {
                     ents[e].deleted = true;
@@ -1117,8 +1493,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -22;
                 else if (dyn_create_dir(norm) < 0)
                     rep->words[0] = (uint64_t) (int64_t) -28;       /* -ENOSPC */
-                else
+                else {
+                    store_save();
                     rep->words[0] = 0;
+                }
             }
         } else {
             rep->words[0] = (uint64_t) (int64_t) -12;
@@ -1168,8 +1546,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -22;
                 else if (dyn_create_symlink(norm, target) < 0)
                     rep->words[0] = (uint64_t) (int64_t) -28;
-                else
+                else {
+                    store_save();
                     rep->words[0] = 0;
+                }
             }
         } else {
             rep->words[0] = (uint64_t) (int64_t) -12;
@@ -1257,6 +1637,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                     free(d->name);
                     d->name = strdup(norm);
+                    if (d->name != NULL)
+                        store_save();
                     rep->words[0] = (d->name != NULL) ? 0
                         : (uint64_t) (int64_t) -12;
                 }
@@ -1334,6 +1716,8 @@ int32_t main(void)
     }
 
     parse_initrd();
+    store_load();
+    store_ready = true;
 
     for (;;) {
         sys_ipc_msg_t m;

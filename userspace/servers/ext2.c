@@ -1,16 +1,17 @@
 /**-----------------------------------------------------------------------------
 
  @file    ext2.c
- @brief   Userspace read-only ext2 server
+ @brief   Userspace ext2 server
 
  @details
  @verbatim
 
-   A read-only ext2 client of the block server. It mounts partition index 1
-   through BLOCK_GET_PART, reads the superblock, the block group descriptors and
-   the inode table, and serves OPEN / READ / READDIR / STAT / CLOSE / SEEK. Names
-   keep their case; each inode carries a mode and an owner. It parses the direct
-   and the single, double and triple indirect block maps.
+   An ext2 client of the block server. It mounts partition index 1 through
+   BLOCK_GET_PART, reads the superblock, the block group descriptors and the
+   inode table, and serves OPEN / READ / READDIR / STAT / CLOSE / SEEK. The
+   write path covers CREATE, WRITE, TRUNC and UNLINK. Names keep their case;
+   each inode carries a mode and an owner. It parses the direct and the single,
+   double and triple indirect block maps.
 
  @endverbatim
 

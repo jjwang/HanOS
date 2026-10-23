@@ -93,6 +93,11 @@ bool ext2_server_active(void)
     return ext2_active;
 }
 
+endpoint_t *ext2_server_endpoint(void)
+{
+    return ext2_ep;
+}
+
 static memobj_t *ext2_memobj(uint64_t len, handle_t * out)
 {
     process_t *t = sched_get_current_process();

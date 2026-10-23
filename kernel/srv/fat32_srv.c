@@ -6,9 +6,9 @@
  @details
  @verbatim
 
-   The FAT32 server is a read-only client of the block server; the kernel hands
-   it the block server's endpoint and its own service endpoint. This file
-   spawns it and provides a boot-time read to verify the path.
+   The FAT32 server is a client of the block server; the kernel hands it the
+   block server's endpoint and its own service endpoint. This file spawns it
+   and provides a boot-time read to verify the path.
 
  @endverbatim
 
@@ -128,6 +128,23 @@ static void fat_copy_out(memobj_t * mo, void *dst, uint64_t len, uint64_t off)
         memcpy((uint8_t *) dst + done,
                (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
                + (pos & (PAGE_SIZE - 1)), chunk);
+        done += chunk;
+    }
+}
+
+static void fat_copy_in(memobj_t * mo, const void *src, uint64_t len,
+                        uint64_t off)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done, chunk);
         done += chunk;
     }
 }
@@ -287,6 +304,116 @@ int64_t fat32_fstat_fd(int64_t fd, uint64_t *size, bool *is_dir)
     if (is_dir != NULL)
         *is_dir = rep.words[2] != 0;
     return 0;
+}
+
+int64_t fat32_create_path(const char *path, uint64_t *size)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_CREATE;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t fd = -1;
+    if (router_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        fd = (int64_t) rep.words[1];
+        if (size != NULL)
+            *size = rep.words[2];
+    }
+
+    memobj_unref(mo);
+    return fd;
+}
+
+int64_t fat32_write_fd(int64_t fd, uint64_t len, const void *buf)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    if (len > VFS_IO_BUF_SIZE - VFS_IO_DATA_OFF)
+        len = VFS_IO_BUF_SIZE - VFS_IO_DATA_OFF;
+    fat_copy_in(mo, buf, len, VFS_IO_DATA_OFF);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_WRITE;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = len;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t n = -1;
+    if (router_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0)
+        n = (int64_t) rep.words[1];
+
+    memobj_unref(mo);
+    return n;
+}
+
+int64_t fat32_trunc_fd(int64_t fd, uint64_t newsize)
+{
+    if (!fat32_active)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_TRUNC;
+    req.words[0] = (uint64_t) fd;
+    req.words[1] = newsize;
+
+    if (!router_forward(SVC_FAT, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+
+    return (int64_t) rep.words[1];
+}
+
+int64_t fat32_unlink_path(const char *path)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_UNLINK;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0)
+        rc = 0;
+
+    memobj_unref(mo);
+    return rc;
 }
 
 /* Read one directory entry (0-based) through the server. Returns 0 on success,

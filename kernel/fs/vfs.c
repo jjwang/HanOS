@@ -517,7 +517,14 @@ int64_t vfs_unlink_path(const char *cwd, const char *path)
         rc = ext2_unlink_path(rel);
         kmfree(rel);
     } else if (rc == VFS_REDIRECT_FAT) {
-        rc = -30;               /* -EROFS: the FAT mount is read-only */
+        char *rel = memobj_read_path_alloc(mo);
+
+        if (rel == NULL) {
+            memobj_unref(mo);
+            return -1;
+        }
+        rc = fat32_unlink_path(rel);
+        kmfree(rel);
     }
     memobj_unref(mo);
     return rc;
@@ -667,16 +674,28 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         if (rel == NULL)
             return VFS_INVALID_FD;
 
-        ffd = fat32_open_path(rel, &size);
+        ffd = (flags & O_CREAT) ? fat32_create_path(rel, &size)
+            : fat32_open_path(rel, &size);
 
         if (ffd < 0) {
             kmfree(rel);
             return VFS_INVALID_FD;
         }
+        if (flags & O_TRUNC) {
+            if (fat32_trunc_fd(ffd, 0) < 0) {
+                fat32_close_fd(ffd);
+                kmfree(rel);
+                return VFS_INVALID_FD;
+            }
+            size = 0;
+        }
+
+        vfs_openmode_t wmode = ((flags & O_ACCMODE) == O_RDONLY)
+            ? VFS_MODE_READ : VFS_MODE_READWRITE;
+
         if (svc != NULL)
             *svc = SVC_FAT;
-        vfs_fd_t fd = vfs_open_server_svc(ffd, rel, VFS_MODE_READ, size,
-                                          SVC_FAT);
+        vfs_fd_t fd = vfs_open_server_svc(ffd, rel, wmode, size, SVC_FAT);
         kmfree(rel);
         return fd;
     }
@@ -904,6 +923,8 @@ int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
         return vfs_pipe_rw(desc->server_fd, PIPE_WRITE, len, (void *) buff);
     if (desc->svc == SVC_TTY)
         return tty_server_write(buff, len);
+    if (desc->svc == SVC_FAT)
+        return fat32_write_fd(desc->server_fd, len, buff);
     if (desc->svc == SVC_EXT)
         return ext2_write_fd(desc->server_fd, len, buff);
     return vfs_server_write(desc->server_fd, len, buff);
@@ -915,6 +936,8 @@ int64_t vfs_truncate(vfs_fd_t fd, uint64_t newsize)
 
     if (!desc || !desc->server)
         return -1;
+    if (desc->svc == SVC_FAT)
+        return fat32_trunc_fd(desc->server_fd, newsize);
     if (desc->svc == SVC_EXT)
         return ext2_trunc_fd(desc->server_fd, newsize);
     return -1;

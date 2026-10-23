@@ -57,6 +57,7 @@ typedef struct {
     uint64_t pipe_ep;           /* process server: pipe requests out */
     uint64_t tty_ep;            /* process server: tty requests out */
     uint64_t fat_ep;            /* process server: FAT requests out */
+    uint64_t ext2_ep;           /* VFS server: ext2 requests out */
     uint64_t irq_num;
     io_port_range_t io_ports[BOOTINFO_MAX_IO_RANGES];
     uint64_t io_port_count;

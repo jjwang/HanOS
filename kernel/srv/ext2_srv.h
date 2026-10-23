@@ -18,8 +18,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <ipc/ipc.h>
+
 bool ext2_server_start(void);
 bool ext2_server_active(void);
+endpoint_t *ext2_server_endpoint(void);
 
 /** @brief Inode metadata reported by stat and fstat */
 typedef struct {

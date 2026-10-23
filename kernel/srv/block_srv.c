@@ -36,6 +36,7 @@
 static endpoint_t *block_in_ep = NULL;
 static pid_t block_spawner = PID_MAX;
 static bool block_active = false;
+static volatile bool block_probe_done = false;
 
 static void block_spawn_attach(process_t * tc)
 {
@@ -213,10 +214,18 @@ static bool block_probe_rpc(endpoint_t *ep, uint32_t tag, uint64_t lba,
 bool block_server_probe(int32_t timeout_ms)
 {
     endpoint_t *ep = block_in_ep;
-    if (ep == NULL)
-        return false;
+    bool ok;
 
-    return block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL, timeout_ms);
+    if (ep == NULL) {
+        block_probe_done = true;
+        sched_wake_key((void *)&block_probe_done);
+        return false;
+    }
+
+    ok = block_probe_rpc(ep, BLOCK_GET_INFO, 0, 0, NULL, timeout_ms);
+    block_probe_done = true;
+    sched_wake_key((void *)&block_probe_done);
+    return ok;
 }
 
 static _Noreturn void block_probe_thread(pid_t pid)
@@ -229,8 +238,22 @@ static _Noreturn void block_probe_thread(pid_t pid)
 
 void block_server_probe_start(void)
 {
-    process_t *th = sched_new("blkprobe", block_probe_thread, false);
+    process_t *th;
 
-    if (th != NULL)
+    block_probe_done = false;
+    th = sched_new("blkprobe", block_probe_thread, false);
+    if (th != NULL) {
         sched_add(th);
+    } else {
+        block_probe_done = true;
+        sched_wake_key((void *)&block_probe_done);
+    }
+}
+
+void block_server_probe_wait(void)
+{
+    sched_wait_key_begin((void *)&block_probe_done);
+    while (!block_probe_done)
+        sched_wait_key_commit_infinite();
+    sched_wait_key_cancel();
 }

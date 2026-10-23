@@ -67,7 +67,7 @@
 #define SSTS_DET_MASK       0x0000000fu     /* DET in bits 0..3, 3 = present */
 
 #define FIS_REG_H2D         0x27
-#define ATA_LBA_MODE        0x40
+#define FIS_LBA_MODE        0x40
 
 #define CMD_IDENTIFY        0xec
 #define CMD_READ_DMA_EXT    0x25
@@ -198,7 +198,7 @@ static int32_t ahci_cmd(uint8_t cmd, uint64_t lba, uint16_t count,
     fis[4] = (uint8_t) lba;
     fis[5] = (uint8_t) (lba >> 8);
     fis[6] = (uint8_t) (lba >> 16);
-    fis[7] = (cmd == CMD_IDENTIFY) ? 0 : ATA_LBA_MODE;
+    fis[7] = (cmd == CMD_IDENTIFY) ? 0 : FIS_LBA_MODE;
     fis[8] = (uint8_t) (lba >> 24);
     fis[9] = (uint8_t) (lba >> 32);
     fis[10] = (uint8_t) (lba >> 40);
@@ -287,7 +287,7 @@ static bool ahci_reset_link(uint32_t p, uint32_t wait_ms)
 }
 
 /* Bring a port the firmware left idle up to DET=3. Only a port that reports a
- * device signature is reset. An ATA signature gets a second, longer reset; a
+ * device signature is reset. A SATA signature gets a second, longer reset; a
  * powered-down disk can miss the first one. */
 static bool port_bringup(uint32_t p)
 {
@@ -304,12 +304,12 @@ static bool port_bringup(uint32_t p)
 
     if (ahci_reset_link(p, wait_ms))
         return true;
-    if (sig == 0x00000101u)     /* ATA disk */
+    if (sig == 0x00000101u)     /* SATA disk */
         return ahci_reset_link(p, 2000);
     return false;
 }
 
-/* Find the first ATA disk on an AHCI port and identify it. */
+/* Find the first SATA disk on an AHCI port and identify it. */
 static int32_t ahci_init(void)
 {
     uint32_t cap = r32(HOST_CAP);
@@ -332,7 +332,7 @@ static int32_t ahci_init(void)
             continue;
         if ((pr32(p, P_SSTS) & SSTS_DET_MASK) != 3)
             continue;
-        if (pr32(p, P_SIG) != 0x00000101u)      /* ATA disk */
+        if (pr32(p, P_SIG) != 0x00000101u)      /* SATA disk */
             continue;
 
         port = (int32_t) p;
@@ -469,7 +469,7 @@ static void gpt_load(void)
     }
 }
 
-/* Attach the USB block device after the ATA model has been reported. */
+/* Attach the USB block device after the disk model has been reported. */
 static void usb_attach(void)
 {
     int64_t usb = sys_usb_block_info();
@@ -494,7 +494,7 @@ int32_t main(void)
         /* The kernel sets the bootinfo before the process is runnable. */
     }
 
-    /* Identify the ATA disk first so its model is reported even when the data
+    /* Identify the SATA disk first so its model is reported even when the data
      * comes from the USB stick. */
     if (bi.block_mmio_vaddr != 0 && bi.block_mmio_size != 0
         && bi.block_dma_vaddr != 0 && bi.block_dma_size >= DMA_SIZE) {
@@ -514,7 +514,7 @@ int32_t main(void)
         if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0)
             continue;
 
-        /* Report the ATA model before the slower USB attach. The next request
+        /* Report the disk model before the slower USB attach. The next request
          * waits for USB and the GPT partitions. */
         bool early_info = false;
 
