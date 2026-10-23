@@ -29,8 +29,14 @@ jobs:
           sudo ln -sf "$(command -v ar)" /usr/local/bin/x86_64-elf-ar
           sudo ln -sf "$(command -v ranlib)" /usr/local/bin/x86_64-elf-ranlib
 
-      - name: Build
-        run: make -j"$(nproc)"
+      - name: Build kernel
+        run: make -C kernel
+
+      - name: Build userspace
+        run: make -C userspace
+
+      - name: Build ISO
+        run: make
 
       - name: Test artifacts
         run: ./scripts/ci-artifacts-test.sh
