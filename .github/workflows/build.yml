@@ -43,7 +43,7 @@ jobs:
 
       - name: Boot test
         run: |
-          if [ -e /dev/kvm ]; then
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
             ACCEL=kvm
             CPU=host
           else
