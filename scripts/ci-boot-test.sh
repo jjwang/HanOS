@@ -17,7 +17,7 @@ fi
 
 rm -f "$LOG" "$MON"
 qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
-    -no-reboot -rtc base=localtime -cdrom "$ISO" -display none \
+    -no-reboot -rtc base=localtime -boot d -cdrom "$ISO" -display none \
     -serial stdio -monitor "unix:$MON,server,nowait" </dev/null >"$LOG" 2>&1 &
 qemu_pid=$!
 
@@ -52,6 +52,10 @@ if ! grep -aq 'name "hansh"' "$LOG"; then
     ps -p "$qemu_pid" -o pid,stat,etime,cmd >&2 || true
     wc -c "$LOG" >&2 || true
     tail -n 120 "$LOG" >&2 || true
+    if [ -S "$MON" ]; then
+        printf 'info status\ninfo registers\ninfo block\n' \
+            | socat - "UNIX-CONNECT:$MON" >&2 || true
+    fi
     exit 1
 fi
 if grep -aEq 'panic|exception|corrupt' "$LOG"; then
