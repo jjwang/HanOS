@@ -18,8 +18,14 @@ if [ "$ACCEL" = tcg ]; then
 fi
 
 rm -f "$LOG" "$MON"
+if [ "$ACCEL" = tcg ]; then
+    CD_ARGS="-drive file=$ISO,if=ide,media=cdrom,readonly=on"
+else
+    CD_ARGS="-cdrom $ISO"
+fi
+# shellcheck disable=SC2086
 qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M "$MACHINE" -m 2G -smp "$SMP" \
-    -no-reboot -rtc base=localtime -boot d -cdrom "$ISO" -display none \
+    -no-reboot -rtc base=localtime -boot d $CD_ARGS -display none \
     -serial stdio -monitor "unix:$MON,server,nowait" </dev/null >"$LOG" 2>&1 &
 qemu_pid=$!
 
