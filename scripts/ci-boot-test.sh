@@ -10,13 +10,15 @@ ACCEL=${HANOS_QEMU_ACCEL:-kvm}
 CPU=${HANOS_QEMU_CPU:-host}
 SMP=2
 ACCEL_ARG=$ACCEL
+MACHINE=q35,smm=off
 if [ "$ACCEL" = tcg ]; then
     ACCEL_ARG=tcg,thread=single
+    MACHINE=pc
     SMP=1
 fi
 
 rm -f "$LOG" "$MON"
-qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
+qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M "$MACHINE" -m 2G -smp "$SMP" \
     -no-reboot -rtc base=localtime -boot d -cdrom "$ISO" -display none \
     -serial stdio -monitor "unix:$MON,server,nowait" </dev/null >"$LOG" 2>&1 &
 qemu_pid=$!
