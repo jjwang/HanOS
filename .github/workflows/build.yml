@@ -52,10 +52,3 @@ jobs:
           fi
           HANOS_QEMU_ACCEL="$ACCEL" HANOS_QEMU_CPU="$CPU" \
             ./scripts/ci-boot-test.sh
-
-      - name: Upload ISO
-        uses: actions/upload-artifact@v4
-        with:
-          name: hanos-iso
-          path: cdrom.iso
-          if-no-files-found: error
