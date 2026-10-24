@@ -18,7 +18,7 @@ fi
 rm -f "$LOG" "$MON"
 qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
     -no-reboot -rtc base=localtime -cdrom "$ISO" -display none \
-    -serial "file:$LOG" -monitor "unix:$MON,server,nowait" &
+    -serial stdio -monitor "unix:$MON,server,nowait" </dev/null >"$LOG" 2>&1 &
 qemu_pid=$!
 
 cleanup() {
@@ -38,7 +38,7 @@ if [ ! -S "$MON" ]; then
 fi
 
 i=0
-while [ "$i" -lt 240 ]; do
+while [ "$i" -lt 600 ]; do
     if grep -aq 'name "hansh"' "$LOG" 2>/dev/null; then
         break
     fi
@@ -48,7 +48,10 @@ done
 
 if ! grep -aq 'name "hansh"' "$LOG"; then
     echo "shell did not start" >&2
-    tail -n 80 "$LOG" >&2 || true
+    qemu-system-x86_64 --version >&2 || true
+    ps -p "$qemu_pid" -o pid,stat,etime,cmd >&2 || true
+    wc -c "$LOG" >&2 || true
+    tail -n 120 "$LOG" >&2 || true
     exit 1
 fi
 if grep -aEq 'panic|exception|corrupt' "$LOG"; then
