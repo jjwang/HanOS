@@ -48,7 +48,7 @@ jobs:
             CPU=host
           else
             ACCEL=tcg
-            CPU=max
+            CPU=qemu64
           fi
           HANOS_QEMU_ACCEL="$ACCEL" HANOS_QEMU_CPU="$CPU" \
             ./scripts/ci-boot-test.sh
