@@ -8,9 +8,15 @@ LOG=${2:-/tmp/hanos-ci-boot.log}
 MON=${3:-/tmp/hanos-ci-monitor}
 ACCEL=${HANOS_QEMU_ACCEL:-kvm}
 CPU=${HANOS_QEMU_CPU:-host}
+SMP=2
+ACCEL_ARG=$ACCEL
+if [ "$ACCEL" = tcg ]; then
+    ACCEL_ARG=tcg,thread=single
+    SMP=1
+fi
 
 rm -f "$LOG" "$MON"
-qemu-system-x86_64 -accel "$ACCEL" -cpu "$CPU" -M q35,smm=off -m 2G -smp 2 \
+qemu-system-x86_64 -accel "$ACCEL_ARG" -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
     -no-reboot -rtc base=localtime -cdrom "$ISO" -display none \
     -serial "file:$LOG" -monitor "unix:$MON,server,nowait" &
 qemu_pid=$!
