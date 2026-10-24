@@ -1,0 +1,5 @@
+<map id="gfx_disable_pipe" name="gfx_disable_pipe">
+<area shape="rect" id="Node000001" title="Disable display pipe." alt="" coords="5,5,137,31"/>
+<area shape="rect" id="Node000002" href="$dc/da6/gfx_8c.html#aec16c87eeee33d4ddb56cc3d46037da2" title="Wait for pipe to be in specified state." alt="" coords="185,5,339,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="137,15,171,15,171,21,137,21"/>
+</map>

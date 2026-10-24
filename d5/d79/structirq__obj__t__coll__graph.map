@@ -1,0 +1,12 @@
+<map id="irq_obj_t" name="irq_obj_t">
+<area shape="rect" id="Node000001" title="Kernel object for one hardware interrupt line bound to an endpoint." alt="" coords="31,269,110,295"/>
+<area shape="rect" id="Node000002" href="$d7/df4/structendpoint__t.html" title="Kernel object holding a FIFO queue of IPC messages." alt="" coords="105,181,196,207"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="133,219,84,271,80,267,129,215"/>
+<area shape="rect" id="Node000003" href="$d9/dda/structspinlock__t.html" title="Interrupt&#45;safe spinlock holding the lock state and owner&#39;s RFLAGS." alt="" coords="5,93,93,119"/>
+<area shape="poly" id="edge5_Node000001_Node000003" title=" " alt="" coords="55,132,64,206,72,269,67,269,59,207,50,133"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="75,126,138,179,135,183,72,130"/>
+<area shape="rect" id="Node000004" href="$dc/d16/structipc__queue__entry__t.html" title="A queued message together with the objects whose handles it moves." alt="" coords="117,93,259,119"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="180,132,158,182,153,180,175,130"/>
+<area shape="rect" id="Node000005" href="$df/df1/structipc__msg__t.html" title="An IPC message: protocol tag, inline words and transferred handles." alt="" coords="144,5,232,31"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="191,45,191,93,185,93,185,45"/>
+</map>

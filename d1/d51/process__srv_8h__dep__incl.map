@@ -1,0 +1,15 @@
+<map id="kernel/srv/process_srv.h" name="kernel/srv/process_srv.h">
+<area shape="rect" id="Node000001" title="Spawn the userspace process server and register it with the router." alt="" coords="383,5,523,45"/>
+<area shape="rect" id="Node000002" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="5,101,119,126"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="370,45,131,96,102,103,101,98,129,91,369,40"/>
+<area shape="rect" id="Node000003" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="143,101,261,126"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="385,52,236,103,235,98,384,47"/>
+<area shape="rect" id="Node000004" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="285,101,444,126"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="425,57,379,102,375,98,421,53"/>
+<area shape="rect" id="Node000005" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="469,101,615,126"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="484,53,531,98,528,102,481,57"/>
+<area shape="rect" id="Node000006" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="639,101,794,126"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="525,47,682,98,681,103,523,52"/>
+<area shape="rect" id="Node000007" href="$dd/d1b/process__srv_8c.html" title="Spawn the userspace process server." alt="" coords="819,93,959,133"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="537,39,807,91,819,93,818,99,805,96,536,44"/>
+</map>

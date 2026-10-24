@@ -1,0 +1,29 @@
+<map id="kernel/fs/initrd.c" name="kernel/fs/initrd.c">
+<area shape="rect" id="Node000001" title="Read files from the boot initrd image." alt="" coords="155,5,281,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="168,225,239,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="199,33,175,53,155,80,150,97,149,115,156,152,171,185,188,213,184,216,166,188,151,153,143,115,145,96,150,77,171,49,196,29"/>
+<area shape="rect" id="Node000003" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="296,79,367,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="238,28,303,69,300,74,235,33"/>
+<area shape="rect" id="Node000006" href="$d2/d6d/initrd_8h.html" title="Read files from the boot initrd image." alt="" coords="5,152,89,177"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="190,33,150,53,110,81,83,111,63,141,58,138,79,107,107,77,148,48,188,28"/>
+<area shape="rect" id="Node000007" href="$d4/d03/kmalloc_8h.html" title="Definition of memory allocation related functions." alt="" coords="165,79,271,104"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="221,31,221,65,215,65,215,31"/>
+<area shape="rect" id="Node000008" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="391,79,474,104"/>
+<area shape="poly" id="edge11_Node000001_Node000008" title=" " alt="" coords="253,28,386,72,384,77,252,33"/>
+<area shape="poly" id="edge5_Node000003_Node000002" title=" " alt="" coords="314,106,285,127,256,154,234,184,217,214,212,211,229,181,252,150,282,123,311,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="433,225,515,251"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="345,103,455,214,451,217,341,106"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="266,152,341,177"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="329,105,315,140,310,138,324,103"/>
+<area shape="poly" id="edge7_Node000006_Node000002" title=" " alt="" coords="73,175,166,217,164,222,71,180"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="219,104,213,152,208,212,202,211,207,152,214,104"/>
+<area shape="poly" id="edge9_Node000007_Node000005" title=" " alt="" coords="233,102,281,141,277,145,230,106"/>
+<area shape="poly" id="edge14_Node000008_Node000002" title=" " alt="" coords="427,106,397,141,354,180,303,207,253,226,251,221,301,202,351,175,393,138,422,102"/>
+<area shape="poly" id="edge13_Node000008_Node000005" title=" " alt="" coords="413,106,338,147,336,143,411,102"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="599,152,674,177"/>
+<area shape="poly" id="edge12_Node000008_Node000009" title=" " alt="" coords="466,102,592,145,590,150,465,107"/>
+<area shape="rect" id="Node000010" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="467,152,575,177"/>
+<area shape="poly" id="edge15_Node000008_Node000010" title=" " alt="" coords="448,102,497,141,494,145,445,106"/>
+<area shape="poly" id="edge17_Node000010_Node000002" title=" " alt="" coords="470,180,253,228,252,223,469,175"/>
+<area shape="poly" id="edge16_Node000010_Node000004" title=" " alt="" coords="515,179,491,215,487,212,511,176"/>
+</map>

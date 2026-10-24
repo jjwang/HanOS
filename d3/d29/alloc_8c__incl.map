@@ -1,0 +1,57 @@
+<map id="kernel/mm/alloc.c" name="kernel/mm/alloc.c">
+<area shape="rect" id="Node000001" title="Implementation of memory allocation functions." alt="" coords="660,5,799,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="417,372,488,397"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="800,23,867,36,902,47,935,61,965,80,988,102,1004,130,1010,163,1010,240,1004,272,987,294,962,310,931,326,895,340,847,351,728,368,603,379,501,384,501,379,603,373,727,363,846,346,894,335,929,322,960,306,983,290,999,270,1004,239,1004,164,999,132,984,106,961,84,933,66,900,52,866,41,799,28"/>
+<area shape="rect" id="Node000003" href="$df/d61/mm_8h.html" title="Definition of memory management related data structures." alt="" coords="396,79,487,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="684,33,501,78,500,73,683,28"/>
+<area shape="rect" id="Node000010" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="186,225,257,251"/>
+<area shape="poly" id="edge39_Node000001_Node000010" title=" " alt="" coords="660,28,531,46,457,61,385,81,301,104,269,121,237,153,225,182,222,212,217,211,220,181,233,151,265,117,299,99,384,76,456,56,530,41,660,23"/>
+<area shape="rect" id="Node000011" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="564,225,647,251"/>
+<area shape="poly" id="edge38_Node000001_Node000011" title=" " alt="" coords="727,32,695,95,649,179,625,216,620,213,645,176,691,93,722,30"/>
+<area shape="rect" id="Node000013" href="$d2/dfe/alloc_8h.html" title="Memory allocation definitions." alt="" coords="672,225,766,251"/>
+<area shape="poly" id="edge25_Node000001_Node000013" title=" " alt="" coords="737,30,751,78,757,128,751,178,736,214,731,212,746,177,752,128,746,79,732,32"/>
+<area shape="rect" id="Node000014" href="$db/d2e/slab_8h.html" title="Slab allocator definitions." alt="" coords="71,225,162,251"/>
+<area shape="poly" id="edge28_Node000001_Node000014" title=" " alt="" coords="660,26,459,45,360,61,320,71,291,81,242,110,198,147,162,184,135,216,131,213,158,181,195,143,239,106,289,76,319,65,359,56,459,40,660,21"/>
+<area shape="rect" id="Node000015" href="$d7/d99/klib_8h.html" title="Definition of fundamental data structures, macros and functions." alt="" coords="832,79,910,104"/>
+<area shape="poly" id="edge32_Node000001_Node000015" title=" " alt="" coords="754,28,837,70,835,75,751,33"/>
+<area shape="poly" id="edge5_Node000003_Node000002" title=" " alt="" coords="488,93,518,99,550,110,580,126,604,151,608,164,604,178,593,195,581,205,568,213,554,227,538,253,529,275,519,298,504,325,475,363,470,360,499,323,515,296,524,273,534,250,550,224,564,209,578,201,590,191,599,176,603,164,599,153,577,131,548,115,517,104,487,98"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="818,299,892,324"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="488,99,550,115,626,140,705,176,744,198,779,223,813,255,840,286,836,290,809,258,776,227,741,203,703,181,624,145,548,120,487,104"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="415,299,490,324"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="434,106,420,127,408,153,406,165,408,176,418,191,430,199,443,208,453,224,460,256,459,285,454,285,455,256,449,226,439,212,427,204,414,194,403,178,400,165,403,151,415,124,430,103"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="34,372,116,397"/>
+<area shape="poly" id="edge6_Node000003_Node000006" title=" " alt="" coords="397,99,236,118,156,134,125,144,102,154,63,184,39,214,24,251,11,299,8,312,11,323,26,345,45,362,42,366,22,348,6,325,3,312,6,298,19,249,35,211,59,180,99,150,123,139,155,129,236,113,396,94"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="418,152,590,177"/>
+<area shape="poly" id="edge7_Node000003_Node000007" title=" " alt="" coords="454,103,487,140,483,143,450,106"/>
+<area shape="rect" id="Node000008" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="21,299,129,324"/>
+<area shape="poly" id="edge8_Node000003_Node000008" title=" " alt="" coords="396,95,319,101,273,108,225,120,177,137,133,160,93,189,61,227,56,240,55,255,64,285,59,287,50,256,51,239,57,224,90,186,130,155,175,132,223,115,272,103,318,96,396,90"/>
+<area shape="rect" id="Node000009" href="$d6/d68/vector_8h.html" title="vector &#45; fundamental data structure, variable length array" alt="" coords="248,152,342,177"/>
+<area shape="poly" id="edge11_Node000003_Node000009" title=" " alt="" coords="419,106,332,148,330,144,417,102"/>
+<area shape="poly" id="edge10_Node000008_Node000002" title=" " alt="" coords="130,320,404,372,403,377,129,325"/>
+<area shape="poly" id="edge9_Node000008_Node000006" title=" " alt="" coords="78,324,78,358,72,358,72,324"/>
+<area shape="poly" id="edge12_Node000009_Node000002" title=" " alt="" coords="299,177,307,211,323,249,346,283,374,314,427,361,424,365,370,318,342,286,318,252,302,212,294,178"/>
+<area shape="poly" id="edge13_Node000009_Node000010" title=" " alt="" coords="285,180,245,218,242,214,281,176"/>
+<area shape="poly" id="edge17_Node000009_Node000011" title=" " alt="" coords="343,174,552,222,550,227,342,179"/>
+<area shape="rect" id="Node000012" href="$d4/d03/kmalloc_8h.html" title="Definition of memory allocation related functions." alt="" coords="332,225,439,251"/>
+<area shape="poly" id="edge22_Node000009_Node000012" title=" " alt="" coords="311,175,362,214,358,219,308,179"/>
+<area shape="poly" id="edge16_Node000010_Node000002" title=" " alt="" coords="232,249,260,284,302,322,354,349,405,368,403,373,351,354,299,326,256,288,228,252"/>
+<area shape="poly" id="edge15_Node000010_Node000005" title=" " alt="" coords="258,248,403,292,402,297,256,253"/>
+<area shape="poly" id="edge14_Node000010_Node000006" title=" " alt="" coords="213,253,142,326,100,365,97,361,138,322,209,249"/>
+<area shape="poly" id="edge20_Node000011_Node000002" title=" " alt="" coords="602,252,580,287,548,326,519,349,489,367,486,363,516,345,544,322,576,284,597,249"/>
+<area shape="poly" id="edge18_Node000011_Node000004" title=" " alt="" coords="646,248,805,293,804,298,645,253"/>
+<area shape="poly" id="edge19_Node000011_Node000005" title=" " alt="" coords="582,253,491,295,489,290,580,248"/>
+<area shape="poly" id="edge21_Node000011_Node000008" title=" " alt="" coords="564,248,143,304,142,298,564,242"/>
+<area shape="poly" id="edge24_Node000012_Node000002" title=" " alt="" coords="389,251,393,284,405,323,418,343,432,360,428,364,413,346,401,325,388,285,384,251"/>
+<area shape="poly" id="edge23_Node000012_Node000005" title=" " alt="" coords="399,249,434,287,430,290,395,253"/>
+<area shape="poly" id="edge26_Node000013_Node000002" title=" " alt="" coords="702,253,576,326,491,369,489,364,574,322,699,248"/>
+<area shape="poly" id="edge27_Node000013_Node000005" title=" " alt="" coords="677,253,504,299,503,294,675,248"/>
+<area shape="poly" id="edge30_Node000014_Node000002" title=" " alt="" coords="135,248,193,283,268,322,339,348,404,368,403,373,337,353,266,326,191,288,132,253"/>
+<area shape="poly" id="edge29_Node000014_Node000005" title=" " alt="" coords="163,246,402,297,401,302,161,252"/>
+<area shape="poly" id="edge31_Node000014_Node000008" title=" " alt="" coords="112,252,91,288,86,285,107,250"/>
+<area shape="rect" id="Node000016" href="$df/d1f/panic_8h.html" title="Definition of panic related data structures." alt="" coords="818,152,948,177"/>
+<area shape="poly" id="edge33_Node000015_Node000016" title=" " alt="" coords="876,104,881,138,876,139,870,105"/>
+<area shape="poly" id="edge34_Node000016_Node000002" title=" " alt="" coords="892,176,907,206,920,245,923,288,918,308,906,326,885,337,846,347,735,364,502,383,501,378,734,358,845,342,883,332,903,322,913,306,917,287,914,246,902,208,887,179"/>
+<area shape="poly" id="edge36_Node000016_Node000004" title=" " alt="" coords="885,178,876,251,866,286,861,285,871,250,880,177"/>
+<area shape="poly" id="edge35_Node000016_Node000005" title=" " alt="" coords="874,179,835,216,808,236,779,253,707,279,632,296,562,306,504,311,503,306,561,301,631,291,705,274,777,248,805,232,832,212,871,176"/>
+<area shape="poly" id="edge37_Node000016_Node000011" title=" " alt="" coords="839,180,661,225,660,220,838,175"/>
+</map>

@@ -1,0 +1,209 @@
+<map id="include/bootinfo.h" name="include/bootinfo.h">
+<area shape="rect" id="Node000001" title="Startup information passed to a userspace server." alt="" coords="6597,5,6736,31"/>
+<area shape="rect" id="Node000002" href="$da/d42/process_8h.html" title="Definition of process related functions." alt="" coords="1999,79,2159,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="6583,23,2159,91,2159,86,6583,18"/>
+<area shape="rect" id="Node000013" href="$d9/de9/vfs__srv_8c.html" title="Spawn the userspace VFS server." alt="" coords="769,321,916,346"/>
+<area shape="poly" id="edge96_Node000001_Node000013" title=" " alt="" coords="6584,22,5934,25,4811,34,3425,52,1987,81,1838,83,1700,80,1456,65,1239,46,1038,29,939,24,839,23,736,27,629,37,515,53,394,78,264,111,122,155,86,166,58,179,36,197,16,227,8,247,9,255,15,263,42,269,109,276,321,294,769,325,769,330,321,299,108,282,41,274,12,268,4,257,3,246,11,224,32,193,55,174,84,161,120,149,262,106,393,73,514,48,628,32,736,22,839,18,939,19,1039,24,1240,40,1456,60,1701,75,1838,78,1987,76,3425,47,4811,29,5934,20,6584,17"/>
+<area shape="rect" id="Node000030" href="$de/dde/block__srv_8c.html" title="Spawn the userspace block server." alt="" coords="4612,233,4775,258"/>
+<area shape="poly" id="edge87_Node000001_Node000030" title=" " alt="" coords="6583,23,6234,29,5756,40,5307,58,5144,69,5048,81,4997,96,4945,115,4848,158,4767,202,4712,235,4710,230,4764,197,4846,154,4943,110,4995,91,5047,76,5144,63,5307,52,5755,35,6234,24,6583,18"/>
+<area shape="rect" id="Node000031" href="$d5/d73/console__srv_8c.html" title="Spawn the userspace console server and forward output to it." alt="" coords="4799,225,4939,265"/>
+<area shape="poly" id="edge88_Node000001_Node000031" title=" " alt="" coords="6584,22,6246,26,5786,35,5356,53,5201,66,5146,73,5110,81,5042,112,4980,152,4927,193,4890,227,4886,223,4924,189,4976,148,5039,107,5108,76,5145,68,5200,60,5356,47,5786,30,6245,21,6584,17"/>
+<area shape="rect" id="Node000032" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="3121,321,3277,346"/>
+<area shape="poly" id="edge89_Node000001_Node000032" title=" " alt="" coords="6583,23,6301,27,5930,36,5588,54,5465,66,5394,81,5353,113,5288,174,5223,235,5181,268,5139,279,5075,288,4896,301,4667,309,4414,313,3929,315,3639,316,3277,331,3277,326,3638,311,3929,309,4414,308,4667,304,4896,296,5075,283,5138,274,5179,263,5220,231,5285,170,5350,109,5392,76,5465,61,5588,49,5930,31,6301,21,6583,17"/>
+<area shape="rect" id="Node000033" href="$d2/dc5/fat32__srv_8c.html" title="Spawn and probe the userspace FAT32 server." alt="" coords="3990,321,4151,346"/>
+<area shape="poly" id="edge90_Node000001_Node000033" title=" " alt="" coords="6583,23,6318,28,5973,39,5657,56,5543,67,5477,81,5449,95,5430,111,5390,154,5339,214,5309,247,5282,268,5254,276,5212,283,5092,294,4770,307,4445,312,4251,316,4152,325,4151,320,4250,311,4445,306,4770,301,5092,289,5211,278,5253,271,5280,263,5306,243,5335,210,5386,150,5426,107,5446,91,5475,76,5542,62,5656,51,5973,33,6318,23,6583,18"/>
+<area shape="rect" id="Node000034" href="$dc/d70/input__srv_8c.html" title="Spawn and drive the userspace input server." alt="" coords="4964,233,5124,258"/>
+<area shape="poly" id="edge91_Node000001_Node000034" title=" " alt="" coords="6583,23,6236,29,5770,40,5351,57,5210,68,5166,75,5144,81,5123,96,5106,115,5078,158,5059,201,5049,233,5044,232,5054,199,5073,156,5101,112,5120,92,5141,76,5165,69,5209,63,5350,52,5770,35,6236,23,6583,18"/>
+<area shape="rect" id="Node000035" href="$d1/de9/net__srv_8c.html" title="Spawn the userspace network server." alt="" coords="4263,321,4411,346"/>
+<area shape="poly" id="edge92_Node000001_Node000035" title=" " alt="" coords="6584,22,6355,23,6055,31,5903,38,5761,49,5641,63,5550,81,5509,94,5478,108,5450,126,5416,154,5392,184,5379,214,5363,242,5351,256,5333,268,5310,276,5275,283,5175,294,4904,306,4630,311,4467,316,4408,323,4408,318,4466,311,4630,306,4903,300,5174,288,5274,278,5309,271,5331,263,5348,252,5359,239,5374,212,5387,181,5413,150,5446,122,5475,103,5507,89,5549,76,5640,58,5761,43,5903,33,6055,25,6355,18,6584,16"/>
+<area shape="rect" id="Node000036" href="$db/dda/pipe__srv_8c.html" title="Spawn the userspace pipe server." alt="" coords="2240,321,2395,346"/>
+<area shape="poly" id="edge93_Node000001_Node000036" title=" " alt="" coords="6583,23,6294,27,5911,36,5558,54,5431,66,5357,81,5301,110,5263,143,5228,181,5182,227,5162,250,5152,260,5137,268,2395,333,2395,327,5135,263,5149,255,5158,246,5178,223,5224,178,5259,139,5298,106,5355,76,5430,61,5558,49,5911,31,6294,21,6583,17"/>
+<area shape="rect" id="Node000037" href="$dd/d1b/process__srv_8c.html" title="Spawn the userspace process server." alt="" coords="3651,313,3791,353"/>
+<area shape="poly" id="edge94_Node000001_Node000037" title=" " alt="" coords="6584,23,6308,27,5949,36,5618,54,5499,66,5430,81,5392,113,5332,174,5271,235,5232,268,5197,277,5146,285,5000,297,4814,305,4608,309,4214,313,3977,316,3791,329,3791,324,3977,311,4214,307,4608,304,4814,299,5000,292,5145,280,5196,272,5229,263,5268,231,5328,170,5389,109,5428,76,5498,61,5617,48,5948,31,6308,21,6584,17"/>
+<area shape="rect" id="Node000039" href="$df/d5c/tty__srv_8c.html" title="Spawn and drive the userspace tty server." alt="" coords="4479,321,4625,346"/>
+<area shape="poly" id="edge95_Node000001_Node000039" title=" " alt="" coords="6584,21,6328,23,6164,29,5990,39,5819,55,5663,79,5594,94,5533,112,5482,132,5441,154,5428,166,5420,180,5414,209,5407,240,5399,254,5384,268,5341,282,5265,295,5052,314,4815,326,4625,333,4625,328,4815,321,5052,309,5264,290,5339,277,5381,263,5394,251,5402,238,5409,208,5415,178,5424,163,5438,150,5480,127,5532,107,5593,89,5662,74,5819,50,5990,34,6163,23,6328,18,6584,16"/>
+<area shape="rect" id="Node000042" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="7816,79,8021,104"/>
+<area shape="poly" id="edge97_Node000001_Node000042" title=" " alt="" coords="6750,21,7816,82,7816,87,6749,27"/>
+<area shape="rect" id="Node000058" href="$d3/d1c/block_8c.html" title="Userspace AHCI (SATA) block server." alt="" coords="8870,152,9061,177"/>
+<area shape="poly" id="edge127_Node000001_Node000058" title=" " alt="" coords="6750,19,7289,38,7658,54,8033,76,8503,114,8870,150,8869,156,8503,119,8033,81,7657,60,7289,43,6749,24"/>
+<area shape="rect" id="Node000059" href="$d0/d56/console_8c.html" title="Userspace framebuffer console server." alt="" coords="9085,152,9291,177"/>
+<area shape="poly" id="edge128_Node000001_Node000059" title=" " alt="" coords="6750,19,7356,36,7777,53,8207,76,8699,114,9085,150,9085,155,8699,119,8206,81,7777,59,7356,42,6750,24"/>
+<area shape="rect" id="Node000060" href="$da/d6e/ext2_8c.html" title="Userspace ext2 server." alt="" coords="9315,152,9499,177"/>
+<area shape="poly" id="edge129_Node000001_Node000060" title=" " alt="" coords="6750,18,7426,35,7902,52,8388,76,8846,107,9303,149,9314,150,9314,156,9302,155,8845,112,8388,81,7901,58,7426,41,6750,24"/>
+<area shape="rect" id="Node000061" href="$d0/d3b/fat32_8c.html" title="Userspace FAT32 server." alt="" coords="9523,152,9712,177"/>
+<area shape="poly" id="edge130_Node000001_Node000061" title=" " alt="" coords="6750,18,7506,33,8045,51,8597,76,9055,107,9511,149,9523,150,9522,156,9510,155,9054,112,8597,81,8045,56,7506,39,6750,23"/>
+<area shape="rect" id="Node000062" href="$d1/d06/input_8c.html" title="Userspace PS/2 keyboard, mouse and serial input server." alt="" coords="9737,152,9925,177"/>
+<area shape="poly" id="edge131_Node000001_Node000062" title=" " alt="" coords="6749,17,7585,32,8188,49,8807,76,9266,107,9724,149,9737,151,9736,156,9724,155,9265,112,8806,81,8187,54,7585,37,6749,23"/>
+<area shape="rect" id="Node000063" href="$d7/d5f/net_8c.html" title="Userspace network server." alt="" coords="9949,152,10125,177"/>
+<area shape="poly" id="edge132_Node000001_Node000063" title=" " alt="" coords="6750,17,7107,21,7665,30,8332,47,9017,76,9477,106,9936,149,9949,151,9949,156,9936,155,9477,111,9017,81,8331,53,7665,35,7107,26,6750,22"/>
+<area shape="rect" id="Node000064" href="$d1/d47/pipe_8c.html" title="Userspace pipe server." alt="" coords="10150,152,10333,177"/>
+<area shape="poly" id="edge133_Node000001_Node000064" title=" " alt="" coords="6750,17,7136,19,7747,28,8481,45,8862,59,9236,76,9490,91,9687,106,10137,149,10150,151,10149,156,10137,155,9687,112,9490,96,9236,81,8862,64,8480,51,7747,33,7136,25,6750,22"/>
+<area shape="rect" id="Node000065" href="$d4/d73/userspace_2servers_2process_8c.html" title="Userspace process server." alt="" coords="10357,152,10563,177"/>
+<area shape="poly" id="edge134_Node000001_Node000065" title=" " alt="" coords="6749,17,7164,18,7827,26,8626,44,9042,58,9451,76,9707,92,9960,112,10357,150,10357,155,9960,118,9706,97,9450,81,9042,63,8626,49,7826,31,7164,24,6749,22"/>
+<area shape="rect" id="Node000066" href="$dc/d03/tty_8c.html" title="Userspace tty server." alt="" coords="10587,152,10757,177"/>
+<area shape="poly" id="edge135_Node000001_Node000066" title=" " alt="" coords="6750,17,7189,18,7901,25,8762,43,9210,57,9651,76,9911,90,10113,105,10575,149,10587,151,10586,156,10574,155,10113,111,9911,96,9650,81,9210,62,8762,48,7901,30,7189,23,6750,22"/>
+<area shape="rect" id="Node000067" href="$d1/d3b/userspace_2servers_2vfs_8c.html" title="Userspace VFS/name server over the boot initrd." alt="" coords="10782,152,10957,177"/>
+<area shape="poly" id="edge136_Node000001_Node000067" title=" " alt="" coords="6750,16,7218,16,7982,22,8911,40,9395,56,9871,76,10124,90,10321,106,10769,149,10782,151,10781,156,10769,155,10320,111,10124,96,9870,81,9395,61,8911,46,7982,28,7218,22,6750,22"/>
+<area shape="rect" id="Node000003" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="2360,233,2512,258"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="2172,96,2262,114,2308,129,2352,150,2378,168,2400,191,2431,231,2426,234,2396,194,2374,172,2349,154,2306,134,2261,119,2171,102"/>
+<area shape="rect" id="Node000004" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="2892,225,3052,265"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="2173,101,2333,122,2515,149,2719,187,2892,224,2891,229,2718,193,2514,155,2332,127,2172,106"/>
+<area shape="rect" id="Node000005" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="1327,233,1475,258"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="2013,110,1808,155,1452,235,1451,230,1807,149,2012,104"/>
+<area shape="rect" id="Node000006" href="$dd/d88/selftest_8h.html" title="Kernel&#45;side self&#45;test for the IPC/handle layer." alt="" coords="960,152,1109,177"/>
+<area shape="poly" id="edge5_Node000002_Node000006" title=" " alt="" coords="1985,99,1607,118,1365,134,1121,155,1110,156,1109,151,1121,149,1365,129,1607,113,1985,94"/>
+<area shape="rect" id="Node000008" href="$d6/d15/klog_8c.html" title="Implementation of kernel log related functions." alt="" coords="3076,233,3201,258"/>
+<area shape="poly" id="edge8_Node000002_Node000008" title=" " alt="" coords="2173,98,2341,115,2563,142,2813,178,3064,223,3096,230,3095,235,3063,228,2812,183,2562,147,2340,121,2172,104"/>
+<area shape="rect" id="Node000009" href="$dd/d19/ipc__buf_8h.html" title="Bulk&#45;transfer helpers built on memory objects." alt="" coords="1820,152,1975,177"/>
+<area shape="poly" id="edge9_Node000002_Node000009" title=" " alt="" coords="2038,111,1928,154,1926,149,2036,106"/>
+<area shape="rect" id="Node000012" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="1820,233,1975,258"/>
+<area shape="poly" id="edge62_Node000002_Node000012" title=" " alt="" coords="2059,115,1988,179,1916,234,1912,230,1985,175,2056,111"/>
+<area shape="rect" id="Node000014" href="$da/d77/uaccess_8c.html" title="Implementation of safe user&#45;space memory access helpers." alt="" coords="2537,233,2695,258"/>
+<area shape="poly" id="edge14_Node000002_Node000014" title=" " alt="" coords="2172,103,2276,122,2387,149,2503,191,2593,230,2591,235,2502,196,2386,155,2275,127,2171,109"/>
+<area shape="rect" id="Node000015" href="$d8/d40/uaccess_8h.html" title="Safe access to user&#45;space memory." alt="" coords="2179,152,2339,177"/>
+<area shape="poly" id="edge15_Node000002_Node000015" title=" " alt="" coords="2121,106,2230,149,2228,154,2119,111"/>
+<area shape="rect" id="Node000016" href="$d8/d36/signal_8c.html" title="Implementation of signal handling functions." alt="" coords="2719,233,2867,258"/>
+<area shape="poly" id="edge61_Node000002_Node000016" title=" " alt="" coords="2173,103,2301,123,2442,149,2617,192,2755,230,2754,235,2616,197,2441,155,2300,128,2172,108"/>
+<area shape="rect" id="Node000017" href="$d2/da6/elf_8c.html" title="Implementation of ELF file loading and handling functions." alt="" coords="244,233,369,258"/>
+<area shape="poly" id="edge22_Node000002_Node000017" title=" " alt="" coords="1985,95,1682,98,1273,106,866,124,697,137,570,155,501,172,434,194,332,235,330,230,432,189,499,166,569,149,696,132,865,118,1272,100,1682,92,1985,90"/>
+<area shape="rect" id="Node000018" href="$d1/d9e/elf_8h.html" title="Definitions for ELF file format structures and constants." alt="" coords="582,152,709,177"/>
+<area shape="poly" id="edge23_Node000002_Node000018" title=" " alt="" coords="1985,100,709,163,709,158,1985,95"/>
+<area shape="rect" id="Node000020" href="$df/d30/notify_8h.html" title="Generic notification primitive built on IPC endpoints." alt="" coords="134,152,279,177"/>
+<area shape="poly" id="edge27_Node000002_Node000020" title=" " alt="" coords="1985,98,1314,117,849,133,375,155,279,161,279,155,374,149,849,128,1313,111,1985,92"/>
+<area shape="rect" id="Node000022" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="1999,233,2158,258"/>
+<area shape="poly" id="edge30_Node000002_Node000022" title=" " alt="" coords="2081,118,2081,232,2076,232,2076,118"/>
+<area shape="rect" id="Node000023" href="$d7/d00/sched_8h.html" title="Definition of scheduling related functions." alt="" coords="3241,152,3389,177"/>
+<area shape="poly" id="edge31_Node000002_Node000023" title=" " alt="" coords="2172,95,3241,156,3240,162,2172,101"/>
+<area shape="rect" id="Node000040" href="$da/db7/router_8h.html" title="Kernel&#45;side service router." alt="" coords="1134,152,1293,177"/>
+<area shape="poly" id="edge63_Node000002_Node000040" title=" " alt="" coords="1985,103,1293,159,1293,154,1985,98"/>
+<area shape="poly" id="edge6_Node000006_Node000005" title=" " alt="" coords="1102,178,1348,230,1347,235,1100,183"/>
+<area shape="rect" id="Node000007" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="398,321,517,346"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="946,170,836,174,713,184,600,201,556,213,524,228,501,248,483,274,463,322,458,320,478,272,497,245,521,223,554,208,599,196,712,178,836,169,946,164"/>
+<area shape="rect" id="Node000010" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="1499,233,1613,258"/>
+<area shape="poly" id="edge10_Node000009_Node000010" title=" " alt="" coords="1828,183,1625,228,1597,235,1595,230,1623,223,1827,177"/>
+<area shape="rect" id="Node000011" href="$d5/db8/ipc__buf_8c.html" title="Implementation of bulk&#45;transfer helpers." alt="" coords="2182,233,2335,258"/>
+<area shape="poly" id="edge11_Node000009_Node000011" title=" " alt="" coords="1964,178,2207,230,2205,235,1963,183"/>
+<area shape="poly" id="edge12_Node000009_Node000012" title=" " alt="" coords="1900,191,1900,232,1895,232,1895,191"/>
+<area shape="poly" id="edge13_Node000009_Node000013" title=" " alt="" coords="1806,169,1579,173,1299,182,1047,200,958,212,927,220,908,228,885,248,867,274,848,321,843,319,863,271,881,244,905,223,926,215,957,207,1046,194,1298,177,1579,168,1806,164"/>
+<area shape="poly" id="edge16_Node000015_Node000003" title=" " alt="" coords="2298,180,2411,230,2409,235,2296,185"/>
+<area shape="poly" id="edge17_Node000015_Node000005" title=" " alt="" coords="2165,172,1862,189,1675,205,1487,228,1448,235,1447,230,1486,223,1674,200,1862,183,2164,166"/>
+<area shape="poly" id="edge18_Node000015_Node000011" title=" " alt="" coords="2261,191,2261,232,2256,232,2256,191"/>
+<area shape="poly" id="edge21_Node000015_Node000012" title=" " alt="" coords="2193,183,1950,235,1949,230,2192,178"/>
+<area shape="poly" id="edge19_Node000015_Node000014" title=" " alt="" coords="2324,178,2564,230,2563,235,2323,183"/>
+<area shape="poly" id="edge20_Node000015_Node000016" title=" " alt="" coords="2352,174,2518,194,2707,223,2744,230,2743,235,2706,228,2517,199,2352,179"/>
+<area shape="poly" id="edge24_Node000018_Node000007" title=" " alt="" coords="569,181,491,200,460,213,441,227,432,250,434,275,443,300,452,319,448,322,438,302,429,276,427,249,436,224,457,208,489,195,567,176"/>
+<area shape="poly" id="edge25_Node000018_Node000017" title=" " alt="" coords="583,183,356,235,355,230,582,178"/>
+<area shape="rect" id="Node000019" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="647,233,793,258"/>
+<area shape="poly" id="edge26_Node000018_Node000019" title=" " alt="" coords="667,185,711,231,707,234,664,189"/>
+<area shape="poly" id="edge28_Node000020_Node000007" title=" " alt="" coords="209,191,215,229,222,247,234,263,270,291,313,310,357,322,398,327,397,333,356,327,311,315,267,296,230,267,218,250,210,230,204,192"/>
+<area shape="rect" id="Node000021" href="$d4/da4/notify_8c.html" title="Implementation of the generic notification primitive." alt="" coords="25,233,169,258"/>
+<area shape="poly" id="edge29_Node000020_Node000021" title=" " alt="" coords="181,188,115,235,112,230,178,183"/>
+<area shape="poly" id="edge33_Node000023_Node000003" title=" " alt="" coords="3227,171,2915,188,2720,205,2524,228,2484,235,2483,230,2523,223,2720,199,2915,183,3226,166"/>
+<area shape="poly" id="edge35_Node000023_Node000004" title=" " alt="" coords="3252,183,3053,228,3052,223,3251,178"/>
+<area shape="poly" id="edge40_Node000023_Node000005" title=" " alt="" coords="3227,169,2870,174,2367,184,1859,201,1647,213,1487,228,1446,235,1445,230,1486,223,1647,208,1859,196,2367,178,2870,168,3227,164"/>
+<area shape="poly" id="edge41_Node000023_Node000007" title=" " alt="" coords="3296,189,3214,268,3167,277,3077,285,2796,297,2417,305,1989,310,757,316,517,330,517,325,757,311,1989,304,2417,300,2795,292,3077,280,3166,272,3212,263,3292,185"/>
+<area shape="poly" id="edge42_Node000023_Node000008" title=" " alt="" coords="3278,185,3165,235,3163,230,3276,180"/>
+<area shape="poly" id="edge38_Node000023_Node000010" title=" " alt="" coords="3227,169,2894,172,2430,181,1964,199,1771,212,1624,228,1592,235,1591,230,1623,223,1770,206,1964,194,2430,176,2894,167,3227,164"/>
+<area shape="poly" id="edge43_Node000023_Node000011" title=" " alt="" coords="3227,170,3063,174,2844,184,2597,201,2348,228,2307,235,2306,230,2347,223,2597,196,2844,179,3063,169,3227,164"/>
+<area shape="poly" id="edge48_Node000023_Node000012" title=" " alt="" coords="3227,168,3008,168,2701,175,2347,194,2165,209,1987,228,1945,235,1944,230,1986,223,2164,203,2346,188,2701,170,3008,163,3227,162"/>
+<area shape="poly" id="edge60_Node000023_Node000013" title=" " alt="" coords="3310,192,3292,232,3278,252,3258,268,3215,279,3131,288,2864,301,2505,308,2099,311,1330,311,1060,312,928,316,887,323,886,318,928,311,1060,307,1330,306,2099,306,2505,303,2864,296,3130,283,3214,274,3256,263,3274,248,3288,230,3306,190"/>
+<area shape="poly" id="edge44_Node000023_Node000014" title=" " alt="" coords="3227,174,2991,194,2849,209,2707,228,2667,235,2666,230,2706,223,2848,204,2991,188,3226,169"/>
+<area shape="poly" id="edge47_Node000023_Node000016" title=" " alt="" coords="3227,179,3066,199,2880,228,2844,235,2843,230,2879,223,3065,194,3226,173"/>
+<area shape="poly" id="edge46_Node000023_Node000019" title=" " alt="" coords="3227,170,2100,190,1412,208,907,228,794,238,793,233,906,223,1412,202,2100,185,3227,165"/>
+<area shape="poly" id="edge45_Node000023_Node000022" title=" " alt="" coords="3227,169,3036,171,2773,180,2473,198,2320,211,2170,228,2127,235,2126,230,2169,223,2319,206,2473,192,2773,175,3036,166,3227,163"/>
+<area shape="rect" id="Node000024" href="$d6/d85/hpet_8c.html" title="Implementation of HPET (High Precision Event Timer) functions." alt="" coords="4319,233,4486,258"/>
+<area shape="poly" id="edge32_Node000023_Node000024" title=" " alt="" coords="3403,165,3792,181,4045,198,4300,223,4347,230,4346,235,4300,228,4045,203,3792,186,3402,170"/>
+<area shape="rect" id="Node000025" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="3428,233,3593,258"/>
+<area shape="poly" id="edge34_Node000023_Node000025" title=" " alt="" coords="3357,180,3483,230,3481,235,3355,185"/>
+<area shape="rect" id="Node000026" href="$d0/d24/ehci_8c.html" title="EHCI (USB 2.0) host controller and mass storage." alt="" coords="3617,233,3796,258"/>
+<area shape="poly" id="edge36_Node000023_Node000026" title=" " alt="" coords="3385,177,3650,230,3649,235,3384,183"/>
+<area shape="rect" id="Node000027" href="$d0/d15/xhci_8c.html" title="Minimal xHCI host controller and USB HID pointer support." alt="" coords="3820,233,3999,258"/>
+<area shape="poly" id="edge37_Node000023_Node000027" title=" " alt="" coords="3402,172,3589,193,3808,223,3851,230,3850,235,3807,228,3589,199,3402,178"/>
+<area shape="rect" id="Node000028" href="$d2/d42/ipc_8c.html" title="Implementation of synchronous IPC endpoints." alt="" coords="4023,233,4142,258"/>
+<area shape="poly" id="edge39_Node000023_Node000028" title=" " alt="" coords="3402,166,3675,182,3843,199,4011,223,4044,230,4043,235,4010,228,3842,204,3675,188,3402,171"/>
+<area shape="rect" id="Node000029" href="$d8/d42/router_8c.html" title="Implementation of the kernel&#45;side service router." alt="" coords="1637,233,1795,258"/>
+<area shape="poly" id="edge49_Node000023_Node000029" title=" " alt="" coords="3227,170,2517,189,2108,206,1937,216,1808,228,1765,235,1764,230,1808,223,1937,211,2107,200,2517,183,3227,165"/>
+<area shape="poly" id="edge50_Node000023_Node000030" title=" " alt="" coords="3403,163,3614,166,3909,174,4249,192,4423,205,4594,223,4640,230,4640,235,4593,228,4422,211,4248,197,3909,179,3614,171,3402,169"/>
+<area shape="poly" id="edge51_Node000023_Node000031" title=" " alt="" coords="3402,165,4096,182,4495,199,4661,210,4787,223,4799,225,4799,230,4786,228,4661,215,4495,205,4096,188,3402,170"/>
+<area shape="poly" id="edge52_Node000023_Node000032" title=" " alt="" coords="3402,163,3599,165,3836,173,3948,180,4044,191,4116,205,4140,213,4155,223,4162,234,4165,245,4162,256,4155,268,4121,275,4042,283,3794,301,3277,331,3277,325,3794,296,4041,278,4120,269,4152,263,4158,254,4160,245,4158,236,4151,227,4138,218,4114,210,4043,196,3947,185,3835,178,3599,170,3402,168"/>
+<area shape="poly" id="edge53_Node000023_Node000033" title=" " alt="" coords="3402,163,3610,163,3862,171,3981,178,4084,189,4161,204,4187,213,4203,224,4212,239,4211,255,4202,270,4187,283,4147,306,4106,323,4104,318,4145,301,4184,279,4198,266,4206,253,4207,241,4199,227,4185,218,4159,209,4083,194,3981,183,3861,176,3610,169,3402,168"/>
+<area shape="poly" id="edge54_Node000023_Node000034" title=" " alt="" coords="3402,165,4173,182,4622,199,4809,210,4951,223,4995,230,4994,235,4950,228,4809,215,4622,205,4173,187,3402,170"/>
+<area shape="poly" id="edge55_Node000023_Node000035" title=" " alt="" coords="3402,164,3681,170,4036,180,4348,197,4451,209,4482,216,4499,223,4509,241,4508,257,4497,272,4480,285,4433,307,4384,323,4382,318,4431,302,4477,281,4493,268,4503,255,4504,242,4495,227,4481,221,4450,214,4348,203,4036,186,3681,175,3402,170"/>
+<area shape="poly" id="edge56_Node000023_Node000036" title=" " alt="" coords="3339,186,3354,204,3365,225,3369,247,3360,267,3346,274,3318,281,3228,292,2953,311,2640,325,2395,333,2395,327,2640,319,2953,306,3227,287,3317,275,3344,269,3357,263,3364,247,3360,227,3349,207,3335,189"/>
+<area shape="poly" id="edge57_Node000023_Node000037" title=" " alt="" coords="3403,163,3605,164,3849,172,3965,179,4064,190,4138,204,4163,213,4179,223,4186,234,4189,245,4179,267,4160,278,4124,288,4021,306,3792,329,3791,324,4020,300,4123,283,4157,273,4175,264,4183,245,4182,236,4175,227,4161,218,4137,209,4063,195,3964,184,3849,177,3605,169,3403,168"/>
+<area shape="rect" id="Node000038" href="$dc/d47/svc__monitor_8c.html" title="Restart a crashed service server." alt="" coords="941,321,1121,346"/>
+<area shape="poly" id="edge58_Node000023_Node000038" title=" " alt="" coords="3324,191,3326,230,3321,250,3309,268,3226,276,3017,285,2364,304,1121,333,1121,328,2364,299,3017,280,3225,271,3307,263,3316,248,3321,229,3318,191"/>
+<area shape="poly" id="edge59_Node000023_Node000039" title=" " alt="" coords="3402,165,3685,171,4047,183,4366,200,4472,210,4505,216,4523,223,4541,245,4551,273,4555,320,4550,321,4545,274,4536,248,4520,227,4504,222,4471,216,4366,205,4047,188,3685,177,3402,170"/>
+<area shape="poly" id="edge64_Node000040_Node000010" title=" " alt="" coords="1283,177,1487,223,1516,230,1514,235,1486,228,1282,183"/>
+<area shape="poly" id="edge67_Node000040_Node000012" title=" " alt="" coords="1306,170,1535,189,1807,223,1847,230,1846,235,1806,228,1534,195,1306,175"/>
+<area shape="poly" id="edge86_Node000040_Node000013" title=" " alt="" coords="1120,180,806,189,635,202,576,213,556,220,544,227,535,240,531,251,531,262,535,271,556,287,589,300,678,318,769,327,769,332,677,323,588,305,554,292,531,274,526,263,525,251,530,238,541,223,554,215,574,208,635,197,806,184,1119,174"/>
+<area shape="poly" id="edge66_Node000040_Node000019" title=" " alt="" coords="1121,181,812,228,774,235,773,230,811,223,1120,176"/>
+<area shape="poly" id="edge65_Node000040_Node000022" title=" " alt="" coords="1306,167,1610,184,1798,200,1987,223,2029,230,2028,235,1986,228,1797,206,1609,190,1306,172"/>
+<area shape="poly" id="edge68_Node000040_Node000029" title=" " alt="" coords="1307,175,1624,223,1663,230,1662,235,1623,228,1306,181"/>
+<area shape="poly" id="edge69_Node000040_Node000032" title=" " alt="" coords="1121,181,987,202,935,215,908,227,900,246,902,255,908,263,1200,276,1867,295,3120,327,3120,333,1866,300,1200,281,905,268,897,257,895,245,905,223,933,210,986,197,1120,175"/>
+<area shape="poly" id="edge70_Node000040_Node000033" title=" " alt="" coords="1209,191,1207,229,1211,248,1221,263,1257,271,1343,279,1635,291,2041,299,2504,304,3803,311,3990,323,3990,328,3802,316,2504,309,2041,304,1635,296,1343,284,1256,277,1218,268,1206,250,1202,230,1204,191"/>
+<area shape="poly" id="edge71_Node000040_Node000035" title=" " alt="" coords="1222,190,1240,230,1254,248,1272,263,1314,270,1412,276,1740,287,2712,300,4163,311,4263,320,4263,325,4162,316,2712,305,1740,292,1411,282,1313,275,1269,268,1250,252,1236,232,1217,192"/>
+<area shape="poly" id="edge72_Node000040_Node000036" title=" " alt="" coords="1120,180,855,192,712,205,662,215,636,227,630,236,628,245,630,254,636,263,654,268,698,274,851,284,1325,304,2240,328,2240,333,1325,309,851,290,698,279,653,273,633,268,625,257,623,245,625,234,633,223,661,210,711,200,854,187,1120,174"/>
+<area shape="poly" id="edge73_Node000040_Node000037" title=" " alt="" coords="1193,189,1178,208,1167,227,1163,247,1171,263,1200,270,1270,277,1509,288,2222,302,3288,311,3651,326,3651,331,3288,316,2222,307,1509,293,1269,282,1199,275,1168,267,1158,247,1162,226,1174,205,1189,186"/>
+<area shape="poly" id="edge74_Node000040_Node000038" title=" " alt="" coords="1120,180,832,191,675,204,621,214,603,220,592,227,564,254,545,268,541,272,555,272,668,278,777,289,928,311,971,318,970,323,927,316,776,294,668,283,554,277,536,274,542,264,561,250,589,223,600,216,619,209,675,199,832,185,1120,174"/>
+<area shape="poly" id="edge85_Node000040_Node000039" title=" " alt="" coords="1236,185,1316,263,1374,274,1487,283,1843,296,2323,303,2864,306,3887,307,4246,307,4423,311,4485,318,4484,323,4422,316,4246,313,3887,312,2864,312,2323,309,1843,302,1487,289,1373,279,1313,268,1232,189"/>
+<area shape="rect" id="Node000041" href="$d9/d48/svc__monitor_8h.html" title="Restart a crashed service server." alt="" coords="919,233,1100,258"/>
+<area shape="poly" id="edge75_Node000040_Node000041" title=" " alt="" coords="1172,185,1040,235,1038,230,1170,180"/>
+<area shape="poly" id="edge76_Node000041_Node000007" title=" " alt="" coords="922,263,517,325,516,320,922,258"/>
+<area shape="poly" id="edge84_Node000041_Node000013" title=" " alt="" coords="976,267,866,323,864,318,973,262"/>
+<area shape="poly" id="edge77_Node000041_Node000032" title=" " alt="" coords="1081,258,1119,263,1467,280,2062,299,3120,327,3120,333,2062,305,1466,286,1118,268,1080,263"/>
+<area shape="poly" id="edge78_Node000041_Node000033" title=" " alt="" coords="1107,257,1169,263,1570,285,1909,296,2207,299,2485,297,3062,293,3402,297,3803,311,3990,323,3990,328,3802,316,3401,302,3062,298,2485,302,2207,304,1909,301,1570,291,1169,268,1106,262"/>
+<area shape="poly" id="edge79_Node000041_Node000035" title=" " alt="" coords="1114,255,1220,263,1668,281,2047,288,2381,287,2691,282,3002,278,3336,279,3715,288,4163,311,4263,320,4263,325,4162,316,3715,294,3336,284,3002,284,2691,288,2381,292,2047,293,1668,286,1220,268,1114,260"/>
+<area shape="poly" id="edge80_Node000041_Node000036" title=" " alt="" coords="1082,258,1119,263,1445,292,1766,312,2043,323,2240,328,2240,333,2043,328,1765,317,1444,298,1118,268,1082,263"/>
+<area shape="poly" id="edge81_Node000041_Node000037" title=" " alt="" coords="1080,258,1119,263,1448,290,1727,305,1973,310,2202,309,2677,303,2957,303,3288,311,3651,326,3651,331,3288,316,2957,309,2677,308,2202,315,1973,315,1727,310,1448,295,1118,268,1079,263"/>
+<area shape="poly" id="edge82_Node000041_Node000038" title=" " alt="" coords="1018,271,1030,319,1025,321,1013,272"/>
+<area shape="poly" id="edge83_Node000041_Node000039" title=" " alt="" coords="1114,253,1271,263,1578,271,1960,275,2847,277,3734,284,4115,294,4423,311,4485,318,4484,323,4422,316,4115,299,3734,289,2847,283,1960,280,1578,276,1270,268,1114,258"/>
+<area shape="rect" id="Node000043" href="$d1/d8f/cat_8c.html" title="Implementation of the &#39;cat&#39; command for HanOS userspace." alt="" coords="5452,152,5599,177"/>
+<area shape="poly" id="edge98_Node000042_Node000043" title=" " alt="" coords="7802,97,6716,115,6078,132,5812,143,5611,155,5599,156,5598,150,5610,149,5812,137,6078,127,6716,109,7802,91"/>
+<area shape="rect" id="Node000044" href="$da/daf/echo_8c.html" title="Implementation of the &#39;echo&#39; command for HanOS userspace." alt="" coords="5623,152,5782,177"/>
+<area shape="poly" id="edge99_Node000042_Node000044" title=" " alt="" coords="7802,95,7461,96,6965,103,6386,121,6087,136,5795,155,5783,156,5782,150,5794,149,6087,130,6385,116,6965,97,7461,90,7802,89"/>
+<area shape="rect" id="Node000045" href="$d4/d22/edit_8c.html" title="A small full&#45;screen text editor for HanOS." alt="" coords="5807,152,5959,177"/>
+<area shape="poly" id="edge100_Node000042_Node000045" title=" " alt="" coords="7802,95,7485,96,7033,104,6507,122,6236,136,5971,155,5959,156,5959,150,5970,149,6236,131,6506,117,7032,99,7485,91,7802,90"/>
+<area shape="rect" id="Node000046" href="$df/dc6/hansh_8c.html" title="Implementation of the HanOS shell (hansh) for userspace." alt="" coords="5983,152,6150,177"/>
+<area shape="poly" id="edge101_Node000042_Node000046" title=" " alt="" coords="7802,96,7514,99,7108,108,6639,126,6161,155,6150,156,6150,150,6161,149,6638,120,7108,103,7514,94,7802,90"/>
+<area shape="rect" id="Node000047" href="$d8/d60/init_8c.html" title="Initialization process for HanOS userspace." alt="" coords="6174,152,6322,177"/>
+<area shape="poly" id="edge102_Node000042_Node000047" title=" " alt="" coords="7802,96,7539,100,7175,109,6758,126,6335,155,6322,156,6322,151,6334,149,6758,121,7175,104,7539,94,7802,91"/>
+<area shape="rect" id="Node000048" href="$de/d77/ls_8c.html" title="List directory contents." alt="" coords="6347,152,6485,177"/>
+<area shape="poly" id="edge103_Node000042_Node000048" title=" " alt="" coords="7802,96,7564,101,7240,110,6871,128,6497,155,6486,156,6485,151,6497,149,6871,122,7240,105,7564,95,7802,91"/>
+<area shape="rect" id="Node000049" href="$d6/d54/pwd_8c.html" title="Implementation of the &#39;pwd&#39; command for HanOS userspace." alt="" coords="6509,152,6664,177"/>
+<area shape="poly" id="edge104_Node000042_Node000049" title=" " alt="" coords="7802,98,7312,115,6995,131,6676,155,6664,156,6664,150,6676,149,6995,126,7311,109,7802,93"/>
+<area shape="rect" id="Node000050" href="$dc/d14/rm_8c.html" title="Implementation of the &#39;rm&#39; command for HanOS userspace." alt="" coords="6689,152,6834,177"/>
+<area shape="poly" id="edge105_Node000042_Node000050" title=" " alt="" coords="7802,99,7380,117,7114,133,6845,155,6834,156,6834,150,6845,149,7113,128,7380,111,7802,93"/>
+<area shape="rect" id="Node000051" href="$d3/d7a/wc_8c.html" title="Implementation of the &#39;wc&#39; command for HanOS userspace." alt="" coords="6858,152,7003,177"/>
+<area shape="poly" id="edge106_Node000042_Node000051" title=" " alt="" coords="7802,100,7450,120,7233,135,7015,155,7004,156,7003,151,7014,149,7232,130,7449,115,7802,95"/>
+<area shape="rect" id="Node000052" href="$de/dfe/2048_8c.html" title="A terminal 2048 for HanOS." alt="" coords="7027,152,7210,177"/>
+<area shape="poly" id="edge107_Node000042_Node000052" title=" " alt="" coords="7802,104,7223,155,7211,156,7210,151,7222,149,7802,99"/>
+<area shape="rect" id="Node000053" href="$d1/df2/snake_8c.html" title="A terminal Snake for HanOS." alt="" coords="7235,152,7424,177"/>
+<area shape="poly" id="edge108_Node000042_Node000053" title=" " alt="" coords="7811,108,7424,155,7424,149,7810,103"/>
+<area shape="rect" id="Node000054" href="$d5/db7/tetris_8c.html" title="A terminal Tetris for HanOS." alt="" coords="7449,152,7634,177"/>
+<area shape="poly" id="edge109_Node000042_Node000054" title=" " alt="" coords="7845,109,7603,155,7602,149,7844,104"/>
+<area shape="rect" id="Node000055" href="$db/df1/help_8h.html" title="Definition of help command related data structures." alt="" coords="7658,152,7790,177"/>
+<area shape="poly" id="edge110_Node000042_Node000055" title=" " alt="" coords="7876,111,7757,154,7755,149,7874,106"/>
+<area shape="rect" id="Node000057" href="$df/d13/sysfunc_8c.html" title="Implementation of system call functions." alt="" coords="7815,152,8023,177"/>
+<area shape="poly" id="edge112_Node000042_Node000057" title=" " alt="" coords="7921,118,7921,152,7916,152,7916,118"/>
+<area shape="poly" id="edge113_Node000042_Node000058" title=" " alt="" coords="8035,96,8402,117,8857,149,8870,150,8870,156,8857,155,8402,122,8035,101"/>
+<area shape="poly" id="edge114_Node000042_Node000059" title=" " alt="" coords="8035,94,8489,114,8779,130,9072,149,9085,150,9085,156,9072,155,8779,135,8489,119,8034,100"/>
+<area shape="poly" id="edge115_Node000042_Node000060" title=" " alt="" coords="8035,92,8582,110,8940,126,9303,149,9314,150,9314,156,9302,155,8940,132,8582,115,8035,98"/>
+<area shape="poly" id="edge116_Node000042_Node000061" title=" " alt="" coords="8035,92,8665,107,9084,124,9511,149,9523,150,9522,156,9510,155,9084,130,8665,113,8035,97"/>
+<area shape="poly" id="edge117_Node000042_Node000062" title=" " alt="" coords="8035,91,8331,95,8749,105,9232,122,9724,149,9737,150,9736,156,9724,155,9232,127,8749,110,8331,100,8035,96"/>
+<area shape="poly" id="edge118_Node000042_Node000063" title=" " alt="" coords="8035,90,8361,93,8831,101,9378,119,9660,132,9936,149,9949,150,9949,156,9936,155,9660,138,9378,124,8831,106,8361,98,8035,95"/>
+<area shape="poly" id="edge119_Node000042_Node000064" title=" " alt="" coords="8035,90,8390,91,8909,99,9516,117,9830,131,10137,149,10150,150,10149,156,10137,155,9830,136,9516,122,8909,104,8390,97,8035,95"/>
+<area shape="poly" id="edge120_Node000042_Node000065" title=" " alt="" coords="8035,90,8419,92,8988,99,9658,117,10005,131,10344,149,10357,150,10357,156,10344,155,10004,137,9658,123,8988,105,8419,97,8035,95"/>
+<area shape="poly" id="edge121_Node000042_Node000066" title=" " alt="" coords="8035,91,9282,109,10027,126,10339,137,10575,149,10587,150,10586,156,10574,155,10339,142,10027,131,9282,114,8035,96"/>
+<area shape="poly" id="edge122_Node000042_Node000067" title=" " alt="" coords="8035,91,9372,108,10177,125,10514,137,10769,149,10782,150,10781,156,10769,155,10514,142,10177,131,9372,113,8035,96"/>
+<area shape="rect" id="Node000068" href="$da/d25/cloexectest_8c.html" title="Check that O_CLOEXEC descriptors are marked and closed on exec." alt="" coords="8047,152,8254,177"/>
+<area shape="poly" id="edge123_Node000042_Node000068" title=" " alt="" coords="7969,105,8114,149,8112,154,7968,110"/>
+<area shape="rect" id="Node000069" href="$d0/d57/crtest_8c.html" title="Create, write and re&#45;read a file through the VFS server." alt="" coords="8278,152,8447,177"/>
+<area shape="poly" id="edge124_Node000042_Node000069" title=" " alt="" coords="8004,104,8291,149,8291,155,8003,109"/>
+<area shape="rect" id="Node000070" href="$dc/dc1/fdtest_8c.html" title="Check that a server&#45;backed fd is shared correctly across fork." alt="" coords="8472,152,8643,177"/>
+<area shape="poly" id="edge125_Node000042_Node000070" title=" " alt="" coords="8035,103,8459,149,8472,151,8471,156,8458,155,8035,108"/>
+<area shape="rect" id="Node000071" href="$db/d54/nettest_8c.html" title="Loop a datagram through the userspace network server." alt="" coords="8667,152,8845,177"/>
+<area shape="poly" id="edge126_Node000042_Node000071" title=" " alt="" coords="8036,98,8318,120,8655,149,8667,151,8666,156,8654,155,8317,125,8035,104"/>
+<area shape="rect" id="Node000056" href="$db/d9f/help_8c.html" title="Implementation of the &#39;help&#39; command." alt="" coords="7647,233,7801,258"/>
+<area shape="poly" id="edge111_Node000055_Node000056" title=" " alt="" coords="7727,191,7727,232,7721,232,7721,191"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="stat_t" name="stat_t">
+<area shape="rect" id="Node000001" title="File status metadata." alt="" coords="23,123,82,148"/>
+<area shape="rect" id="Node000002" href="$dd/d5d/structtimespec__t.html" title="A time value with seconds and nanoseconds." alt="" coords="5,5,100,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="55,44,55,123,50,123,50,44"/>
+</map>

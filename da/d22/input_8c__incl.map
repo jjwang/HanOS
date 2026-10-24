@@ -1,0 +1,35 @@
+<map id="userspace/servers/input.c" name="userspace/servers/input.c">
+<area shape="rect" id="Node000001" title="Userspace PS/2 keyboard, mouse and serial input server." alt="" coords="129,5,317,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,152,88,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="144,33,99,51,79,64,62,80,54,93,50,108,47,138,42,137,44,107,49,91,58,77,76,60,97,46,142,28"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="415,299,486,324"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="220,32,206,72,193,130,191,161,193,193,202,222,217,249,228,259,246,268,294,283,402,302,401,307,293,288,244,273,225,263,213,252,197,224,188,193,186,161,188,129,201,71,215,30"/>
+<area shape="rect" id="Node000004" href="$da/d7c/bootinfo_8h.html" title="Startup information passed to a userspace server." alt="" coords="227,225,315,251"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="228,30,268,211,263,212,223,32"/>
+<area shape="rect" id="Node000005" href="$d4/d08/keycode_8h.html" title="Keycode definitions for keyboard driver." alt="" coords="72,79,160,104"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="207,33,146,73,143,69,204,28"/>
+<area shape="rect" id="Node000006" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="318,152,402,177"/>
+<area shape="poly" id="edge8_Node000001_Node000006" title=" " alt="" coords="236,29,283,77,342,140,338,143,279,81,233,33"/>
+<area shape="rect" id="Node000008" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="597,79,661,104"/>
+<area shape="poly" id="edge13_Node000001_Node000008" title=" " alt="" coords="288,28,584,79,583,85,288,33"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="301,248,410,291,408,296,299,253"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="106,106,69,144,65,140,103,102"/>
+<area shape="poly" id="edge7_Node000005_Node000003" title=" " alt="" coords="119,104,122,134,130,173,146,214,158,233,172,249,189,259,212,268,273,284,402,303,401,308,272,289,210,273,186,264,169,253,153,236,141,217,125,174,117,134,114,105"/>
+<area shape="poly" id="edge9_Node000006_Node000003" title=" " alt="" coords="378,175,403,196,426,224,441,255,449,284,444,286,436,256,422,227,399,200,375,179"/>
+<area shape="poly" id="edge12_Node000006_Node000004" title=" " alt="" coords="347,179,298,219,294,214,344,175"/>
+<area shape="rect" id="Node000007" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="339,225,413,251"/>
+<area shape="poly" id="edge10_Node000006_Node000007" title=" " alt="" coords="365,177,373,212,368,213,360,178"/>
+<area shape="poly" id="edge11_Node000007_Node000003" title=" " alt="" coords="390,249,430,287,427,291,386,253"/>
+<area shape="poly" id="edge14_Node000008_Node000003" title=" " alt="" coords="636,104,644,132,650,171,648,213,642,234,631,252,604,278,570,296,534,306,500,311,499,306,533,301,568,291,601,274,627,249,637,232,642,212,644,171,639,133,631,105"/>
+<area shape="rect" id="Node000009" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="693,152,816,177"/>
+<area shape="poly" id="edge15_Node000008_Node000009" title=" " alt="" coords="651,102,724,143,721,147,648,106"/>
+<area shape="rect" id="Node000012" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="489,225,618,251"/>
+<area shape="poly" id="edge20_Node000008_Node000012" title=" " alt="" coords="625,106,568,215,563,212,621,103"/>
+<area shape="poly" id="edge16_Node000009_Node000003" title=" " alt="" coords="749,179,720,216,699,236,676,253,632,274,585,290,500,308,499,302,584,285,630,269,673,248,696,232,716,212,745,176"/>
+<area shape="rect" id="Node000010" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="745,225,866,251"/>
+<area shape="poly" id="edge17_Node000009_Node000010" title=" " alt="" coords="765,176,791,213,787,216,761,179"/>
+<area shape="poly" id="edge18_Node000010_Node000003" title=" " alt="" coords="749,253,500,303,499,298,748,248"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="719,299,891,324"/>
+<area shape="poly" id="edge19_Node000010_Node000011" title=" " alt="" coords="808,251,808,285,803,285,803,251"/>
+<area shape="poly" id="edge21_Node000012_Node000003" title=" " alt="" coords="538,253,480,293,477,288,535,248"/>
+</map>

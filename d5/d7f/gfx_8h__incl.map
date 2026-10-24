@@ -1,0 +1,13 @@
+<map id="kernel/device/display/gfx.h" name="kernel/device/display/gfx.h">
+<area shape="rect" id="Node000001" title="Graphics device handling definitions." alt="" coords="69,5,229,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,167,88,192"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="127,48,104,69,82,95,67,125,56,154,51,152,62,122,78,92,100,65,123,44"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="211,167,282,192"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="176,44,200,65,221,92,235,123,244,152,239,154,231,124,216,95,196,69,173,48"/>
+<area shape="rect" id="Node000004" href="$d9/d97/pci_8h.html" title="Definition of PCI related data structures and functions." alt="" coords="93,93,206,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="152,46,152,79,147,79,147,46"/>
+<area shape="poly" id="edge6_Node000004_Node000002" title=" " alt="" coords="134,121,76,161,73,156,131,116"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="167,117,221,156,218,160,163,121"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="112,167,187,192"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="152,119,152,153,147,153,147,119"/>
+</map>

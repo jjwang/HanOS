@@ -1,0 +1,9 @@
+<map id="kernel/device/display/skl_display.h" name="kernel/device/display/skl_display.h">
+<area shape="rect" id="Node000001" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="189,5,349,45"/>
+<area shape="rect" id="Node000002" href="$dc/d51/edid_8c.html" title="EDID reading and validation." alt="" coords="5,93,165,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="218,54,127,96,124,91,215,49"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="189,93,349,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="272,59,272,93,267,93,267,59"/>
+<area shape="rect" id="Node000004" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="373,93,533,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="323,49,414,91,412,96,321,54"/>
+</map>

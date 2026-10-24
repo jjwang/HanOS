@@ -1,0 +1,21 @@
+<map id="kernel/device/display/display_mode.h" name="kernel/device/display/display_mode.h">
+<area shape="rect" id="Node000001" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="340,5,500,45"/>
+<area shape="rect" id="Node000002" href="$d1/de2/display__mode_8c.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="39,93,199,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="341,52,185,96,184,91,340,47"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html" title="Implementation of graphics device handling." alt="" coords="373,181,533,221"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="429,59,452,181,447,182,424,60"/>
+<area shape="rect" id="Node000004" href="$d2/d93/skl__display_8h.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="223,93,383,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="384,56,330,95,327,91,381,52"/>
+<area shape="rect" id="Node000007" href="$d4/dbe/vbt_8h.html" title="VBT panel timing reader." alt="" coords="457,93,617,133"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="459,52,513,91,510,95,456,56"/>
+<area shape="rect" id="Node000009" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="642,101,761,126"/>
+<area shape="poly" id="edge10_Node000001_Node000009" title=" " alt="" coords="495,47,665,98,663,103,494,52"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="349,138,422,179,419,184,346,142"/>
+<area shape="rect" id="Node000005" href="$dc/d51/edid_8c.html" title="EDID reading and validation." alt="" coords="5,181,165,221"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="243,141,134,184,132,179,241,136"/>
+<area shape="rect" id="Node000006" href="$d0/d6e/skl__display_8c.html" title="Skylake Gen9 display modeset for the primary eDP port (DDI&#45;A)" alt="" coords="189,181,349,221"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="293,147,279,182,274,180,288,145"/>
+<area shape="poly" id="edge8_Node000007_Node000003" title=" " alt="" coords="511,145,474,183,470,179,507,141"/>
+<area shape="rect" id="Node000008" href="$d0/daa/vbt_8c.html" title="VBT panel timing reader." alt="" coords="557,181,717,221"/>
+<area shape="poly" id="edge9_Node000007_Node000008" title=" " alt="" coords="572,140,617,179,613,183,568,144"/>
+</map>
