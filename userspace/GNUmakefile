@@ -29,6 +29,12 @@ VTERM_NAMES := encoding keyboard mouse parser pen screen state unicode vterm
 VTERM_C     := $(addprefix $(VTERM_BUILD)/src/,$(addsuffix .c,$(VTERM_NAMES)))
 VTERM_OBJS  := $(VTERM_C:.c=.o)
 
+# The .tbl files arrive with the downloaded tarball. Keep make from deleting
+# them as intermediate files after generating the .inc tables.
+VTERM_TABLES := $(VTERM_BUILD)/src/encoding/uk.tbl \
+                $(VTERM_BUILD)/src/encoding/DECdrawing.tbl
+.SECONDARY: $(VTERM_TABLES)
+
 LC_FLAGS :=                 \
 	-std=gnu11              \
 	-nostdinc               \
@@ -127,10 +133,29 @@ $(ASM_OBJS): %.o: %.asm
 	@$(NASM) $(ASM_FLAGS) $< -o $@
 
 $(VTERM_STAMP):
-	@mkdir -p $(VTERM_BUILD)
-	curl -L https://github.com/neovim/libvterm/archive/refs/tags/v0.3.3.tar.gz \
-		| tar xz -C $(VTERM_BUILD) --strip-components=1
-	@touch $@
+	@set -e; \
+	tmp=$$(mktemp); \
+	trap 'rm -f $$tmp' EXIT; \
+	ok=0; \
+	for attempt in 1 2 3 4 5; do \
+		if curl -fL --retry 5 --retry-delay 2 --retry-connrefused \
+			-o $$tmp https://github.com/neovim/libvterm/archive/refs/tags/v0.3.3.tar.gz; then \
+			ok=1; break; \
+		fi; \
+		sleep $$((attempt * 2)); \
+	done; \
+	[ $$ok -eq 1 ]; \
+	tar -tzf $$tmp >/dev/null; \
+	rm -rf $(VTERM_BUILD); \
+	mkdir -p $(VTERM_BUILD); \
+	tar -xzf $$tmp -C $(VTERM_BUILD) --strip-components=1; \
+	test -f $(VTERM_BUILD)/src/encoding/uk.tbl; \
+	test -f $(VTERM_BUILD)/src/encoding/DECdrawing.tbl; \
+	test -f $(VTERM_BUILD)/tbl2inc_c.pl; \
+	touch $@
+
+$(VTERM_BUILD)/include/%.h: $(VTERM_STAMP)
+	@test -f $@
 
 $(VTERM_BUILD)/src/%.c: $(VTERM_STAMP)
 	@test -f $@

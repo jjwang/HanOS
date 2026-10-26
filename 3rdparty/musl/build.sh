@@ -15,9 +15,25 @@ AR=${AR:-x86_64-elf-ar}
 RANLIB=${RANLIB:-x86_64-elf-ranlib}
 
 if [ ! -f "$BUILD/src/stdio/printf.c" ]; then
+    tmp=$(mktemp)
+    trap 'rm -f "$tmp"' EXIT
+    ok=0
+    for attempt in 1 2 3 4 5; do
+        if curl -fL --retry 5 --retry-delay 2 --retry-connrefused \
+            -o "$tmp" https://musl.libc.org/releases/musl-1.2.5.tar.gz; then
+            ok=1
+            break
+        fi
+        sleep $((attempt * 2))
+    done
+    [ "$ok" -eq 1 ]
+    tar -tzf "$tmp" >/dev/null
+    rm -rf "$BUILD"
     mkdir -p "$BUILD"
-    curl -L https://musl.libc.org/releases/musl-1.2.5.tar.gz \
-        | tar xz -C "$BUILD" --strip-components=1
+    tar -xzf "$tmp" -C "$BUILD" --strip-components=1
+    test -f "$BUILD/src/stdio/printf.c"
+    test -f "$BUILD/configure"
+    test -f "$BUILD/Makefile"
 fi
 
 cp "$OVERLAY/syscall_arch.h" "$BUILD/arch/x86_64/syscall_arch.h"
