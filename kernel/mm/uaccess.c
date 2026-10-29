@@ -82,8 +82,9 @@ uint64_t uaccess_find_fixup(uint64_t rip)
 #define __uaccess_get8(dst, src) \
 ({ \
     uint64_t __v, __e = 0; \
+    uint64_t __a = (uint64_t) (src); \
     asm volatile( \
-        "1:\tmovq %[m], %[v]\n" \
+        "1:\tmovq (%[a]), %[v]\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
         "3:\tmovq $1, %[e]\n" \
@@ -94,7 +95,7 @@ uint64_t uaccess_find_fixup(uint64_t rip)
         ".quad 1b, 3b\n" \
         ".popsection\n" \
         : [v] "=r"(__v), [e] "+r"(__e) \
-        : [m] "m"(*(const uint64_t *)(src)) \
+        : [a] "r"(__a) \
         : "memory"); \
     if (!__e) \
         *(uint64_t *)(dst) = __v; \
@@ -104,8 +105,9 @@ uint64_t uaccess_find_fixup(uint64_t rip)
 #define __uaccess_get1(dst, src) \
 ({ \
     uint8_t __v; uint64_t __e = 0; \
+    uint64_t __a = (uint64_t) (src); \
     asm volatile( \
-        "1:\tmovb %[m], %[v]\n" \
+        "1:\tmovb (%[a]), %[v]\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
         "3:\tmovq $1, %[e]\n" \
@@ -116,7 +118,7 @@ uint64_t uaccess_find_fixup(uint64_t rip)
         ".quad 1b, 3b\n" \
         ".popsection\n" \
         : [v] "=q"(__v), [e] "+r"(__e) \
-        : [m] "m"(*(const uint8_t *)(src)) \
+        : [a] "r"(__a) \
         : "memory"); \
     if (!__e) \
         *(uint8_t *)(dst) = __v; \
@@ -126,8 +128,9 @@ uint64_t uaccess_find_fixup(uint64_t rip)
 #define __uaccess_put8(val, dst) \
 ({ \
     uint64_t __e = 0; uint64_t __v = (val); \
+    uint64_t __a = (uint64_t) (dst); \
     asm volatile( \
-        "1:\tmovq %[v], %[m]\n" \
+        "1:\tmovq %[v], (%[a])\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
         "3:\tmovq $1, %[e]\n" \
@@ -137,8 +140,8 @@ uint64_t uaccess_find_fixup(uint64_t rip)
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [m] "=m"(*(uint64_t *)(dst)), [e] "+r"(__e) \
-        : [v] "r"(__v) \
+        : [e] "+r"(__e) \
+        : [a] "r"(__a), [v] "r"(__v) \
         : "memory"); \
     __e; \
 })
@@ -146,8 +149,9 @@ uint64_t uaccess_find_fixup(uint64_t rip)
 #define __uaccess_put1(val, dst) \
 ({ \
     uint64_t __e = 0; uint8_t __v = (val); \
+    uint64_t __a = (uint64_t) (dst); \
     asm volatile( \
-        "1:\tmovb %[v], %[m]\n" \
+        "1:\tmovb %[v], (%[a])\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
         "3:\tmovq $1, %[e]\n" \
@@ -157,8 +161,8 @@ uint64_t uaccess_find_fixup(uint64_t rip)
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [m] "=m"(*(uint8_t *)(dst)), [e] "+r"(__e) \
-        : [v] "q"(__v) \
+        : [e] "+r"(__e) \
+        : [a] "r"(__a), [v] "q"(__v) \
         : "memory"); \
     __e; \
 })
