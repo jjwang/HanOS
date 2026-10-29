@@ -63,15 +63,22 @@ static void test_addrspace_free(addrspace_t * as)
     kmfree(as);
 }
 
+#define SELFTEST_FAIL(label) do {       \
+        ok = false;                     \
+        if (failed == NULL)             \
+            failed = (label);           \
+    } while (0)
+
 _Noreturn void mk_selftest_process(pid_t pid)
 {
     (void) pid;
 
     bool ok = true;
+    const char *failed = NULL;
     endpoint_t *ep = endpoint_create();
 
     if (ep == NULL) {
-        ok = false;
+        SELFTEST_FAIL("endpoint_create");
     } else {
         ipc_msg_t m;
         memset(&m, 0, sizeof(m));
@@ -79,30 +86,30 @@ _Noreturn void mk_selftest_process(pid_t pid)
         m.words[0] = 0xABCDEF;
 
         if (ipc_send(ep, &m) != 0)
-            ok = false;
+            SELFTEST_FAIL("ipc_send");
 
         ipc_msg_t r;
         if (ipc_recv_timeout(ep, &r, 100) != 0 || r.tag != 0x1234
             || r.words[0] != 0xABCDEF)
-            ok = false;
+            SELFTEST_FAIL("ipc_recv");
 
         /* An empty endpoint must time out instead of blocking forever. */
         ipc_msg_t r2;
         if (ipc_recv_timeout(ep, &r2, 10) == 0)
-            ok = false;
+            SELFTEST_FAIL("ipc_timeout");
 
         /* Handle table round trip. */
         process_t *t = sched_get_current_process();
         handle_t h = handle_alloc(&t->handles, endpoint_object(ep),
                                   HANDLE_RIGHT_SEND | HANDLE_RIGHT_RECV);
         if (h == HANDLE_INVALID) {
-            ok = false;
+            SELFTEST_FAIL("handle_alloc");
         } else {
             kernel_object_t *o = handle_get(&t->handles, h, HANDLE_RIGHT_SEND);
             if (o == NULL || o->type != OBJ_ENDPOINT)
-                ok = false;
+                SELFTEST_FAIL("handle_get");
             if (handle_close(&t->handles, h) != 0)
-                ok = false;
+                SELFTEST_FAIL("handle_close");
         }
 
         object_unref(endpoint_object(ep));
@@ -114,16 +121,16 @@ _Noreturn void mk_selftest_process(pid_t pid)
         irq_obj_t *io = irq_create(20);
         endpoint_t *iep = endpoint_create();
         if (io == NULL || iep == NULL) {
-            ok = false;
+            SELFTEST_FAIL("irq_create");
         } else {
             irq_bind(io, iep);
             if (!irq_deliver(20))
-                ok = false;
+                SELFTEST_FAIL("irq_deliver");
 
             ipc_msg_t im;
             if (ipc_recv_timeout(iep, &im, 100) != 0
                 || im.tag != IRQ_NOTIFY_TAG || im.words[0] != 20)
-                ok = false;
+                SELFTEST_FAIL("irq_recv");
 
             object_unref(endpoint_object(iep));
             object_unref(irq_object(io));
@@ -140,30 +147,30 @@ _Noreturn void mk_selftest_process(pid_t pid)
         addrspace_t *b = test_addrspace();
 
         if (m == NULL || a == NULL || b == NULL) {
-            ok = false;
+            SELFTEST_FAIL("memobj_create");
         } else {
             uint64_t p0 = memobj_page(m, 0);
             uint64_t p1 = memobj_page(m, 1);
 
             if (p0 == 0 || p1 == 0 || p0 == p1)
-                ok = false;
+                SELFTEST_FAIL("memobj_pages");
 
             if (memobj_map(m, a, va, PROT_READ | PROT_WRITE) != 0
                 || memobj_map(m, b, va, PROT_READ | PROT_WRITE) != 0)
-                ok = false;
+                SELFTEST_FAIL("memobj_map");
 
             if (vmm_get_paddr(a, va) != p0
                 || vmm_get_paddr(a, va + PAGE_SIZE) != p1
                 || vmm_get_paddr(b, va) != p0
                 || vmm_get_paddr(b, va + PAGE_SIZE) != p1)
-                ok = false;
+                SELFTEST_FAIL("memobj_paddr");
 
             /* Exchange data: write through one mapping, read the other. */
             *(uint64_t *) PHYS_TO_VIRT(vmm_get_paddr(a, va)) =
                 0x1122334455667788ULL;
             if (*(uint64_t *) PHYS_TO_VIRT(vmm_get_paddr(b, va))
                 != 0x1122334455667788ULL)
-                ok = false;
+                SELFTEST_FAIL("memobj_data");
 
             memobj_unmap(m, a, va);
             memobj_unmap(m, b, va);
@@ -184,7 +191,7 @@ _Noreturn void mk_selftest_process(pid_t pid)
         memobj_t *mo = memobj_create(PAGE_SIZE);
 
         if (tep == NULL || mo == NULL) {
-            ok = false;
+            SELFTEST_FAIL("xfer_create");
         } else {
             kernel_object_t *send_obj = memobj_object(mo);
             uint32_t sright = HANDLE_RIGHT_READ | HANDLE_RIGHT_MAP;
@@ -195,7 +202,7 @@ _Noreturn void mk_selftest_process(pid_t pid)
             m.tag = 0xBEEF;
 
             if (ipc_send_objs(tep, &m, &send_obj, &sright, 1) != 0)
-                ok = false;
+                SELFTEST_FAIL("xfer_send");
 
             ipc_msg_t r;
             kernel_object_t *got[2];
@@ -205,7 +212,7 @@ _Noreturn void mk_selftest_process(pid_t pid)
             if (ipc_recv_timeout_objs(tep, &r, got, gright, &gn, 100) != 0
                 || gn != 1 || got[0] != send_obj || gright[0] != sright
                 || r.tag != 0xBEEF)
-                ok = false;
+                SELFTEST_FAIL("xfer_recv");
             if (gn == 1)
                 object_unref(got[0]);   /* the receiver's reference */
 
@@ -220,13 +227,17 @@ _Noreturn void mk_selftest_process(pid_t pid)
     if (ok) {
         uint64_t dst = 0;
         if (copy_from_user(&dst, (const void *) 0x1000, sizeof(dst)) == 0)
-            ok = false;
+            SELFTEST_FAIL("copy_from");
         if (copy_to_user((void *) 0x1000, &dst, sizeof(dst)) == 0)
-            ok = false;
+            SELFTEST_FAIL("copy_to");
     }
 
+    if (!ok)
+        klogi("MK: selftest fail: %s\n", failed);
     klogi("MK: selftest %s\n", ok ? "PASS" : "FAIL");
 
     for (;;)
         asm volatile ("hlt");
 }
+
+#undef SELFTEST_FAIL
