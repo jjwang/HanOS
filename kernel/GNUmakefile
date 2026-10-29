@@ -29,6 +29,7 @@ LD_FLAGS     :=             \
     -Wno-lto-type-mismatch  \
     -no-pie                 \
     -nostdlib               \
+    -Wl,--build-id=none     \
     -Tlinker.ld             \
     -z max-page-size=0x2000 \
     -I .                    \
