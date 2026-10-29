@@ -1,0 +1,39 @@
+name: Build and boot
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
+            build-essential nasm xorriso mtools gdisk e2fsprogs \
+            qemu-system-x86 perl curl git ca-certificates
+          sudo tee /usr/local/bin/x86_64-elf-gcc >/dev/null <<'WRAP'
+          #!/bin/sh
+          exec gcc -fno-pie "$@"
+          WRAP
+          sudo chmod +x /usr/local/bin/x86_64-elf-gcc
+          sudo ln -sf "$(command -v ar)" /usr/local/bin/x86_64-elf-ar
+          sudo ln -sf "$(command -v ranlib)" /usr/local/bin/x86_64-elf-ranlib
+
+      - name: Build kernel
+        run: make -C kernel
+
+      - name: Build userspace
+        run: make -C userspace
+
+      - name: Build ISO
+        run: make
+
+      - name: Boot test
+        run: ./scripts/ci-boot-test.sh
