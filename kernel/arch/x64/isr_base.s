@@ -126,13 +126,17 @@ exc\excno:
 exc\excno:
     /* Only apply to Exception 14 (Page Fault) - prevent recursive fault */
     .if \excno == 14
-        /* Step 1: Emergency restore kernel segment registers */
+        /* Step 1: Emergency restore kernel segment registers. Keep the
+         * faulting %rax intact: it is part of the interrupted context and a
+         * fixup may resume at an instruction that still relies on it. */
+        push %rax
         mov $0x10, %rax     /* Kernel data segment selector (refer to process.h) */
         mov %rax, %ds       /* Restore DS to valid kernel data segment */
         mov %rax, %es       /* Restore ES */
         mov %rax, %ss       /* Restore SS (critical for stack operations) */
         xor %rax, %rax          
         mov %rax, %fs       /* Clear FS (user-specific) */
+        pop %rax
         /* GS.base stays the per-CPU pointer. Clearing it breaks the
          * syscall handler, which reads the per-CPU errno through %gs. */
         cli                 /* Disable interrupts to avoid nested faults */
