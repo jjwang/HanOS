@@ -153,10 +153,6 @@ void exc_handler_proc(
          * fixup so the copy reports -EFAULT instead of killing the kernel. */
         uint64_t fixup = uaccess_find_fixup(tr->rip);
         if (fixup != 0) {
-            uint64_t uaddr;
-            read_cr("cr2", &uaddr);
-            klogi("MK: uaccess fault addr=0x%016lx err=0x%lx rip=0x%016lx\n",
-                  uaddr, errcode, tr->rip);
             tr->rip = fixup;
             return;
         }

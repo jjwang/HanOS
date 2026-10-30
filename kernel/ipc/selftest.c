@@ -228,15 +228,9 @@ _Noreturn void mk_selftest_process(pid_t pid)
     if (ok) {
         uint64_t dst = 0;
         uint64_t bad = 0x00007ffff0000000ULL;
-        uint64_t lf = copy_from_user(&dst, (const void *) 0x1000, sizeof(dst));
-        uint64_t lt = copy_to_user((void *) 0x1000, &dst, sizeof(dst));
-        uint64_t hf = copy_from_user(&dst, (const void *) bad, sizeof(dst));
-        uint64_t ht = copy_to_user((void *) bad, &dst, sizeof(dst));
-
-        klogi("MK: selftest copy: low %lu/%lu high %lu/%lu\n", lf, lt, hf, ht);
-        if (hf == 0)
+        if (copy_from_user(&dst, (const void *) bad, sizeof(dst)) == 0)
             SELFTEST_FAIL("copy_from");
-        if (ht == 0)
+        if (copy_to_user((void *) bad, &dst, sizeof(dst)) == 0)
             SELFTEST_FAIL("copy_to");
     }
 
