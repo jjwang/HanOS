@@ -77,3 +77,5 @@ if grep -aEq 'panic|exception|corrupt' "$LOG"; then
 fi
 
 echo "boot test PASS"
+echo "--- serial log ---"
+cat "$LOG"
