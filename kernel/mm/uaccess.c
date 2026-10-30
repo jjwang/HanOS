@@ -81,90 +81,94 @@ uint64_t uaccess_find_fixup(uint64_t rip)
 
 #define __uaccess_get8(dst, src) \
 ({ \
-    uint64_t __v, __e = 0; \
+    uint64_t __v; \
+    volatile uint64_t __f = 0; \
     uint64_t __a = (uint64_t) (src); \
     asm volatile( \
         "1:\tmovq (%[a]), %[v]\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
-        "3:\tmovq $1, %[e]\n" \
+        "3:\tmovq $1, %[f]\n" \
         "jmp 2b\n" \
         ".previous\n" \
         ".pushsection __ex_table,\"a\"\n" \
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [v] "=r"(__v), [e] "+r"(__e) \
+        : [v] "=r"(__v), [f] "+m"(__f) \
         : [a] "r"(__a) \
         : "memory"); \
-    if (!__e) \
+    if (!__f) \
         *(uint64_t *)(dst) = __v; \
-    __e; \
+    __f; \
 })
 
 #define __uaccess_get1(dst, src) \
 ({ \
-    uint8_t __v; uint64_t __e = 0; \
+    uint8_t __v; \
+    volatile uint64_t __f = 0; \
     uint64_t __a = (uint64_t) (src); \
     asm volatile( \
         "1:\tmovb (%[a]), %[v]\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
-        "3:\tmovq $1, %[e]\n" \
+        "3:\tmovq $1, %[f]\n" \
         "jmp 2b\n" \
         ".previous\n" \
         ".pushsection __ex_table,\"a\"\n" \
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [v] "=q"(__v), [e] "+r"(__e) \
+        : [v] "=q"(__v), [f] "+m"(__f) \
         : [a] "r"(__a) \
         : "memory"); \
-    if (!__e) \
+    if (!__f) \
         *(uint8_t *)(dst) = __v; \
-    __e; \
+    __f; \
 })
 
 #define __uaccess_put8(val, dst) \
 ({ \
-    uint64_t __e = 0; uint64_t __v = (val); \
+    uint64_t __v = (val); \
+    volatile uint64_t __f = 0; \
     uint64_t __a = (uint64_t) (dst); \
     asm volatile( \
         "1:\tmovq %[v], (%[a])\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
-        "3:\tmovq $1, %[e]\n" \
+        "3:\tmovq $1, %[f]\n" \
         "jmp 2b\n" \
         ".previous\n" \
         ".pushsection __ex_table,\"a\"\n" \
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [e] "+r"(__e) \
+        : [f] "+m"(__f) \
         : [a] "r"(__a), [v] "r"(__v) \
         : "memory"); \
-    __e; \
+    __f; \
 })
 
 #define __uaccess_put1(val, dst) \
 ({ \
-    uint64_t __e = 0; uint8_t __v = (val); \
+    uint8_t __v = (val); \
+    volatile uint64_t __f = 0; \
     uint64_t __a = (uint64_t) (dst); \
     asm volatile( \
         "1:\tmovb %[v], (%[a])\n" \
         "2:\n" \
         ".section .fixup,\"ax\"\n" \
-        "3:\tmovq $1, %[e]\n" \
+        "3:\tmovq $1, %[f]\n" \
         "jmp 2b\n" \
         ".previous\n" \
         ".pushsection __ex_table,\"a\"\n" \
         ".balign 8\n" \
         ".quad 1b, 3b\n" \
         ".popsection\n" \
-        : [e] "+r"(__e) \
+        : [f] "+m"(__f) \
         : [a] "r"(__a), [v] "q"(__v) \
         : "memory"); \
-    __e; \
+    __f; \
 })
 
 uint64_t copy_from_user(void *kdst, const void *usrc, uint64_t len)
