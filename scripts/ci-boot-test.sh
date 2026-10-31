@@ -76,6 +76,11 @@ grep -aq 'MK: misc PASS' "$LOG" || {
     cat "$LOG" >&2
     exit 1
 }
+grep -aq 'MK: signalfd PASS' "$LOG" || {
+    echo "signalfd self-test did not pass" >&2
+    cat "$LOG" >&2
+    exit 1
+}
 if grep -aEq 'panic|exception|corrupt' "$LOG"; then
     grep -aE 'panic|exception|corrupt' "$LOG" >&2
     exit 1
