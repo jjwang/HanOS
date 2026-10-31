@@ -4,6 +4,7 @@
 
 ![](https://img.shields.io/github/license/jjwang/HanOS)
 ![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
+![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/kernel-badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 汉操作系统 (HanOS) 面向 x86-64，用 C 编写。文件系统、管道、终端运行在用户态。块设备驱动运行在用户态。服务进程通过 IPC 层通信。

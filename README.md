@@ -4,6 +4,7 @@
 
 ![](https://img.shields.io/github/license/jjwang/HanOS)
 ![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/badge.svg)
+![](https://raw.githubusercontent.com/jjwang/HanOS/image-data/kernel-badge.svg)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/eb7d6f1d9d1741e1ad3c40889c3fb1b2)](https://app.codacy.com/gh/jjwang/HanOS/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 HanOS targets x86-64 and is written in C. The filesystem, pipes, terminal, and block driver run as userspace servers. The servers communicate over a small IPC layer.
