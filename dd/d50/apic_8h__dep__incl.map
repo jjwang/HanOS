@@ -1,0 +1,19 @@
+<map id="kernel/arch/x64/apic.h" name="kernel/arch/x64/apic.h">
+<area shape="rect" id="Node000001" title="Definition of APIC (Advanced Programmable Interrupt Controller) related data structures." alt="" coords="646,5,811,31"/>
+<area shape="rect" id="Node000002" href="$d7/d00/apic_8c.html" title="Implementation of APIC (Advanced Programmable Interrupt Controller) functions." alt="" coords="5,79,169,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="633,32,182,81,170,83,169,77,182,76,632,27"/>
+<area shape="rect" id="Node000003" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="194,79,346,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="642,35,344,81,343,76,641,30"/>
+<area shape="rect" id="Node000004" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="370,79,535,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="672,37,498,81,497,76,670,31"/>
+<area shape="rect" id="Node000005" href="$df/d41/timer_8c.html" title="Implementation of APIC timer related functions." alt="" coords="559,79,730,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="706,42,660,80,657,76,703,38"/>
+<area shape="rect" id="Node000006" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="755,79,873,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="754,37,802,76,798,80,751,41"/>
+<area shape="rect" id="Node000007" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="897,79,1056,104"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="782,32,937,76,936,81,781,37"/>
+<area shape="rect" id="Node000008" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="1081,79,1227,104"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="811,30,1086,76,1085,81,810,36"/>
+<area shape="rect" id="Node000009" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="1251,79,1406,104"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="825,28,1240,76,1252,77,1251,83,1239,81,825,33"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="vfs_stat_t" name="vfs_stat_t">
+<area shape="rect" id="Node000001" title="File status returned by the stat family of calls." alt="" coords="23,123,109,148"/>
+<area shape="rect" id="Node000002" href="$d9/d4b/structvfs__timespec__t.html" title="File timestamp with second and nanosecond parts." alt="" coords="5,5,127,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="69,44,69,123,63,123,63,44"/>
+</map>

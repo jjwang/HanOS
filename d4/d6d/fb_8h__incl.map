@@ -1,0 +1,7 @@
+<map id="kernel/device/display/fb.h" name="kernel/device/display/fb.h">
+<area shape="rect" id="Node000001" title="Definition of framebuffer related functions." alt="" coords="18,5,207,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,76,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="103,33,64,71,60,67,99,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="100,79,272,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="127,29,166,67,162,71,123,33"/>
+</map>

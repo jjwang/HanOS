@@ -1,0 +1,11 @@
+<map id="kernel/device/char_device.h" name="kernel/device/char_device.h">
+<area shape="rect" id="Node000001" title="Character device interface for HanOS drivers." alt="" coords="21,5,162,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,167,76,192"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="61,48,37,68,19,94,16,109,17,124,28,153,23,155,12,125,10,109,14,92,33,65,58,44"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="125,167,207,192"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="124,43,148,65,167,92,174,123,173,153,168,153,169,124,162,94,144,68,120,48"/>
+<area shape="rect" id="Node000004" href="$db/de9/device_8h.html" title="Generic device interface for HanOS device drivers." alt="" coords="29,93,153,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="94,46,94,79,89,79,89,46"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="85,121,59,157,55,154,81,117"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="105,117,146,155,142,159,101,121"/>
+</map>

@@ -1,0 +1,26 @@
+<map id="process_t" name="process_t">
+<area shape="rect" id="Node000001" title="Kernel process control block." alt="" coords="317,196,401,221"/>
+<area shape="rect" id="Node000002" href="$da/d67/structevent__t.html" title="Typed event together with its argument, used to wake a process." alt="" coords="5,108,76,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="65,140,86,156,111,170,165,186,221,197,317,205,317,210,220,202,164,192,109,174,83,161,61,145"/>
+<area shape="rect" id="Node000003" href="$d3/d06/structhandle__table__t.html" title="Per&#45;process table of handle slots." alt="" coords="100,108,219,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="188,139,243,170,318,195,316,200,241,174,186,144"/>
+<area shape="rect" id="Node000004" href="$d4/d5c/structhandle__slot__t.html" title="One handle&#45;table slot referencing an object with rights and generation." alt="" coords="86,5,195,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="141,44,145,83,154,106,149,108,139,85,136,45"/>
+<area shape="rect" id="Node000005" href="$d9/dda/structspinlock__t.html" title="Interrupt&#45;safe spinlock holding the lock state and owner&#39;s RFLAGS." alt="" coords="226,5,314,31"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="249,42,232,57,174,110,170,106,228,53,245,38"/>
+<area shape="rect" id="Node000008" href="$d1/d0d/structaddrspace__t.html" title="Virtual address space: top&#45;level page table, mappings and lock." alt="" coords="243,108,345,133"/>
+<area shape="poly" id="edge9_Node000008_Node000005" title=" " alt="" coords="270,44,274,83,287,106,282,109,269,85,265,45"/>
+<area shape="rect" id="Node000009" href="$d3/dff/structsignal__state__t.html" title="Signal dispositions and mask of a process." alt="" coords="369,108,483,133"/>
+<area shape="poly" id="edge11_Node000009_Node000005" title=" " alt="" coords="295,38,354,82,400,106,398,110,351,86,292,42"/>
+<area shape="rect" id="Node000006" href="$da/d79/structbootinfo__t.html" title="Startup resources granted to a userspace server." alt="" coords="633,108,721,133"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="646,142,610,159,571,175,481,195,402,206,401,201,480,190,569,169,608,154,643,137"/>
+<area shape="rect" id="Node000007" href="$d8/d9d/structio__port__range__t.html" title="An inclusive range of I/O ports granted to a server." alt="" coords="587,5,710,31"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="629,42,554,106,506,142,454,174,398,198,396,193,451,170,503,137,551,101,625,38"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="658,43,676,107,671,109,653,45"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="301,146,312,170,339,194,335,198,308,174,296,148"/>
+<area shape="poly" id="edge10_Node000001_Node000009" title=" " alt="" coords="411,146,371,197,367,194,406,143"/>
+<area shape="rect" id="Node000010" href="$db/d32/structsigaction__t.html" title="Signal action giving the handler, mask, flags and restorer." alt="" coords="343,5,437,31"/>
+<area shape="poly" id="edge12_Node000009_Node000010" title=" " alt="" coords="392,44,394,64,399,83,415,106,411,109,394,85,389,65,387,45"/>
+<area shape="rect" id="Node000011" href="$d4/df5/structsigset__t.html" title="Signal set stored as a 64&#45;bit mask." alt="" coords="461,5,535,31"/>
+<area shape="poly" id="edge13_Node000009_Node000011" title=" " alt="" coords="484,43,436,110,432,106,480,40"/>
+</map>

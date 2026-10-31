@@ -1,0 +1,19 @@
+<map id="kernel/arch/x64/serial.c" name="kernel/arch/x64/serial.c">
+<area shape="rect" id="Node000001" title="Implementation of serial port communication functions." alt="" coords="99,5,273,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,152,76,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="136,33,94,51,75,64,59,80,46,108,42,138,37,138,41,107,54,77,71,60,91,46,134,28"/>
+<area shape="rect" id="Node000003" href="$dc/da7/cpu_8h.html" title="Definition of CPU related data structures and macros." alt="" coords="69,79,186,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="178,33,147,70,143,67,174,29"/>
+<area shape="rect" id="Node000006" href="$db/d11/serial_8h.html" title="Definitions for serial port communication." alt="" coords="305,79,435,104"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="217,28,328,71,326,76,215,33"/>
+<area shape="rect" id="Node000007" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="209,79,280,104"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="198,29,229,67,225,70,194,33"/>
+<area shape="poly" id="edge4_Node000003_Node000002" title=" " alt="" coords="115,106,67,145,64,141,112,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="207,152,282,177"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="148,102,215,142,212,147,145,106"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="101,152,183,177"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="132,104,139,138,134,139,127,105"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="213,107,87,150,86,145,211,102"/>
+<area shape="poly" id="edge9_Node000007_Node000004" title=" " alt="" coords="247,104,247,138,242,138,242,104"/>
+<area shape="poly" id="edge8_Node000007_Node000005" title=" " alt="" coords="230,106,172,146,169,142,227,102"/>
+</map>

@@ -1,0 +1,11 @@
+<map id="kernel/srv/block_srv.h" name="kernel/srv/block_srv.h">
+<area shape="rect" id="Node000001" title="Spawn and (for now) probe the userspace block server." alt="" coords="241,5,403,31"/>
+<area shape="rect" id="Node000002" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="5,79,124,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="268,37,107,81,106,76,267,32"/>
+<area shape="rect" id="Node000003" href="$de/dde/block__srv_8c.html" title="Spawn the userspace block server." alt="" coords="149,79,311,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="298,41,247,81,243,76,295,37"/>
+<area shape="rect" id="Node000004" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="336,79,492,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="349,37,401,76,397,81,346,41"/>
+<area shape="rect" id="Node000005" href="$d2/dc5/fat32__srv_8c.html" title="Spawn and probe the userspace FAT32 server." alt="" coords="516,79,677,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="380,32,553,76,552,81,379,37"/>
+</map>

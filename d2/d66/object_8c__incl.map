@@ -1,0 +1,32 @@
+<map id="kernel/ipc/object.c" name="kernel/ipc/object.c">
+<area shape="rect" id="Node000001" title="Implementation of the kernel object and handle model." alt="" coords="176,5,316,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="132,225,203,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="176,31,81,50,42,64,19,80,9,100,10,119,20,139,36,157,82,191,129,217,127,222,79,196,33,161,16,142,5,121,4,99,14,77,40,59,80,45,175,25"/>
+<area shape="rect" id="Node000003" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="160,79,231,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="240,33,214,69,209,66,235,29"/>
+<area shape="rect" id="Node000006" href="$d4/d03/kmalloc_8h.html" title="Definition of memory allocation related functions." alt="" coords="29,79,135,104"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="221,33,122,76,120,71,218,28"/>
+<area shape="rect" id="Node000007" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="404,152,512,177"/>
+<area shape="poly" id="edge9_Node000001_Node000007" title=" " alt="" coords="269,28,351,76,435,141,432,145,348,81,267,33"/>
+<area shape="rect" id="Node000008" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="255,79,338,104"/>
+<area shape="poly" id="edge12_Node000001_Node000008" title=" " alt="" coords="256,29,283,66,278,69,252,33"/>
+<area shape="rect" id="Node000010" href="$de/d10/object_8h.html" title="Kernel object and per&#45;process handle model." alt="" coords="429,79,527,104"/>
+<area shape="poly" id="edge17_Node000001_Node000010" title=" " alt="" coords="284,28,428,72,427,77,282,33"/>
+<area shape="poly" id="edge5_Node000003_Node000002" title=" " alt="" coords="161,105,124,124,108,137,95,153,91,171,99,187,115,203,134,216,131,221,111,207,95,190,86,171,90,151,104,133,121,119,158,101"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="417,225,499,251"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="207,102,244,138,294,175,349,201,404,220,402,225,347,206,291,180,240,142,204,106"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="105,152,179,177"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="188,106,161,143,156,140,184,103"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="82,105,78,139,79,158,86,176,104,199,129,217,126,221,101,203,81,179,74,159,72,139,76,104"/>
+<area shape="poly" id="edge7_Node000006_Node000005" title=" " alt="" coords="94,103,125,140,121,143,90,106"/>
+<area shape="poly" id="edge11_Node000007_Node000002" title=" " alt="" coords="412,180,216,227,215,222,411,175"/>
+<area shape="poly" id="edge10_Node000007_Node000004" title=" " alt="" coords="461,178,461,212,455,212,455,178"/>
+<area shape="poly" id="edge15_Node000008_Node000002" title=" " alt="" coords="288,106,189,217,185,213,284,103"/>
+<area shape="poly" id="edge14_Node000008_Node000005" title=" " alt="" coords="273,106,181,149,178,144,271,102"/>
+<area shape="poly" id="edge16_Node000008_Node000007" title=" " alt="" coords="323,102,420,144,418,149,321,106"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="305,152,379,177"/>
+<area shape="poly" id="edge13_Node000008_Node000009" title=" " alt="" coords="306,103,329,139,325,142,302,106"/>
+<area shape="poly" id="edge19_Node000010_Node000002" title=" " alt="" coords="494,102,511,118,526,137,533,158,532,169,527,179,505,195,473,208,389,226,296,235,216,239,216,233,296,230,388,220,472,203,502,191,522,176,527,167,528,159,521,140,507,121,491,106"/>
+<area shape="poly" id="edge18_Node000010_Node000004" title=" " alt="" coords="509,102,535,115,559,132,574,154,575,166,571,179,545,206,513,223,511,219,542,202,566,176,570,165,569,156,556,136,532,119,506,106"/>
+<area shape="poly" id="edge20_Node000010_Node000007" title=" " alt="" coords="477,105,467,140,462,138,472,104"/>
+</map>

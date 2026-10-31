@@ -1,0 +1,106 @@
+<map id="kernel/ipc/ipc.h" name="kernel/ipc/ipc.h">
+<area shape="rect" id="Node000001" title="Synchronous inter&#45;process communication primitives." alt="" coords="2113,5,2233,31"/>
+<area shape="rect" id="Node000002" href="$d2/d42/ipc_8c.html" title="Implementation of synchronous IPC endpoints." alt="" coords="281,86,400,111"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="2099,23,1761,26,1275,36,781,54,575,66,420,81,382,89,381,83,419,76,575,61,781,48,1275,31,1761,21,2099,17"/>
+<area shape="rect" id="Node000003" href="$d2/de7/irq_8h.html" title="IRQ objects and delivery to a userspace driver." alt="" coords="476,86,595,111"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="2099,21,1856,22,1496,28,1073,46,855,61,641,81,592,89,591,83,640,76,854,56,1073,41,1496,23,1856,16,2099,16"/>
+<area shape="rect" id="Node000006" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="5,174,153,199"/>
+<area shape="poly" id="edge9_Node000001_Node000006" title=" " alt="" coords="2099,22,1735,23,1224,31,968,38,741,49,566,63,504,71,464,81,449,90,439,100,429,111,413,121,346,145,292,154,236,159,166,169,132,177,131,171,166,164,236,154,291,149,345,140,410,116,425,107,435,96,446,85,462,76,503,66,565,57,741,43,968,33,1224,25,1735,18,2099,17"/>
+<area shape="rect" id="Node000007" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="933,174,1087,199"/>
+<area shape="poly" id="edge15_Node000001_Node000007" title=" " alt="" coords="2099,24,1813,40,1631,57,1449,81,1334,103,1221,130,1049,176,1048,171,1220,124,1333,98,1448,76,1631,52,1813,35,2099,19"/>
+<area shape="rect" id="Node000008" href="$dc/d70/input__srv_8c.html" title="Spawn and drive the userspace input server." alt="" coords="546,174,706,199"/>
+<area shape="poly" id="edge64_Node000001_Node000008" title=" " alt="" coords="2099,22,1785,23,1355,30,1142,37,953,48,809,62,758,71,726,81,695,101,669,127,634,175,630,172,665,124,692,97,724,76,757,66,808,57,953,42,1141,32,1355,24,1785,17,2099,16"/>
+<area shape="rect" id="Node000009" href="$d1/de9/net__srv_8c.html" title="Spawn the userspace network server." alt="" coords="808,262,956,287"/>
+<area shape="poly" id="edge67_Node000001_Node000009" title=" " alt="" coords="2099,23,1800,27,1401,38,1044,55,925,67,889,74,872,81,857,100,849,123,847,149,850,175,863,225,879,261,874,263,858,227,844,176,842,149,844,122,852,98,868,77,888,69,924,62,1043,50,1401,32,1800,22,2099,17"/>
+<area shape="rect" id="Node000010" href="$d4/da4/notify_8c.html" title="Implementation of the generic notification primitive." alt="" coords="2906,174,3050,199"/>
+<area shape="poly" id="edge10_Node000001_Node000010" title=" " alt="" coords="2246,16,2398,17,2585,24,2678,32,2763,43,2835,57,2889,76,2918,97,2943,124,2974,172,2970,175,2939,127,2915,101,2886,81,2834,62,2763,48,2678,37,2585,30,2398,22,2246,21"/>
+<area shape="rect" id="Node000011" href="$df/d30/notify_8h.html" title="Generic notification primitive built on IPC endpoints." alt="" coords="2957,86,3103,111"/>
+<area shape="poly" id="edge11_Node000001_Node000011" title=" " alt="" coords="2247,19,2549,37,2743,53,2938,76,2980,83,2979,89,2938,81,2742,58,2549,42,2246,25"/>
+<area shape="rect" id="Node000013" href="$da/d94/kernel_2proc_2process_8c.html" title="Implementation of process related functions." alt="" coords="1112,174,1271,199"/>
+<area shape="poly" id="edge14_Node000001_Node000013" title=" " alt="" coords="2099,27,1893,47,1768,62,1642,81,1525,104,1410,131,1233,177,1231,171,1409,126,1524,99,1642,76,1767,57,1892,42,2098,22"/>
+<area shape="rect" id="Node000014" href="$da/db7/router_8h.html" title="Kernel&#45;side service router." alt="" coords="1653,86,1812,111"/>
+<area shape="poly" id="edge16_Node000001_Node000014" title=" " alt="" coords="2099,35,1797,89,1796,83,2098,30"/>
+<area shape="rect" id="Node000018" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="2676,262,2832,287"/>
+<area shape="poly" id="edge56_Node000001_Node000018" title=" " alt="" coords="2246,17,2355,20,2480,29,2594,46,2639,60,2672,76,2693,97,2711,121,2736,174,2750,225,2756,261,2750,262,2744,226,2731,176,2706,123,2689,100,2668,81,2637,65,2593,52,2479,34,2355,25,2246,22"/>
+<area shape="rect" id="Node000019" href="$d2/dc5/fat32__srv_8c.html" title="Spawn and probe the userspace FAT32 server." alt="" coords="2321,262,2483,287"/>
+<area shape="poly" id="edge63_Node000001_Node000019" title=" " alt="" coords="2247,21,2473,41,2574,57,2609,66,2628,77,2634,89,2637,104,2636,142,2627,181,2613,208,2588,226,2549,241,2460,265,2459,259,2548,236,2586,221,2609,205,2622,179,2631,142,2632,105,2629,90,2624,81,2607,71,2573,62,2472,46,2246,26"/>
+<area shape="rect" id="Node000020" href="$de/d77/misc__srv_8c.html" title="Spawn the userspace misc server." alt="" coords="1569,262,1728,287"/>
+<area shape="poly" id="edge65_Node000001_Node000020" title=" " alt="" coords="2099,22,1943,24,1732,33,1492,50,1369,64,1249,81,1196,87,1148,89,1063,90,1026,95,991,108,957,132,923,168,906,190,901,200,914,205,955,208,1144,218,1305,230,1520,252,1576,259,1575,265,1519,257,1305,236,1144,223,955,214,913,210,896,203,901,187,919,165,953,127,989,103,1025,90,1063,84,1147,83,1195,82,1248,76,1368,59,1491,45,1732,27,1943,19,2099,16"/>
+<area shape="rect" id="Node000021" href="$df/dd9/mm__srv_8c.html" title="Spawn the userspace MM server." alt="" coords="1175,262,1328,287"/>
+<area shape="poly" id="edge66_Node000001_Node000021" title=" " alt="" coords="2099,23,1809,29,1424,40,1080,58,966,69,930,75,913,81,884,109,868,140,865,156,867,172,873,189,884,205,902,219,930,232,1006,250,1093,262,1175,268,1174,273,1093,267,1005,256,929,237,900,224,880,208,868,191,862,173,860,156,863,138,880,106,910,76,929,70,965,63,1080,52,1424,35,1809,24,2099,18"/>
+<area shape="rect" id="Node000022" href="$db/dda/pipe__srv_8c.html" title="Spawn the userspace pipe server." alt="" coords="1353,262,1507,287"/>
+<area shape="poly" id="edge68_Node000001_Node000022" title=" " alt="" coords="2099,22,1832,25,1478,33,1304,41,1151,51,1034,64,993,72,967,81,940,97,922,115,908,137,897,168,890,188,891,196,896,205,910,217,929,227,979,241,1039,248,1105,250,1239,248,1296,249,1341,252,1381,259,1380,265,1340,257,1296,254,1239,254,1105,255,1038,253,978,246,927,232,907,221,892,208,886,198,885,188,891,166,904,135,917,112,936,93,965,76,992,67,1033,59,1151,45,1304,35,1478,28,1832,19,2099,17"/>
+<area shape="rect" id="Node000023" href="$dd/d1b/process__srv_8c.html" title="Spawn the userspace process server." alt="" coords="1956,255,2096,295"/>
+<area shape="poly" id="edge69_Node000001_Node000023" title=" " alt="" coords="2179,44,2180,79,2178,122,2169,167,2150,208,2120,237,2085,257,2083,252,2117,233,2145,205,2164,165,2173,121,2175,79,2173,45"/>
+<area shape="rect" id="Node000026" href="$df/d5c/tty__srv_8c.html" title="Spawn and drive the userspace tty server." alt="" coords="2507,262,2652,287"/>
+<area shape="poly" id="edge70_Node000001_Node000026" title=" " alt="" coords="2247,21,2486,40,2593,56,2630,66,2651,77,2658,100,2657,136,2651,175,2640,208,2619,240,2596,264,2592,260,2615,236,2636,206,2646,174,2652,136,2653,101,2647,80,2628,71,2592,61,2485,45,2246,26"/>
+<area shape="rect" id="Node000027" href="$d9/de9/vfs__srv_8c.html" title="Spawn the userspace VFS server." alt="" coords="2150,262,2297,287"/>
+<area shape="poly" id="edge71_Node000001_Node000027" title=" " alt="" coords="2184,43,2194,78,2214,184,2225,261,2219,262,2209,185,2189,79,2179,45"/>
+<area shape="rect" id="Node000028" href="$de/dde/block__srv_8c.html" title="Spawn the userspace block server." alt="" coords="3441,262,3603,287"/>
+<area shape="poly" id="edge44_Node000001_Node000028" title=" " alt="" coords="2246,16,2514,17,2882,24,3072,32,3250,42,3402,57,3517,76,3580,88,3632,98,3655,107,3677,120,3698,139,3718,165,3725,185,3723,203,3712,218,3694,231,3647,251,3595,265,3593,259,3646,246,3692,226,3708,214,3718,201,3720,185,3713,168,3694,142,3674,124,3653,111,3631,103,3579,93,3516,81,3402,62,3249,48,3072,37,2881,30,2514,23,2246,22"/>
+<area shape="rect" id="Node000029" href="$df/d4b/block__srv_8h.html" title="Spawn and (for now) probe the userspace block server." alt="" coords="3175,174,3338,199"/>
+<area shape="poly" id="edge45_Node000001_Node000029" title=" " alt="" coords="2247,16,2442,16,2694,23,2822,31,2940,42,3041,57,3116,76,3158,97,3196,123,3248,172,3245,176,3192,128,3155,101,3114,81,3040,62,2939,47,2822,36,2694,29,2442,22,2247,21"/>
+<area shape="rect" id="Node000030" href="$d5/d73/console__srv_8c.html" title="Spawn the userspace console server and forward output to it." alt="" coords="3563,167,3703,207"/>
+<area shape="poly" id="edge50_Node000001_Node000030" title=" " alt="" coords="2246,18,2527,24,2905,35,3256,53,3384,64,3459,76,3504,94,3546,118,3612,164,3609,169,3543,122,3502,99,3457,81,3383,69,3256,58,2905,41,2527,29,2246,23"/>
+<area shape="rect" id="Node000031" href="$d7/d75/console__srv_8h.html" title="Spawn the userspace console server and forward output to it." alt="" coords="3305,79,3445,119"/>
+<area shape="poly" id="edge51_Node000001_Node000031" title=" " alt="" coords="2247,19,2660,38,2937,55,3218,76,3306,85,3305,91,3218,81,2937,60,2660,43,2247,25"/>
+<area shape="rect" id="Node000033" href="$da/de2/ext2__srv_8h.html" title="Spawn the userspace ext2 server." alt="" coords="2457,86,2614,111"/>
+<area shape="poly" id="edge57_Node000001_Node000033" title=" " alt="" coords="2239,31,2483,83,2482,89,2238,36"/>
+<area shape="rect" id="Node000004" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="178,174,330,199"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="485,118,293,176,291,171,484,113"/>
+<area shape="rect" id="Node000005" href="$dd/de7/irq_8c.html" title="Implementation of IRQ objects and delivery." alt="" coords="354,174,471,199"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="509,122,431,176,428,172,506,117"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="477,117,457,121,312,146,166,169,131,177,130,171,166,164,311,141,456,116,476,112"/>
+<area shape="poly" id="edge6_Node000003_Node000007" title=" " alt="" coords="609,110,947,171,946,177,608,116"/>
+<area shape="poly" id="edge7_Node000003_Node000008" title=" " alt="" coords="559,119,615,172,612,175,556,123"/>
+<area shape="poly" id="edge8_Node000003_Node000009" title=" " alt="" coords="529,125,524,166,527,187,536,205,553,219,579,231,650,249,731,261,808,267,808,273,731,266,649,254,577,236,550,223,532,208,522,188,518,166,524,124"/>
+<area shape="poly" id="edge13_Node000011_Node000010" title=" " alt="" coords="3018,125,2988,175,2983,172,3014,122"/>
+<area shape="rect" id="Node000012" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="3079,262,3197,287"/>
+<area shape="poly" id="edge12_Node000011_Node000012" title=" " alt="" coords="3047,122,3133,260,3128,263,3042,124"/>
+<area shape="poly" id="edge20_Node000014_Node000007" title=" " alt="" coords="1640,110,1395,132,1248,149,1101,169,1061,177,1060,171,1100,164,1248,144,1395,127,1639,104"/>
+<area shape="poly" id="edge26_Node000014_Node000009" title=" " alt="" coords="1640,110,1502,130,1427,147,1354,169,1334,179,1320,189,1305,199,1284,209,1198,235,1110,253,1027,265,956,272,956,266,1026,259,1109,247,1197,229,1282,204,1302,195,1316,185,1331,174,1352,164,1426,142,1501,125,1639,105"/>
+<area shape="poly" id="edge18_Node000014_Node000013" title=" " alt="" coords="1640,116,1290,169,1250,177,1249,171,1290,164,1639,110"/>
+<area shape="rect" id="Node000015" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="2464,174,2577,199"/>
+<area shape="poly" id="edge17_Node000014_Node000015" title=" " alt="" coords="1826,102,2104,122,2275,140,2445,164,2480,171,2479,177,2444,169,2274,145,2104,127,1826,107"/>
+<area shape="rect" id="Node000016" href="$db/dbe/sched_8c.html" title="Maintain process list and schedule processes according to system clock ticks." alt="" coords="1498,174,1645,199"/>
+<area shape="poly" id="edge19_Node000014_Node000016" title=" " alt="" coords="1700,120,1595,176,1592,171,1697,116"/>
+<area shape="rect" id="Node000017" href="$d8/d42/router_8c.html" title="Implementation of the kernel&#45;side service router." alt="" coords="1976,174,2135,199"/>
+<area shape="poly" id="edge21_Node000014_Node000017" title=" " alt="" coords="1789,112,2013,171,2012,177,1788,117"/>
+<area shape="poly" id="edge22_Node000014_Node000018" title=" " alt="" coords="1826,101,1932,108,2061,119,2201,138,2340,164,2397,183,2453,204,2701,259,2700,265,2452,209,2395,188,2339,169,2200,143,2060,125,1931,113,1825,106"/>
+<area shape="poly" id="edge23_Node000014_Node000019" title=" " alt="" coords="1826,103,1996,122,2092,139,2187,164,2246,186,2302,213,2385,260,2382,264,2299,217,2243,191,2185,169,2091,145,1995,127,1825,108"/>
+<area shape="poly" id="edge24_Node000014_Node000020" title=" " alt="" coords="1724,125,1657,263,1652,261,1719,122"/>
+<area shape="poly" id="edge25_Node000014_Node000021" title=" " alt="" coords="1640,116,1542,137,1439,169,1389,192,1341,218,1269,264,1266,260,1338,214,1386,187,1437,164,1541,132,1639,111"/>
+<area shape="poly" id="edge27_Node000014_Node000022" title=" " alt="" coords="1640,105,1596,112,1551,124,1508,142,1471,169,1454,190,1443,216,1433,262,1428,261,1437,214,1449,188,1467,165,1506,137,1550,119,1595,106,1639,100"/>
+<area shape="poly" id="edge28_Node000014_Node000023" title=" " alt="" coords="1734,125,1740,166,1747,187,1760,204,1956,254,1955,259,1756,209,1743,190,1734,168,1729,126"/>
+<area shape="rect" id="Node000024" href="$dc/d47/svc__monitor_8c.html" title="Restart a crashed service server." alt="" coords="1752,262,1932,287"/>
+<area shape="poly" id="edge29_Node000014_Node000024" title=" " alt="" coords="1640,111,1572,124,1512,143,1492,155,1479,169,1478,186,1488,205,1781,259,1780,265,1484,209,1472,187,1475,167,1488,151,1510,138,1571,118,1639,106"/>
+<area shape="rect" id="Node000025" href="$d9/d48/svc__monitor_8h.html" title="Restart a crashed service server." alt="" coords="1770,174,1951,199"/>
+<area shape="poly" id="edge30_Node000014_Node000025" title=" " alt="" coords="1763,117,1845,172,1842,176,1760,121"/>
+<area shape="poly" id="edge42_Node000014_Node000026" title=" " alt="" coords="1826,104,2024,125,2139,142,2253,164,2340,187,2424,213,2551,259,2550,264,2422,218,2338,192,2252,169,2138,147,2023,130,1826,109"/>
+<area shape="poly" id="edge43_Node000014_Node000027" title=" " alt="" coords="1827,104,1914,113,2007,125,2091,142,2124,153,2149,164,2175,186,2196,213,2221,260,2216,263,2191,216,2171,190,2146,169,2122,158,2089,147,2006,130,1913,118,1826,109"/>
+<area shape="poly" id="edge36_Node000025_Node000009" title=" " alt="" coords="1757,200,1657,209,956,270,956,264,1656,204,1756,195"/>
+<area shape="poly" id="edge31_Node000025_Node000012" title=" " alt="" coords="1930,199,1965,204,2212,227,2404,236,2597,241,2845,252,3079,267,3078,272,2845,257,2597,246,2404,242,2211,233,1964,209,1930,204"/>
+<area shape="poly" id="edge32_Node000025_Node000018" title=" " alt="" coords="1932,199,1965,204,2161,222,2315,226,2469,232,2559,239,2665,252,2706,259,2705,265,2664,257,2558,245,2468,237,2315,232,2161,227,1964,209,1931,204"/>
+<area shape="poly" id="edge33_Node000025_Node000019" title=" " alt="" coords="1936,199,1965,204,2137,227,2309,252,2348,259,2347,265,2308,257,2136,233,1964,209,1935,204"/>
+<area shape="poly" id="edge34_Node000025_Node000020" title=" " alt="" coords="1820,207,1678,264,1676,259,1818,202"/>
+<area shape="poly" id="edge35_Node000025_Node000021" title=" " alt="" coords="1756,202,1563,225,1341,257,1303,265,1302,259,1340,252,1562,219,1756,196"/>
+<area shape="poly" id="edge37_Node000025_Node000022" title=" " alt="" coords="1790,205,1488,265,1487,259,1789,199"/>
+<area shape="poly" id="edge38_Node000025_Node000023" title=" " alt="" coords="1896,203,1991,252,1988,257,1894,208"/>
+<area shape="poly" id="edge39_Node000025_Node000024" title=" " alt="" coords="1858,213,1847,262,1842,261,1853,212"/>
+<area shape="poly" id="edge40_Node000025_Node000026" title=" " alt="" coords="1932,199,1965,204,2114,220,2230,226,2347,234,2496,252,2534,259,2533,265,2495,257,2346,239,2230,232,2113,225,1964,209,1932,204"/>
+<area shape="poly" id="edge41_Node000025_Node000027" title=" " alt="" coords="1923,200,2176,259,2174,265,1922,205"/>
+<area shape="poly" id="edge46_Node000029_Node000012" title=" " alt="" coords="3231,210,3156,264,3153,260,3228,205"/>
+<area shape="poly" id="edge48_Node000029_Node000018" title=" " alt="" coords="3176,204,2821,265,2820,259,3176,199"/>
+<area shape="poly" id="edge49_Node000029_Node000019" title=" " alt="" coords="3162,200,3062,209,2903,221,2778,229,2654,238,2496,257,2454,265,2453,259,2495,252,2654,233,2778,223,2902,216,3062,204,3162,195"/>
+<area shape="poly" id="edge47_Node000029_Node000028" title=" " alt="" coords="3306,201,3487,259,3486,264,3305,206"/>
+<area shape="poly" id="edge52_Node000031_Node000012" title=" " alt="" coords="3378,133,3372,171,3364,191,3352,208,3318,236,3278,255,3237,266,3198,273,3197,268,3236,261,3276,250,3315,231,3348,205,3359,189,3367,170,3373,132"/>
+<area shape="poly" id="edge55_Node000031_Node000026" title=" " alt="" coords="3300,125,3164,169,3114,191,3063,209,2952,231,2865,239,2777,243,2665,257,2628,265,2627,259,2664,252,2776,238,2864,233,2951,226,3061,204,3112,186,3162,164,3298,120"/>
+<area shape="poly" id="edge54_Node000031_Node000030" title=" " alt="" coords="3446,121,3577,164,3575,169,3444,126"/>
+<area shape="rect" id="Node000032" href="$d6/d15/klog_8c.html" title="Implementation of kernel log related functions." alt="" coords="3413,174,3538,199"/>
+<area shape="poly" id="edge53_Node000031_Node000032" title=" " alt="" coords="3409,126,3463,172,3460,176,3406,130"/>
+<area shape="poly" id="edge60_Node000033_Node000007" title=" " alt="" coords="2443,105,1767,128,1382,147,1222,157,1101,169,1059,177,1058,171,1100,164,1222,152,1382,141,1767,122,2443,100"/>
+<area shape="poly" id="edge59_Node000033_Node000012" title=" " alt="" coords="2587,113,2895,204,3096,259,3094,265,2893,209,2585,118"/>
+<area shape="poly" id="edge58_Node000033_Node000015" title=" " alt="" coords="2534,125,2525,174,2520,173,2528,124"/>
+<area shape="poly" id="edge61_Node000033_Node000018" title=" " alt="" coords="2567,116,2636,165,2698,217,2744,260,2740,264,2694,221,2632,169,2564,121"/>
+<area shape="poly" id="edge62_Node000033_Node000027" title=" " alt="" coords="2562,119,2579,139,2594,161,2601,185,2599,197,2592,208,2570,224,2538,235,2458,247,2374,252,2310,257,2275,265,2274,259,2310,252,2374,246,2458,242,2537,230,2568,220,2588,205,2593,195,2595,186,2589,164,2575,142,2558,123"/>
+</map>

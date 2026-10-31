@@ -1,0 +1,30 @@
+<map id="kernel/ipc/ipc.h" name="kernel/ipc/ipc.h">
+<area shape="rect" id="Node000001" title="Synchronous inter&#45;process communication primitives." alt="" coords="97,5,217,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="37,225,120,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="141,33,118,53,98,80,86,114,80,150,79,212,73,212,74,149,81,112,93,77,114,49,138,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="275,299,346,324"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="139,33,111,53,84,80,48,126,19,167,11,187,8,206,13,227,27,249,42,261,65,271,127,288,198,298,262,304,261,310,197,304,126,293,63,276,39,265,23,252,8,229,3,207,6,185,14,164,44,122,80,77,107,49,136,29"/>
+<area shape="rect" id="Node000004" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="195,152,303,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="174,29,198,50,220,77,236,108,246,138,241,139,231,110,216,80,194,54,171,33"/>
+<area shape="rect" id="Node000005" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="340,79,424,104"/>
+<area shape="poly" id="edge6_Node000001_Node000005" title=" " alt="" coords="194,28,334,72,332,77,192,33"/>
+<area shape="rect" id="Node000010" href="$de/d10/object_8h.html" title="Kernel object and per&#45;process handle model." alt="" coords="108,79,206,104"/>
+<area shape="poly" id="edge15_Node000001_Node000010" title=" " alt="" coords="160,31,160,65,154,65,154,31"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="223,180,120,222,118,218,220,175"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="245,178,234,212,232,231,237,250,253,272,276,289,272,294,250,276,232,252,227,232,228,211,240,177"/>
+<area shape="poly" id="edge7_Node000005_Node000003" title=" " alt="" coords="389,103,396,131,402,169,402,211,390,252,372,276,348,294,345,290,368,272,385,249,396,210,397,169,391,132,384,105"/>
+<area shape="rect" id="Node000006" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="450,152,573,177"/>
+<area shape="poly" id="edge8_Node000005_Node000006" title=" " alt="" coords="404,102,479,143,477,147,402,106"/>
+<area shape="rect" id="Node000009" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="246,225,375,251"/>
+<area shape="poly" id="edge13_Node000005_Node000009" title=" " alt="" coords="379,106,325,214,320,212,374,103"/>
+<area shape="poly" id="edge9_Node000006_Node000003" title=" " alt="" coords="505,179,475,214,433,253,394,277,355,296,352,291,391,272,430,249,471,211,501,176"/>
+<area shape="rect" id="Node000007" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="502,225,623,251"/>
+<area shape="poly" id="edge10_Node000006_Node000007" title=" " alt="" coords="522,176,548,213,544,216,518,179"/>
+<area shape="poly" id="edge11_Node000007_Node000003" title=" " alt="" coords="522,253,360,299,358,294,521,248"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="476,299,648,324"/>
+<area shape="poly" id="edge12_Node000007_Node000008" title=" " alt="" coords="565,251,565,285,560,285,560,251"/>
+<area shape="poly" id="edge14_Node000009_Node000003" title=" " alt="" coords="313,251,313,285,308,285,308,251"/>
+<area shape="poly" id="edge16_Node000010_Node000002" title=" " alt="" coords="153,106,93,215,89,212,148,103"/>
+<area shape="poly" id="edge17_Node000010_Node000003" title=" " alt="" coords="162,104,181,170,200,212,226,249,251,271,277,289,274,294,247,276,222,252,195,214,176,172,157,105"/>
+<area shape="poly" id="edge18_Node000010_Node000004" title=" " alt="" coords="173,102,225,141,222,146,170,106"/>
+</map>

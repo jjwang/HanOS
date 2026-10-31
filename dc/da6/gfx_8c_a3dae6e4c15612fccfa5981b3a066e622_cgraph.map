@@ -1,0 +1,19 @@
+<map id="gfx_test_advanced_features" name="gfx_test_advanced_features">
+<area shape="rect" id="Node000001" title="Advanced feature test (call after initialization)" alt="" coords="5,179,212,204"/>
+<area shape="rect" id="Node000002" href="$dc/da6/gfx_8c.html#a1883ee5d0fe0ef3b9249f04f05421ff4" title="Clear interrupts." alt="" coords="261,5,413,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="117,177,172,112,213,73,259,40,270,34,272,38,261,44,216,77,176,116,121,180"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html#af61d247c31b2ca7968634964a9c9dd5d" title="Disable VGA display mode." alt="" coords="273,55,401,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="124,176,182,134,259,89,275,82,277,87,261,94,185,139,127,181"/>
+<area shape="rect" id="Node000004" href="$dc/da6/gfx_8c.html#ac53b4ade41f31ee3258fde1d665ba516" title="Read GPU frequency status." alt="" coords="270,104,405,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="146,176,259,138,281,131,283,136,261,143,148,181"/>
+<area shape="rect" id="Node000005" href="$dc/da6/gfx_8c.html#aa22e68c36c62a033b1279c67888e6479" title="Get pending interrupts." alt="" coords="267,153,408,179"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="212,177,253,173,253,178,213,183"/>
+<area shape="rect" id="Node000006" href="$dc/da6/gfx_8c.html#a7a1993875acf8d190689c3eaa744346f" title="Get GPU performance status." alt="" coords="262,203,413,228"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="213,200,248,203,248,209,212,205"/>
+<area shape="rect" id="Node000007" href="$dc/da6/gfx_8c.html#a03f1e23bc8192d31cadda9f9f24713f2" title="Clear (invalidate) a range of GTT entries." alt="" coords="284,252,391,277"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="150,202,285,245,283,250,149,207"/>
+<area shape="rect" id="Node000008" href="$dc/da6/gfx_8c.html#aece1a895a2983c98698aefd4feaa536e" title="Check if display pipe is enabled." alt="" coords="260,301,415,327"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="128,202,186,242,261,286,280,294,277,299,259,291,183,247,125,206"/>
+<area shape="rect" id="Node000009" href="$dc/da6/gfx_8c.html#a3abbe48923305625f8a4f0e4162819be" title="Wait for VBlank." alt="" coords="273,351,402,376"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="122,203,177,266,217,303,261,336,275,343,273,348,259,340,213,307,173,269,118,206"/>
+</map>

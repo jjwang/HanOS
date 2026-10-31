@@ -1,0 +1,9 @@
+<map id="kernel/proc/syscall.h" name="kernel/proc/syscall.h">
+<area shape="rect" id="Node000001" title="Definitions and declarations for system calls." alt="" coords="65,5,219,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,76,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="127,33,70,73,67,68,124,28"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="101,79,183,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="145,31,145,65,139,65,139,31"/>
+<area shape="rect" id="Node000004" href="$d7/d67/syscall__nr_8h.html" title="Syscall numbers shared by the kernel and userspace." alt="" coords="207,79,306,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="162,28,228,69,225,74,159,33"/>
+</map>

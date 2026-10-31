@@ -1,0 +1,35 @@
+<map id="kernel/arch/x64/madt.c" name="kernel/arch/x64/madt.c">
+<area shape="rect" id="Node000001" title="Implementation of ACPI MADT (Multiple APIC Description Table) functions." alt="" coords="270,5,441,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="256,299,327,324"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="332,33,303,52,290,65,280,80,270,106,265,134,265,191,274,244,285,285,280,287,268,245,259,192,260,134,265,105,276,77,286,62,300,48,329,28"/>
+<area shape="rect" id="Node000003" href="$df/de9/madt_8h.html" title="Definition of ACPI MADT (Multiple APIC Description Table) related data structures." alt="" coords="75,152,203,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="321,33,273,53,224,81,188,111,159,143,155,139,184,108,220,76,271,48,319,28"/>
+<area shape="rect" id="Node000006" href="$df/d1f/panic_8h.html" title="Definition of panic related data structures." alt="" coords="291,79,420,104"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="358,31,358,65,353,65,353,31"/>
+<area shape="rect" id="Node000009" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="437,152,519,177"/>
+<area shape="poly" id="edge21_Node000001_Node000009" title=" " alt="" coords="376,29,404,49,433,77,455,108,470,138,466,140,450,110,429,80,401,53,372,33"/>
+<area shape="rect" id="Node000012" href="$db/d34/smp_8h.html" title="Definition of SMP related data structures and functions." alt="" coords="710,225,833,251"/>
+<area shape="poly" id="edge18_Node000001_Node000012" title=" " alt="" coords="378,28,738,216,736,221,376,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="152,176,224,249,269,288,265,292,220,253,148,180"/>
+<area shape="rect" id="Node000004" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="31,225,152,251"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="134,179,109,216,104,213,129,176"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="124,248,246,291,245,296,123,253"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="5,299,177,324"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="94,251,94,285,89,285,89,251"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="354,105,301,286,296,284,349,104"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="329,225,403,251"/>
+<area shape="poly" id="edge9_Node000006_Node000007" title=" " alt="" coords="359,104,367,211,361,212,354,105"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="427,225,502,251"/>
+<area shape="poly" id="edge10_Node000006_Node000008" title=" " alt="" coords="366,103,450,213,445,216,362,106"/>
+<area shape="poly" id="edge11_Node000006_Node000009" title=" " alt="" coords="376,102,448,143,445,147,374,106"/>
+<area shape="poly" id="edge14_Node000009_Node000002" title=" " alt="" coords="492,176,505,191,517,211,523,232,516,252,504,263,487,272,442,287,341,306,340,301,441,282,485,267,501,258,512,249,517,232,512,213,501,194,488,179"/>
+<area shape="poly" id="edge13_Node000009_Node000007" title=" " alt="" coords="461,180,398,220,395,215,459,175"/>
+<area shape="poly" id="edge12_Node000009_Node000008" title=" " alt="" coords="478,178,472,212,467,211,473,177"/>
+<area shape="rect" id="Node000010" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="577,225,685,251"/>
+<area shape="poly" id="edge15_Node000009_Node000010" title=" " alt="" coords="504,175,595,217,593,222,502,180"/>
+<area shape="poly" id="edge17_Node000010_Node000002" title=" " alt="" coords="578,253,341,302,340,297,577,248"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="659,299,742,324"/>
+<area shape="poly" id="edge16_Node000010_Node000011" title=" " alt="" coords="645,249,682,287,678,291,641,253"/>
+<area shape="poly" id="edge20_Node000012_Node000002" title=" " alt="" coords="710,252,698,253,340,306,340,300,698,248,709,246"/>
+<area shape="poly" id="edge19_Node000012_Node000011" title=" " alt="" coords="762,253,724,291,720,287,758,249"/>
+</map>
