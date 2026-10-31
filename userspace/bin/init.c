@@ -32,8 +32,6 @@ int32_t main(void)
 {
     int32_t pid, wpid;
 
-    /* TODO: Here we need to init console which can be found in XV6 */
-
     /* Loop to start shell program */
     for (;;) {
         printf("init: starting sh...type \"help\" for command list\n");

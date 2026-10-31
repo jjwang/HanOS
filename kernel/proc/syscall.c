@@ -2930,7 +2930,6 @@ int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
     return r;
 }
 
-/* TODO: Need to add a futex implementation. */
 int64_t k_futex_wait(int64_t * ptr, vfs_timespec_t * tv, int64_t expected)
 {
     int64_t val = 0;

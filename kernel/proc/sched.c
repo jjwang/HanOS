@@ -872,7 +872,6 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
 
     process_regs_t *tc_regs = (process_regs_t *) PHYS_TO_VIRT(tc->context);
 
-    /* TODO: Do not check whether aux.entry == entry any more */
     uint64_t *stack = (uint64_t *) PHYS_TO_VIRT(tc->context);
 
     if (cwd != NULL)
