@@ -136,6 +136,7 @@ typedef struct {
 void syscall_init(void);
 bool misc_selftest(void);
 bool signalfd_selftest(void);
+bool mm_selftest(void);
 
 /* Terminate every thread of the current group with status and switch away.
  * Used by the exit syscalls and by a user-mode fault that must kill the

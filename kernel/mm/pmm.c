@@ -245,6 +245,16 @@ uint64_t pmm_get_total_memory(void)
     return kmem_info.total_size / (1024 * 1024);
 }
 
+uint64_t pmm_get_total_bytes(void)
+{
+    return kmem_info.total_size;
+}
+
+uint64_t pmm_get_free_bytes(void)
+{
+    return kmem_info.free_size;
+}
+
 void pmm_dump_usage(void)
 {
     uint64_t t = kmem_info.total_size, f = kmem_info.free_size, u = t - f;

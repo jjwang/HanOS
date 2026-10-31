@@ -31,6 +31,7 @@
 #include <lib/klog.h>
 #include <lib/vector.h>
 #include <lib/kmalloc.h>
+#include <mm/mm.h>
 #include <mm/uaccess.h>
 #include <device/usb/xhci.h>
 #include <mm/memobj.h>
@@ -1513,6 +1514,28 @@ int64_t k_readdir(int64_t fd, uint64_t buff)
     return -1;
 }
 
+int64_t k_mem_stats(void *out)
+{
+    cpu_set_errno(0);
+
+    if (out == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    mm_stats_t st = {
+        .total = pmm_get_total_bytes(),
+        .free = pmm_get_free_bytes(),
+    };
+
+    if (copy_to_user(out, &st, sizeof(st)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    return 0;
+}
+
 int64_t k_meminfo()
 {
     process_t *t = sched_get_current_process();
@@ -1520,19 +1543,41 @@ int64_t k_meminfo()
 
     if (t == NULL) {
         cpu_set_errno(ENODEV);
-        goto err_exit;
+        return -1;
     }
 
     if (t->pid < 1) {
         cpu_set_errno(ESRCH);
-        goto err_exit;
+        return -1;
     }
 
-    pmm_dump_usage();
-    return 0;
+    if (router_lookup(SVC_MM) == NULL) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
 
-  err_exit:
-    return -1;
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = MM_MEMINFO;
+
+    if (!router_forward(SVC_MM, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+
+    uint64_t total = rep.words[1], free = rep.words[2], used = total - free;
+
+    kprintf("Physical memory usage:\n"
+            "  Total: %d KB (%d MB)\n"
+            "  Free : %d KB (%d MB)\n"
+            "  Used : %d KB (%d MB)\n",
+            total / 1024, total / (1024 * 1024),
+            free / 1024, free / (1024 * 1024),
+            used / 1024, used / (1024 * 1024));
+
+    return 0;
 }
 
 int64_t k_pipe(int32_t * fd, uint32_t flags)
@@ -3992,6 +4037,23 @@ static int64_t signalfd_read(int64_t id, void *buf, uint64_t count)
     return (int64_t) sizeof(si);
 }
 
+bool mm_selftest(void)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    bool ok = false;
+
+    if (router_lookup(SVC_MM) != NULL) {
+        memset(&req, 0, sizeof(req));
+        req.tag = MM_MEMINFO;
+        ok = router_forward(SVC_MM, &req, &rep)
+            && (int64_t) rep.words[0] >= 0 && rep.words[1] > 0;
+    }
+
+    klogi("MK: mm %s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 bool signalfd_selftest(void)
 {
     process_t *t = sched_get_current_process();
@@ -4489,6 +4551,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,
     [SYSCALL_MEMINFO] = (syscall_ptr_t) k_meminfo,
+    [SYSCALL_MEM_STATS] = (syscall_ptr_t) k_mem_stats,
     [SYSCALL_RUNCMD] = (syscall_ptr_t) k_runcmd,
     [SYSCALL_CHMOD] = (syscall_ptr_t) k_chmod,
     [SYSCALL_FUTEX_WAIT] = (syscall_ptr_t) k_futex_wait,

@@ -120,6 +120,13 @@ int32_t sys_meminfo()
     return ret;
 }
 
+int32_t sys_mem_stats(mm_stats_t * st)
+{
+    int32_t ret, errno;
+    SYSCALL1(SYSCALL_MEM_STATS, st);
+    return ret;
+}
+
 int32_t sys_openat(int32_t dirfd, const char *path, int32_t flags)
 {
     int32_t ret, errno;

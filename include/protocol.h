@@ -111,6 +111,15 @@
 #define POLLIN_BIT          0x001
 #define POLLOUT_BIT         0x004
 
+/* MM server (SVC_MM). The allocator stays in the kernel; the server answers
+ * meminfo from a read-only stats primitive. */
+#define MM_MEMINFO          0xB0        /* out: words[1]=total, words[2]=free */
+
+typedef struct {
+    uint64_t total;             /* bytes */
+    uint64_t free;              /* bytes */
+} mm_stats_t;
+
 /* Pipe server. Transfers up to PIPE_INLINE_MAX bytes travel inline in
  * words[2..]; larger ones in a memory object in xfer[1]. A read or write that
  * cannot make progress returns PIPE_EAGAIN in words[0]. */

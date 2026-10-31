@@ -48,6 +48,7 @@
 #define DEFAULT_PROC_SVR        "/bin/process"
 #define DEFAULT_NET_SVR         "/bin/net"
 #define DEFAULT_MISC_SVR        "/bin/misc"
+#define DEFAULT_MM_SVR          "/bin/mem"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

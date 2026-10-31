@@ -77,6 +77,8 @@ void pmm_free(uint64_t addr, uint64_t numpages,
 bool pmm_alloc(uint64_t addr, uint64_t numpages);
 void pmm_dump_usage(void);
 uint64_t pmm_get_total_memory(void);
+uint64_t pmm_get_total_bytes(void);
+uint64_t pmm_get_free_bytes(void);
 void pmm_register_bitmap_allocator(void);
 void pmm_register_buddy_allocator(void);
 

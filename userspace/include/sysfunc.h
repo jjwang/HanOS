@@ -20,6 +20,7 @@
 
 #include <hanos.h>
 #include <bootinfo.h>
+#include <protocol.h>
 
 #define AT_FDCWD            -100
 
@@ -102,6 +103,7 @@ int32_t sys_bootinfo(bootinfo_t *bi);
 void sys_libc_log(const char *message);
 int32_t sys_serial_write(const char *buf, uint64_t len);
 int32_t sys_meminfo();
+int32_t sys_mem_stats(mm_stats_t * st);
 int32_t sys_fork();
 int32_t sys_openat(int32_t dirfd, const char *path, int32_t flags);
 int32_t sys_getcwd(char *buffer, uint64_t size);
