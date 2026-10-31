@@ -71,6 +71,11 @@ grep -aq 'MK: selftest PASS' "$LOG" || {
     cat "$LOG" >&2
     exit 1
 }
+grep -aq 'MK: misc PASS' "$LOG" || {
+    echo "misc service did not answer" >&2
+    cat "$LOG" >&2
+    exit 1
+}
 if grep -aEq 'panic|exception|corrupt' "$LOG"; then
     grep -aE 'panic|exception|corrupt' "$LOG" >&2
     exit 1
