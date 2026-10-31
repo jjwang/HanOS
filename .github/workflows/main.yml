@@ -16,6 +16,7 @@ jobs:
           debug: true
           directory: ./
           badge: ./output/badge.svg
+          badge_label: 'Total Lines of Code'
           ignore: '.git/|.github/|doc/|attic/|release/|screenshot/|sysroot/|manual.pdf|README.md|README.zh-cn.md|LICENSE|Doxyfile'
 
       - name: Generate Kernel LoC Badge
