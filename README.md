@@ -26,7 +26,7 @@ Install an `x86_64-elf` cross toolchain, `nasm`, and `xorriso`. Clone Limine, th
 
 ```
 make limine
-make            # builds cdrom.iso
+make            # builds cdrom.iso and release/hdd.img
 make run        # boots it in QEMU
 make run-uefi   # boots under UEFI (downloads OVMF first)
 ```

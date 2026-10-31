@@ -26,7 +26,7 @@
 
 ```
 make limine
-make            # 生成 cdrom.iso
+make            # 生成 cdrom.iso 与 release/hdd.img
 make run        # 用 QEMU 启动
 make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 ```
