@@ -10,6 +10,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Generate LoC Badge
+        id: badge
         uses: shadowmoose/GHA-LoC-Badge@1.0.0
         with:
           debug: true
@@ -17,10 +18,22 @@ jobs:
           badge: ./output/badge.svg
           ignore: '.git/|.github/|doc/|attic/|release/|screenshot/|sysroot/|manual.pdf|README.md|README.zh-cn.md|LICENSE|Doxyfile'
 
+      - name: Generate Kernel LoC Badge
+        id: kernel_badge
+        uses: shadowmoose/GHA-LoC-Badge@1.0.0
+        with:
+          debug: true
+          directory: ./kernel
+          badge: ./output/kernel-badge.svg
+          badge_label: 'Kernel Lines of Code'
+          ignore: '3rd-party/**|kernel/3rd-party/**'
+
       - name: Print the output
         run: |
           echo "Scanned: ${{ steps.badge.outputs.counted_files }}";
           echo "Line Count: ${{ steps.badge.outputs.total_lines }}";
+          echo "Kernel Scanned: ${{ steps.kernel_badge.outputs.counted_files }}";
+          echo "Kernel Line Count: ${{ steps.kernel_badge.outputs.total_lines }}";
 
       - name: Deploy to image-data branch
         uses: peaceiris/actions-gh-pages@v3
