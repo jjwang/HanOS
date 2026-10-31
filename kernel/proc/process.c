@@ -133,6 +133,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         nproc->kstack_limit =
             (void *) kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
         nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
+        *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
         nproc->ustack_limit = (void *)
             VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
@@ -177,6 +178,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         nproc->kstack_limit =
             kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
         nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
+        *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
         nproc->ustack_limit = NULL;
         nproc->ustack_top = NULL;
@@ -376,6 +378,7 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
 
     tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
     tc->kstack_top = tc->kstack_limit + STACK_SIZE;
+    *(uint64_t *) tc->kstack_limit = STACK_CANARY;
 
     /* Build the child's user-mode return frame on its kernel stack. Layout
      * matches pop_all + iretq: rax..r15, rip, cs, rflags, rsp, ss. */

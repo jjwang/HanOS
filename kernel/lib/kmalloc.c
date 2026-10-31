@@ -54,7 +54,7 @@ void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line)
                size, func, line);
     }
 
-    /* TODO: Remove this for the final release to improve speed. */
+    /* Zero the block: callers expect fresh memory and stale pages must not leak. */
     memset(alloc, 0, size + PAGE_SIZE);
 
     alloc->magic = MEM_MAGIC_NUM;

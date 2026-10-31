@@ -28,12 +28,11 @@
 
 #define CPU_MAX                         16
 
-/* TODO: Need to design the mechanism to detect stack overflow.
- *
- * Here we set the default stack size to 1MB which is same with Windows. The
- * goal is to be able to run some large-scale applications, such as GCC.
- */
+/* A canary at the low end of each kernel stack detects overflow. The
+ * scheduler checks it on every context switch. The stack is 1 MiB to fit
+ * large applications such as GCC. */
 #define STACK_SIZE                      (PAGE_SIZE * 256)
+#define STACK_CANARY                    0x535441434b4f5646ULL
 
 typedef struct[[gnu::packed]] {
     uint32_t reserved;

@@ -30,6 +30,9 @@ static madt_record_ioapic_t *io_apics[4];
 static uint64_t num_iso = 0;
 static madt_record_iso_t *isos[16];
 
+static uint64_t num_nmi = 0;
+static madt_record_nmi_t *nmis[8];
+
 uint32_t madt_get_num_ioapic()
 {
     return num_ioapic;
@@ -111,7 +114,15 @@ void madt_init()
                 isos[num_iso++] = (madt_record_iso_t *) rec;
             }
             break;
-            /* TODO: Handle MADT_RECORD_TYPE_NMI */
+        case MADT_RECORD_TYPE_NMI:{
+                if (num_nmi >= 8)
+                    break;
+                madt_record_nmi_t *nmi = (madt_record_nmi_t *) rec;
+                nmis[num_nmi++] = nmi;
+                klogi("MADT: NMI source %u lint %u flags 0x%x\n",
+                      nmi->proc_id, nmi->lint, nmi->flags);
+            }
+            break;
         }
         i += rec->len;
     }

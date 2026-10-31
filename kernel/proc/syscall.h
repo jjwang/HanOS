@@ -84,8 +84,10 @@
 #define X_OK            1       /* Test mode for execute permission */
 #define F_OK            0       /* Test mode for existence */
 
-#define AT_SYMLINK_FOLLOW           2
-#define AT_EACCESS                  4
+#define AT_SYMLINK_NOFOLLOW         0x100
+#define AT_EACCESS                  0x200
+#define AT_SYMLINK_FOLLOW           0x400
+#define AT_EMPTY_PATH               0x1000
 
 #define PROT_NONE       0x00
 #define PROT_READ       0x01

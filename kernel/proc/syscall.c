@@ -596,9 +596,13 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     uint64_t ptr = (uint64_t) hint;
     uint64_t np = NUM_PAGES(length);
 
-    /* TODO: How to handle the first information page? */
+    /* Keep the zero page unmapped so a NULL dereference still faults. */
+    if ((flags & MAP_FIXED) && ptr < PAGE_SIZE) {
+        cpu_set_errno(EINVAL);
+        goto err_exit;
+    }
 
-    /* Unmap before mapping to a new malloc-ed memory block */
+    /* Unmap before mapping to a new malloc-ed block */
     if (ptr != (uint64_t) NULL)
         vmm_unmap(as, ptr, np);
 
@@ -1278,14 +1282,19 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
     return -1;
 }
 
-/* TODO: Currently ignoring the flags parameter. */
 int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
                     uint64_t flags)
 {
     (void) dirfd;
-    (void) flags;
 
     cpu_set_errno(0);
+
+    /* The kernel has one uid, so AT_EACCESS is the same as the default check.
+     * No other flag is meaningful for access(). */
+    if (flags & ~(uint64_t) AT_EACCESS) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
 
     char *kpath = copy_user_path_alloc(path);
     if (kpath == NULL) {

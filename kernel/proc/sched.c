@@ -112,12 +112,6 @@ static uint16_t sched_pick_cpu(void)
 
 _Noreturn void process_idle(pid_t pid)
 {
-    /* TODO: Need to find out why a #PF occurs without sleeping. */
-    //hpet_sleep(100);
-
-    /* Need to determine the root cause why we need sleep here on SMP.
-     * Page Fault exception will occur if there is no sleep here.
-     */
     cpu_t *cpu = smp_get_current_cpu(true);
     ASSERT (cpu != NULL);
     
@@ -189,6 +183,10 @@ void do_context_switch(void *stack, int64_t mode)
     spinlock_acquire(&(run_queue_lock[cpu_id]));
 
     process_t *curr = running_process[cpu_id];
+
+    if (curr != NULL && curr->kstack_limit != NULL
+        && *(volatile uint64_t *) curr->kstack_limit != STACK_CANARY)
+        kpanic("sched: kernel stack overflow in pid %ld\n", curr->pid);
 
     if (curr != NULL) {
         /* Process status: 0 - ready, 1 - running, 2 - sleeping */

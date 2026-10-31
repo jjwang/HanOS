@@ -123,16 +123,6 @@ _Noreturn void kshell(pid_t pid)
 {
     (void) pid;
 
-    /* If we want to trigger an exception, uncomment below code */
-    /* TODO: Note that the code below cannot print exception messages; find
-     * out why.
-     */
-    if (false) {
-        int32_t y = 0, x = 128, z;
-        z = x / y;
-        klogi("kshell: 128 / 0 = %ld\n", z);
-    }
-
     if (!console_server_start())
         klogw("console: server failed to start\n");
 
