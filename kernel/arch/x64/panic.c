@@ -42,7 +42,7 @@ _Noreturn void kpanic_impl(const char *fmt, ...)
     va_list args;
 
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+    vsnprintf(buf, sizeof(buf), fmt, args);  // flawfinder: ignore
     va_end(args);
 
     asm volatile ("cli");

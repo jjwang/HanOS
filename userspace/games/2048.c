@@ -209,7 +209,7 @@ static void draw(void)
      * board redraw overwrites every cell in place. */
     printf("\033[?25l");
     game_center(1, "\033[1;37m2048\033[0m");
-    sprintf(buf, "score %ld", score);
+    snprintf(buf, sizeof(buf), "score %ld", score);
     game_center(2, buf);
     if (won)
         game_center(3, "\033[1;33mYou reached 2048!\033[0m");
@@ -226,8 +226,8 @@ static void draw(void)
             char num[12] = "";
 
             if (v)
-                sprintf(num, "%d", v);
-            o += sprintf(line + o, "\033[%dm%*s\033[0m|", color(board[r][c]),
+                snprintf(num, sizeof(num), "%d", v);
+            o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[%dm%*s\033[0m|", color(board[r][c]),
                          CELL, num);
         }
         line[o] = '\0';

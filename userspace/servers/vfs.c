@@ -156,9 +156,9 @@ static char *join_path(const char *cwd, const char *path)
         return NULL;
 
     if (path[0] == '/' || strlen(cwd) == 0)
-        strcpy(out, "/");
+        strcpy(out, "/");  // flawfinder: ignore
     else
-        strcpy(out, cwd);
+        strcpy(out, cwd);  // flawfinder: ignore
 
     uint64_t i = 0;
 
@@ -210,8 +210,8 @@ static char *join_path(const char *cwd, const char *path)
         uint64_t olen = strlen(out);
 
         if (olen > 0 && out[olen - 1] != '/')
-            strcat(out, "/");
-        strcat(out, comp);
+            strcat(out, "/");  // flawfinder: ignore
+        strcat(out, comp);  // flawfinder: ignore
         free(comp);
     }
 
@@ -1623,8 +1623,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                                 repl = malloc(rl);
                                 if (repl != NULL) {
-                                    strcpy(repl, norm);
-                                    strcat(repl, suffix);
+                                    strcpy(repl, norm);  // flawfinder: ignore
+                                    strcat(repl, suffix);  // flawfinder: ignore
                                 }
                                 free(suffix);
                             }

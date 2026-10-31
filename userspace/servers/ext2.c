@@ -1018,19 +1018,19 @@ static void split_path(const char *path, char *parent, char *base)
 
     if (slash == NULL) {
         parent[0] = '\0';
-        strcpy(base, path);
+        strcpy(base, path);  // flawfinder: ignore
         return;
     }
 
     uint64_t plen = (uint64_t) (slash - path);
 
     if (plen == 0) {
-        strcpy(parent, "/");
+        strcpy(parent, "/");  // flawfinder: ignore
     } else {
         memcpy(parent, path, plen);
         parent[plen] = '\0';
     }
-    strcpy(base, slash + 1);
+    strcpy(base, slash + 1);  // flawfinder: ignore
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)

@@ -186,14 +186,14 @@ static void draw(void)
     char frame[16384];
     int f = 0;
 
-    f += sprintf(frame + f,
+    f += snprintf(frame + f, sizeof(frame) - (size_t)f,
                  "\033[?25l\033[1;%dH\033[37mTETRIS  score %ld  lines %d  level %d\033[0m",
                  well_col, score, lines, level);
 
     for (int r = 0; r < BH; r++) {
         int o = 0;
 
-        o += sprintf(line + o, "\033[37m|\033[0m");
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[37m|\033[0m");
         for (int c = 0; c < BW; c++) {
             int v = board[r][c];
             int pr = r - py, pc = c - px;
@@ -203,15 +203,15 @@ static void draw(void)
                 v = ptype + 1;
 
             if (v == 0)
-                o += sprintf(line + o, "  ");
+                o += snprintf(line + o, sizeof(line) - (size_t)o, "  ");
             else
-                o += sprintf(line + o, "\033[%dm[]", colors[v - 1]);
+                o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[%dm[]", colors[v - 1]);
         }
-        o += sprintf(line + o, "\033[0m|");
-        f += sprintf(frame + f, "\033[%d;%dH%s", WELL_ROW + r, well_col, line);
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[0m|");
+        f += snprintf(frame + f, sizeof(frame) - (size_t)f, "\033[%d;%dH%s", WELL_ROW + r, well_col, line);
     }
 
-    f += sprintf(frame + f, "\033[%d;%dH+--------------------+\033[?25l",
+    f += snprintf(frame + f, sizeof(frame) - (size_t)f, "\033[%d;%dH+--------------------+\033[?25l",
                  WELL_ROW + BH, well_col);
 
     if (over) {
@@ -224,9 +224,9 @@ static void draw(void)
         snprintf(sc, sizeof(sc), "score %ld", score);
         center_band(b1, "GAME OVER", WELL_W);
         center_band(b2, sc, WELL_W);
-        f += sprintf(frame + f, "\033[%d;%dH\033[7m%s\033[0m",
+        f += snprintf(frame + f, sizeof(frame) - (size_t)f, "\033[%d;%dH\033[7m%s\033[0m",
                      WELL_ROW + BH / 2 - 1, well_col, b1);
-        f += sprintf(frame + f, "\033[%d;%dH\033[7m%s\033[0m",
+        f += snprintf(frame + f, sizeof(frame) - (size_t)f, "\033[%d;%dH\033[7m%s\033[0m",
                      WELL_ROW + BH / 2 + 1, well_col, b2);
     }
 

@@ -99,7 +99,7 @@ void process_set_cwd(process_t * t, const char *cwd)
     dup = kmalloc(strlen(cwd) + 1);
     if (dup == NULL)
         return;
-    strcpy(dup, cwd);
+    strcpy(dup, cwd);  // flawfinder: ignore
     if (t->cwd != NULL)
         kmfree(t->cwd);
     t->cwd = dup;

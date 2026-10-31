@@ -138,10 +138,11 @@ static void clamp(void)
 
 static void draw(void)
 {
-    char *out = malloc((size_t) cols * 64 + 256);
+    size_t cap = (size_t) cols * 64 + 256;
+    char *out = malloc(cap);
     int o = 0;
 
-    o += sprintf(out + o, "\033[?25l\033[H");
+    o += snprintf(out + o, cap - (size_t) o, "\033[?25l\033[H");
 
     if (cy < rowoff)
         rowoff = cy;
@@ -158,7 +159,7 @@ static void draw(void)
         long row = rowoff + r;
 
         if (row >= nlines) {
-            o += sprintf(out + o, "\033[90m~\033[0m\033[K\r\n");
+            o += snprintf(out + o, cap - (size_t) o, "\033[90m~\033[0m\033[K\r\n");
             continue;
         }
         long ll = line_len(row);
@@ -169,17 +170,17 @@ static void draw(void)
             n = cols;
         memcpy(out + o, buf + lstart[row] + from, (size_t) n);
         o += (int) n;
-        o += sprintf(out + o, "\033[K\r\n");
+        o += snprintf(out + o, cap - (size_t) o, "\033[K\r\n");
     }
 
     /* Status line. */
-    o += sprintf(out + o, "\033[7m\033[K%s%s  %ld,%ld  %ld lines\033[0m\r\n",
+    o += snprintf(out + o, cap - (size_t) o, "\033[7m\033[K%s%s  %ld,%ld  %ld lines\033[0m\r\n",
                  filename, dirty ? " [+]" : "", cy + 1, cx + 1, nlines);
-    o += sprintf(out + o,
+    o += snprintf(out + o, cap - (size_t) o,
                  "\033[Karrows move  Ctrl-S save  Ctrl-Q quit  Backspace del");
 
     /* Place the cursor. */
-    o += sprintf(out + o, "\033[%d;%dH\033[?25h", (int) (cy - rowoff) + 1,
+    o += snprintf(out + o, cap - (size_t) o, "\033[%d;%dH\033[?25h", (int) (cy - rowoff) + 1,
                  (int) (cx - coloff) + 1);
 
     fwrite(out, 1, (size_t) o, stdout);

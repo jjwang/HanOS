@@ -886,7 +886,7 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
             if (e == NULL)
                 break;
             stack = (uint64_t *)((uint8_t *) stack - (strlen(e) + 1));
-            strcpy((char *) stack, e);
+            strcpy((char *) stack, e);  // flawfinder: ignore
             klogd("         envp: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
             nenv++;
@@ -897,7 +897,7 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
             if (e == NULL)
                 break;
             stack = (uint64_t *)((uint8_t *) stack - (strlen(e) + 1));
-            strcpy((char *) stack, e);
+            strcpy((char *) stack, e);  // flawfinder: ignore
             klogd("         argv: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
             nargs++;

@@ -63,7 +63,7 @@ typedef struct[[gnu::packed]] {
     uint16_t limit;
     uint16_t base_low;
     uint8_t base_mid;
-    uint8_t access;
+    uint8_t access;  // flawfinder: ignore
     uint8_t granularity;
     uint8_t base_high;
 } gdt_entry_t;

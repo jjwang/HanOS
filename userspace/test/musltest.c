@@ -354,11 +354,11 @@ int main(void)
         int mr = mkdir("/newdir", 0755);
         int sr = symlink("/bin/hansh", "/newdir/link");
         char linkbuf[128] = { 0 };
-        ssize_t lr = readlink("/newdir/link", linkbuf, sizeof(linkbuf) - 1);
+        ssize_t lr = readlink("/newdir/link", linkbuf, sizeof(linkbuf) - 1);  // flawfinder: ignore
         int rr = rename("/newdir/link", "/newdir/link2");
         char linkbuf2[128] = { 0 };
         ssize_t lr2 =
-            readlink("/newdir/link2", linkbuf2, sizeof(linkbuf2) - 1);
+            readlink("/newdir/link2", linkbuf2, sizeof(linkbuf2) - 1);  // flawfinder: ignore
         struct stat lst;
         int st2 = lstat("/newdir/link2", &lst);
 

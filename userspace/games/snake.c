@@ -102,20 +102,20 @@ static void draw(void)
     char buf[64];
 
     game_center(1, "\033[1;32mSNAKE\033[0m");
-    sprintf(buf, "score %ld  length %d", score, len);
+    snprintf(buf, sizeof(buf), "score %ld  length %d", score, len);
     game_center(2, buf);
 
     int o = 0;
 
-    o += sprintf(line + o, "\033[37m+");
+    o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[37m+");
     for (int c = 0; c < GW; c++)
-        o += sprintf(line + o, "-");
-    o += sprintf(line + o, "+\033[0m");
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "-");
+    o += snprintf(line + o, sizeof(line) - (size_t)o, "+\033[0m");
     put_at(TAB_ROW, tab_col, line);
 
     for (int r = 0; r < GH; r++) {
         o = 0;
-        o += sprintf(line + o, "\033[37m|\033[0m");
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[37m|\033[0m");
         for (int c = 0; c < GW; c++) {
             char ch = ' ';
             const char *col = "";
@@ -133,19 +133,19 @@ static void draw(void)
                 }
             }
             if (ch == ' ')
-                o += sprintf(line + o, " ");
+                o += snprintf(line + o, sizeof(line) - (size_t)o, " ");
             else
-                o += sprintf(line + o, "%s%c\033[0m", col, ch);
+                o += snprintf(line + o, sizeof(line) - (size_t)o, "%s%c\033[0m", col, ch);
         }
-        o += sprintf(line + o, "\033[37m|\033[0m");
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[37m|\033[0m");
         put_at(TAB_ROW + 1 + r, tab_col, line);
     }
 
     o = 0;
-    o += sprintf(line + o, "\033[37m+");
+    o += snprintf(line + o, sizeof(line) - (size_t)o, "\033[37m+");
     for (int c = 0; c < GW; c++)
-        o += sprintf(line + o, "-");
-    o += sprintf(line + o, "+\033[0m");
+        o += snprintf(line + o, sizeof(line) - (size_t)o, "-");
+    o += snprintf(line + o, sizeof(line) - (size_t)o, "+\033[0m");
     put_at(TAB_ROW + 1 + GH, tab_col, line);
 
     printf("\033[%d;1H\033[K", TAB_ROW + GH + 2);

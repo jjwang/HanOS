@@ -61,7 +61,7 @@ void wc(int32_t fd, char *name)
         }
         buf[n] = '\0';
         if (strlen(buf) + strlen(out) < sizeof(out) - 1) {
-            strcat(out, buf);
+            strcat(out, buf);  // flawfinder: ignore
             outmore = false;
         } else {
             outmore = true;

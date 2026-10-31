@@ -29,6 +29,7 @@
 #include <arch/x64/pci.h>
 #include <arch/x64/isr_base.h>
 #include <lib/klog.h>
+#include <printf.h>
 #include <lib/vector.h>
 #include <lib/kmalloc.h>
 #include <mm/mm.h>
@@ -1375,7 +1376,7 @@ int64_t k_chdir(char *dir)
     uint64_t k = 0;
     uint64_t len = strlen(dir);
 
-    strcpy(fullpath, t->cwd);
+    snprintf(fullpath, max, "%s", t->cwd);
 
     /* Note that "i" will loop to last character "\0" */
     for (uint64_t i = 0; i < len; i++) {
@@ -1393,12 +1394,12 @@ int64_t k_chdir(char *dir)
             /* Change to parent folder. The root has no parent, so stay
              * there. */
             if (vfs_get_parent_dir(fullpath, parent, currdir) < 0)
-                strcpy(fullpath, "/");
+                snprintf(fullpath, max, "%s", "/");
             else
-                strcpy(fullpath, parent);
+                snprintf(fullpath, max, "%s", parent);
         } else if (strlen(currdir) == 0 && i == 0) {
             /* It is root folder based */
-            strcpy(fullpath, "/");
+            snprintf(fullpath, max, "%s", "/");
         } else {
             uint64_t fpl = strlen(fullpath);
 

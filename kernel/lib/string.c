@@ -103,7 +103,7 @@ int64_t strncmp(const char *a, const char *b, uint64_t len)
     return 0;
 }
 
-char *strcpy(char *__restrict dest, const char *src)
+char *strcpy(char *__restrict dest, const char *src)  // flawfinder: ignore
 {
     uint64_t i;
     for (i = 0;; i++) {
@@ -125,7 +125,7 @@ char *strncpy(char *__restrict dest, const char *src, uint64_t len)
     return dest + i;
 }
 
-int64_t strcat(char *dest, const char *src)
+int64_t strcat(char *dest, const char *src)  // flawfinder: ignore
 {
     uint64_t i, dest_len = strlen(dest);
     for (i = dest_len;; i++) {

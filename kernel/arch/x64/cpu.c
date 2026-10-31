@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
+#include <printf.h>
 #include <string.h>
 
 #include <arch/x64/cpu.h>
@@ -157,16 +158,16 @@ void cpu_init(uint64_t cpuno)
     uint32_t x, y, na;
     cpuid(0, 0, &na, &y, &na, &na);
 
-    strcpy(cpu_manufacturer, "Unknown");
+    snprintf(cpu_manufacturer, sizeof(cpu_manufacturer), "%s", "Unknown");
 
     if (y == 0x756e6547) {
         cpuid(1, 0, &x, &y, &na, &na);
-        strcpy(cpu_manufacturer, "Intel");
+        snprintf(cpu_manufacturer, sizeof(cpu_manufacturer), "%s", "Intel");
         cpu_model = (x >> 4) & 0x0F;
         cpu_family = (x >> 8) & 0x0F;
     } else if (y == 0x68747541) {
         cpuid(1, 0, &x, &na, &na, &na);
-        strcpy(cpu_manufacturer, "AMD");
+        snprintf(cpu_manufacturer, sizeof(cpu_manufacturer), "%s", "AMD");
         cpu_model = (x >> 4) & 0x0F;
         cpu_family = (x >> 8) & 0x0F;
     }

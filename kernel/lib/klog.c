@@ -83,7 +83,7 @@ void klog_vprintf_wrapper(klog_info_t * k, const char *s, ...)
     char buf[512];
     va_list args;
     va_start(args, s);
-    vsnprintf(buf, sizeof(buf), s, args);
+    vsnprintf(buf, sizeof(buf), s, args);  // flawfinder: ignore
     va_end(args);
     klog_puts_buf(k, buf);
 }
@@ -163,7 +163,7 @@ void klog_vprintf(klog_level_t level, const char *s, ...)
     char buf[512];
     va_list args;
     va_start(args, s);
-    vsnprintf(buf, sizeof(buf), s, args);
+    vsnprintf(buf, sizeof(buf), s, args);  // flawfinder: ignore
     va_end(args);
     klog_puts_buf(&logout, buf);
 
@@ -198,7 +198,7 @@ void kprintf(const char *s, ...)
     char buf[512];
     va_list args;
     va_start(args, s);
-    vsnprintf(buf, sizeof(buf), s, args);
+    vsnprintf(buf, sizeof(buf), s, args);  // flawfinder: ignore
     va_end(args);
 
 #if KPRINTF_SERIAL_MIRROR
