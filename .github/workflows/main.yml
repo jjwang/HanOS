@@ -23,11 +23,11 @@ jobs:
         uses: shadowmoose/GHA-LoC-Badge@1.0.0
         with:
           debug: true
-          directory: ./kernel
+          directory: ./
           badge: ./output/kernel-badge.svg
           badge_label: 'Kernel Lines of Code'
-          patterns: '**/*.c|**/*.h|**/*.asm|**/*.s'
-          ignore: '3rd-party/**|kernel/3rd-party/**'
+          patterns: 'kernel/**/*.c|kernel/**/*.h|kernel/**/*.asm|kernel/**/*.s'
+          ignore: 'kernel/3rd-party/**'
 
       - name: Print the output
         run: |
