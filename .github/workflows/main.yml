@@ -26,6 +26,7 @@ jobs:
           directory: ./kernel
           badge: ./output/kernel-badge.svg
           badge_label: 'Kernel Lines of Code'
+          patterns: '**/*.c|**/*.h|**/*.asm|**/*.s'
           ignore: '3rd-party/**|kernel/3rd-party/**'
 
       - name: Print the output
