@@ -214,6 +214,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint8_t k = (uint8_t) m->words[0];
         key_push(k);
         echo_key(k);
+        /* Paint the echo before the reader runs, so the newline is not glued
+         * to the command output. */
+        out_flush(false);
 
         /* Wake a waiting reader once a full line (or the requested length) is
          * buffered. */
