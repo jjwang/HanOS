@@ -81,6 +81,11 @@ grep -aq 'MK: signalfd PASS' "$LOG" || {
     cat "$LOG" >&2
     exit 1
 }
+grep -aq 'MK: mm PASS' "$LOG" || {
+    echo "mm service did not answer" >&2
+    cat "$LOG" >&2
+    exit 1
+}
 if grep -aEq 'panic|exception|corrupt' "$LOG"; then
     grep -aE 'panic|exception|corrupt' "$LOG" >&2
     exit 1
