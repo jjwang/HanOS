@@ -2416,6 +2416,23 @@ void k_exit(int64_t status)
     sched_exit(status);
 }
 
+/* Record a group exit under the leader's pid. A non-leader thread that calls
+ * exit_group must still answer the parent's wait on the leader. Close the
+ * group fd table and store the status once; the reaper skips a recorded
+ * process. */
+static void exit_group_record(process_t * t, int64_t wait_status)
+{
+    process_t *leader = process_lookup(t->tgid);
+
+    if (leader == NULL || leader->exit_recorded)
+        return;
+
+    process_fd_exit_pid((int32_t) leader->pid);
+    process_exit_notify_pid((int32_t) leader->pid, wait_status);
+    leader->exit_status = wait_status;
+    leader->exit_recorded = true;
+}
+
 void k_exit_group(int64_t status)
 {
     process_t *t = sched_get_current_process();
@@ -2423,11 +2440,9 @@ void k_exit_group(int64_t status)
     if (t != NULL) {
         klogi("k_exit_group: group %ld exit with status %ld\n", t->tgid,
               status);
-        /* Stop the other threads of the group first. */
+        exit_group_record(t, (status & 0xff) << 8);
+        /* Stop the other threads of the group after the status is stored. */
         sched_kill_group(t->tgid, t->pid);
-
-        if (!t->is_thread)
-            process_record_exit(t, (status & 0xff) << 8);
     }
 
     sched_exit(status);
@@ -2440,10 +2455,8 @@ void k_exit_group_signal(int32_t sig)
     process_t *t = sched_get_current_process();
 
     if (t != NULL) {
+        exit_group_record(t, (int64_t) sig | 0x80);
         sched_kill_group(t->tgid, t->pid);
-
-        if (!t->is_thread)
-            process_record_exit(t, (int64_t) sig | 0x80);
     }
 
     sched_exit(sig);
