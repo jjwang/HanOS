@@ -81,6 +81,8 @@
 #define H_EPOLL_CTL  233
 #define H_EPOLL_WAIT 232
 #define H_EPOLL_PWAIT 281
+#define H_UNAME      63
+#define H_SIGNALFD4  289
 
 /* Linux syscall numbers musl uses. */
 #define L_read        0
@@ -133,6 +135,8 @@
 #define L_clock_gettime 228
 #define L_clock_nanosleep 230
 #define L_exit_group  231
+#define L_uname       63
+#define L_signalfd4   289
 #define L_openat      257
 #define L_newfstatat  262
 #define L_unlinkat    263
@@ -743,6 +747,10 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_madvise:
     case L_set_robust_list:
         return 0;
+    case L_uname:
+        return __hanos_raw(H_UNAME, a1, 0, 0, 0, 0, 0);
+    case L_signalfd4:
+        return __hanos_raw(H_SIGNALFD4, a1, a2, a3, a4, 0, 0);
     case L_brk:
         return -ENOSYS_NUM;
     case L_rseq:
