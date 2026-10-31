@@ -65,7 +65,7 @@
 // support for the floating point type (%f)
 // default: activated
 #ifndef PRINTF_DISABLE_SUPPORT_FLOAT
-// HanOS TODO: Disable float support here. Need to enable it in the future.
+/* The kernel builds with -mgeneral-regs-only, so keep the formatter integer-only. */
 // #define PRINTF_SUPPORT_FLOAT
 #endif
 
