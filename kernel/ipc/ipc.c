@@ -93,6 +93,11 @@ int32_t ipc_send_objs(endpoint_t *ep, const ipc_msg_t *msg,
 
     spinlock_acquire(&ep->lock);
 
+    if (count > 0 && objs == NULL) {
+        spinlock_release(&ep->lock);
+        return -1;
+    }
+
     if (ep->count == IPC_QUEUE_LEN) {
         spinlock_release(&ep->lock);
         return -1;              /* queue full */

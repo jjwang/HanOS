@@ -46,6 +46,7 @@ static void fault_page(void)
 static void fault_divide(void)
 {
     volatile int32_t zero = 0;
+    // cppcheck-suppress zerodiv
     volatile int32_t r = 1 / zero;
 
     (void) r;

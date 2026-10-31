@@ -367,6 +367,9 @@ static uint64_t _ftoa(out_fct_type out, char* buffer, uint64_t idx, uint64_t max
     prec--;
   }
 
+  if (prec > 9U)
+    prec = 9U;
+
   int32_t whole = (int32_t)value;
   double tmp = (value - whole) * pow10[prec];
   uint64_t frac = (uint64_t)tmp;

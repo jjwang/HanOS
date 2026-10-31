@@ -68,10 +68,15 @@ extern const uaccess_ex_entry_t __stop___ex_table[];
 
 uint64_t uaccess_find_fixup(uint64_t rip)
 {
-    for (const uaccess_ex_entry_t * e = __start___ex_table;
-         e < __stop___ex_table; e++)
+    uint64_t start = (uint64_t) __start___ex_table;
+    uint64_t stop = (uint64_t) __stop___ex_table;
+
+    for (uint64_t a = start; a < stop; a += sizeof(uaccess_ex_entry_t)) {
+        const uaccess_ex_entry_t *e = (const uaccess_ex_entry_t *) a;
+
         if (e->insn == rip)
             return e->fixup;
+    }
 
     return 0;
 }

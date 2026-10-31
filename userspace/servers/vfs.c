@@ -719,8 +719,8 @@ static int64_t store_ext_call(uint64_t tag, uint64_t w0, uint64_t w1,
             if (n > rcap)
                 n = rcap;
             if (sys_mem_map(memh, VFS_STORE_ADDR, PROT_READ) == 0) {
-                memcpy(rdst, (void *) (uint64_t) VFS_STORE_ADDR
-                       + EXT2_IO_DATA_OFF, n);
+                memcpy(rdst, (void *) ((uint64_t) VFS_STORE_ADDR
+                       + EXT2_IO_DATA_OFF), n);
                 sys_mem_unmap(memh, VFS_STORE_ADDR);
             }
         }
@@ -1331,7 +1331,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             de->d_ino = (uint64_t) found + 1;
             de->d_type = idx_is_dir(found) ? DT_DIR : DT_REG;
             int32_t k = 0;
-            while (base[k] != '\0' && k < (int32_t) sizeof(de->d_name) - 1) {
+            while (k < (int32_t) sizeof(de->d_name) - 1 && base[k] != '\0') {
                 de->d_name[k] = base[k];
                 k++;
             }

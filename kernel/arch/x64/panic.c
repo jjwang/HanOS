@@ -36,6 +36,23 @@ static int32_t symbols_get_index(uint64_t addr)
     return -1;
 }
 
+_Noreturn void kpanic_impl(const char *fmt, ...)
+{
+    char buf[256];
+    va_list args;
+
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    asm volatile ("cli");
+    klog_vprintf(KLOG_LEVEL_ERROR, "Enter kernel panic...\n");
+    klog_vprintf(KLOG_LEVEL_ERROR, "%s", buf);
+    display_backtrace();
+    for (;;)
+        asm volatile ("hlt");
+}
+
 void display_backtrace()
 {
     uint64_t *rbp_val = 0;

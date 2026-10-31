@@ -112,7 +112,7 @@
 
 #define VGA_CONTROL                     0x41000 /* R/W */
 
-#define VGA_DISABLE                     (1 << 31)
+#define VGA_DISABLE                     (1u << 31)
 
 /* 3.7.1 ARB_CTL-Display Arbitration Control 1 */
 
@@ -185,7 +185,7 @@
 #define DPLL_A_CTRL                     0x06014
 #define DPLL_B_CTRL                     0x06018
 
-#define DPLL_VCO_ENABLE                 (1 << 31)
+#define DPLL_VCO_ENABLE                 (1u << 31)
 #define DPLL_SDVO_HIGH_SPEED            (1 << 30)
 #define DPLL_DVO_2X_MODE                (1 << 30)
 #define DPLL_EXT_BUFFER_ENABLE_VLV      (1 << 30)
@@ -237,7 +237,7 @@
 #define DP_C                            0x64200
 #define DP_D                            0x64300
 
-#define DP_PORT_EN                      (1 << 31)
+#define DP_PORT_EN                      (1u << 31)
 #define DP_PIPEB_SELECT                 (1 << 30)
 #define DP_PIPE_MASK                    (1 << 30)
 #define DP_PIPE_SELECT_CHV(pipe)        ((pipe) << 16)
@@ -248,7 +248,7 @@
 #define HDMIC                           0x61160
 #define HDMID                           0x6116C
 
-#define HDMI_PORT_EN                    (1 << 31)
+#define HDMI_PORT_EN                    (1u << 31)
 #define HDMI_PIPEB_SELECT               (1 << 30)
 #define HDMI_COLOR_RANGE_16_235         (1 << 8)
 #define HDMI_AUDIO_ENABLE               (1 << 6)
@@ -258,7 +258,7 @@
 #define PIPEBCONF                       0x71008
 #define PIPECCONF                       0x72008
 
-#define PIPE_ENABLE                     (1 << 31)
+#define PIPE_ENABLE                     (1u << 31)
 #define PIPE_STATE                      (1 << 30)
 #define PIPE_PROGRESSIVE                (0 << 21)
 #define PIPE_INTERLACED                 (1 << 21)
@@ -268,7 +268,7 @@
 #define DSPBCNTR                        0x71180
 #define DSPCCNTR                        0x72180
 
-#define DISPLAY_PLANE_ENABLE            (1 << 31)
+#define DISPLAY_PLANE_ENABLE            (1u << 31)
 #define DISPLAY_PLANE_DISABLE           0
 #define DISPPLANE_GAMMA_ENABLE          (1 << 30)
 #define DISPPLANE_PIXFORMAT_MASK        (0xf << 26)
@@ -300,7 +300,7 @@
 #define DEIIR                           0x44008
 #define DEIER                           0x4400C
 
-#define DE_MASTER_IRQ_CONTROL           (1 << 31)
+#define DE_MASTER_IRQ_CONTROL           (1u << 31)
 #define DE_PCH_EVENT                    (1 << 28)
 #define DE_PIPEC_VBLANK                 (1 << 10)
 #define DE_PIPEB_VBLANK                 (1 << 5)
@@ -316,7 +316,7 @@
 #define CURCPOS                         0x72088
 
 #define CURSOR_POS_SIGN_X               (1 << 15)
-#define CURSOR_POS_SIGN_Y               (1 << 31)
+#define CURSOR_POS_SIGN_Y               (1u << 31)
 #define CURSOR_POS_X_MASK               0x7fff
 #define CURSOR_POS_Y_MASK               0x7fff
 #define CURSOR_POS_Y_SHIFT              16

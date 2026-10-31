@@ -152,10 +152,10 @@ static int32_t pipe_create(int32_t *rfd, int32_t *wfd)
 
         int32_t r = end_alloc(p, false);
         int32_t w = end_alloc(p, true);
-        if (r < 0 || w < 0) {
-            if (r >= 0)
+        if (r <= 0 || w <= 0) {
+            if (r > 0)
                 ends[r - 1].used = false;
-            if (w >= 0)
+            if (w > 0)
                 ends[w - 1].used = false;
             pipes[p].used = false;
             return -1;

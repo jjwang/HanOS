@@ -99,8 +99,13 @@ static void ins_at(long at, const char *s, long n)
         bufcap = (bufcap == 0) ? 4096 : bufcap * 2;
         while (bufcap < buflen + n + 1)
             bufcap *= 2;
-        buf = realloc(buf, bufcap);
-        lstart = realloc(lstart, (bufcap + 1) * sizeof(long));
+        char *nb = realloc(buf, bufcap);
+        long *nl = realloc(lstart, (bufcap + 1) * sizeof(long));
+
+        if (nb == NULL || nl == NULL)
+            die("out of memory");
+        buf = nb;
+        lstart = nl;
     }
     memmove(buf + at + n, buf + at, buflen - at);
     memcpy(buf + at, s, n);
@@ -242,8 +247,13 @@ static void load(void)
     for (;;) {
         if (buflen + 4096 > bufcap) {
             bufcap *= 2;
-            buf = realloc(buf, (size_t) bufcap);
-            lstart = realloc(lstart, (size_t) (bufcap + 1) * sizeof(long));
+            char *nb = realloc(buf, (size_t) bufcap);
+            long *nl = realloc(lstart, (size_t) (bufcap + 1) * sizeof(long));
+
+            if (nb == NULL || nl == NULL)
+                die("out of memory");
+            buf = nb;
+            lstart = nl;
         }
         long n = sys_read(fd, buf + buflen, 4096);
 

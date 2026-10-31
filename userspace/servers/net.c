@@ -1792,7 +1792,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
         int32_t fd = sock_alloc();
 
-        if (fd < 0) {
+        if (fd <= 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
             return;
         }

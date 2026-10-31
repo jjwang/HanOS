@@ -50,7 +50,7 @@ volatile void *lapic_base = NULL;
  */
 uint32_t apic_read_reg(uint16_t offset)
 {
-    return *(uint32_t volatile *) (lapic_base + offset);
+    return *(uint32_t volatile *) ((volatile uint8_t *) lapic_base + offset);
 }
 
 /**
@@ -64,7 +64,7 @@ uint32_t apic_read_reg(uint16_t offset)
  */
 void apic_write_reg(uint16_t offset, uint32_t val)
 {
-    *(uint32_t volatile *) (lapic_base + offset) = val;
+    *(uint32_t volatile *) ((volatile uint8_t *) lapic_base + offset) = val;
 }
 
 /**

@@ -885,7 +885,7 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
             e = envp[i];
             if (e == NULL)
                 break;
-            stack = (void *) stack - (strlen(e) + 1);
+            stack = (uint64_t *)((uint8_t *) stack - (strlen(e) + 1));
             strcpy((char *) stack, e);
             klogd("         envp: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
@@ -896,7 +896,7 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
             e = argv[i];
             if (e == NULL)
                 break;
-            stack = (void *) stack - (strlen(e) + 1);
+            stack = (uint64_t *)((uint8_t *) stack - (strlen(e) + 1));
             strcpy((char *) stack, e);
             klogd("         argv: %s (0x%016lx -> 0x%016lx, %ld)\n",
                   e, e, stack, strlen(e) + 1);
@@ -904,7 +904,7 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
         }
 
         /* Align stack address to 16-byte */
-        stack = (void *) stack - ((uintptr_t) stack & 0xf);
+        stack = (uint64_t *)((uint8_t *) stack - ((uintptr_t) stack & 0xf));
 
         if ((nargs + nenv + 1) & 1)
             stack--;

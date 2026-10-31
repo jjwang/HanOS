@@ -132,12 +132,12 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
 
         nproc->kstack_limit =
             (void *) kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
-        nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
+        nproc->kstack_top = (void *)((uint8_t *) nproc->kstack_limit + STACK_SIZE);
         *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
         nproc->ustack_limit = (void *)
             VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
-        nproc->ustack_top = nproc->ustack_limit + STACK_SIZE;
+        nproc->ustack_top = (void *)((uint8_t *) nproc->ustack_limit + STACK_SIZE);
 
         klogi("PROC: %s process id %ld (0x%016lx) kstack 0x%016lx ustack 0x%016lx\n",
               name, nproc->pid, nproc, nproc->kstack_top,
@@ -177,7 +177,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     } else {
         nproc->kstack_limit =
             kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
-        nproc->kstack_top = nproc->kstack_limit + STACK_SIZE;
+        nproc->kstack_top = (void *)((uint8_t *) nproc->kstack_limit + STACK_SIZE);
         *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
         nproc->ustack_limit = NULL;
@@ -188,7 +188,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
 
         nproc->context = nproc->kstack_top;
 
-        nproc_regs = nproc->kstack_top - sizeof(process_regs_t);
+        nproc_regs = (process_regs_t *)((uint8_t *) nproc->kstack_top - sizeof(process_regs_t));
 
         nproc_regs->cs = DEFAULT_KMODE_CODE;
         nproc_regs->ss = DEFAULT_KMODE_DATA;
@@ -304,7 +304,7 @@ process_t *process_fork(process_t * tp)
 
     if ((uint64_t) tc->context >= (uint64_t) tp->kstack_limit
         && (uint64_t) tc->context <=
-        (uint64_t) (tp->kstack_limit + STACK_SIZE)) {
+        (uint64_t) ((uintptr_t) tp->kstack_limit + STACK_SIZE)) {
         offset = (uint64_t) tc->context - (uint64_t) tp->kstack_limit;
         tc->context = (void *) ((uint64_t) tc->kstack_limit + offset);
 
@@ -377,7 +377,7 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
     tc->bootinfo = NULL;
 
     tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
-    tc->kstack_top = tc->kstack_limit + STACK_SIZE;
+    tc->kstack_top = (void *)((uint8_t *) tc->kstack_limit + STACK_SIZE);
     *(uint64_t *) tc->kstack_limit = STACK_CANARY;
 
     /* Build the child's user-mode return frame on its kernel stack. Layout
