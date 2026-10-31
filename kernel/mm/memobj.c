@@ -18,6 +18,7 @@
 
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
+#include <mm/mm.h>
 #include <mm/memobj.h>
 #include <proc/syscall.h>
 
@@ -115,4 +116,37 @@ void memobj_unref(memobj_t * m)
 {
     if (m != NULL)
         object_unref(&m->obj);
+}
+
+void memobj_copy_in(memobj_t * m, const void *src, uint64_t len, uint64_t off)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(m, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done, chunk);
+        done += chunk;
+    }
+}
+
+void memobj_copy_out(memobj_t * m, void *dst, uint64_t len, uint64_t off)
+{
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t pos = off + done;
+        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
+
+        if (chunk > len - done)
+            chunk = len - done;
+        memcpy((uint8_t *) dst + done,
+               (uint8_t *) PHYS_TO_VIRT(memobj_page(m, pos / PAGE_SIZE))
+               + (pos & (PAGE_SIZE - 1)), chunk);
+        done += chunk;
+    }
 }

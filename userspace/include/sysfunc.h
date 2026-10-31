@@ -100,6 +100,18 @@ int64_t sys_handle_dup(int64_t handle);
 int64_t sys_ioport_access(int32_t op, int32_t port, int32_t width, int32_t value);
 int32_t sys_bootinfo(bootinfo_t *bi);
 
+/* Sector I/O through the block server. */
+#define BLK_SECTOR 512
+int32_t blk_client_read(int64_t block_ep, uint32_t lba, uint8_t count,
+                        uint8_t * dst, uint64_t map_addr);
+int32_t blk_client_write(int64_t block_ep, uint32_t lba, uint8_t count,
+                         const uint8_t * src, uint64_t map_addr);
+/* Serve requests on ep until the process exits. The handler fills rep; the
+ * request reply endpoint in xfer[0] is answered and closed. */
+typedef void (*sys_server_handler_t) (sys_ipc_msg_t * m, sys_ipc_msg_t * rep);
+_Noreturn void sys_server_run(int64_t ep, int64_t timeout_ms,
+                              sys_server_handler_t handle);
+
 void sys_libc_log(const char *message);
 int32_t sys_serial_write(const char *buf, uint64_t len);
 int32_t sys_meminfo();

@@ -171,3 +171,26 @@ int32_t ipc_buf_from_kernel(const void *kptr, uint64_t len, handle_t * out)
     *out = h;
     return 0;
 }
+
+memobj_t *memobj_alloc_handle(uint64_t len, handle_t * out)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || len == 0)
+        return NULL;
+
+    memobj_t *mo = memobj_create(len);
+    if (mo == NULL)
+        return NULL;
+
+    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
+                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
+    if (h == HANDLE_INVALID) {
+        memobj_unref(mo);
+        return NULL;
+    }
+
+    *out = h;
+    return mo;
+}

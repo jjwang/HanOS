@@ -62,8 +62,6 @@ extern int64_t syscall_handler();
 int32_t k_getclock(void *_ignored, int64_t which, vfs_timespec_t * out);
 static int32_t clock_now(int64_t which, vfs_timespec_t * out);
 int64_t k_uname(void *buf);
-static memobj_t *misc_memobj(uint64_t len, handle_t * out);
-static int misc_memobj_read(memobj_t * mo, void *dst, uint64_t len);
 
 typedef int64_t(*syscall_ptr_t) (void);
 
@@ -481,7 +479,7 @@ int64_t k_getentropy(void *buffer, uint64_t length)
     }
 
     handle_t h;
-    memobj_t *mo = misc_memobj(length, &h);
+    memobj_t *mo = memobj_alloc_handle(length, &h);
 
     if (mo == NULL) {
         cpu_set_errno(ENOMEM);
@@ -503,7 +501,7 @@ int64_t k_getentropy(void *buffer, uint64_t length)
     uint8_t kbuf[MISC_MAX_ENTROPY];
 
     if (ok)
-        misc_memobj_read(mo, kbuf, length);
+        memobj_copy_out(mo, kbuf, length, 0);
 
     memobj_unref(mo);
 
@@ -2745,56 +2743,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 /* Allocate a memory object and a handle for the misc server to fill or read.
  * The caller keeps the creation reference so it can copy the result out after
  * the forward. */
-static memobj_t *misc_memobj(uint64_t len, handle_t * out)
-{
-    process_t *t = sched_get_current_process();
-
-    if (t == NULL || len == 0)
-        return NULL;
-
-    memobj_t *mo = memobj_create(len);
-
-    if (mo == NULL)
-        return NULL;
-
-    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
-                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
-
-    if (h == HANDLE_INVALID) {
-        memobj_unref(mo);
-        return NULL;
-    }
-
-    *out = h;
-    return mo;
-}
-
 /* Copy a filled memory object back into a kernel buffer. */
-static int misc_memobj_read(memobj_t * mo, void *dst, uint64_t len)
-{
-    uint8_t *d = dst;
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t p = memobj_page(mo, done / PAGE_SIZE);
-
-        if (p == 0)
-            return -1;
-
-        uint64_t off = done % PAGE_SIZE;
-        uint64_t chunk = PAGE_SIZE - off;
-
-        if (chunk > len - done)
-            chunk = len - done;
-
-        memcpy(d + done, (void *) PHYS_TO_VIRT(p + off), chunk);
-        done += chunk;
-    }
-
-    return 0;
-}
-
 static int32_t clock_now(int64_t which, vfs_timespec_t * out)
 {
     vfs_timespec_t ts = { 0 };
@@ -2896,7 +2845,7 @@ int64_t k_uname(void *buf)
     }
 
     handle_t h;
-    memobj_t *mo = misc_memobj(sizeof(misc_utsname_t), &h);
+    memobj_t *mo = memobj_alloc_handle(sizeof(misc_utsname_t), &h);
 
     if (mo == NULL) {
         cpu_set_errno(ENOMEM);
@@ -2916,7 +2865,7 @@ int64_t k_uname(void *buf)
     misc_utsname_t u;
 
     if (ok)
-        misc_memobj_read(mo, &u, sizeof(u));
+        memobj_copy_out(mo, &u, sizeof(u), 0);
 
     memobj_unref(mo);
 

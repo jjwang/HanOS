@@ -27,6 +27,7 @@
 #include <srv/block_srv.h>
 #include <ipc/ipc.h>
 #include <mm/memobj.h>
+#include <mm/ipc_buf.h>
 #include <mm/mm.h>
 #include <router/router.h>
 #include <proc/sched.h>
@@ -92,70 +93,13 @@ bool fat32_server_active(void)
     return fat32_active;
 }
 
-static memobj_t *fat_memobj(uint64_t len, handle_t * out)
-{
-    process_t *t = sched_get_current_process();
-
-    if (t == NULL || len == 0)
-        return NULL;
-
-    memobj_t *mo = memobj_create(len);
-    if (mo == NULL)
-        return NULL;
-
-    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
-                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
-    if (h == HANDLE_INVALID) {
-        memobj_unref(mo);
-        return NULL;
-    }
-
-    *out = h;
-    return mo;
-}
-
-static void fat_copy_out(memobj_t * mo, void *dst, uint64_t len, uint64_t off)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = off + done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) dst + done,
-               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), chunk);
-        done += chunk;
-    }
-}
-
-static void fat_copy_in(memobj_t * mo, const void *src, uint64_t len,
-                        uint64_t off)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = off + done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done, chunk);
-        done += chunk;
-    }
-}
-
 int64_t fat32_stat_path(const char *path, uint64_t *size, bool *is_dir)
 {
     if (!fat32_active)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -188,7 +132,7 @@ int64_t fat32_open_path(const char *path, uint64_t *size)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -219,7 +163,7 @@ int64_t fat32_read_fd(int64_t fd, uint64_t len, void *buf)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -239,7 +183,7 @@ int64_t fat32_read_fd(int64_t fd, uint64_t len, void *buf)
         if (n > (int64_t) len)
             n = (int64_t) len;
         if (n > 0)
-            fat_copy_out(mo, buf, (uint64_t) n, VFS_IO_DATA_OFF);
+            memobj_copy_out(mo, buf, (uint64_t) n, VFS_IO_DATA_OFF);
     }
 
     memobj_unref(mo);
@@ -312,7 +256,7 @@ int64_t fat32_create_path(const char *path, uint64_t *size)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -343,13 +287,13 @@ int64_t fat32_write_fd(int64_t fd, uint64_t len, const void *buf)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
     if (len > VFS_IO_BUF_SIZE - VFS_IO_DATA_OFF)
         len = VFS_IO_BUF_SIZE - VFS_IO_DATA_OFF;
-    fat_copy_in(mo, buf, len, VFS_IO_DATA_OFF);
+    memobj_copy_in(mo, buf, len, VFS_IO_DATA_OFF);
 
     ipc_msg_t req;
     ipc_msg_t rep;
@@ -394,7 +338,7 @@ int64_t fat32_unlink_path(const char *path)
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 
@@ -425,7 +369,7 @@ int64_t fat32_readdir_fd(int64_t fd, uint64_t index, char *name,
         return -1;
 
     handle_t h;
-    memobj_t *mo = fat_memobj(VFS_IO_BUF_SIZE, &h);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
     if (mo == NULL)
         return -1;
 

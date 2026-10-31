@@ -23,6 +23,7 @@
 #include <lib/klog.h>
 #include <mm/mm.h>
 #include <mm/memobj.h>
+#include <mm/ipc_buf.h>
 #include <ipc/object.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
@@ -173,63 +174,6 @@ bool net_server_active(void)
 }
 
 /* --- socket calls into the network server -------------------------------- */
-
-static memobj_t *net_memobj(uint64_t len, handle_t * out)
-{
-    process_t *t = sched_get_current_process();
-
-    if (t == NULL || len == 0)
-        return NULL;
-
-    memobj_t *mo = memobj_create(len);
-    if (mo == NULL)
-        return NULL;
-
-    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
-                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
-    if (h == HANDLE_INVALID) {
-        memobj_unref(mo);
-        return NULL;
-    }
-
-    *out = h;
-    return mo;
-}
-
-static void net_copy_in(memobj_t * mo, const void *src, uint64_t len)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done,
-               chunk);
-        done += chunk;
-    }
-}
-
-static void net_copy_out(memobj_t * mo, void *dst, uint64_t len)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) dst + done,
-               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), chunk);
-        done += chunk;
-    }
-}
 
 /* Resolve a process fd to the network server's socket descriptor. */
 static int64_t net_sockfd(int32_t fd, int32_t * out)
@@ -523,10 +467,10 @@ int64_t net_sendto(int32_t fd, uint32_t ip, uint16_t port, const void *buf,
     memobj_t *mo = NULL;
 
     if (len > 0) {
-        mo = net_memobj(len, &mh);
+        mo = memobj_alloc_handle(len, &mh);
         if (mo == NULL)
             return -1;
-        net_copy_in(mo, buf, len);
+        memobj_copy_in(mo, buf, len, 0);
     }
 
     ipc_msg_t req;
@@ -568,7 +512,7 @@ int64_t net_recvfrom(int32_t fd, void *buf, uint64_t len, uint32_t *ip,
         len = NET_IO_BUF_SIZE;
 
     handle_t mh = 0;
-    memobj_t *mo = net_memobj(len ? len : 1, &mh);
+    memobj_t *mo = memobj_alloc_handle(len ? len : 1, &mh);
 
     if (mo == NULL)
         return -1;
@@ -599,7 +543,7 @@ int64_t net_recvfrom(int32_t fd, void *buf, uint64_t len, uint32_t *ip,
     if (n > (int64_t) len)
         n = len;
     if (n > 0)
-        net_copy_out(mo, buf, (uint64_t) n);
+        memobj_copy_out(mo, buf, (uint64_t) n, 0);
     if (ip != NULL)
         *ip = (uint32_t) rep.words[2];
     if (port != NULL)

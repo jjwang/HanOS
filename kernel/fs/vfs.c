@@ -83,74 +83,15 @@ vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func)
 }
 
 /* Move a memory object's contents to/from a kernel buffer. */
-static void memobj_copy_out(memobj_t * mo, void *dst, uint64_t len,
-                            uint64_t off)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = off + done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) dst + done,
-               (uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), chunk);
-        done += chunk;
-    }
-}
-
-static void memobj_copy_in(memobj_t * mo, const void *src, uint64_t len,
-                           uint64_t off)
-{
-    uint64_t done = 0;
-
-    while (done < len) {
-        uint64_t pos = off + done;
-        uint64_t chunk = PAGE_SIZE - (pos & (PAGE_SIZE - 1));
-
-        if (chunk > len - done)
-            chunk = len - done;
-        memcpy((uint8_t *) PHYS_TO_VIRT(memobj_page(mo, pos / PAGE_SIZE))
-               + (pos & (PAGE_SIZE - 1)), (const uint8_t *) src + done,
-               chunk);
-        done += chunk;
-    }
-}
-
 /* Allocate a memory object of len bytes with a transferable fd in the
  * current process. The caller keeps the creation reference for its own use. */
-static memobj_t *server_memobj(uint64_t len, handle_t * out)
-{
-    process_t *t = sched_get_current_process();
-
-    if (t == NULL || len == 0)
-        return NULL;
-
-    memobj_t *mo = memobj_create(len);
-    if (mo == NULL)
-        return NULL;
-
-    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
-                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
-                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
-    if (h == HANDLE_INVALID) {
-        memobj_unref(mo);
-        return NULL;
-    }
-
-    *out = h;
-    return mo;                  /* creation ref kept by the caller */
-}
-
 static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
 {
     if (len > VFS_SERVER_IO_MAX)
         len = VFS_SERVER_IO_MAX;
 
     handle_t mh;
-    memobj_t *mo = server_memobj(len, &mh);
+    memobj_t *mo = memobj_alloc_handle(len, &mh);
     if (mo == NULL)
         return -1;
 
@@ -183,7 +124,7 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
         len = VFS_SERVER_IO_MAX;
 
     handle_t mh;
-    memobj_t *mo = server_memobj(len, &mh);
+    memobj_t *mo = memobj_alloc_handle(len, &mh);
     if (mo == NULL)
         return -1;
 
@@ -242,7 +183,7 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
     memobj_t *mo = NULL;
 
     if (!inline_data) {
-        mo = server_memobj(len ? len : 1, &mh);
+        mo = memobj_alloc_handle(len ? len : 1, &mh);
         if (mo == NULL)
             return -1;
         if (tag == PIPE_WRITE)
@@ -352,7 +293,7 @@ static char *memobj_read_path_alloc(memobj_t * mo)
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -429,7 +370,7 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -486,7 +427,7 @@ int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
 int64_t vfs_unlink_path(const char *cwd, const char *path)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -556,7 +497,7 @@ static int64_t vfs_path_cmd(uint64_t tag, const char *cwd, const char *a,
                             const char *b)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -603,7 +544,7 @@ int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
                           uint64_t outsz)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -643,7 +584,7 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return VFS_INVALID_FD;
@@ -753,7 +694,7 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
 int64_t vfs_server_fstat(int64_t sfd, void *out)
 {
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;
@@ -787,7 +728,7 @@ int64_t vfs_server_readdir(vfs_fd_t fd, void *out)
         return -1;
 
     handle_t mh;
-    memobj_t *mo = server_memobj(VFS_IO_BUF_SIZE, &mh);
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
     if (mo == NULL)
         return -1;

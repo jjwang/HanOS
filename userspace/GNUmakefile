@@ -65,7 +65,7 @@ H_FILES   := $(shell find ./ -type f,l -name '*.h')
 C_OBJS    := $(C_FILES:.c=.o)
 C_DEPS    := $(C_FILES:.c=.d)
 
-RUNTIME_FILES := runtime/sysfunc.c runtime/keycode.c
+RUNTIME_FILES := runtime/sysfunc.c runtime/keycode.c runtime/block.c
 RUNTIME_OBJS  := $(patsubst %.c, %.u.o, ${RUNTIME_FILES})
 RUNTIME_DEPS  := $(patsubst %.c, %.u.d, ${RUNTIME_FILES})
 

@@ -672,22 +672,7 @@ int32_t main(void)
     tty_ep = bi.tty_ep;
     fat_ep = bi.fat_ep;
 
-    for (;;) {
-        sys_ipc_msg_t m;
-        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 500) != 0)
-            continue;
-
-        sys_ipc_msg_t rep;
-        memset(&rep, 0, sizeof(rep));
-        rep.tag = m.tag;
-        handle(&m, &rep);
-
-        int64_t reply = (int64_t) m.xfer[0];
-        if (reply != 0) {
-            sys_ipc_send(reply, &rep);
-            sys_handle_close(reply);
-        }
-    }
+    sys_server_run((int64_t) bi.service_ep, 500, handle);
 
     return 0;
 }

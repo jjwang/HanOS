@@ -50,4 +50,8 @@ uint64_t memobj_page_count(memobj_t * m);
 /* Physical address of one page (0 when the index is out of range). */
 uint64_t memobj_page(memobj_t * m, uint64_t index);
 
+/* Move bytes between a kernel buffer and an object at a byte offset. */
+void memobj_copy_in(memobj_t * m, const void *src, uint64_t len, uint64_t off);
+void memobj_copy_out(memobj_t * m, void *dst, uint64_t len, uint64_t off);
+
 void memobj_unref(memobj_t * m);

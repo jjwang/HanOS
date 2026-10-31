@@ -17,6 +17,7 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -531,4 +532,28 @@ int64_t sys_klog(char *buf, uint64_t len)
     int64_t ret, errno;
     SYSCALL2(SYSCALL_KLOG, (int64_t) (uint64_t) buf, (int64_t) len);
     return ret;
+}
+
+_Noreturn void sys_server_run(int64_t ep, int64_t timeout_ms,
+                              sys_server_handler_t handle)
+{
+    for (;;) {
+        sys_ipc_msg_t m;
+
+        if (sys_ipc_recv_timeout(ep, &m, timeout_ms) != 0)
+            continue;
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.tag = m.tag;
+        handle(&m, &rep);
+
+        int64_t reply = (int64_t) m.xfer[0];
+
+        if (reply != 0) {
+            sys_ipc_send(reply, &rep);
+            sys_handle_close(reply);
+        }
+    }
 }
