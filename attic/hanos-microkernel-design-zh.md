@@ -23,18 +23,18 @@
 系统分三层。
 
 - 内核运行在 ring 0。它提供调度、虚拟内存与内核对象模型。它还提供 IPC endpoint、中断对象、服务路由器与系统调用表。
-- 服务作为普通进程运行在 ring 3。每个服务负责一个资源域。域含帧缓冲、PS/2 与串口输入、终端。也含 SATA 磁盘、FAT32 卷、initrd 命名空间。还含管道、每进程文件描述符表与网络。
+- 服务作为普通进程运行在 ring 3。每个服务负责一个资源域。域含帧缓冲、PS/2 与串口输入、终端。也含 SATA 磁盘、FAT32 卷、initrd 命名空间。还含管道、每进程文件描述符表与网络。墙上时钟、熵源与内存统计也各有服务。
 - 用户程序运行在 ring 3，链接 musl；由 musl 发起系统调用。
 
 服务用服务 id 寻址。内核路由器把服务 id 映射到负责服务的 endpoint。
 
 | 服务 | id | 负责方 |
 |------|----|--------|
-| SVC_MM | 0 | 内核（内存） |
+| SVC_MM | 0 | `/bin/mem`（只答统计，分配器留在内核） |
 | SVC_FS | 1 | `/bin/vfs` |
 | SVC_PROC | 2 | `/bin/process` |
 | SVC_NET | 3 | `/bin/net` |
-| SVC_MISC | 4 | 预留 |
+| SVC_MISC | 4 | `/bin/misc` |
 | SVC_PIPE | 5 | `/bin/pipe` |
 | SVC_TTY | 6 | `/bin/tty` |
 | SVC_FAT | 7 | `/bin/fat32` |
@@ -78,7 +78,7 @@ endpoint 是保存 64 条消息 FIFO 的内核对象。消息含一个 tag、六
 
 内存对象（`memobj_t`）是一组带引用计数的物理页。内核为大块传输创建它，把句柄放进 `xfer[1]`；服务用 `mem_map` 映射、拷入或拷出、再 `mem_unmap`。内核不把裸用户指针交给服务。
 
-内核内部在进程地址空间与内核之间拷贝时用 uaccess 辅助函数。每条可能出错的读写指令在异常表（`__ex_table`）里对应一条记录。缺页处理程序查出出错指令并跳到它的修复标号，坏用户指针返回 `-EFAULT`，内核不致命。用户态异常不在 uaccess 修复表内，按信号（SIGSEGV、SIGILL、SIGFPE、SIGBUS）终止进程组。核心继续运行。内核态异常无修复，仍然 panic。
+内核内部在进程地址空间与内核之间拷贝时用 uaccess 辅助函数。每条可能出错的读写指令在异常表（`__ex_table`）里对应一条记录。缺页处理程序查出出错指令并跳到它的修复标号，坏用户指针返回 `-EFAULT`，内核不致命。未命中 uaccess 修复表且到达用户态的故障终止整个线程组。信号与异常匹配（SIGSEGV、SIGILL、SIGFPE、SIGBUS）。线程组长阻塞在系统调用里也终止。空闲回收器释放每个线程。父进程 `wait` 返回信号状态。核心继续运行。内核态故障无修复项时 panic。
 
 ### 3.6 调度
 
@@ -112,6 +112,8 @@ futex 阻塞在一个用户字上。`k_futex_wait` 武装等待键后再读该�
 帧位于 `kernel/proc/signal.c`。`signal_deliver` 显式接收被打断的 RIP 与 RFLAGS。系统调用路径经 `kernel/proc/syscall.c` 的 `syscall_post` 传 `rcx`/`r11`。中断路径传 `rip`/`rflags`。APIC 定时抢占入口 `enter_context_switch` 在选下一个进程前调用同一投递。进程在用户态自旋时，信号在下一次定时 tick 落地。该路径上的默认动作把进程标记为死亡。调度器丢弃它，空闲回收线程记录退出，关中断时不能走进程服务往返。
 
 内核保存 Linux 等待状态。正常退出把低字节左移存放。信号致死把信号号放低位，核心转储置 `0x80`。父进程的 `wait` 返回该状态，`WIFEXITED`/`WEXITSTATUS` 与 `WIFSIGNALED`/`WTERMSIG` 据此译码。
+
+`signalfd4` 把文件描述符绑定到信号掩码。该描述符是内核对象，挂在 `SVC_SIGNALFD` 下。读操作把匹配的待决信号取成 `signalfd_siginfo` 记录。该描述符参与 `poll` 与 `epoll`。
 
 ### 3.10 中断控制器
 
@@ -340,6 +342,14 @@ net 服务负责套接字层与网卡。它提供 AF_INET 数据报与流套接�
 
 ext2 服务是 block 服务的客户端。它经 `BLOCK_GET_PART` 挂载索引 1 的分区，读字节偏移 1024 处的超级块、块组描述符与 inode 表，解析直接、单级、双级与三级间接块映射。它应答 `EXT2_OPEN`、`EXT2_READ`、`EXT2_READDIR`、`EXT2_STAT`、`EXT2_CLOSE`、`EXT2_SEEK`、`EXT2_CREATE`、`EXT2_WRITE`、`EXT2_TRUNC` 与 `EXT2_UNLINK`。名字区分大小写，每个 inode 带模式与属主，`STAT` 返回模式、属主、链接数与修改时间，`ls -l` 显示真实值。VFS 挂载表把 `/data` 指到该卷，`/data` 下的路径转发给 ext2 服务，`/fat` 到 FAT 服务同理。分区放应用与游戏，它们从磁盘装入，不占 initrd；shell 先在 `/bin` 找命令，再到 `/data/bin`。`exec` 经同一转发从该卷装入镜像，`vfs_load_file` 按大块读取。
 
+### 5.11 misc
+
+misc 服务负责墙上时钟、熵池与 `uname`。内核把 HPET 寄存器页映射进服务地址空间，并在 `bootinfo` 里传计数器周期、启动计数与启动墙上时钟。服务把 HPET 计数换算成 `clock_gettime`。它用计数器驱动 xorshift 生成器，供 `getrandom` 使用。它复制构建版本，供 `uname` 使用。请求带应答 endpoint；`uname` 与熵请求还带缓冲内存对象。内核把 `clock_gettime`、`getrandom` 与 `uname` 转发到 `SVC_MISC`。
+
+### 5.12 mem
+
+mem 服务应答 `meminfo`。页分配器留在内核。服务调用只读的 `sys_mem_stats` 原语，在应答里返回总字节与空闲字节。内核把内存报告转发到 `SVC_MM` 并打印。
+
 ## 6. 启动顺序
 
 `kshell` 按依赖顺序启动服务。
@@ -351,6 +361,8 @@ ext2 服务是 block 服务的客户端。它经 `BLOCK_GET_PART` 挂载索引 1
 5. pipe。
 6. process，负责文件描述符与进程树。
 7. net，负责网卡。
+8. misc，负责墙上时钟、熵源与 `uname`。
+9. mm，只答内存统计；分配器留在内核。
 
 随后 exec `/bin/init`，init 再 exec shell。每次启动把服务 endpoint 注册到路由器，并用 ping 探测服务。
 
@@ -358,17 +370,17 @@ ext2 服务是 block 服务的客户端。它经 `BLOCK_GET_PART` 挂载索引 1
 
 ## 7. 局限
 
-- 每个服务只有一个实例；服务崩溃会让该域停止。
+- 每个服务只有一个实例。服务进程退出后监控器重启该服务，在途请求失败，服务随后恢复。
 - FAT32 写入用 8.3 名。读取接受长名。FAT 目录仍只读。
 - block 服务用 AHCI（SATA）加 DMA。不再用传统 ATA PIO 端口。
-- SVC_MM 与 SVC_MISC 预留未用。
+- SVC_MM 只答 `meminfo`，页分配器留在内核。SVC_MISC 负责时钟、熵源与 `uname`；内核保留其他时间源。
 - TCP 无拥塞控制；发送队列容纳四段，接收窗口跟随空闲缓冲。
 - 网卡经 PCI 中断线唤醒服务；有界轮询作为兜底。
 - VFS 运行时文件放在 RAM，不持久。
 - xHCI 驱动扫描所有端口，但只驱动 HID 开机键盘与指针。它只用一个控制器，跳过 64 字节上下文的控制器。USB 网卡或无线网卡按 厂家:产品 与类打印，不驱动。
 - 定时路径进入的信号处理函数经 `rt_sigreturn` 与 `sysret` 返回，被打断的 `rcx` 不恢复。系统调用 ABI 本就破坏 `rcx`；只有用户代码在被中断时把活值放在 `rcx` 才会察觉。
 - `mkdirat`、`symlinkat`、`renameat` 只建运行时条目；initrd 与 FAT 目录保持只读。运行时条目存入 `/.vfs-store`。
-- 一批系统调用仍返回 `ENOSYS`，例如 `signalfd`、`getppid`、`chmod`，以及 FAT 挂载上的 `symlinkat`。
+- 一批系统调用仍返回 `ENOSYS`，例如 `getppid`、`chmod`，以及 FAT 挂载上的 `symlinkat`。
 
 ## 8. 结论
 

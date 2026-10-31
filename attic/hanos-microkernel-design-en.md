@@ -23,18 +23,18 @@ The result is a kernel that owns address spaces, process creation, IPC and inter
 The system has three layers.
 
 - The kernel runs in ring 0. It provides scheduling, virtual memory, the kernel object and handle model, IPC endpoints, interrupt objects, the service router and the syscall table.
-- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the SATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, or the network.
+- The servers run in ring 3 as ordinary processes. Each server owns one resource domain: the framebuffer, the PS/2 and serial input, the terminal, the SATA disk, a FAT32 volume, the initrd namespace, pipes, the per-process file descriptor table, the network, the wall clock and entropy, or the memory statistics.
 - The programs run in ring 3 and link musl; musl issues the syscalls.
 
 Services are addressed by a service id. The kernel's router maps a service id to the endpoint of the owning server.
 
 | Service | Id | Owner |
 |---------|----|-------|
-| SVC_MM | 0 | in-kernel (memory) |
+| SVC_MM | 0 | `/bin/mem` (stats only; the allocator stays in the kernel) |
 | SVC_FS | 1 | `/bin/vfs` |
 | SVC_PROC | 2 | `/bin/process` |
 | SVC_NET | 3 | `/bin/net` |
-| SVC_MISC | 4 | reserved |
+| SVC_MISC | 4 | `/bin/misc` |
 | SVC_PIPE | 5 | `/bin/pipe` |
 | SVC_TTY | 6 | `/bin/tty` |
 | SVC_FAT | 7 | `/bin/fat32` |
@@ -78,7 +78,7 @@ The router holds an endpoint pointer and an owner pid per service id. A server r
 
 A memory object (`memobj_t`) is a refcounted set of physical pages. The kernel creates one for a bulk transfer, moves its handle in `xfer[1]`, and the server maps it with `mem_map`, copies into it, and unmaps it. The kernel never passes a raw user pointer to a server.
 
-Inside the kernel, copies between the kernel and a process address space use the uaccess helpers. Each faulting load or store has an entry in an exception table (`__ex_table`). The page-fault handler looks up the faulting instruction and resumes at its fixup label, so a bad user pointer returns `-EFAULT` instead of killing the kernel. A fault that did not come from a uaccess fixup and reached user mode terminates the process group with the matching signal (SIGSEGV, SIGILL, SIGFPE, SIGBUS); the core keeps running. A kernel-mode fault without a fixup panics.
+Inside the kernel, copies between the kernel and a process address space use the uaccess helpers. Each faulting load or store has an entry in an exception table (`__ex_table`). The page-fault handler looks up the faulting instruction and resumes at its fixup label, so a bad user pointer returns `-EFAULT` instead of killing the kernel. A fault that did not come from a uaccess fixup and reached user mode terminates the whole thread group with the matching signal (SIGSEGV, SIGILL, SIGFPE, SIGBUS). The kill reaches the leader even when it blocks in a syscall. The idle reaper frees every thread. The parent's `wait` returns the signal status. The core keeps running. A kernel-mode fault without a fixup panics.
 
 ### 3.6 Scheduling
 
@@ -112,6 +112,8 @@ The syscall entry saves the user register frame on the user stack. After the han
 The frame belongs to `kernel/proc/signal.c`; `signal_deliver` takes the interrupted RIP and RFLAGS explicitly, so the syscall path passes them from `rcx`/`r11` through `syscall_post` in `kernel/proc/syscall.c` and the interrupt path passes `rip`/`rflags`. The APIC timer preemption entry `enter_context_switch` calls the same delivery before it selects the next process, so a signal raised while a process runs in user mode lands on the next timer tick, not only on a syscall return. A default action on that path marks the process dead for the scheduler to drop; the idle reaper records its exit, because the process-server round trip cannot run with interrupts disabled.
 
 The kernel stores a Linux wait status. A normal exit stores the low byte shifted up; a signal death stores the signal in the low bits with `0x80` for a core dump. The parent's `wait` returns that status, so `WIFEXITED`/`WEXITSTATUS` and `WIFSIGNALED`/`WTERMSIG` decode it.
+
+`signalfd4` binds a file descriptor to a signal mask. The descriptor is a kernel object registered under `SVC_SIGNALFD`. A read drains the matching pending signals into `signalfd_siginfo` records. The descriptor takes part in `poll` and `epoll` like the other kernel objects.
 
 ### 3.10 Interrupt controllers
 
@@ -340,6 +342,14 @@ The network server owns the socket layer and the NIC. It serves AF_INET datagram
 
 The ext2 server is a client of the block server. It mounts partition index 1 through `BLOCK_GET_PART`, reads the superblock at byte offset 1024, the block group descriptors and the inode table, and parses the direct and the single, double and triple indirect block maps. It serves `EXT2_OPEN`, `EXT2_READ`, `EXT2_READDIR`, `EXT2_STAT`, `EXT2_CLOSE`, `EXT2_SEEK`, `EXT2_CREATE`, `EXT2_WRITE`, `EXT2_TRUNC` and `EXT2_UNLINK`. Names keep their case; each inode carries a mode and an owner, and `STAT` reports the mode, owner, link count and modification time, so `ls -l` shows the real values. The VFS mount table maps `/data` to this volume, so a path below `/data` is redirected to the ext2 server, the same way `/fat` reaches the FAT server. The partition holds applications and games, so they load from disk instead of the initrd; the shell resolves a command in `/bin`, then in `/data/bin`. `exec` loads an image from the volume by the same redirect, and `vfs_load_file` reads it in large chunks.
 
+### 5.11 misc
+
+The misc server owns the wall clock, the entropy pool and `uname`. The kernel maps the HPET register page into the server address space and passes the counter period, the boot counter and the boot wall-clock in `bootinfo`. The server turns the HPET counter into `clock_gettime`, feeds a xorshift generator from the counter for `getrandom`, and copies the build version for `uname`. A request carries the reply endpoint and, for `uname` and entropy, a buffer memory object. The kernel forwards `clock_gettime`, `getrandom` and `uname` to `SVC_MISC`.
+
+### 5.12 mem
+
+The mem server answers `meminfo`. The page allocator stays in the kernel. The server calls the read-only `sys_mem_stats` primitive and returns the total and free byte counts in the reply. The kernel forwards the memory report to `SVC_MM` and prints it.
+
 ## 6. Boot sequence
 
 `kshell` starts the servers in dependency order.
@@ -351,6 +361,8 @@ The ext2 server is a client of the block server. It mounts partition index 1 thr
 5. pipe.
 6. process, which owns file descriptors and the process tree.
 7. net, which owns the NIC.
+8. misc, which owns the wall clock, entropy and `uname`.
+9. mm, which answers memory statistics; the allocator stays in the kernel.
 
 It then execs `/bin/init`, which execs the shell. Each start registers the service endpoint with the router and probes the server with a ping.
 
@@ -358,17 +370,17 @@ The kernel loads the first servers from the initrd image with `vfs_load_file`. O
 
 ## 7. Limitations
 
-- There is a single instance of each service; a crash of a server stops that domain.
+- There is a single instance of each service. The monitor restarts a server after its process exits, so in-flight requests fail and the service returns.
 - FAT32 writes use 8.3 names; long names remain readable. FAT directories stay read-only.
 - The block server drives AHCI (SATA) with DMA. A legacy ATA PIO port is no longer used.
-- SVC_MM and SVC_MISC are reserved but unused.
+- SVC_MM answers `meminfo` only; the page allocator stays in the kernel. SVC_MISC owns the clock, entropy and `uname`; the kernel keeps the other time sources.
 - TCP has no congestion control; the send queue holds four segments and the receive window follows the free buffer space.
 - The NIC wakes the server on its PCI interrupt line; a bounded poll remains as a fallback.
 - VFS runtime files live in RAM and do not persist.
 - The xHCI driver enumerates every port but drives only a HID boot keyboard and pointer. It uses one controller and skips a controller with 64-byte contexts. A USB network or wireless adapter is logged by vendor:product and class, not driven.
 - A signal handler entered on the timer path returns through `rt_sigreturn` and `sysret`, so the interrupted `rcx` is not restored. The syscall ABI already clobbers `rcx`; only user code that interrupts with a live value in `rcx` observes it.
 - `mkdirat`, `symlinkat` and `renameat` create runtime entries only; the initrd and FAT directories stay read-only. Runtime entries persist in `/.vfs-store`.
-- A set of syscalls still returns `ENOSYS`, for example `signalfd`, `getppid`, `chmod`, and `symlinkat` on the FAT mount.
+- A set of syscalls still returns `ENOSYS`, for example `getppid`, `chmod`, and `symlinkat` on the FAT mount.
 
 ## 8. Conclusion
 
