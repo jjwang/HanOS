@@ -35,6 +35,8 @@
 #include <device/usb/xhci.h>
 #include <mm/memobj.h>
 #include <mm/ipc_buf.h>
+#include <ipc/object.h>
+#include <misc.h>
 #include <ipc/ipc.h>
 #include <ipc/irq.h>
 #include <srv/tty_srv.h>
@@ -56,6 +58,10 @@
 
 extern int64_t syscall_handler();
 int32_t k_getclock(void *_ignored, int64_t which, vfs_timespec_t * out);
+static int32_t clock_now(int64_t which, vfs_timespec_t * out);
+int64_t k_uname(void *buf);
+static memobj_t *misc_memobj(uint64_t len, handle_t * out);
+static int misc_memobj_read(memobj_t * mo, void *dst, uint64_t len);
 
 typedef int64_t(*syscall_ptr_t) (void);
 
@@ -431,27 +437,49 @@ int64_t k_getentropy(void *buffer, uint64_t length)
 {
     cpu_set_errno(0);
 
-    if (length > 256 || buffer == NULL) {
+    if (length > MISC_MAX_ENTROPY || buffer == NULL) {
         cpu_set_errno(EINVAL);
-        goto err_exit;
+        return -1;
     }
 
-    uint8_t kbuf[256];
-    uint64_t remaining = length;
-    uint8_t *p = kbuf;
+    if (length == 0)
+        return 0;
 
-    while (remaining >= 8) {
-        uint64_t value = (uint64_t) ((rand(1337, 0, 0x8FFFFFFF) % 65535)
-                                     * (hpet_get_nanos() % 65535));
-        memcpy(p, &value, sizeof(value));
-        p += 8;
-        remaining -= 8;
+    if (router_lookup(SVC_MISC) == NULL) {
+        cpu_set_errno(ENOSYS);
+        return -1;
     }
 
-    if (remaining > 0) {
-        uint64_t value = (uint64_t) ((rand(1337, 0, 0x8FFFFFFF) % 65535)
-                                     * (hpet_get_nanos() % 65535));
-        memcpy(p, &value, remaining);
+    handle_t h;
+    memobj_t *mo = misc_memobj(length, &h);
+
+    if (mo == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = MISC_GETENTROPY;
+    req.words[0] = length;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    bool ok = router_forward(SVC_MISC, &req, &rep)
+        && (int64_t) rep.words[0] >= 0;
+
+    uint8_t kbuf[MISC_MAX_ENTROPY];
+
+    if (ok)
+        misc_memobj_read(mo, kbuf, length);
+
+    memobj_unref(mo);
+
+    if (!ok) {
+        cpu_set_errno(ENOSYS);
+        return -1;
     }
 
     if (copy_to_user(buffer, kbuf, length) != 0) {
@@ -460,10 +488,27 @@ int64_t k_getentropy(void *buffer, uint64_t length)
     }
 
     return 0;
-  err_exit:
-    klogd("k_getentropy: return error with buffer 0x%016lx and length %ld\n",
-          buffer, length);
-    return -1;
+}
+
+/* Boot check: the misc syscalls answer through SVC_MISC. Runs after the
+ * server starts, from the kernel startup process. The result buffers are
+ * kernel stack addresses; the uaccess helpers store to them directly. */
+bool misc_selftest(void)
+{
+    vfs_timespec_t ts;
+    misc_utsname_t u;
+    uint8_t rnd[16];
+    bool ok = true;
+
+    if (k_getclock(NULL, CLOCK_MONOTONIC, &ts) != 0)
+        ok = false;
+    if (k_uname(&u) != 0 || u.sysname[0] != 'H' || u.sysname[4] != 'S')
+        ok = false;
+    if (k_getentropy(rnd, sizeof(rnd)) != 0)
+        ok = false;
+
+    klogi("MK: misc %s\n", ok ? "PASS" : "FAIL");
+    return ok;
 }
 
 /*
@@ -1550,7 +1595,7 @@ int64_t k_clock_nanosleep(int32_t clockid, int32_t flags,
         vfs_timespec_t now = { 0, 0 };
         int64_t ns;
 
-        k_getclock(NULL, clockid, &now);
+        clock_now(clockid, &now);
         ns = (kreq.tv_sec - now.tv_sec) * 1000000000LL
             + (kreq.tv_nsec - now.tv_nsec);
         if (ns <= 0)
@@ -2562,12 +2607,63 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
     return -1;
 }
 
-int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
-{
-    (void) _;
 
+/* Allocate a memory object and a handle for the misc server to fill or read.
+ * The caller keeps the creation reference so it can copy the result out after
+ * the forward. */
+static memobj_t *misc_memobj(uint64_t len, handle_t * out)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || len == 0)
+        return NULL;
+
+    memobj_t *mo = memobj_create(len);
+
+    if (mo == NULL)
+        return NULL;
+
+    handle_t h = handle_alloc(&t->handles, memobj_object(mo),
+                              HANDLE_RIGHT_READ | HANDLE_RIGHT_WRITE
+                              | HANDLE_RIGHT_MAP | HANDLE_RIGHT_TRANSFER);
+
+    if (h == HANDLE_INVALID) {
+        memobj_unref(mo);
+        return NULL;
+    }
+
+    *out = h;
+    return mo;
+}
+
+/* Copy a filled memory object back into a kernel buffer. */
+static int misc_memobj_read(memobj_t * mo, void *dst, uint64_t len)
+{
+    uint8_t *d = dst;
+    uint64_t done = 0;
+
+    while (done < len) {
+        uint64_t p = memobj_page(mo, done / PAGE_SIZE);
+
+        if (p == 0)
+            return -1;
+
+        uint64_t off = done % PAGE_SIZE;
+        uint64_t chunk = PAGE_SIZE - off;
+
+        if (chunk > len - done)
+            chunk = len - done;
+
+        memcpy(d + done, (void *) PHYS_TO_VIRT(p + off), chunk);
+        done += chunk;
+    }
+
+    return 0;
+}
+
+static int32_t clock_now(int64_t which, vfs_timespec_t * out)
+{
     vfs_timespec_t ts = { 0 };
-    cpu_set_errno(0);
 
     uint64_t now_sec = hpet_get_nanos() / 1000000000;
     uint64_t now_ns = hpet_get_nanos();
@@ -2594,9 +2690,52 @@ int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
         .tv_sec = 0,.tv_nsec = 0};
         break;
     default:
-        cpu_set_errno(EINVAL);
         return -1;
     }
+
+    *out = ts;
+    return 0;
+}
+
+int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
+{
+    (void) _;
+
+    cpu_set_errno(0);
+
+    if (out == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (router_lookup(SVC_MISC) == NULL) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = MISC_CLOCK_GETTIME;
+    req.words[0] = (uint64_t) which;
+
+    if (!router_forward(SVC_MISC, &req, &rep)) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    int64_t r = (int64_t) rep.words[0];
+
+    if (r < 0) {
+        cpu_set_errno((int32_t) (-r));
+        return -1;
+    }
+
+    vfs_timespec_t ts = {
+        .tv_sec = (int64_t) rep.words[1],
+        .tv_nsec = (int64_t) rep.words[2],
+    };
 
     if (copy_to_user(out, &ts, sizeof(ts)) != 0) {
         cpu_set_errno(EFAULT);
@@ -2606,9 +2745,60 @@ int32_t k_getclock(void *_, int64_t which, vfs_timespec_t * out)
     return 0;
 }
 
-void k_uname(void)
+int64_t k_uname(void *buf)
 {
+    process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
+
+    if (t == NULL || buf == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (router_lookup(SVC_MISC) == NULL) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    handle_t h;
+    memobj_t *mo = misc_memobj(sizeof(misc_utsname_t), &h);
+
+    if (mo == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = MISC_UNAME;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    bool ok = router_forward(SVC_MISC, &req, &rep)
+        && (int64_t) rep.words[0] >= 0;
+    misc_utsname_t u;
+
+    if (ok)
+        misc_memobj_read(mo, &u, sizeof(u));
+
+    memobj_unref(mo);
+
+    if (!ok) {
+        cpu_set_errno(ENOSYS);
+        return -1;
+    }
+
+    if (copy_to_user(buf, &u, sizeof(u)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    return 0;
 }
+
 
 int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
 {

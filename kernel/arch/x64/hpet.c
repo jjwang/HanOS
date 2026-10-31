@@ -38,6 +38,7 @@ hpet_t *hpet = NULL;
 
 static uint64_t hpet_period = 0;
 static uint64_t hpet_base = 0;
+static uint64_t hpet_phys = 0;
 static bool debug_info = false;
 
 uint64_t hpet_get_nanos()
@@ -117,4 +118,19 @@ void hpet_init()
     hpet->general_configuration = hpet->general_configuration | 0x1;
 
     klogi("HPET initialization finished\n");
+}
+
+uint64_t hpet_phys_base(void)
+{
+    return hpet_phys;
+}
+
+uint64_t hpet_counter_period(void)
+{
+    return hpet_period;
+}
+
+uint64_t hpet_counter_base(void)
+{
+    return hpet_base;
 }

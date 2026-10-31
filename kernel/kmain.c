@@ -61,6 +61,7 @@
 #include <srv/pipe_srv.h>
 #include <srv/process_srv.h>
 #include <srv/net_srv.h>
+#include <srv/misc_srv.h>
 #include <srv/tty_srv.h>
 #include <srv/fat32_srv.h>
 #include <srv/ext2_srv.h>
@@ -233,9 +234,14 @@ _Noreturn void kshell(pid_t pid)
         klogw("process: server failed to start\n");
     if (!net_server_start())
         klogw("net: server failed to start\n");
+    if (!misc_server_start())
+        klogw("misc: server failed to start\n");
 
     /* Restart a server when its process dies. */
     svc_monitor_start();
+
+    /* Confirm the misc service answers the moved syscalls through the router. */
+    (void) misc_selftest();
 
     /* Finish USB enumeration before the shell so the device lines belong to
      * the boot summary. The wait is bounded. */

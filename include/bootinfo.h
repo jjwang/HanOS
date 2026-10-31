@@ -92,4 +92,11 @@ typedef struct {
     uint64_t block_dma_vaddr;
     uint64_t block_dma_phys;
     uint64_t block_dma_size;
+
+    /* HPET MMIO window and boot wall-clock granted to the misc server. */
+    uint64_t misc_hpet_vaddr;
+    uint64_t misc_hpet_period;  /* nanoseconds per counter tick */
+    uint64_t misc_hpet_base;    /* counter value at hpet_init */
+    uint64_t misc_boot_time;    /* seconds since the epoch at boot */
+    char misc_version[32];
 } bootinfo_t;

@@ -65,3 +65,6 @@ void hpet_init();
 uint64_t hpet_get_nanos();
 uint64_t hpet_get_millis();
 void hpet_nanosleep(uint64_t nanos);
+uint64_t hpet_phys_base(void);
+uint64_t hpet_counter_period(void);
+uint64_t hpet_counter_base(void);

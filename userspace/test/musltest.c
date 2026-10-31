@@ -17,6 +17,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/utsname.h>
+#include <sys/random.h>
 
 static void *thread_fn(void *arg)
 {
@@ -109,6 +111,31 @@ int main(void)
     }
 
     printf("isatty=%d\n", isatty(1));
+
+    {
+        struct utsname u;
+
+        if (uname(&u) == 0)
+            printf("uname %s %s %s\n", u.sysname, u.release, u.machine);
+        else
+            printf("uname FAIL errno=%d\n", errno);
+    }
+
+    {
+        unsigned char rnd[16] = { 0 };
+        ssize_t n = getrandom(rnd, sizeof(rnd), 0);
+
+        printf("getrandom n=%ld first=%02x\n", (long) n, rnd[0]);
+    }
+
+    {
+        struct timespec ts;
+
+        if (clock_gettime(CLOCK_REALTIME, &ts) == 0)
+            printf("realtime sec=%ld\n", (long) ts.tv_sec);
+        else
+            printf("realtime FAIL errno=%d\n", errno);
+    }
 
     {
         int s = socket(AF_INET, SOCK_DGRAM, 0);
