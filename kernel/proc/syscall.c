@@ -81,6 +81,46 @@ typedef struct {
 
 static eventfd_obj_t eventfds[EVENTFD_MAX];
 
+#define SIGNALFD_MAX        16
+
+/** @brief One signalfd object */
+typedef struct {
+    bool used;
+    uint64_t mask;              /* signals the descriptor reports */
+} signalfd_obj_t;
+
+static signalfd_obj_t signal_fds[SIGNALFD_MAX];
+
+/** @brief Linux signalfd_siginfo, 128 bytes */
+typedef struct[[gnu::packed]] {
+    uint32_t ssi_signo;
+    int32_t ssi_errno;
+    int32_t ssi_code;
+    uint32_t ssi_pid;
+    uint32_t ssi_uid;
+    int32_t ssi_fd;
+    uint32_t ssi_tid;
+    uint32_t ssi_band;
+    uint32_t ssi_overrun;
+    uint32_t ssi_trapno;
+    int32_t ssi_status;
+    int32_t ssi_int;
+    uint64_t ssi_ptr;
+    uint64_t ssi_utime;
+    uint64_t ssi_stime;
+    uint64_t ssi_addr;
+    uint16_t ssi_addr_lsb;
+    uint16_t __pad2;
+    int32_t ssi_syscall;
+    uint64_t ssi_call_addr;
+    uint32_t ssi_arch;
+    uint8_t __pad[128 - 14 * 4 - 5 * 8 - 2 * 2];
+} signalfd_siginfo_t;
+
+static int64_t k_signalfd4(int64_t fd, const void *umask, uint64_t sizemask,
+                           int32_t flags);
+static int64_t signalfd_read(int64_t id, void *buf, uint64_t count);
+
 #define EPOLL_MAX           16
 #define EPOLL_FD_MAX        32
 
@@ -905,13 +945,15 @@ int64_t k_close(int64_t fd)
     int64_t sfd = 0;
 
     if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0
-        && (svc == SVC_EVENT || svc == SVC_EPOLL)) {
+        && (svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD)) {
         process_fd_close((int32_t) fd, NULL, NULL, NULL);
         kobj_lock_acquire();
         if (svc == SVC_EVENT)
             eventfds[sfd - 1].used = false;
-        else
+        else if (svc == SVC_EPOLL)
             epolls[sfd - 1].used = false;
+        else
+            signal_fds[sfd - 1].used = false;
         kobj_lock_release();
         return 0;
     }
@@ -952,6 +994,8 @@ int64_t k_read(int64_t fd, void *buf, uint64_t count)
         if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0) {
             if (svc == SVC_EVENT)
                 return eventfd_read(sfd, buf, count);
+            if (svc == SVC_SIGNALFD)
+                return signalfd_read(sfd, buf, count);
             if (svc == SVC_EPOLL) {
                 cpu_set_errno(EBADF);
                 return -1;
@@ -1002,6 +1046,10 @@ int64_t k_write(int64_t fd, const void *buf, uint64_t count)
     if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0) {
         if (svc == SVC_EVENT)
             return eventfd_write(sfd, buf, count);
+        if (svc == SVC_SIGNALFD) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
         if (svc == SVC_EPOLL) {
             cpu_set_errno(EBADF);
             return -1;
@@ -1743,6 +1791,14 @@ int64_t k_klog(char *ubuf, uint64_t len)
 #define POLLOUT     0x004
 #define POLLNVAL    0x020
 
+static signalfd_obj_t *signalfd_get(int64_t id)
+{
+    if (id < 1 || id > SIGNALFD_MAX)
+        return NULL;
+
+    return &signal_fds[id - 1];
+}
+
 static eventfd_obj_t *eventfd_get(int64_t id)
 {
     if (id < 1 || id > EVENTFD_MAX || !eventfds[id - 1].used)
@@ -1845,6 +1901,24 @@ static int16_t fd_poll_revents(int32_t fd, int16_t events, bool *want_tty)
             rev |= POLLIN;
         if ((events & POLLOUT) && c != ~0ULL)
             rev |= POLLOUT;
+        return rev;
+    }
+
+    if (svc == SVC_SIGNALFD) {
+        signalfd_obj_t *sf = signalfd_get(sfd);
+        process_t *cur = sched_get_current_process();
+
+        if (sf == NULL || cur == NULL)
+            return POLLNVAL;
+
+        if (events & POLLIN) {
+            spinlock_acquire(&cur->signals.lock);
+            uint64_t ready = cur->signals.pending.sig & sf->mask
+                & cur->signals.mask.sig;
+            spinlock_release(&cur->signals.lock);
+            if (ready)
+                rev |= POLLIN;
+        }
         return rev;
     }
 
@@ -3789,6 +3863,169 @@ static int64_t kobj_register(int32_t svc, int64_t id)
     return vfs_open_server_svc(id, "", VFS_MODE_READWRITE, 0, svc);
 }
 
+static int64_t k_signalfd4(int64_t fd, const void *umask, uint64_t sizemask,
+                           int32_t flags)
+{
+    process_t *t = sched_get_current_process();
+    uint64_t mask = 0;
+
+    (void) flags;
+    cpu_set_errno(0);
+
+    if (t == NULL || umask == NULL || sizemask < sizeof(uint64_t)) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (copy_from_user(&mask, umask, sizeof(mask)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    if (fd == -1) {
+        int32_t slot = -1;
+
+        kobj_lock_acquire();
+        for (int32_t i = 0; i < SIGNALFD_MAX; i++) {
+            if (!signal_fds[i].used) {
+                signal_fds[i].used = true;
+                signal_fds[i].mask = mask;
+                slot = i;
+                break;
+            }
+        }
+        kobj_lock_release();
+
+        if (slot < 0) {
+            cpu_set_errno(EMFILE);
+            return -1;
+        }
+
+        int64_t nfd = kobj_register(SVC_SIGNALFD, slot + 1);
+
+        if (nfd < 0) {
+            kobj_lock_acquire();
+            signal_fds[slot].used = false;
+            kobj_lock_release();
+            cpu_set_errno(EMFILE);
+            return -1;
+        }
+        return nfd;
+    }
+
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0
+        || svc != SVC_SIGNALFD) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    signalfd_obj_t *sf = signalfd_get(sfd);
+
+    if (sf == NULL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    sf->mask = mask;
+    return fd;
+}
+
+static int64_t signalfd_read(int64_t id, void *buf, uint64_t count)
+{
+    process_t *t = sched_get_current_process();
+    signalfd_obj_t *sf = signalfd_get(id);
+
+    if (count < sizeof(signalfd_siginfo_t) || buf == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (sf == NULL || t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    spinlock_acquire(&t->signals.lock);
+
+    uint64_t ready = t->signals.pending.sig & sf->mask & t->signals.mask.sig;
+
+    if (ready == 0) {
+        spinlock_release(&t->signals.lock);
+        cpu_set_errno(EAGAIN);
+        return -1;
+    }
+
+    int32_t sig = __builtin_ctzll(ready) + 1;
+
+    SIGNAL_SETOFF(&t->signals.pending, sig);
+    spinlock_release(&t->signals.lock);
+
+    signalfd_siginfo_t si;
+
+    memset(&si, 0, sizeof(si));
+    si.ssi_signo = (uint32_t) sig;
+    si.ssi_pid = (uint32_t) t->pid;
+
+    if (copy_to_user(buf, &si, sizeof(si)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    return (int64_t) sizeof(si);
+}
+
+bool signalfd_selftest(void)
+{
+    process_t *t = sched_get_current_process();
+    bool ok = true;
+    uint64_t mask = 1ul << (SIGUSR1 - 1);
+    int64_t fd = -1;
+
+    if (t == NULL)
+        return false;
+
+    sigset_t saved;
+
+    spinlock_acquire(&t->signals.lock);
+    saved = t->signals.mask;
+    SIGNAL_SETON(&t->signals.mask, SIGUSR1);
+    spinlock_release(&t->signals.lock);
+
+    fd = k_signalfd4(-1, &mask, sizeof(mask), 0);
+
+    if (fd < 0) {
+        ok = false;
+    } else {
+        int32_t kind = 0, svc = 0;
+        int64_t sfd = 0;
+
+        signal_raise(t, SIGUSR1);
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0
+            || svc != SVC_SIGNALFD) {
+            ok = false;
+        } else {
+            signalfd_siginfo_t si;
+
+            memset(&si, 0, sizeof(si));
+            if (signalfd_read(sfd, &si, sizeof(si)) != (int64_t) sizeof(si)
+                || si.ssi_signo != (uint32_t) SIGUSR1)
+                ok = false;
+        }
+        k_close(fd);
+    }
+
+    spinlock_acquire(&t->signals.lock);
+    t->signals.mask = saved;
+    SIGNAL_SETOFF(&t->signals.pending, SIGUSR1);
+    spinlock_release(&t->signals.lock);
+
+    klogi("MK: signalfd %s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
 int64_t k_eventfd2(uint32_t initval, int32_t flags)
 {
     int32_t slot = -1;
@@ -4229,6 +4466,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_EPOLL_CREATE1] = (syscall_ptr_t) k_epoll_create1,
     [SYSCALL_EPOLL_CTL] = (syscall_ptr_t) k_epoll_ctl,
     [SYSCALL_EPOLL_WAIT] = (syscall_ptr_t) k_epoll_wait,
+    [SYSCALL_SIGNALFD4] = (syscall_ptr_t) k_signalfd4,
     [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
     [SYSCALL_RESOLVE] = (syscall_ptr_t) k_resolve,
     [SYSCALL_POLL_WAKE] = (syscall_ptr_t) k_poll_wake,

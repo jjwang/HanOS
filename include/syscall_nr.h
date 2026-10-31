@@ -81,6 +81,7 @@
 #define SYSCALL_EPOLL_PWAIT     281
 #define SYSCALL_EVENTFD2        290
 #define SYSCALL_EPOLL_CREATE1   291
+#define SYSCALL_SIGNALFD4       289
 #define SYSCALL_DUP3            292
 #define SYSCALL_PRLIMIT64       302
 #define SYSCALL_RENAMEAT2       316

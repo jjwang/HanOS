@@ -19,6 +19,7 @@
 #include <arpa/inet.h>
 #include <sys/utsname.h>
 #include <sys/random.h>
+#include <sys/signalfd.h>
 
 static void *thread_fn(void *arg)
 {
@@ -135,6 +136,29 @@ int main(void)
             printf("realtime sec=%ld\n", (long) ts.tv_sec);
         else
             printf("realtime FAIL errno=%d\n", errno);
+    }
+
+    {
+        sigset_t mask;
+
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGUSR1);
+        sigprocmask(SIG_BLOCK, &mask, NULL);
+
+        int sfd = signalfd(-1, &mask, 0);
+
+        if (sfd >= 0) {
+            struct signalfd_siginfo si;
+
+            raise(SIGUSR1);
+            ssize_t n = read(sfd, &si, sizeof(si));
+
+            printf("signalfd n=%ld signo=%u\n", (long) n, si.ssi_signo);
+            close(sfd);
+        } else {
+            printf("signalfd FAIL errno=%d\n", errno);
+        }
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
     }
 
     {

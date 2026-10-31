@@ -37,6 +37,7 @@ typedef enum {
     SVC_EXT,                    /* userspace ext2 filesystem */
     SVC_EVENT,                  /* kernel eventfd objects */
     SVC_EPOLL,                  /* kernel epoll objects */
+    SVC_SIGNALFD,               /* kernel signalfd objects */
     SVC_COUNT
 } service_id_t;
 

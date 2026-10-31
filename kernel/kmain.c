@@ -242,6 +242,7 @@ _Noreturn void kshell(pid_t pid)
 
     /* Confirm the misc service answers the moved syscalls through the router. */
     (void) misc_selftest();
+    (void) signalfd_selftest();
 
     /* Finish USB enumeration before the shell so the device lines belong to
      * the boot summary. The wait is bounded. */
