@@ -24,6 +24,7 @@
 #include <fs/initrd.h>
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
+#include <printf.h>
 #include <lib/spinlock.h>
 #include <mm/memobj.h>
 #include <mm/ipc_buf.h>
@@ -882,7 +883,7 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
         return -1;
     }
 
-    strcpy(parent, path);
+    snprintf(parent, VFS_MAX_PATH_LEN, "%s", path);
 
     uint64_t n = strlen(parent);
 
@@ -901,7 +902,7 @@ int64_t vfs_get_parent_dir(const char *path, char *parent, char *currdir)
         k--;
 
     if (currdir != NULL)
-        strcpy(currdir, parent + k);
+        snprintf(currdir, VFS_MAX_PATH_LEN, "%s", parent + k);
 
     if (k == 1) {
         parent[0] = '/';
