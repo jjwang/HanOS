@@ -540,7 +540,10 @@ bool misc_selftest(void)
     uint8_t rnd[16];
     bool ok = true;
 
-    if (k_getclock(NULL, CLOCK_MONOTONIC, &ts) != 0)
+    /* A zero monotonic clock means the misc server did not get the HPET
+     * window; userspace debounce and timeouts depend on it advancing. */
+    if (k_getclock(NULL, CLOCK_MONOTONIC, &ts) != 0
+        || (ts.tv_sec == 0 && ts.tv_nsec == 0))
         ok = false;
     if (k_uname(&u) != 0 || u.sysname[0] != 'H' || u.sysname[4] != 'S')
         ok = false;
