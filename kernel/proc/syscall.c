@@ -223,18 +223,6 @@ static int32_t copy_exec_argv(const char *uarr[], char **karr)
     return 0;
 }
 
-int64_t k_print_log()
-{
-    klogd("SYSCALL: useless log is just for debug purpose\n");
-    return -1;
-}
-
-int64_t k_not_implemented()
-{
-    kpanic("SYSCALL: unimplemented\n");
-    return -1;
-}
-
 int64_t k_debug_log(char *message)
 {
     char kmsg[256];
