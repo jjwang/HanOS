@@ -192,6 +192,18 @@ void runcmd(cmd_t * cmd)
         sys_wait(-1);
         runcmd(lcmd->right);
         break;
+
+    case REDIR:
+        rcmd = (redircmd_t *) cmd;
+        int32_t rf = sys_open(rcmd->file, rcmd->mode);
+
+        if (rf < 0) {
+            dprintf(STDERR, "open %s failed\n", rcmd->file);
+            sys_exit(1);
+        }
+        sys_dup(rf, 0, rcmd->fd);
+        runcmd(rcmd->cmd);
+        break;
     }
     sys_exit(0);
 }
@@ -338,8 +350,6 @@ int32_t main(void)
 {
     char *buf;
     int32_t fd;
-
-    /* TODO: Ensure that three file descriptors are open. */
 
     /* Read and run input commands. */
     while ((buf = getcmd()) != NULL) {
@@ -618,14 +628,13 @@ cmd_t *parseredirs(cmd_t * cmd, char **ps, char *es)
             sys_panic("missing file for redirection");
         switch (tok) {
         case '<':
-            /* TODO: Need to review and support in the future */
-            /* cmd = redircmd(cmd, q, eq, O_RDONLY, 0); */
+            cmd = redircmd(cmd, q, eq, O_RDONLY, 0);
             break;
         case '>':
-            /* cmd = redircmd(cmd, q, eq, O_WRONLY|O_CREATE|O_TRUNC, 1); */
+            cmd = redircmd(cmd, q, eq, O_WRONLY | O_CREAT | O_TRUNC, 1);
             break;
         case '+':              /* >> */
-            /* cmd = redircmd(cmd, q, eq, O_WRONLY|O_CREATE, 1); */
+            cmd = redircmd(cmd, q, eq, O_WRONLY | O_CREAT, 1);
             break;
         }
     }
