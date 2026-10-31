@@ -7,7 +7,7 @@ DISK_APPS = games/tetris games/2048 games/snake
 
 .PHONY: clean all initrd kernel run run-hdd run-uefi run-hdd-uefi
 
-all: $(ISO_IMAGE)
+all: $(ISO_IMAGE) $(HDD_IMAGE)
 
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
 # Option for debug information: -d in_asm,out_asm,int,op
@@ -43,13 +43,20 @@ initrd:
 	cp -rf sysroot/* initrd
 	$(MAKE) -C userspace
 
-$(ISO_IMAGE): limine initrd kernel
-	rm -rf iso_root initrd.tar
+# Both images carry the same initrd; build it once so a sequential or
+# parallel make does not race on the archive.
+INITRD_TAR = initrd.tar
+
+$(INITRD_TAR): initrd
+	rm -rf initrd/etc initrd/usr initrd/root
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
-	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root data
+	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data
+
+$(ISO_IMAGE): limine $(INITRD_TAR) kernel
+	rm -rf iso_root
 	mkdir -p iso_root
-	cp kernel/hanos.elf initrd.tar \
+	cp kernel/hanos.elf $(INITRD_TAR) \
 		limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
 	xorriso -as mkisofs -b limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
@@ -59,10 +66,7 @@ $(ISO_IMAGE): limine initrd kernel
 	limine/limine bios-install $(ISO_IMAGE)
 	rm -rf iso_root
 
-$(HDD_IMAGE): limine initrd kernel
-	rm -rf initrd.tar
-	mkdir -p initrd/etc initrd/usr initrd/root
-	tar -cvpf initrd.tar -C $(TARGET_ROOT) bin assets etc usr root data
+$(HDD_IMAGE): limine $(INITRD_TAR) kernel
 	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
 	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
@@ -72,7 +76,7 @@ $(HDD_IMAGE): limine initrd kernel
 	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
 	mformat -F -i $(HDD_IMAGE).esp ::
 	mmd -i $(HDD_IMAGE).esp ::/EFI ::/EFI/BOOT
-	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf initrd.tar limine.conf limine/limine-bios.sys ::/
+	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf $(INITRD_TAR) limine.conf limine/limine-bios.sys ::/
 	mcopy -i $(HDD_IMAGE).esp limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
 	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
 	rm -f $(HDD_IMAGE).esp
