@@ -22,16 +22,25 @@ Current features:
 
 ## Building
 
-Install an `x86_64-elf` cross toolchain, `nasm`, and `xorriso`. Clone Limine, then build and run:
+A local build needs an `x86_64-elf` cross toolchain plus:
+
+- `nasm`, `xorriso`, `perl`, `curl`, `git`, `build-essential`
+- `mtools`, `gdisk` (`sgdisk`), `e2fsprogs` for `release/hdd.img`
+- `qemu-system-x86` for `make run`
+
+Clone Limine, then build and run:
 
 ```
 make limine
 make            # builds cdrom.iso and release/hdd.img
-make run        # boots it in QEMU
+make run        # boots cdrom.iso in QEMU (KVM)
 make run-uefi   # boots under UEFI (downloads OVMF first)
+make run-hdd    # boots release/hdd.img
 ```
 
-`make run-hdd` builds a FAT-formatted disk image and boots from it. It needs `mtools` and `sgdisk`.
+`make run-hdd` boots the disk image. It needs `mtools` and `sgdisk`.
+
+The CI does not install a cross toolchain. It defines `x86_64-elf-gcc` as `gcc -fno-pie` on Ubuntu 24.04 and builds with the host compiler.
 
 ## Layout
 
@@ -87,6 +96,16 @@ Known limits:
 
 See `attic/2026/2026-10-22-gen75-edp-and-edid-en.md` for the graphics work. See `attic/2026/2026-10-18-haswell-usb2-ports-en.md` for the USB work.
 
+## CI/CD
+
+Three GitHub Actions workflows live in `.github/workflows/`:
+
+- `build.yml` runs on every push and pull request on `ubuntu-24.04`. It installs the build tools and QEMU, defines `x86_64-elf-gcc` as `gcc -fno-pie`, builds the kernel, userspace, `cdrom.iso` and `release/hdd.img`, then boots the ISO under QEMU 8.2 with TCG. `scripts/ci-boot-test.sh` waits for the shell and the boot markers `name "hansh"`, `MK: selftest PASS`, `MK: misc PASS` and `MK: signalfd PASS`. A missing marker or a `panic`, `exception` or `corrupt` line fails the job. A passing run prints the serial log.
+- `doxygen-pages.yml` runs on a push to `mainline`, generates the Doxygen HTML and deploys it to [GitHub Pages](https://jjwang.github.io/HanOS/).
+- `main.yml` regenerates the line-count badge on the `image-data` branch.
+
+Hosted runners have no `/dev/kvm`, so the boot test uses TCG. Local `make run` uses KVM.
+
 ## Documentation
 
-`doxygen Doxyfile` generates the HTML docs. A GitHub Action publishes them to [GitHub Pages](https://jjwang.github.io/HanOS/) on every push to `mainline`.
+`doxygen Doxyfile` generates the HTML docs.

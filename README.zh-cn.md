@@ -22,16 +22,25 @@
 
 ## 构建
 
-安装 `x86_64-elf` 交叉工具链、`nasm`、`xorriso`。先克隆 Limine。然后构建、运行：
+本机构建需要 `x86_64-elf` 交叉工具链，以及：
+
+- `nasm`、`xorriso`、`perl`、`curl`、`git`、`build-essential`
+- `mtools`、`gdisk`（`sgdisk`）、`e2fsprogs`，用于 `release/hdd.img`
+- `qemu-system-x86`，用于 `make run`
+
+先克隆 Limine。然后构建、运行：
 
 ```
 make limine
 make            # 生成 cdrom.iso 与 release/hdd.img
-make run        # 用 QEMU 启动
+make run        # 用 QEMU 启动 cdrom.iso（KVM）
 make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
+make run-hdd    # 启动 release/hdd.img
 ```
 
-`make run-hdd` 生成 FAT 格式磁盘镜像。从它启动。需要 `mtools` 和 `sgdisk`。
+`make run-hdd` 启动磁盘镜像。需要 `mtools` 与 `sgdisk`。
+
+CI 不安装交叉工具链。它在 Ubuntu 24.04 上把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，用宿主编译器构建。
 
 ## 目录结构
 
@@ -87,6 +96,16 @@ QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。
 
 显卡工作记录见 `attic/2026/2026-10-22-gen75-edp-and-edid-zh.md`。USB 工作记录见 `attic/2026/2026-10-18-haswell-usb2-ports-zh.md`。
 
+## CI/CD
+
+`.github/workflows/` 下有三个 GitHub Actions 工作流：
+
+- `build.yml` 在每次 push 与 pull request 时运行，环境为 `ubuntu-24.04`。它安装构建工具与 QEMU，把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，构建内核、用户态、`cdrom.iso` 与 `release/hdd.img`，再用 QEMU 8.2 的 TCG 启动 ISO。`scripts/ci-boot-test.sh` 等待 shell 与启动标记：`name "hansh"`、`MK: selftest PASS`、`MK: misc PASS`、`MK: signalfd PASS`。缺标记，或出现 `panic`、`exception`、`corrupt` 行，任务失败。成功时打印串口日志。
+- `doxygen-pages.yml` 在推送到 `mainline` 时运行，生成 Doxygen HTML 并发布到 [GitHub Pages](https://jjwang.github.io/HanOS/)。
+- `main.yml` 在 `image-data` 分支更新行数徽章。
+
+托管 runner 没有 `/dev/kvm`，启动测试用 TCG。本机 `make run` 用 KVM。
+
 ## 文档
 
-`doxygen Doxyfile` 生成 HTML 文档。GitHub Action 在推送到 `mainline` 时发布到 [GitHub Pages](https://jjwang.github.io/HanOS/)。
+`doxygen Doxyfile` 生成 HTML 文档。
