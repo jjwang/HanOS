@@ -2701,6 +2701,7 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         int32_t r = sched_execve_inplace(kpath, kargv_p, kenvp_p, cwd);
 
         if (r == 0) {
+            process_fd_close_cloexec();
             klogi("k_execve: inplace \"%s\" in process %ld\n", kpath, t->pid);
             free_exec_argv(kargv);
             free_exec_argv(kenvp);

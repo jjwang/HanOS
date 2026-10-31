@@ -35,6 +35,7 @@ int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence);
 int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg);
 void process_fd_fork(int32_t parent, int32_t child);
 void process_fd_exit(int32_t pid);
+void process_fd_close_cloexec(void);
 /* Exit bookkeeping keyed by pid, for the idle reaper's context. */
 void process_fd_exit_pid(int32_t pid);
 

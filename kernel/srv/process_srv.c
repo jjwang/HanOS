@@ -246,6 +246,11 @@ void process_fd_fork(int32_t parent, int32_t child)
     proc_call_group(PROC_FD_FORK, (uint64_t) child, 0, 0, 0, NULL);
 }
 
+void process_fd_close_cloexec(void)
+{
+    proc_call_group(PROC_FD_CLOEXEC, 0, 0, 0, 0, NULL);
+}
+
 void process_fd_exit(int32_t pid)
 {
     /* Close the process's descriptors before it is reaped. Runs in the exiting
