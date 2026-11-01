@@ -960,25 +960,24 @@ int64_t k_readlink(int64_t dirfd, const char *path, void *buffer,
 
 int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
 {
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
     cpu_set_errno(0);
 
-    if (fd >= 0 && fd < 3) {
-        int32_t kind = 0, svc = 0;
-        int64_t sfd = 0;
-        uint64_t size = 0, seek = 0;
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0) {
+        cpu_set_errno((fd >= 0 && fd < 3) ? ESPIPE : EBADF);
+        return -1;
+    }
 
-        /* Standard streams are not seekable unless a dup redirected them. */
-        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, &size, &seek) != 0) {
-            klogv("k_seek: fd %ld(0x%016lx), offset %ld, whence %ld\n",
-                  fd, fd, offset, whence);
-            return 0;
-        }
+    /* Pipes and terminals have no file offset. */
+    if (svc == SVC_PIPE || svc == SVC_TTY) {
+        cpu_set_errno(ESPIPE);
+        return -1;
     }
 
     int64_t ret = vfs_seek(fd, offset, whence);
 
-    klogd("k_seek: fd %ld(0x%016lx), offset %ld, whence %ld and return %ld\n",
-          fd, fd, offset, whence, ret);
     if (ret < 0)
         cpu_set_errno(EINVAL);
 
