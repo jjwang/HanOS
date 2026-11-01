@@ -87,30 +87,69 @@ static bool cursor_visible = true;
 static int32_t drawn_row = -1;
 static int32_t drawn_col = -1;
 
-/* Rows changed since the last blit, so only those are copied to the
- * framebuffer instead of the whole screen. */
-static int32_t dirty_min = -1;
-static int32_t dirty_max = -1;
+/* The terminal and the rain margins keep separate dirty rows. The fallback
+ * flush copies the terminal box and the margin strips, not whole rows. */
+static int32_t term_dirty_min = -1;
+static int32_t term_dirty_max = -1;
+static int32_t rain_dirty_min = -1;
+static int32_t rain_dirty_max = -1;
+static bool drawing_rain;
 
 static void mark_row(uint32_t y)
 {
-    if (dirty_min < 0 || (int32_t) y < dirty_min)
-        dirty_min = (int32_t) y;
-    if (dirty_max < 0 || (int32_t) y > dirty_max)
-        dirty_max = (int32_t) y;
+    int32_t v = (int32_t) y;
+
+    if (drawing_rain) {
+        if (rain_dirty_min < 0 || v < rain_dirty_min)
+            rain_dirty_min = v;
+        if (rain_dirty_max < 0 || v > rain_dirty_max)
+            rain_dirty_max = v;
+    } else {
+        if (term_dirty_min < 0 || v < term_dirty_min)
+            term_dirty_min = v;
+        if (term_dirty_max < 0 || v > term_dirty_max)
+            term_dirty_max = v;
+    }
 }
 
 static void flush(void)
 {
-    if (dirty_min < 0)
-        return;
+    if (term_dirty_min >= 0) {
+        uint32_t x0 = console_desktop ? 0 : term_x;
+        uint32_t x1 = console_desktop ? fb_w : term_x + cols * FONT_W;
+        uint64_t len = (uint64_t) (x1 - x0) * 4;
 
-    uint64_t off = (uint64_t) dirty_min * fb_pitch;
-    uint64_t len = (uint64_t) (dirty_max - dirty_min + 1) * fb_pitch;
-    memcpy(fbio + off, back + off, len);
+        for (int32_t y = term_dirty_min; y <= term_dirty_max; y++) {
+            uint64_t off = (uint64_t) y * fb_pitch + (uint64_t) x0 * 4;
 
-    dirty_min = -1;
-    dirty_max = -1;
+            memcpy(fbio + off, back + off, len);
+        }
+        term_dirty_min = -1;
+        term_dirty_max = -1;
+    }
+
+    if (rain_dirty_min >= 0) {
+        uint32_t ty1 = term_y + rows * FONT_H;
+        uint32_t rx = term_x + cols * FONT_W;
+
+        for (int32_t y = rain_dirty_min; y <= rain_dirty_max; y++) {
+            uint64_t off = (uint64_t) y * fb_pitch;
+
+            if ((uint32_t) y < term_y || (uint32_t) y >= ty1) {
+                memcpy(fbio + off, back + off, fb_pitch);
+            } else {
+                if (term_x > 0)
+                    memcpy(fbio + off, back + off,
+                           (uint64_t) term_x * 4);
+                if (rx < fb_w)
+                    memcpy(fbio + off + (uint64_t) rx * 4,
+                           back + off + (uint64_t) rx * 4,
+                           (uint64_t) (fb_w - rx) * 4);
+            }
+        }
+        rain_dirty_min = -1;
+        rain_dirty_max = -1;
+    }
 }
 
 static void putpixel(uint32_t x, uint32_t y, uint32_t c)
@@ -246,6 +285,7 @@ static void rain_draw_col(uint32_t c)
     rain_col_t *col = &rain[c];
     uint32_t ns = sizeof(set) - 1;
 
+    drawing_rain = true;
     for (uint32_t r = 0; r < rain_nrow; r++) {
         if (!rain_visible(c, r))
             continue;
@@ -261,6 +301,43 @@ static void rain_draw_col(uint32_t c)
                           COLOR_BLACK, COLOR_BLACK);
         }
     }
+    drawing_rain = false;
+}
+
+/* Redraw only the rows touched by the head move: the new stream plus the
+ * tail rows the previous tick left behind. */
+static void rain_draw_span(uint32_t c, int32_t old_head, int32_t new_head)
+{
+    rain_col_t *col = &rain[c];
+    int32_t old_lo = old_head - col->len + 1;
+    int32_t new_lo = new_head - col->len + 1;
+    int32_t lo = old_lo < new_lo ? old_lo : new_lo;
+    int32_t hi = old_head > new_head ? old_head : new_head;
+
+    if (lo < 0)
+        lo = 0;
+    if (hi >= (int32_t) rain_nrow)
+        hi = (int32_t) rain_nrow - 1;
+
+    drawing_rain = true;
+    for (int32_t r = lo; r <= hi; r++) {
+        if (!rain_visible(c, (uint32_t) r))
+            continue;
+        if (new_head >= 0 && r <= new_head && r > new_head - col->len) {
+            static const char set[] =
+                "01010101010101011123456789ABCDEF#$%&*<>[]{}()/=+-:.";
+            int32_t d = new_head - r;
+            uint8_t ch = (uint8_t) set[rain_hash(col->seed, (uint32_t) r)
+                                       % (sizeof(set) - 1)];
+
+            draw_glyph_px(c * FONT_W, (uint32_t) r * FONT_H, ch,
+                          rain_color(d, col->len), COLOR_BLACK);
+        } else {
+            draw_glyph_px(c * FONT_W, (uint32_t) r * FONT_H, ' ',
+                          COLOR_BLACK, COLOR_BLACK);
+        }
+    }
+    drawing_rain = false;
 }
 
 static void rain_tick(void)
@@ -278,14 +355,16 @@ static void rain_tick(void)
             continue;
         }
 
+        int32_t old_head = col->head;
+
         col->head += col->speed;
         if (col->head - col->len >= (int32_t) rain_nrow) {
-            rain_draw_col(c);
+            rain_draw_span(c, old_head, col->head);
             col->head = -1;
             col->delay = 15 + (int32_t) (bg_rand() % 120);
             continue;
         }
-        rain_draw_col(c);
+        rain_draw_span(c, old_head, col->head);
     }
 }
 
@@ -641,6 +720,8 @@ int32_t main(void)
 
     bool blink_on = true;
     uint32_t blink_ticks = 0;
+    uint32_t rain_div = 0;
+    uint32_t status_ticks = 0;
 
     for (;;) {
         sys_ipc_msg_t m;
@@ -659,12 +740,14 @@ int32_t main(void)
             put_cursor(true);
             flush();
         } else {
-            /* No terminal output for a tick: advance the rain (fallback) or
-             * the status clock, and blink the cursor every 500 ms. */
-            if (console_desktop)
-                status_tick();
-            else
+            if (console_desktop) {
+                if (++status_ticks >= 30) {
+                    status_ticks = 0;
+                    status_tick();
+                }
+            } else if ((rain_div++ & 1) == 0) {
                 rain_tick();
+            }
             blink_ticks++;
             if (blink_ticks >= 500 / RAIN_TICK_MS) {
                 blink_ticks = 0;
