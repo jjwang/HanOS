@@ -81,19 +81,7 @@ void fb_refresh(fb_info_t * fb)
 
 /* --- Boot splash --------------------------------------------------------- */
 
-/**
- * @brief PSF1 bitmap font header followed by its glyph data
- *
- * Each glyph is 8 pixels wide and charsize bytes tall, one byte per row.
- */
-typedef struct {
-    uint8_t magic[2];
-    uint8_t mode;
-    uint8_t charsize;
-    uint8_t data[];
-} psf1_font_t;
-
-extern psf1_font_t boot_font_norm, boot_font_bold;
+extern psf1_font_t boot_font_bold;
 
 #define SPLASH_BG       0x000000
 #define SPLASH_LOGO     0x00AAAA

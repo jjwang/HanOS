@@ -35,6 +35,16 @@
 #define DEFAULT_FGCOLOR     COLOR_GREY
 #define DEFAULT_BGCOLOR     COLOR_BLACK
 
+/* PSF1 bitmap font header followed by its glyph data. */
+typedef struct {
+    uint8_t magic[2];
+    uint8_t mode;
+    uint8_t charsize;
+    uint8_t data[];
+} psf1_font_t;
+
+extern psf1_font_t boot_font_norm;
+
 /**
  * @brief Framebuffer geometry, scan-out address and back buffer
  */

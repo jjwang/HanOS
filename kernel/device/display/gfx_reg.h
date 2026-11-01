@@ -527,6 +527,17 @@
 #define PIPE_VBLANK(pipe)               (0x60010 + (pipe) * 0x1000)
 #define PIPE_VSYNC(pipe)                (0x60014 + (pipe) * 0x1000)
 
+/* Skylake Gen9 Universal Plane A (pipe A, plane 2 / sprite) */
+#define PLANE_CTL_2_A                   0x70280
+#define PLANE_STRIDE_2_A                0x70288
+#define PLANE_POS_2_A                   0x7028C
+#define PLANE_SIZE_2_A                  0x70290
+#define PLANE_SURF_2_A                  0x7029C
+#define PLANE_OFFSET_2_A                0x702A4
+#define PLANE_WM_2A(level)              (0x70340 + (level) * 4)
+#define PLANE_WM_TRANS_2A               0x70368
+#define PLANE_BUF_CFG_2A                0x7037C
+
 /* Plane surface registers relative to DSPxCNTR (stride is 0x1000). DSPxSURF
  * is the surface address; DSPxLINOFF (0x04) is not the surface address. */
 #define DSP_SURF(plane)                 (DSPACNTR + (plane) * 0x1000 + 0x1C)

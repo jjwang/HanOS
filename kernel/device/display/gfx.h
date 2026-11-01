@@ -109,6 +109,8 @@ typedef struct {
     uint32_t height;
     uint32_t stride;        /* bytes per row */
     uint32_t format;        /* DISPPLANE_BGRX888 etc. */
+    uint64_t *pages;        /* non-contiguous GTT page list, or NULL */
+    uint32_t page_count;
 } gfx_fb_t;
 
 #define FENCE_BASE                      0x100000
@@ -189,6 +191,7 @@ void gfx_flip_to(const gfx_fb_t * fb);
 bool gfx_wait_vblank_frame(void);
 bool gfx_vblank_irq_start(void);
 bool gfx_flip_test(void);
+bool gfx_layers_demo(int mode);
 uint64_t gfx_vblank_count(void);
 bool gfx_vblank_irq_active(void);
 uint8_t gfx_vblank_irq_line(void);

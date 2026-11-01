@@ -470,6 +470,23 @@ int64_t k_runcmd(char *cmd)
         pci_list();
         gfx_start();
         return 0;
+    } else if (strcmp(kcmd, "gfx layers") == 0
+               || strcmp(kcmd, "gfx scroll") == 0
+               || strcmp(kcmd, "gfx solid") == 0) {
+        int mode = (strcmp(kcmd, "gfx layers") == 0) ? 0 :
+            (strcmp(kcmd, "gfx scroll") == 0) ? 1 : 2;
+        const char *name = (mode == 0) ? "layers" :
+            (mode == 1) ? "scroll" : "solid";
+        bool ok;
+
+        kcmd_printf("gfx: %s: building texture, 15 s demo\n", name);
+        ok = gfx_layers_demo(mode);
+        kcmd_printf("gfx: %s %s\n", name, ok ? "PASS" : "FAIL");
+        if (!ok) {
+            cpu_set_errno(EIO);
+            return -1;
+        }
+        return 0;
     } else if (strcmp(kcmd, "gfx flip") == 0) {
         bool ok = gfx_flip_test();
 

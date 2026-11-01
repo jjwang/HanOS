@@ -809,6 +809,85 @@ static bool gfx_obj_free(gfx_object_t * obj)
     return true;
 }
 
+static void gfx_fb_free_scatter(gfx_fb_t * fb);
+
+/* Large surfaces such as the scroll texture rarely have a contiguous
+ * physical run after boot. Allocate one page at a time and point the GTT at
+ * consecutive GPU addresses, so the CPU can fill the pages through the direct
+ * map while the display engine still reads a linear GPU range. */
+static bool gfx_fb_alloc_scatter(uint32_t width, uint32_t height,
+                                 gfx_fb_t * out_fb)
+{
+    uint32_t stride = (width * 4 + 63) & ~63u;
+    uint64_t size = (uint64_t) stride * height;
+    uint64_t alloc = PAGE_ALIGN_UP(size);
+    uint32_t npages = (uint32_t) NUM_PAGES(size);
+    uint64_t *pages;
+    uint64_t gpu;
+    uint32_t i;
+
+    pages = kmalloc((uint64_t) npages * sizeof(uint64_t));
+    if (pages == NULL)
+        return false;
+
+    for (i = 0; i < npages; i++) {
+        uint64_t phys = pmm_get(1, 0, __func__, __LINE__);
+
+        if (phys == 0) {
+            while (i-- > 0)
+                pmm_free(pages[i], 1, __func__, __LINE__);
+            kmfree(pages);
+            return false;
+        }
+        pages[i] = phys;
+    }
+
+    gpu = gfx_mgr.shared.current;
+    if (gpu + alloc > gfx_mgr.shared.top) {
+        for (i = 0; i < npages; i++)
+            pmm_free(pages[i], 1, __func__, __LINE__);
+        kmfree(pages);
+        return false;
+    }
+
+    for (i = 0; i < npages; i++)
+        gfx_gtt_write_entry(&gfx_gtt,
+                            (uint32_t) (gpu >> GTT_PAGE_SHIFT) + i, pages[i]);
+
+    /* Flush the posted GTT writes before the display engine fetches. */
+    (void) gfx_gtt.entries[(uint32_t) (gpu >> GTT_PAGE_SHIFT)];
+    (void) gfx_gtt.entries[(uint32_t) (gpu >> GTT_PAGE_SHIFT) + npages - 1];
+
+    memset(out_fb, 0, sizeof(*out_fb));
+    out_fb->obj.gfx_addr = gpu;
+    out_fb->obj.size = alloc;
+    out_fb->pages = pages;
+    out_fb->page_count = npages;
+    out_fb->width = width;
+    out_fb->height = height;
+    out_fb->stride = stride;
+    out_fb->format = DISPPLANE_BGRX888;
+    gfx_mgr.shared.current = gpu + alloc;
+
+    klogi("GFX: scatter alloc %u pages -> gpu 0x%016lx (%ux%u)\n",
+          npages, gpu, width, height);
+    return true;
+}
+
+static void gfx_fb_free_scatter(gfx_fb_t * fb)
+{
+    uint64_t gpu = fb->obj.gfx_addr;
+    uint64_t size = fb->obj.size;
+
+    gfx_gtt_clear(&gfx_gtt, gpu, size);
+    for (uint32_t i = 0; i < fb->page_count; i++)
+        pmm_free(fb->pages[i], 1, __func__, __LINE__);
+    kmfree(fb->pages);
+    if (gfx_mgr.shared.current == gpu + size)
+        gfx_mgr.shared.current = gpu;
+    memset(fb, 0, sizeof(*fb));
+}
+
 bool gfx_fb_alloc(uint32_t width, uint32_t height, gfx_fb_t * out_fb)
 {
     uint32_t stride = (width * 4 + 63) & ~63u;
@@ -828,6 +907,10 @@ void gfx_fb_free(gfx_fb_t * fb)
 {
     if (fb == NULL)
         return;
+    if (fb->pages != NULL) {
+        gfx_fb_free_scatter(fb);
+        return;
+    }
     gfx_obj_free(&fb->obj);
     memset(fb, 0, sizeof(*fb));
 }
@@ -1162,6 +1245,406 @@ bool gfx_flip_test(void)
     ok = (flips == 180);
     klogi("GFX: flip test %d frames, vblank %lu, irq %d, %s\n",
           flips, gfx_vblank_seq, gfx_vblank_irq, ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+/* --- Three-layer composition demo -------------------------------------- */
+
+#define LAYER_UI_W          480
+#define LAYER_UI_H          180
+#define LAYER_UI_X          80
+#define LAYER_UI_Y          80
+#define LAYER_SCROLL_SPEED  4       /* pixels per vblank */
+#define LAYER_PERIOD_SCREENS 4
+#define LAYER_FRAMES        900     /* 15 s at 60 Hz */
+
+static uint32_t layer_rng = 0x9e3779b9u;
+
+static uint32_t layer_rand(void)
+{
+    layer_rng = layer_rng * 1103515245u + 12345u;
+    return layer_rng >> 8;
+}
+
+static uint32_t layer_hash(uint32_t seed, uint32_t row)
+{
+    uint32_t x = seed + row * 0x9e3779b9u;
+
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    return x;
+}
+
+static void layer_pixel(gfx_fb_t * fb, int32_t x, int32_t y, uint32_t color)
+{
+    uint64_t off;
+
+    if (x < 0 || y < 0 || (uint32_t) x >= fb->width
+        || (uint32_t) y >= fb->height)
+        return;
+    off = (uint64_t) y * fb->stride + (uint64_t) x * 4;
+    if (fb->pages != NULL) {
+        uint32_t pg = (uint32_t) (off >> GTT_PAGE_SHIFT);
+        uint32_t po = (uint32_t) (off & (GTT_PAGE_SIZE - 1));
+
+        *(uint32_t *) ((uint8_t *) PHYS_TO_VIRT(fb->pages[pg]) + po) = color;
+    } else {
+        *(uint32_t *) (fb->obj.cpu_addr + off) = color;
+    }
+}
+
+static uint32_t layer_get(gfx_fb_t * fb, int32_t x, int32_t y)
+{
+    uint64_t off = (uint64_t) y * fb->stride + (uint64_t) x * 4;
+
+    if (fb->pages != NULL) {
+        uint32_t pg = (uint32_t) (off >> GTT_PAGE_SHIFT);
+        uint32_t po = (uint32_t) (off & (GTT_PAGE_SIZE - 1));
+
+        return *(uint32_t *) ((uint8_t *) PHYS_TO_VIRT(fb->pages[pg]) + po);
+    }
+    return *(uint32_t *) (fb->obj.cpu_addr + off);
+}
+
+static void layer_clear(gfx_fb_t * fb)
+{
+    if (fb->pages != NULL) {
+        for (uint32_t i = 0; i < fb->page_count; i++)
+            memset((void *) PHYS_TO_VIRT(fb->pages[i]), 0, GTT_PAGE_SIZE);
+    } else {
+        memset((void *) fb->obj.cpu_addr, 0,
+               (uint64_t) fb->stride * fb->height);
+    }
+}
+
+static void layer_rect(gfx_fb_t * fb, int32_t x, int32_t y, int32_t w,
+                       int32_t h, uint32_t color)
+{
+    for (int32_t j = 0; j < h; j++)
+        for (int32_t i = 0; i < w; i++)
+            layer_pixel(fb, x + i, y + j, color);
+}
+
+static void layer_glyph(gfx_fb_t * fb, int32_t x, int32_t y, uint8_t ch,
+                        uint32_t color)
+{
+    const psf1_font_t *font = &boot_font_norm;
+    const uint8_t *glyph = font->data + (uint32_t) ch * font->charsize;
+
+    for (uint32_t i = 0; i < font->charsize; i++) {
+        uint8_t bits = glyph[i];
+
+        for (uint32_t k = 0; k < 8; k++)
+            if (bits & (0x80u >> k))
+                layer_pixel(fb, x + (int32_t) k, y + (int32_t) i, color);
+    }
+}
+
+static void layer_text(gfx_fb_t * fb, int32_t x, int32_t y, const char *s,
+                       uint32_t color)
+{
+    while (*s != '\0') {
+        layer_glyph(fb, x, y, (uint8_t) *s, color);
+        x += 8;
+        s++;
+    }
+}
+
+static void layer_flush(gfx_fb_t * fb)
+{
+    if (fb->pages != NULL) {
+        for (uint32_t i = 0; i < fb->page_count; i++) {
+            uintptr_t p = (uintptr_t) PHYS_TO_VIRT(fb->pages[i]) & ~63ULL;
+            uintptr_t end = p + GTT_PAGE_SIZE;
+
+            for (; p < end; p += 64)
+                asm volatile ("clflush (%0)"::"r"((void *) p):"memory");
+        }
+    } else {
+        uintptr_t p = (uintptr_t) fb->obj.cpu_addr & ~63ULL;
+        uintptr_t end = (uintptr_t) fb->obj.cpu_addr
+            + (uintptr_t) fb->stride * fb->height;
+
+        for (; p < end; p += 64)
+            asm volatile ("clflush (%0)"::"r"((void *) p):"memory");
+    }
+    asm volatile ("mfence":::"memory");
+}
+
+static uint32_t layer_rain_color(int32_t d, int32_t len)
+{
+    uint32_t lvl;
+
+    if (d <= 0)
+        return 0xddffdd;
+    lvl = (uint32_t) (len - d) * 255u / (uint32_t) len;
+    if (lvl > 150)
+        return 0x55ff88;
+    if (lvl > 90)
+        return 0x22cc55;
+    if (lvl > 40)
+        return 0x00aa33;
+    return 0x004411;
+}
+
+/* Bake the rain once. Each column gets streaks with random lengths and gaps;
+ * the pattern repeats every period_rows and the first screen_rows are copied
+ * to the end so the plane offset can wrap without a visible jump. */
+static void layer_tex_build(gfx_fb_t * tex, uint32_t period_rows,
+                            uint32_t screen_rows)
+{
+    static const char set[] =
+        "01010101010101011123456789ABCDEF#$%&*<>[]{}()/=+-:.";
+    uint32_t ns = sizeof(set) - 1;
+    uint32_t ncol = tex->width / 8;
+    uint32_t fh = boot_font_norm.charsize;
+
+    layer_clear(tex);
+
+    for (uint32_t c = 0; c < ncol; c++) {
+        uint32_t seed = layer_rand() | 1;
+        int32_t pos = (int32_t) (layer_rand() % period_rows);
+
+        while (pos < (int32_t) period_rows) {
+            int32_t len = 3 + (int32_t) (layer_rand() % 14);
+            int32_t gap = 20 + (int32_t) (layer_rand() % 100);
+
+            for (int32_t i = 0; i < len; i++) {
+                int32_t r = (pos + i) % (int32_t) period_rows;
+                int32_t d = (len - 1) - i;
+                uint8_t ch = (uint8_t) set[layer_hash(seed, (uint32_t) r)
+                                           % ns];
+
+                layer_glyph(tex, (int32_t) c * 8, r * (int32_t) fh, ch,
+                            layer_rain_color(d, len));
+            }
+            pos += len + gap;
+        }
+    }
+
+    for (uint32_t r = 0; r < screen_rows; r++)
+        for (uint32_t y = 0; y < fh; y++)
+            for (uint32_t x = 0; x < tex->width; x++)
+                layer_pixel(tex, (int32_t) x,
+                            (int32_t) ((period_rows + r) * fh + y),
+                            layer_get(tex, (int32_t) x,
+                                      (int32_t) (r * fh + y)));
+
+    layer_flush(tex);
+}
+
+/* Fill the scroll surface with wide horizontal bands. A GPU scroll moves
+ * them, which isolates the plane/GTT/offset path from the rain texture. */
+static void layer_tex_solid(gfx_fb_t * tex)
+{
+    layer_clear(tex);
+    for (uint32_t y = 0; y < tex->height; y++) {
+        uint32_t color = ((y / 80) & 1) ? 0x0033aa55 : 0x00101820;
+
+        for (uint32_t x = 0; x < tex->width; x++)
+            layer_pixel(tex, (int32_t) x, (int32_t) y, color);
+    }
+    layer_flush(tex);
+}
+
+static void layer_ui_draw(gfx_fb_t * ui, uint32_t progress)
+{
+    layer_rect(ui, 0, 0, (int32_t) ui->width, (int32_t) ui->height,
+               0x00101820);
+    layer_rect(ui, 0, 0, (int32_t) ui->width, 2, 0x0000ff88);
+    layer_rect(ui, 0, (int32_t) ui->height - 2, (int32_t) ui->width, 2,
+               0x0000ff88);
+    layer_rect(ui, 0, 0, 2, (int32_t) ui->height, 0x0000ff88);
+    layer_rect(ui, (int32_t) ui->width - 2, 0, 2, (int32_t) ui->height,
+               0x0000ff88);
+
+    layer_text(ui, 16, 12, "HanOS / Skylake", 0x00ddffdd);
+    layer_text(ui, 16, 36, "primary : scrolled rain", 0x0066ff88);
+    layer_text(ui, 16, 56, "sprite  : ui", 0x0066ff88);
+    layer_text(ui, 16, 76, "cursor  : top", 0x0066ff88);
+
+    layer_rect(ui, 16, 128, (int32_t) ui->width - 32, 14, 0x00203038);
+    layer_rect(ui, 16, 128, (int32_t) ((ui->width - 32) * progress / 100),
+               14, 0x0000cc55);
+}
+
+static void layer_ui_progress(gfx_fb_t * ui, uint32_t progress)
+{
+    layer_rect(ui, 16, 128, (int32_t) ui->width - 32, 14, 0x00203038);
+    layer_rect(ui, 16, 128, (int32_t) ((ui->width - 32) * progress / 100),
+               14, 0x0000cc55);
+}
+
+bool gfx_layers_demo(int mode)
+{
+    bool with_sprite = (mode == 0);
+    gfx_fb_t tex;
+    gfx_fb_t ui;
+    uint32_t saved1_ctl;
+    uint32_t saved1_off;
+    uint32_t saved1_pos;
+    uint32_t saved1_size;
+    uint32_t saved1_stride;
+    uint32_t saved1_surf;
+    uint32_t saved2_ctl;
+    uint32_t saved2_off;
+    uint32_t saved2_pos;
+    uint32_t saved2_size;
+    uint32_t saved2_stride;
+    uint32_t saved2_surf;
+    uint32_t fh;
+    uint32_t screen_rows;
+    uint32_t period_rows;
+    uint32_t period_px;
+    uint32_t tex_h;
+    uint32_t scroll;
+    int32_t frames;
+    bool ok;
+
+    if (!gfx_pci.gen9 || gfx_fb.obj.cpu_addr == NULL) {
+        klogw("GFX: layers demo needs a Gen9 mode set\n");
+        return false;
+    }
+
+    memset(&tex, 0, sizeof(tex));
+    memset(&ui, 0, sizeof(ui));
+    fh = boot_font_norm.charsize;
+    screen_rows = (gfx_fb.height + fh - 1) / fh;
+    period_rows = LAYER_PERIOD_SCREENS * screen_rows;
+    tex_h = (period_rows + screen_rows) * fh;
+
+    if (!gfx_fb_alloc_scatter(gfx_fb.width, tex_h, &tex)) {
+        kloge("GFX: layers: rain texture alloc failed\n");
+        return false;
+    }
+    if (mode == 2)
+        layer_tex_solid(&tex);
+    else
+        layer_tex_build(&tex, period_rows, screen_rows);
+
+    if (with_sprite) {
+        if (!gfx_fb_alloc(LAYER_UI_W, LAYER_UI_H, &ui)) {
+            kloge("GFX: layers: UI buffer alloc failed\n");
+            gfx_fb_free(&tex);
+            return false;
+        }
+        layer_ui_draw(&ui, 0);
+        layer_flush(&ui);
+    }
+
+    saved1_ctl = gfx_ind(&gfx_pci, PLANE_CTL_1_A);
+    saved1_off = gfx_ind(&gfx_pci, PLANE_OFFSET_1_A);
+    saved1_pos = gfx_ind(&gfx_pci, PLANE_POS_1_A);
+    saved1_size = gfx_ind(&gfx_pci, PLANE_SIZE_1_A);
+    saved1_stride = gfx_ind(&gfx_pci, PLANE_STRIDE_1_A);
+    saved1_surf = gfx_ind(&gfx_pci, PLANE_SURF_1_A);
+    saved2_ctl = gfx_ind(&gfx_pci, PLANE_CTL_2_A);
+    saved2_off = gfx_ind(&gfx_pci, PLANE_OFFSET_2_A);
+    saved2_pos = gfx_ind(&gfx_pci, PLANE_POS_2_A);
+    saved2_size = gfx_ind(&gfx_pci, PLANE_SIZE_2_A);
+    saved2_stride = gfx_ind(&gfx_pci, PLANE_STRIDE_2_A);
+    saved2_surf = gfx_ind(&gfx_pci, PLANE_SURF_2_A);
+
+    period_px = period_rows * fh;
+    scroll = period_px;
+
+    /* Primary: the baked texture. Only the plane offset changes per frame. */
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, 0);
+    gfx_wait_vblank_frame();
+    gfx_outd(&gfx_pci, PLANE_POS_1_A, 0);
+    gfx_outd(&gfx_pci, PLANE_SIZE_1_A,
+             (gfx_fb.height - 1) << 16 | (gfx_fb.width - 1));
+    gfx_outd(&gfx_pci, PLANE_STRIDE_1_A, tex.stride / 64);
+    gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, scroll << 16);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, saved1_ctl);
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A, (uint32_t) tex.obj.gfx_addr);
+    gfx_wait_vblank_frame();
+
+    if (with_sprite) {
+        /* Sprite: plane 2 above the primary, below the cursor. */
+        gfx_outd(&gfx_pci, PLANE_CTL_2_A, 0);
+        gfx_outd(&gfx_pci, PS_CTRL_2A, 0);
+        gfx_outd(&gfx_pci, PLANE_OFFSET_2_A, 0);
+        gfx_outd(&gfx_pci, PLANE_POS_2_A, (LAYER_UI_Y << 16) | LAYER_UI_X);
+        gfx_outd(&gfx_pci, PLANE_SIZE_2_A,
+                 (ui.height - 1) << 16 | (ui.width - 1));
+        gfx_outd(&gfx_pci, PLANE_STRIDE_2_A, ui.stride / 64);
+        /* The cursor owns DDB blocks 446..477; the sprite must start after
+         * it, or the two planes fight over the same data buffer. */
+        gfx_outd(&gfx_pci, PLANE_BUF_CFG_2A,
+                 PLANE_BUF_END(511) | PLANE_BUF_START(478));
+        for (uint32_t lvl = 0; lvl < 8; lvl++)
+            gfx_outd(&gfx_pci, PLANE_WM_2A(lvl),
+                     PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
+        gfx_outd(&gfx_pci, PLANE_WM_TRANS_2A,
+                 PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
+        gfx_outd(&gfx_pci, PLANE_CTL_2_A,
+                 PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB
+                 | PLANE_CTL_TILED_LINEAR);
+        gfx_outd(&gfx_pci, PLANE_SURF_2_A, (uint32_t) ui.obj.gfx_addr);
+        (void) gfx_ind(&gfx_pci, PLANE_SURF_2_A);
+        gfx_wait_vblank_frame();
+    }
+
+    if (with_sprite)
+        klogi("GFX: layers: texture %ux%u (period %u px), UI %ux%u "
+              "at %d,%d\n", tex.width, tex.height, period_px, ui.width,
+              ui.height, LAYER_UI_X, LAYER_UI_Y);
+    else
+        klogi("GFX: layers: texture %ux%u (period %u px), primary only\n",
+              tex.width, tex.height, period_px);
+    klogi("GFX: layers: planes ready, starting at offset %u\n", scroll);
+
+    for (frames = 0; frames < LAYER_FRAMES; frames++) {
+        if ((frames % 60) == 0)
+            klogi("GFX: layers: frame %d offset %u\n", frames, scroll);
+        if (!gfx_wait_vblank_frame())
+            break;
+        if (scroll >= LAYER_SCROLL_SPEED)
+            scroll -= LAYER_SCROLL_SPEED;
+        else
+            scroll = period_px;
+        gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, scroll << 16);
+        gfx_outd(&gfx_pci, PLANE_SURF_1_A, (uint32_t) tex.obj.gfx_addr);
+
+        if (with_sprite && (frames % 30) == 0) {
+            layer_ui_progress(&ui,
+                              (uint32_t) frames * 100u / LAYER_FRAMES);
+            layer_flush(&ui);
+        }
+    }
+    ok = (frames == LAYER_FRAMES);
+
+    /* Restore the sprite and the console's primary surface. */
+    if (with_sprite) {
+        gfx_outd(&gfx_pci, PLANE_CTL_2_A, 0);
+        gfx_wait_vblank_frame();
+        gfx_outd(&gfx_pci, PLANE_OFFSET_2_A, saved2_off);
+        gfx_outd(&gfx_pci, PLANE_POS_2_A, saved2_pos);
+        gfx_outd(&gfx_pci, PLANE_SIZE_2_A, saved2_size);
+        gfx_outd(&gfx_pci, PLANE_STRIDE_2_A, saved2_stride);
+        gfx_outd(&gfx_pci, PLANE_CTL_2_A, saved2_ctl);
+        gfx_outd(&gfx_pci, PLANE_SURF_2_A, saved2_surf);
+    }
+
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, 0);
+    gfx_wait_vblank_frame();
+    gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, saved1_off);
+    gfx_outd(&gfx_pci, PLANE_POS_1_A, saved1_pos);
+    gfx_outd(&gfx_pci, PLANE_SIZE_1_A, saved1_size);
+    gfx_outd(&gfx_pci, PLANE_STRIDE_1_A, saved1_stride);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, saved1_ctl);
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A, saved1_surf);
+    gfx_wait_vblank_frame();
+    gfx_wait_vblank_frame();
+
+    if (with_sprite)
+        gfx_fb_free(&ui);
+    gfx_fb_free(&tex);
+
+    klogi("GFX: layers demo %d frames, %s\n", frames,
+          ok ? "PASS" : "FAIL");
     return ok;
 }
 
@@ -1725,8 +2208,8 @@ bool gfx_wait_vblank(gfx_pci_t * pci, uint8_t pipe)
     /* Clear any pending vblank */
     gfx_outd(pci, reg, vblank_bit);
 
-    /* Wait for vblank */
-    int32_t timeout = 50000;  /* 50ms */
+    /* Wait for vblank (PIT ticks are 1 ms). */
+    int32_t timeout = 50;
     while (timeout-- > 0) {
         uint32_t iir = gfx_ind(pci, reg);
         if (iir & vblank_bit) {
