@@ -1254,7 +1254,7 @@ bool gfx_flip_test(void)
 #define LAYER_UI_H          180
 #define LAYER_UI_X          80
 #define LAYER_UI_Y          80
-#define LAYER_SCROLL_SPEED  4       /* pixels per vblank */
+#define LAYER_SCROLL_SPEED  8       /* pixels per frame */
 #define LAYER_PERIOD_SCREENS 4
 #define LAYER_FRAMES        900     /* 15 s at 60 Hz */
 
@@ -1408,7 +1408,7 @@ static void layer_tex_build(gfx_fb_t * tex, uint32_t period_rows,
 
         while (pos < (int32_t) period_rows) {
             int32_t len = 3 + (int32_t) (layer_rand() % 14);
-            int32_t gap = 20 + (int32_t) (layer_rand() % 100);
+            int32_t gap = 10 + (int32_t) (layer_rand() % 50);
 
             for (int32_t i = 0; i < len; i++) {
                 int32_t r = (pos + i) % (int32_t) period_rows;
@@ -1646,6 +1646,168 @@ bool gfx_layers_demo(int mode)
     klogi("GFX: layers demo %d frames, %s\n", frames,
           ok ? "PASS" : "FAIL");
     return ok;
+}
+
+/* --- Persistent desktop ------------------------------------------------- */
+
+#define DESKTOP_STATUS_H    20
+#define DESKTOP_FONT_W      8
+#define DESKTOP_FONT_H      15
+
+static bool gfx_desktop_is_active;
+static gfx_fb_t gfx_desktop_tex;
+static gfx_fb_t gfx_desktop_sprite;
+static uint32_t gfx_desktop_period;
+
+bool gfx_desktop_active(void)
+{
+    return gfx_desktop_is_active;
+}
+
+gfx_fb_t *gfx_desktop_console_fb(void)
+{
+    return gfx_desktop_is_active ? &gfx_desktop_sprite : NULL;
+}
+
+/* Only the primary plane offset moves. The CPU does not redraw pixels. */
+_Noreturn static void gfx_desktop_rain(pid_t pid)
+{
+    uint32_t scroll = gfx_desktop_period;
+    uint32_t frames = 0;
+    uint32_t last = gfx_pipe_frame();
+
+    (void) pid;
+    klogi("GFX: desktop: rain thread running\n");
+    for (;;) {
+        uint32_t now;
+
+        /* The display pipe's frame counter is the reliable tick here; the
+         * per-pipe vblank status can stay clear while the sprite is active. */
+        sched_sleep(1);
+        now = gfx_pipe_frame();
+        if (now == last)
+            continue;
+        last = now;
+        if ((frames++ % 600) == 0)
+            klogi("GFX: desktop: rain offset %u\n", scroll);
+        if (scroll >= LAYER_SCROLL_SPEED)
+            scroll -= LAYER_SCROLL_SPEED;
+        else
+            scroll = gfx_desktop_period;
+        gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, scroll << 16);
+        gfx_outd(&gfx_pci, PLANE_SURF_1_A,
+                 (uint32_t) gfx_desktop_tex.obj.gfx_addr);
+    }
+}
+
+bool gfx_desktop_start(void)
+{
+    uint32_t screen_rows;
+    uint32_t period_rows;
+    uint32_t tex_h;
+    uint32_t period_px;
+    uint32_t cols;
+    uint32_t rows;
+    uint32_t spr_w;
+    uint32_t spr_h;
+    uint32_t pos_x;
+    uint32_t pos_y;
+    uint32_t ctl;
+
+    if (gfx_desktop_is_active)
+        return true;
+    if (!gfx_pci.gen9 || gfx_fb.obj.cpu_addr == NULL)
+        return false;
+
+    screen_rows = (gfx_fb.height + boot_font_norm.charsize - 1)
+        / boot_font_norm.charsize;
+    period_rows = LAYER_PERIOD_SCREENS * screen_rows;
+    tex_h = (period_rows + screen_rows) * boot_font_norm.charsize;
+    period_px = period_rows * boot_font_norm.charsize;
+
+    memset(&gfx_desktop_tex, 0, sizeof(gfx_desktop_tex));
+    memset(&gfx_desktop_sprite, 0, sizeof(gfx_desktop_sprite));
+    if (!gfx_fb_alloc_scatter(gfx_fb.width, tex_h, &gfx_desktop_tex)) {
+        kloge("GFX: desktop: rain texture alloc failed\n");
+        return false;
+    }
+    layer_tex_build(&gfx_desktop_tex, period_rows, screen_rows);
+
+    cols = (gfx_fb.width / DESKTOP_FONT_W) * 4 / 5;
+    rows = (gfx_fb.height / DESKTOP_FONT_H) * 4 / 5;
+    spr_w = cols * DESKTOP_FONT_W;
+    spr_h = rows * DESKTOP_FONT_H + DESKTOP_STATUS_H;
+    if (!gfx_fb_alloc(spr_w, spr_h, &gfx_desktop_sprite)) {
+        kloge("GFX: desktop: console sprite alloc failed\n");
+        gfx_fb_free(&gfx_desktop_tex);
+        return false;
+    }
+    memset((void *) gfx_desktop_sprite.obj.cpu_addr, 0,
+           (uint64_t) gfx_desktop_sprite.stride
+           * gfx_desktop_sprite.height);
+    layer_flush(&gfx_desktop_sprite);
+
+    pos_x = (gfx_fb.width - spr_w) / 2;
+    pos_y = (gfx_fb.height - spr_h) / 2;
+
+    /* Keep the modeset's 445-block primary allocation: shrinking it starves
+     * the 1366-wide scan-out and stops the pipe's vblank. The cursor takes
+     * 446..477 and the console sprite 478..511. */
+    gfx_outd(&gfx_pci, PLANE_BUF_CFG_1A,
+             PLANE_BUF_END(445) | PLANE_BUF_START(0));
+    gfx_outd(&gfx_pci, CUR_BUF_CFG,
+             PLANE_BUF_END(477) | PLANE_BUF_START(446));
+    gfx_outd(&gfx_pci, PLANE_BUF_CFG_2A,
+             PLANE_BUF_END(511) | PLANE_BUF_START(478));
+
+    ctl = gfx_ind(&gfx_pci, PLANE_CTL_1_A);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, 0);
+    gfx_wait_vblank_frame();
+    gfx_outd(&gfx_pci, PLANE_POS_1_A, 0);
+    gfx_outd(&gfx_pci, PLANE_SIZE_1_A,
+             (gfx_fb.height - 1) << 16 | (gfx_fb.width - 1));
+    gfx_outd(&gfx_pci, PLANE_STRIDE_1_A, gfx_desktop_tex.stride / 64);
+    gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, period_px << 16);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, ctl);
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A,
+             (uint32_t) gfx_desktop_tex.obj.gfx_addr);
+    gfx_wait_vblank_frame();
+
+    gfx_outd(&gfx_pci, PLANE_CTL_2_A, 0);
+    gfx_outd(&gfx_pci, PS_CTRL_2A, 0);
+    gfx_outd(&gfx_pci, PLANE_OFFSET_2_A, 0);
+    gfx_outd(&gfx_pci, PLANE_POS_2_A, (pos_y << 16) | pos_x);
+    gfx_outd(&gfx_pci, PLANE_SIZE_2_A,
+             (gfx_desktop_sprite.height - 1) << 16
+             | (gfx_desktop_sprite.width - 1));
+    gfx_outd(&gfx_pci, PLANE_STRIDE_2_A, gfx_desktop_sprite.stride / 64);
+    for (uint32_t lvl = 0; lvl < 8; lvl++)
+        gfx_outd(&gfx_pci, PLANE_WM_2A(lvl),
+                 PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
+    gfx_outd(&gfx_pci, PLANE_WM_TRANS_2A,
+             PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
+    gfx_outd(&gfx_pci, PLANE_CTL_2_A,
+             PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB
+             | PLANE_CTL_TILED_LINEAR);
+    gfx_outd(&gfx_pci, PLANE_SURF_2_A,
+             (uint32_t) gfx_desktop_sprite.obj.gfx_addr);
+    (void) gfx_ind(&gfx_pci, PLANE_SURF_2_A);
+    gfx_wait_vblank_frame();
+
+    gfx_desktop_period = period_px;
+    gfx_desktop_is_active = true;
+
+    process_t *t = sched_new("gfxrain", gfx_desktop_rain, false);
+    if (t != NULL) {
+        sched_add(t);
+        klogi("GFX: desktop: rain thread started\n");
+    } else {
+        kloge("GFX: desktop: rain thread spawn failed\n");
+    }
+
+    klogi("GFX: desktop: rain %ux%u period %u, console %ux%u at %u,%u\n",
+          gfx_fb.width, gfx_fb.height, period_px, spr_w, spr_h, pos_x, pos_y);
+    return true;
 }
 
 bool gfx_edp_panel_on(gfx_pci_t * pci)

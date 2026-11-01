@@ -20,7 +20,10 @@
 
 #include <bootinfo.h>
 #include <string.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
+#include <sys/utsname.h>
+#include <time.h>
 #include <unistd.h>
 #include <sysfunc.h>
 
@@ -53,6 +56,10 @@ extern psf1_t term_font_norm;
 
 #define ROW_MAX     512
 #define COL_MAX     192
+#define STATUS_H    20
+#define STATUS_BG   0x00101820
+#define STATUS_FG   0x00ddffdd
+#define STATUS_LINE 0x0000ff88
 
 static uint8_t *fbio;
 static uint8_t *back;
@@ -63,6 +70,8 @@ static uint32_t cols;
 static uint32_t rows;
 static uint32_t term_x;         /* top-left pixel of the terminal grid */
 static uint32_t term_y;
+static bool console_desktop;
+static uint64_t status_last_sec;
 
 static VTerm *vt;
 static VTermScreen *vs;
@@ -480,6 +489,49 @@ static void feed_msg(sys_ipc_msg_t * m)
         vterm_input_write(vt, buf, (size_t) o);
 }
 
+/* Desktop status bar: version, wall clock and the rain source. */
+static void draw_status(void)
+{
+    struct utsname u;
+    struct timespec ts;
+    char buf[96];
+    uint32_t sec;
+    int h;
+    int m;
+    int s;
+
+    if (uname(&u) != 0)
+        u.version[0] = '\0';
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+        ts.tv_sec = 0;
+    sec = (uint32_t) (ts.tv_sec % 86400);
+    h = (int) (sec / 3600);
+    m = (int) ((sec / 60) % 60);
+    s = (int) (sec % 60);
+    snprintf(buf, sizeof(buf), "HanOS %s  %02d:%02d:%02d  rain:gpu",
+             u.release, h, m, s);
+
+    for (uint32_t y = 0; y < STATUS_H; y++) {
+        for (uint32_t x = 0; x < fb_w; x++)
+            putpixel(x, y, (y == STATUS_H - 1) ? STATUS_LINE : STATUS_BG);
+        mark_row(y);
+    }
+    for (uint32_t i = 0; buf[i] != '\0'; i++)
+        draw_glyph_px(8 + i * 8, 2, (uint8_t) buf[i], STATUS_FG, STATUS_BG);
+}
+
+static void status_tick(void)
+{
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+        return;
+    if ((uint64_t) ts.tv_sec != status_last_sec) {
+        status_last_sec = (uint64_t) ts.tv_sec;
+        draw_status();
+    }
+}
+
 int32_t main(void)
 {
     bootinfo_t bi;
@@ -495,12 +547,22 @@ int32_t main(void)
 
     /* The terminal grid fills the middle four fifths; the margins show the
      * background. */
-    cols = (fb_w / FONT_W) * 4 / 5;
-    rows = (fb_h / FONT_H) * 4 / 5;
-    if (rows > ROW_MAX)
-        rows = ROW_MAX;
-    term_x = (fb_w - cols * FONT_W) / 2;
-    term_y = (fb_h - rows * FONT_H) / 2;
+    console_desktop = bi.desktop != 0;
+    if (console_desktop) {
+        cols = fb_w / FONT_W;
+        rows = (fb_h - STATUS_H) / FONT_H;
+        if (rows > ROW_MAX)
+            rows = ROW_MAX;
+        term_x = 0;
+        term_y = STATUS_H;
+    } else {
+        cols = (fb_w / FONT_W) * 4 / 5;
+        rows = (fb_h / FONT_H) * 4 / 5;
+        if (rows > ROW_MAX)
+            rows = ROW_MAX;
+        term_x = (fb_w - cols * FONT_W) / 2;
+        term_y = (fb_h - rows * FONT_H) / 2;
+    }
 
     /* Publish the grid so a program can size and centre its output. */
     struct winsize ws = { (unsigned short) rows, (unsigned short) cols, 0, 0 };
@@ -512,8 +574,12 @@ int32_t main(void)
         return 1;
 
     memset(back, 0, (uint64_t) fb_pitch * fb_h);
-    rain_init();
-    rain_tick();
+    if (console_desktop) {
+        draw_status();
+    } else {
+        rain_init();
+        rain_tick();
+    }
     memcpy(fbio, back, (uint64_t) fb_pitch * fb_h);
 
     vt = vterm_new((int) rows, (int) cols);
@@ -567,9 +633,12 @@ int32_t main(void)
             put_cursor(true);
             flush();
         } else {
-            /* No terminal output for a tick: advance the rain and blink the
-             * cursor every 500 ms. */
-            rain_tick();
+            /* No terminal output for a tick: advance the rain (fallback) or
+             * the status clock, and blink the cursor every 500 ms. */
+            if (console_desktop)
+                status_tick();
+            else
+                rain_tick();
             blink_ticks++;
             if (blink_ticks >= 500 / RAIN_TICK_MS) {
                 blink_ticks = 0;

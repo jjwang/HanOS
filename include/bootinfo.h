@@ -68,6 +68,7 @@ typedef struct {
     uint64_t fb_height;
     uint64_t fb_pitch;
     uint64_t fb_size;
+    uint64_t desktop;           /* framebuffer is the desktop console sprite */
     uint64_t cursor_x;
     uint64_t cursor_y;
     uint64_t fgcolor;

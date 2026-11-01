@@ -466,6 +466,16 @@ int64_t k_runcmd(char *cmd)
         return -1;
     }
 
+    if (gfx_desktop_active()
+        && (strcmp(kcmd, "gfx flip") == 0
+            || strcmp(kcmd, "gfx layers") == 0
+            || strcmp(kcmd, "gfx scroll") == 0
+            || strcmp(kcmd, "gfx solid") == 0)) {
+        kcmd_printf("gfx: desktop is active\n");
+        cpu_set_errno(EBUSY);
+        return -1;
+    }
+
     if (strcmp(kcmd, "lspci") == 0) {
         pci_list();
         gfx_start();

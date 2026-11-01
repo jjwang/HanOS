@@ -123,6 +123,9 @@ _Noreturn void kshell(pid_t pid)
 {
     (void) pid;
 
+    if (!gfx_desktop_start())
+        klogw("GFX: desktop not active, console on primary\n");
+
     if (!console_server_start())
         klogw("console: server failed to start\n");
 

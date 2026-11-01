@@ -23,6 +23,7 @@
 #include <ipc/ipc.h>
 #include <proc/sched.h>
 #include <device/display/fb.h>
+#include <device/display/gfx.h>
 #include <mm/mm.h>
 #include <bootinfo.h>
 
@@ -30,6 +31,7 @@ static endpoint_t *console_in_ep = NULL;
 static bool console_active = false;
 static pid_t console_spawner = PID_MAX;
 static uint64_t console_fb_size = 0;
+static bool console_desktop;
 
 /* Output from kprintf() is buffered here and forwarded by a kernel thread.
  * A syscall runs with interrupts disabled, so kprintf() must never wait for
@@ -56,14 +58,35 @@ static void console_spawn_attach(process_t * tc)
         return;
     }
 
+    gfx_fb_t *sprite = console_desktop ? gfx_desktop_console_fb() : NULL;
     fb_info_t *fb = fb_get();
-    if (fb->addr == NULL || console_in_ep == NULL) {
+    uint64_t vaddr;
+    uint64_t paddr;
+    uint64_t pitch;
+    uint64_t width;
+    uint64_t height;
+
+    if (sprite != NULL) {
+        vaddr = (uint64_t) sprite->obj.cpu_addr;
+        paddr = sprite->obj.phys;
+        pitch = sprite->stride;
+        width = sprite->width;
+        height = sprite->height;
+    } else if (fb->addr != NULL) {
+        vaddr = (uint64_t) fb->addr;
+        paddr = VIRT_TO_PHYS(vaddr);
+        pitch = fb->pitch;
+        width = fb->width;
+        height = fb->height;
+    } else {
         klogw("console: spawn hook has no framebuffer or endpoint\n");
         return;
     }
 
-    uint64_t vaddr = (uint64_t) fb->addr;
-    uint64_t paddr = VIRT_TO_PHYS(vaddr);
+    if (console_in_ep == NULL) {
+        klogw("console: spawn hook has no endpoint\n");
+        return;
+    }
 
     vmm_map(tc->addrspace, vaddr, paddr, NUM_PAGES(console_fb_size),
             VMM_FLAGS_FB_WC | VMM_FLAG_USER);
@@ -88,27 +111,33 @@ static void console_spawn_attach(process_t * tc)
     bi->magic = BOOTINFO_MAGIC;
     bi->console_ep = h;
     bi->fb_vaddr = vaddr;
-    bi->fb_width = fb->width;
-    bi->fb_height = fb->height;
-    bi->fb_pitch = fb->pitch;
+    bi->fb_width = width;
+    bi->fb_height = height;
+    bi->fb_pitch = pitch;
     bi->fb_size = console_fb_size;
+    bi->desktop = console_desktop ? 1 : 0;
     bi->cursor_x = x;
     bi->cursor_y = y;
     bi->fgcolor = fg;
     bi->bgcolor = bg;
     tc->bootinfo = bi;
 
-    klogi("console: attached fb 0x%016lx %ux%u to pid %ld (fg 0x%06x)\n",
-          vaddr, fb->width, fb->height, (int64_t)tc->pid, fg);
+    klogi("console: attached fb 0x%016lx %ux%u to pid %ld (fg 0x%06x,%s)\n",
+          vaddr, (uint32_t) width, (uint32_t) height, (int64_t)tc->pid, fg,
+          console_desktop ? "sprite" : "primary");
 }
 
 bool console_server_start(void)
 {
+    gfx_fb_t *sprite = gfx_desktop_active() ? gfx_desktop_console_fb() : NULL;
     fb_info_t *fb = fb_get();
-    if (fb->addr == NULL)
+
+    if (sprite == NULL && fb->addr == NULL)
         return false;
 
-    console_fb_size = (uint64_t) fb->pitch * fb->height;
+    console_desktop = (sprite != NULL);
+    console_fb_size = sprite ? (uint64_t) sprite->stride * sprite->height
+        : (uint64_t) fb->pitch * fb->height;
 
     console_in_ep = endpoint_create();
     if (console_in_ep == NULL)
@@ -140,8 +169,15 @@ bool console_server_start(void)
     if (tf != NULL)
         sched_add(tf);
 
-    klogi("console: server started (fb 0x%016lx, %ldx%ld)\n",
-          (uint64_t) fb->addr, fb->width, fb->height);
+    klogi("console: server started (fb 0x%016lx, %ldx%ld, %s)\n",
+          console_desktop
+          ? (uint64_t) gfx_desktop_console_fb()->obj.cpu_addr
+          : (uint64_t) fb->addr,
+          (int64_t) (console_desktop ? gfx_desktop_console_fb()->width
+                     : fb->width),
+          (int64_t) (console_desktop ? gfx_desktop_console_fb()->height
+                     : fb->height),
+          console_desktop ? "sprite" : "primary");
     return true;
 }
 
