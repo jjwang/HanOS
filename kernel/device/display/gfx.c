@@ -1788,6 +1788,7 @@ bool gfx_desktop_start(void)
              PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
     gfx_outd(&gfx_pci, PLANE_CTL_2_A,
              PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB
+             | PLANE_CTL_ALPHA_SW_PREMULTIPLY
              | PLANE_CTL_TILED_LINEAR);
     gfx_outd(&gfx_pci, PLANE_SURF_2_A,
              (uint32_t) gfx_desktop_sprite.obj.gfx_addr);

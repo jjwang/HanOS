@@ -56,10 +56,12 @@ extern psf1_t term_font_norm;
 
 #define ROW_MAX     512
 #define COL_MAX     192
-#define STATUS_H    20
-#define STATUS_BG   0x00101820
-#define STATUS_FG   0x00ddffdd
-#define STATUS_LINE 0x0000ff88
+#define STATUS_H        20
+#define STATUS_BG       0x00101820
+#define STATUS_FG       0x00ddffdd
+#define STATUS_LINE     0x0000ff88
+#define STATUS_ALPHA    0xD0
+#define BG_ALPHA        0xCC    /* 80% opaque */
 
 static uint8_t *fbio;
 static uint8_t *back;
@@ -347,6 +349,16 @@ static uint32_t color_of(const VTermColor * c, uint32_t def, bool is_fg)
     return def;
 }
 
+/* Premultiplied ARGB for the sprite plane's software alpha mode. */
+static uint32_t premul(uint32_t rgb, uint32_t a)
+{
+    uint32_t r = (((rgb >> 16) & 0xff) * a) / 255;
+    uint32_t g = (((rgb >> 8) & 0xff) * a) / 255;
+    uint32_t b = ((rgb & 0xff) * a) / 255;
+
+    return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
 static void render_cell(uint32_t row, uint32_t col)
 {
     VTermScreenCell cell;
@@ -380,6 +392,13 @@ static void render_cell(uint32_t row, uint32_t col)
     if (cell.attrs.conceal) {
         f = b;
     }
+    if (console_desktop) {
+        f = premul(f, 0xFF);
+        b = premul(b, BG_ALPHA);
+    } else {
+        f |= 0xFF000000u;
+        b |= 0xFF000000u;
+    }
     draw_glyph(col, row, ch, f, b);
 }
 
@@ -404,7 +423,7 @@ static void put_cursor(bool show)
         && vterm_cur_row < (int32_t) rows && vterm_cur_col >= 0
         && vterm_cur_col < (int32_t) cols) {
         fill_cell((uint32_t) vterm_cur_col, (uint32_t) vterm_cur_row,
-                  COLOR_BLACK);
+                  0xFF000000);
         drawn_row = vterm_cur_row;
         drawn_col = vterm_cur_col;
     }
@@ -511,13 +530,20 @@ static void draw_status(void)
     snprintf(buf, sizeof(buf), "HanOS %s  %02d:%02d:%02d  rain:gpu",
              u.release, h, m, s);
 
+    uint32_t bg = console_desktop ? premul(STATUS_BG, STATUS_ALPHA)
+        : (STATUS_BG | 0xFF000000u);
+    uint32_t line = console_desktop ? premul(STATUS_LINE, 0xFF)
+        : (STATUS_LINE | 0xFF000000u);
+    uint32_t fg = console_desktop ? premul(STATUS_FG, 0xFF)
+        : (STATUS_FG | 0xFF000000u);
+
     for (uint32_t y = 0; y < STATUS_H; y++) {
         for (uint32_t x = 0; x < fb_w; x++)
-            putpixel(x, y, (y == STATUS_H - 1) ? STATUS_LINE : STATUS_BG);
+            putpixel(x, y, (y == STATUS_H - 1) ? line : bg);
         mark_row(y);
     }
     for (uint32_t i = 0; buf[i] != '\0'; i++)
-        draw_glyph_px(8 + i * 8, 2, (uint8_t) buf[i], STATUS_FG, STATUS_BG);
+        draw_glyph_px(8 + i * 8, 2, (uint8_t) buf[i], fg, bg);
 }
 
 static void status_tick(void)

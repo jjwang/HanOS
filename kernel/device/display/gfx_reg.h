@@ -493,6 +493,10 @@
 #define PLANE_CTL_1_A                   0x70180   /* same offset as DSPACNTR */
 #define PLANE_CTL_ENABLE                (1u << 31)
 #define PLANE_CTL_FORMAT_XRGB           (4u << 24) /* 32bpp XRGB/BGRX linear */
+#define PLANE_CTL_ALPHA_MASK            (0x3u << 4)
+#define PLANE_CTL_ALPHA_DISABLE         (0u << 4)
+#define PLANE_CTL_ALPHA_SW_PREMULTIPLY  (2u << 4)
+#define PLANE_CTL_ALPHA_HW_PREMULTIPLY  (3u << 4)
 #define PLANE_CTL_TILED_LINEAR          (0u << 10)
 
 /* Gen9: 64-byte units; Gen7.5: bytes (i915 DSPSTRIDE). */
