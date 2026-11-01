@@ -149,9 +149,24 @@ static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
     }
 }
 
-/* A static Matrix-like rain of green characters behind the terminal. It is
- * drawn once for the framebuffer console; a GPU console will animate the
- * stream. Most columns stay dark so the terminal reads clearly. */
+/* Animated Matrix-like rain behind the terminal. Each column owns a stream:
+ * a bright head, a fading tail, its own speed and length, and an idle delay
+ * after the tail leaves the screen. The random idle gaps keep the rain
+ * intermittent instead of a uniform waterfall. */
+#define RAIN_COL_MAX    512
+#define RAIN_TICK_MS    33
+
+typedef struct {
+    int32_t head;               /* head row; -1 while waiting */
+    int32_t len;                /* tail length in rows */
+    int32_t speed;              /* rows per tick */
+    int32_t delay;              /* idle ticks before the next stream */
+    uint32_t seed;              /* per-stream glyph seed */
+} rain_col_t;
+
+static rain_col_t rain[RAIN_COL_MAX];
+static uint32_t rain_ncol;
+static uint32_t rain_nrow;
 static uint32_t bg_rng = 0x9e3779b9u;
 
 static uint32_t bg_rand(void)
@@ -160,51 +175,126 @@ static uint32_t bg_rand(void)
     return bg_rng >> 8;
 }
 
-static void draw_background(void)
+static uint32_t rain_hash(uint32_t seed, uint32_t row)
+{
+    uint32_t x = seed + row * 0x9e3779b9u;
+
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    return x;
+}
+
+static void rain_start(rain_col_t * col)
+{
+    col->len = 4 + (int32_t) (bg_rand() % 14);
+    col->speed = 1 + (int32_t) (bg_rand() % 3);
+    col->seed = bg_rand() | 1;
+    col->head = -(int32_t) (bg_rand() % (uint32_t) (col->len + 1));
+    col->delay = 0;
+}
+
+/* A rain cell is visible only outside the terminal grid; the centre belongs
+ * to the terminal and must not be overwritten. */
+static bool rain_visible(uint32_t col, uint32_t row)
+{
+    int32_t x0 = (int32_t) (col * FONT_W);
+    int32_t y0 = (int32_t) (row * FONT_H);
+    int32_t tx0 = (int32_t) term_x;
+    int32_t ty0 = (int32_t) term_y;
+    int32_t tx1 = tx0 + (int32_t) (cols * FONT_W);
+    int32_t ty1 = ty0 + (int32_t) (rows * FONT_H);
+
+    if (x0 + FONT_W <= tx0 || x0 >= tx1)
+        return true;
+    if (y0 + FONT_H <= ty0 || y0 >= ty1)
+        return true;
+    return false;
+}
+
+static uint32_t rain_color(int32_t d, int32_t len)
+{
+    uint32_t lvl;
+
+    if (d <= 0)
+        return 0xddffdd;
+    lvl = (uint32_t) (len - d) * 255u / (uint32_t) len;
+    if (lvl > 150)
+        return 0x55ff88;
+    if (lvl > 90)
+        return 0x22cc55;
+    if (lvl > 40)
+        return 0x00aa33;
+    return 0x004411;
+}
+
+static void rain_draw_col(uint32_t c)
 {
     static const char set[] =
         "01010101010101011123456789ABCDEF#$%&*<>[]{}()/=+-:.";
-    uint32_t bc = fb_w / FONT_W;
-    uint32_t br = fb_h / FONT_H;
+    rain_col_t *col = &rain[c];
     uint32_t ns = sizeof(set) - 1;
 
-    for (uint32_t c = 0; c < bc; c++) {
-        uint32_t head;
-        uint32_t tail;
-
-        /* Leave a third of the columns empty. */
-        if (bg_rand() % 3 == 0)
+    for (uint32_t r = 0; r < rain_nrow; r++) {
+        if (!rain_visible(c, r))
             continue;
+        if (col->head >= 0 && (int32_t) r <= col->head
+            && (int32_t) r > col->head - col->len) {
+            int32_t d = col->head - (int32_t) r;
+            uint8_t ch = (uint8_t) set[rain_hash(col->seed, r) % ns];
 
-        /* A short stream per column: a bright head low on the screen and a
-         * tail fading upward. */
-        head = br - 1 - (bg_rand() % (br ? br : 1));
-        tail = 5 + (bg_rand() % 16);
+            draw_glyph_px(c * FONT_W, r * FONT_H, ch,
+                          rain_color(d, col->len), COLOR_BLACK);
+        } else {
+            draw_glyph_px(c * FONT_W, r * FONT_H, ' ',
+                          COLOR_BLACK, COLOR_BLACK);
+        }
+    }
+}
 
-        for (uint32_t r = 0; r < br; r++) {
-            uint32_t d;
-            uint32_t lvl;
-            uint32_t col;
-            uint8_t ch;
+static void rain_tick(void)
+{
+    for (uint32_t c = 0; c < rain_ncol; c++) {
+        rain_col_t *col = &rain[c];
 
-            if (r > head)
+        if (col->head < 0) {
+            if (col->delay > 0) {
+                col->delay--;
                 continue;
-            d = head - r;
-            if (d >= tail)
-                continue;
+            }
+            rain_start(col);
+            rain_draw_col(c);
+            continue;
+        }
 
-            lvl = (tail - d) * 255 / tail;
-            if (lvl > 210)
-                col = 0xddffdd; /* head */
-            else if (lvl > 140)
-                col = 0x33ff66;
-            else if (lvl > 70)
-                col = 0x00aa33;
-            else
-                col = 0x004411; /* tail */
+        col->head += col->speed;
+        if (col->head - col->len >= (int32_t) rain_nrow) {
+            rain_draw_col(c);
+            col->head = -1;
+            col->delay = 15 + (int32_t) (bg_rand() % 120);
+            continue;
+        }
+        rain_draw_col(c);
+    }
+}
 
-            ch = (uint8_t) set[bg_rand() % ns];
-            draw_glyph_px(c * FONT_W, r * FONT_H, ch, col, COLOR_BLACK);
+static void rain_init(void)
+{
+    rain_ncol = fb_w / FONT_W;
+    if (rain_ncol > RAIN_COL_MAX)
+        rain_ncol = RAIN_COL_MAX;
+    rain_nrow = fb_h / FONT_H;
+
+    for (uint32_t c = 0; c < rain_ncol; c++) {
+        rain_col_t *col = &rain[c];
+
+        col->seed = bg_rand() | 1;
+        col->head = -1;
+        col->delay = (int32_t) (bg_rand() % 120);
+        if (bg_rand() % 2) {
+            rain_start(col);
+            if (bg_rand() % 2)
+                col->head = (int32_t) (bg_rand() % rain_nrow);
         }
     }
 }
@@ -422,7 +512,8 @@ int32_t main(void)
         return 1;
 
     memset(back, 0, (uint64_t) fb_pitch * fb_h);
-    draw_background();
+    rain_init();
+    rain_tick();
     memcpy(fbio, back, (uint64_t) fb_pitch * fb_h);
 
     vt = vterm_new((int) rows, (int) cols);
@@ -457,10 +548,12 @@ int32_t main(void)
     flush();
 
     bool blink_on = true;
+    uint32_t blink_ticks = 0;
 
     for (;;) {
         sys_ipc_msg_t m;
-        int32_t r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m, 500);
+        int32_t r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m,
+                                         RAIN_TICK_MS);
 
         if (r == 0) {
             feed_msg(&m);
@@ -470,11 +563,19 @@ int32_t main(void)
             vterm_screen_flush_damage(vs);
             render_dirty();
             blink_on = true;    /* solid while output flows */
+            blink_ticks = 0;
             put_cursor(true);
             flush();
         } else {
-            blink_on = !blink_on;
-            put_cursor(blink_on);
+            /* No terminal output for a tick: advance the rain and blink the
+             * cursor every 500 ms. */
+            rain_tick();
+            blink_ticks++;
+            if (blink_ticks >= 500 / RAIN_TICK_MS) {
+                blink_ticks = 0;
+                blink_on = !blink_on;
+                put_cursor(blink_on);
+            }
             flush();
         }
     }
