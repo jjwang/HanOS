@@ -28,6 +28,13 @@ it against the HanOS musl sysroot, and stages the binaries in
   initrd keeps the base userspace.
 - `/root/.bashrc` sets `PATH=/data/bin:/bin:/usr/bin` and `TERM=hanos`.
 
+## Boot
+
+init starts `/bin/bash` when the initrd carries it, then `/data/bin/bash` on
+the HDD data partition, and falls back to `/bin/hansh` otherwise.
+
+`make run-hdd-ports` builds the ports HDD image and starts QEMU with it.
+
 ## Port notes
 
 - `3rdparty/ports/cc` adds the musl include path after the package flags, so a

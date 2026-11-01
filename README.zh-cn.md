@@ -101,7 +101,7 @@ QEMU 覆盖 BIOS 与 UEFI 启动、AHCI 盘、EHCI/xHCI USB 存储。
 
 `.github/workflows/` 下有三个 GitHub Actions 工作流：
 
-- `build.yml` 在每次 push 与 pull request 时运行，环境为 `ubuntu-24.04`。它安装构建工具与 QEMU，把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，构建内核、用户态、`cdrom.iso` 与 `release/hdd.img`，再用 QEMU 8.2 的 TCG 启动 ISO。`scripts/ci-boot-test.sh` 等待 shell 与启动标记：`name "hansh"`、`MK: selftest PASS`、`MK: misc PASS`、`MK: signalfd PASS`。缺标记，或出现 `panic`、`exception`、`corrupt` 行，任务失败。成功时打印串口日志。
+- `build.yml` 在每次 push 与 pull request 时运行，环境为 `ubuntu-24.04`。它安装构建工具与 QEMU，把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，构建内核、用户态、`cdrom.iso` 与 `release/hdd.img`，再用 QEMU 8.2 的 TCG 启动 ISO。`scripts/ci-boot-test.sh` 等待 shell 与启动标记：`name "hansh"` 或 `name "bash"`、`MK: selftest PASS`、`MK: misc PASS`、`MK: signalfd PASS`。缺标记，或出现 `panic`、`exception`、`corrupt` 行，任务失败。成功时打印串口日志。
 - `doxygen-pages.yml` 在推送到 `mainline` 时运行，生成 Doxygen HTML 并发布到 [GitHub Pages](https://jjwang.github.io/HanOS/)。
 - `main.yml` 在 `image-data` 分支更新行数徽章。
 

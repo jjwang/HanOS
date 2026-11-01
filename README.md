@@ -101,7 +101,7 @@ See `attic/2026/2026-10-22-gen75-edp-and-edid-en.md` for the graphics work. See 
 
 Three GitHub Actions workflows live in `.github/workflows/`:
 
-- `build.yml` runs on every push and pull request on `ubuntu-24.04`. It installs the build tools and QEMU, defines `x86_64-elf-gcc` as `gcc -fno-pie`, builds the kernel, userspace, `cdrom.iso` and `release/hdd.img`, then boots the ISO under QEMU 8.2 with TCG. `scripts/ci-boot-test.sh` waits for the shell and the boot markers `name "hansh"`, `MK: selftest PASS`, `MK: misc PASS` and `MK: signalfd PASS`. A missing marker or a `panic`, `exception` or `corrupt` line fails the job. A passing run prints the serial log.
+- `build.yml` runs on every push and pull request on `ubuntu-24.04`. It installs the build tools and QEMU, defines `x86_64-elf-gcc` as `gcc -fno-pie`, builds the kernel, userspace, `cdrom.iso` and `release/hdd.img`, then boots the ISO under QEMU 8.2 with TCG. `scripts/ci-boot-test.sh` waits for the shell and the boot markers `name "hansh"` or `name "bash"`, `MK: selftest PASS`, `MK: misc PASS` and `MK: signalfd PASS`. A missing marker or a `panic`, `exception` or `corrupt` line fails the job. A passing run prints the serial log.
 - `doxygen-pages.yml` runs on a push to `mainline`, generates the Doxygen HTML and deploys it to [GitHub Pages](https://jjwang.github.io/HanOS/).
 - `main.yml` regenerates the line-count badge on the `image-data` branch.
 

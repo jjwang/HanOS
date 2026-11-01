@@ -25,6 +25,14 @@
 - `release/hdd.img`：包进入 `/data/bin`，与游戏同目录。initrd 只放基础用户态。
 - `/root/.bashrc` 设置 `PATH=/data/bin:/bin:/usr/bin` 与 `TERM=hanos`。
 
+## 启动
+
+init 先找 `/bin/bash`。
+init 再找 `/data/bin/bash`。
+两者都缺时 init 启动 `/bin/hansh`。
+`make run-hdd-ports` 构建带移植包的 HDD 镜像。
+该目标启动 QEMU。
+
 ## 移植要点
 
 - `3rdparty/ports/cc` 把 musl 头文件路径放在包参数之后。包自带的替代头文件优先。
