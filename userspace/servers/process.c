@@ -480,13 +480,32 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     case PROC_FD_CLOSE:{
             proc_fd_t *e = fd_get(pid, fd);
+            bool shared = false;
 
             if (e == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -9;
                 return;
             }
+
+            /* A duplicated fd shares the server-side open file description.
+             * Keep that description alive until the last copy closes. */
+            if (e->kind == PROC_FD_SERVER) {
+                for (int32_t i = 0; i < PROC_FD_MAX; i++) {
+                    proc_fd_t *o = &table[pid][i];
+
+                    if (i == fd || !o->used || o->kind != PROC_FD_SERVER)
+                        continue;
+                    if (o->svc == e->svc && o->server_fd == e->server_fd) {
+                        shared = true;
+                        break;
+                    }
+                }
+            }
+
             rep->words[0] = 0;
             reply_fd(e, rep);
+            if (shared)
+                rep->words[2] = (uint64_t) (int64_t) -1;
             e->used = false;
             return;
         }

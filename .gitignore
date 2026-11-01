@@ -15,3 +15,9 @@ latex/
 
 # Temporary third-party downloads and build output
 3rdparty/build/
+
+# Optional ports image staging
+initrd-ports.tar
+initrd-ports/
+.image-ports
+.image-noports

@@ -2418,19 +2418,39 @@ int64_t k_fork()
 
 int64_t k_getppid()
 {
-    cpu_set_errno(ENOSYS);
-    return -1;
+    process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
+    return (t != NULL) ? t->ppid : 0;
 }
+
+int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags);
 
 int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
 {
     cpu_set_errno(0);
+
+    /* F_DUPFD and F_DUPFD_CLOEXEC duplicate to the lowest free descriptor. */
+    if (request == F_DUPFD || request == F_DUPFD_CLOEXEC) {
+        int64_t r = k_dup3(fd, -1,
+                           (request == F_DUPFD_CLOEXEC) ? O_CLOEXEC : 0);
+
+        if (r < 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        return r;
+    }
 
     /* Only the descriptor flags live in the process server for now. */
     if (request == F_GETFD || request == F_SETFD) {
         int64_t r = process_fd_fcntl((int32_t) fd, (int32_t) request, arg);
 
         if (r < 0) {
+            /* The standard descriptors are implicit tty fds until a
+             * redirection installs an entry for them. */
+            if (fd >= 0 && fd < 3)
+                return 0;
             cpu_set_errno(EBADF);
             return -1;
         }

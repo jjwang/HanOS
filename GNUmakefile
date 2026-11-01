@@ -5,9 +5,59 @@ TARGET_ROOT = $(shell pwd)/initrd
 # Applications that live on the ext2 data partition, not in the initrd image.
 DISK_APPS = games/tetris games/2048 games/snake
 
-.PHONY: clean all initrd kernel run run-hdd run-uefi run-hdd-uefi
+# Optional Linux packages. `make ports` builds them and regenerates both
+# images; a plain `make` never includes them.
+WITH_PORTS   ?= 0
+PORTS_PACKAGES = bash coreutils grep sed tar
+PORTS_BUILD  = 3rdparty/build/ports
+PORTS_STAGE  = $(PORTS_BUILD)/root
+PORTS_STAMP  = $(PORTS_BUILD)/.installed
+PORTS_INITRD = initrd-ports.tar
+MUSL_LIB     = 3rdparty/build/musl/lib/libc.a
+
+ifeq ($(WITH_PORTS),1)
+PORTS_DEP  = $(PORTS_STAMP)
+ISO_INITRD = $(PORTS_INITRD)
+IMAGE_MODE = .image-ports
+else
+PORTS_DEP  =
+ISO_INITRD = $(INITRD_TAR)
+IMAGE_MODE = .image-noports
+endif
+
+.PHONY: clean all ports clean-ports initrd kernel run run-hdd run-uefi run-hdd-uefi
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
+
+ports:
+	$(MAKE) all WITH_PORTS=1
+
+$(IMAGE_MODE):
+	rm -f .image-ports .image-noports
+	touch $@
+
+$(MUSL_LIB): 3rdparty/musl/build.sh 3rdparty/musl/syscall_arch.h \
+		3rdparty/musl/__set_thread_area.s
+	$(MAKE) -C userspace musl
+
+$(PORTS_STAMP): 3rdparty/ports/build.sh 3rdparty/ports/cc \
+		3rdparty/ports/common.sh $(wildcard 3rdparty/ports/packages/*.sh) \
+		$(MUSL_LIB)
+	3rdparty/ports/build.sh $(PORTS_PACKAGES)
+
+$(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
+	rm -rf initrd-ports
+	mkdir -p initrd-ports
+	tar -xpf $(INITRD_TAR) -C initrd-ports
+	for app in $(PORTS_STAGE)/bin/*; do \
+		case $$(basename $$app) in \
+			block|console|ext2|fat32|init|input|mem|misc|net|pipe|process|tty|vfs) \
+				continue ;; \
+		esac; \
+		cp -fL $$app initrd-ports/bin/; \
+	done
+	tar -cpf $@ -C initrd-ports bin assets etc usr root data
+	rm -rf initrd-ports
 
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
 # Option for debug information: -d in_asm,out_asm,int,op
@@ -53,11 +103,12 @@ $(INITRD_TAR): initrd
 	cp -rf sysroot/* initrd
 	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data
 
-$(ISO_IMAGE): limine $(INITRD_TAR) kernel
+$(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -rf iso_root
 	mkdir -p iso_root
-	cp kernel/hanos.elf $(INITRD_TAR) \
+	cp kernel/hanos.elf \
 		limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/
+	cp $(ISO_INITRD) iso_root/initrd.tar
 	xorriso -as mkisofs -b limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table \
 		--efi-boot limine-uefi-cd.bin \
@@ -66,7 +117,7 @@ $(ISO_IMAGE): limine $(INITRD_TAR) kernel
 	limine/limine bios-install $(ISO_IMAGE)
 	rm -rf iso_root
 
-$(HDD_IMAGE): limine $(INITRD_TAR) kernel
+$(HDD_IMAGE): limine $(INITRD_TAR) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
 	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
@@ -82,6 +133,9 @@ $(HDD_IMAGE): limine $(INITRD_TAR) kernel
 	rm -f $(HDD_IMAGE).esp
 	mkdir -p $(HDD_IMAGE).p2root/bin $(HDD_IMAGE).p2root/assets
 	for app in $(DISK_APPS); do cp -f userspace/$$app $(HDD_IMAGE).p2root/bin/; done
+ifeq ($(WITH_PORTS),1)
+	cp -fL $(PORTS_STAGE)/bin/* $(HDD_IMAGE).p2root/bin/
+endif
 	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
 	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
 		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 156M
@@ -89,8 +143,12 @@ $(HDD_IMAGE): limine $(INITRD_TAR) kernel
 
 clean:
 	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \
+        initrd-ports.tar initrd-ports .image-ports .image-noports \
         release/hdd.img initrd/etc initrd/usr
 	rm -rf initrd
 	$(MAKE) -C userspace clean
 	$(MAKE) -C kernel clean
+
+clean-ports:
+	rm -rf $(PORTS_BUILD)
 

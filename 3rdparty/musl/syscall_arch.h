@@ -83,6 +83,8 @@
 #define H_EPOLL_PWAIT 281
 #define H_UNAME      63
 #define H_SIGNALFD4  289
+#define H_GETPPID    110
+#define H_CHMOD      0x404
 
 /* Linux syscall numbers musl uses. */
 #define L_read        0
@@ -178,6 +180,34 @@
 #define L_getpeername 52
 #define L_setsockopt  54
 #define L_getsockopt  55
+#define L_alarm       37
+#define L_getitimer   36
+#define L_setitimer   38
+#define L_chmod       90
+#define L_fchmod      91
+#define L_chown       92
+#define L_fchown      93
+#define L_lchown      94
+#define L_umask       95
+#define L_times       100
+#define L_setuid      105
+#define L_setgid      106
+#define L_setpgid     109
+#define L_getppid     110
+#define L_getpgrp     111
+#define L_setsid      112
+#define L_getgroups   115
+#define L_setgroups   116
+#define L_setresuid   117
+#define L_getresuid   118
+#define L_setresgid   119
+#define L_getresgid   120
+#define L_getpgid     121
+#define L_getsid      124
+#define L_sigaltstack 131
+#define L_getcpu      309
+#define L_fadvise64   221
+#define L_faccessat2  439
 
 #define L_CLONE_VM    0x100
 
@@ -497,6 +527,77 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_getpid:
     case L_gettid:
         return __hanos_raw(H_GETPID, 0, 0, 0, 0, 0, 0);
+    case L_getppid:
+        return __hanos_raw(H_GETPPID, 0, 0, 0, 0, 0, 0);
+    case L_getuid:
+    case L_geteuid:
+    case L_getgid:
+    case L_getegid:
+    case L_setuid:
+    case L_setgid:
+    case L_setresuid:
+    case L_setresgid:
+    case L_setgroups:
+        /* HanOS has a single root identity. */
+        return 0;
+    case L_getgroups:
+        /* The caller passes a size in a1 and a buffer in a2. */
+        return 0;
+    case L_getresuid:
+        if (a1 != 0)
+            *(unsigned int *) a1 = 0;
+        if (a2 != 0)
+            *(unsigned int *) a2 = 0;
+        if (a3 != 0)
+            *(unsigned int *) a3 = 0;
+        return 0;
+    case L_getresgid:
+        if (a1 != 0)
+            *(unsigned int *) a1 = 0;
+        if (a2 != 0)
+            *(unsigned int *) a2 = 0;
+        if (a3 != 0)
+            *(unsigned int *) a3 = 0;
+        return 0;
+    case L_getpgrp:
+    case L_setsid:
+        return __hanos_raw(H_GETPID, 0, 0, 0, 0, 0, 0);
+    case L_getpgid:
+    case L_getsid:
+        return (a1 > 0) ? a1 : __hanos_raw(H_GETPID, 0, 0, 0, 0, 0, 0);
+    case L_setpgid:
+        return 0;
+    case L_umask:{
+            static long mask = 022;
+            long old = mask;
+
+            if (a1 >= 0)
+                mask = a1;
+            return old;
+        }
+    case L_chmod:
+        return __hanos_raw(H_CHMOD, a1, a2, 0, 0, 0, 0);
+    case L_times:
+        if (a1 != 0) {
+            long *t = (long *) a1;
+
+            t[0] = 0;
+            t[1] = 0;
+            t[2] = 0;
+            t[3] = 0;
+        }
+        return 0;
+    case L_alarm:
+    case L_getitimer:
+    case L_setitimer:
+    case L_sigaltstack:
+        return 0;
+    case L_getcpu:
+        if (a1 != 0)
+            *(unsigned int *) a1 = 0;
+        if (a2 != 0)
+            *(unsigned int *) a2 = 0;
+        return 0;
     case L_exit:
         return __hanos_raw(H_EXIT, a1, 0, 0, 0, 0, 0);
     case L_exit_group:
@@ -541,6 +642,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
             return 0;
         }
     case L_faccessat:
+    case L_faccessat2:
         return __hanos_raw(H_FACCESSAT, a1, a2, a3, a4, 0, 0);
     case L_statx:{
             struct hanos_stat hs;
@@ -745,6 +847,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_GETSOCKOPT, a1, a2, a3, a4, a5, 0);
     case L_mprotect:
     case L_madvise:
+    case L_fadvise64:
     case L_set_robust_list:
         return 0;
     case L_uname:

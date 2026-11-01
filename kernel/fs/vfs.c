@@ -1112,6 +1112,11 @@ int64_t vfs_close(vfs_fd_t fd)
     if (process_fd_close((int32_t) fd, &kind, &svc, &sfd) != 0)
         return -1;
 
+    /* The process server reports -1 when another fd still shares the open
+     * file description, so the owning server must keep it open. */
+    if (svc < 0)
+        return 0;
+
     if (svc == SVC_FAT)
         return fat32_close_fd(sfd);
     if (svc == SVC_EXT)

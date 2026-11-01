@@ -1,0 +1,36 @@
+#!/bin/sh
+# Compile or link one package against the HanOS musl sysroot.
+# The caller supplies the package flags; this wrapper adds the headers, the
+# startup objects and the userspace linker script. The musl include path comes
+# last so a package's own replacement headers take precedence.
+set -e
+
+PORTS=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(CDPATH= cd -- "$PORTS/../.." && pwd)
+MUSL="$ROOT/3rdparty/build/musl"
+OVERLAY="$ROOT/3rdparty/musl"
+
+BASE="-mcmodel=large -mno-red-zone -fcommon -O2 -nostdinc"
+INCS="-I$MUSL/arch/x86_64 -I$MUSL/arch/generic -I$MUSL/obj/include -I$MUSL/include"
+
+link=1
+shared=0
+for arg in "$@"; do
+    case "$arg" in
+        -c|-S|-E|-M|-MM) link=0 ;;
+        -shared) shared=1 ;;
+    esac
+done
+
+if [ "$link" -eq 0 ]; then
+    exec x86_64-elf-gcc $BASE "$@" $INCS
+fi
+
+if [ "$shared" -eq 1 ]; then
+    exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib
+fi
+
+exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib -no-pie -static \
+    -Wl,--build-id=none -Wl,-z,max-page-size=0x2000 -T"$OVERLAY/linker.ld" \
+    "$MUSL/obj/crt/crt1.o" "$MUSL/obj/crt/x86_64/crti.o" \
+    -L"$MUSL/lib" -lc -lgcc "$MUSL/obj/crt/x86_64/crtn.o"
