@@ -40,7 +40,7 @@ qemu_pid=$!
 
 i=0
 while [ "$i" -lt 180 ]; do
-    if grep -aq 'name "hansh"' "$LOG" 2>/dev/null; then
+    if grep -aqE 'name "(hansh|bash)"' "$LOG" 2>/dev/null; then
         break
     fi
     if ! kill -0 "$qemu_pid" 2>/dev/null; then
@@ -59,7 +59,7 @@ done
 kill "$qemu_pid" 2>/dev/null || true
 wait "$qemu_pid" 2>/dev/null || true
 
-if ! grep -aq 'name "hansh"' "$LOG"; then
+if ! grep -aqE 'name "(hansh|bash)"' "$LOG"; then
     echo "shell did not start; serial log bytes: $(wc -c <"$LOG" 2>/dev/null || echo 0)" >&2
     cat "$LOG" >&2
     echo "--- qemu debug tail ---" >&2

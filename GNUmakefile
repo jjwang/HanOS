@@ -13,6 +13,7 @@ PORTS_BUILD  = 3rdparty/build/ports
 PORTS_STAGE  = $(PORTS_BUILD)/root
 PORTS_STAMP  = $(PORTS_BUILD)/.installed
 PORTS_INITRD = initrd-ports.tar
+INITRD_TAR   = initrd.tar
 MUSL_LIB     = 3rdparty/build/musl/lib/libc.a
 
 ifeq ($(WITH_PORTS),1)
@@ -25,7 +26,7 @@ ISO_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd kernel run run-hdd run-uefi run-hdd-uefi
+.PHONY: clean all ports clean-ports initrd kernel run run-hdd run-hdd-ports run-uefi run-hdd-uefi
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -70,6 +71,10 @@ run-uefi: ovmf $(ISO_IMAGE)
 run-hdd: $(HDD_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
+run-hdd-ports:
+	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
+
 run-hdd-uefi: ovmf $(HDD_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -bios ovmf/OVMF.fd -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
@@ -95,8 +100,6 @@ initrd:
 
 # Both images carry the same initrd; build it once so a sequential or
 # parallel make does not race on the archive.
-INITRD_TAR = initrd.tar
-
 $(INITRD_TAR): initrd
 	rm -rf initrd/etc initrd/usr initrd/root
 	mkdir -p initrd/etc initrd/usr initrd/root
