@@ -47,6 +47,9 @@ static bootinfo_t bi;
 static bool tty_echo = true;
 static bool tty_canon = true;
 
+/* Length of the line being edited in canonical mode. */
+static uint32_t line_len;
+
 static void key_push(uint8_t k)
 {
     if (kcount >= TTY_KEY_MAX)
@@ -206,12 +209,52 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == TTY_SETMODE) {
         tty_echo = m->words[0] != 0;
         tty_canon = m->words[1] != 0;
+        line_len = 0;
         rep->words[0] = 0;
         return;
     }
 
     if (m->tag == TTY_KEY) {
         uint8_t k = (uint8_t) m->words[0];
+
+        /* Canonical mode edits the pending line. Keep the erase key out of
+         * the buffer so a shell without readline does not see it. */
+        if (tty_canon && (k == '\b' || k == 0x7f)) {
+            if (line_len > 0) {
+                khead = (khead + TTY_KEY_MAX - 1) % TTY_KEY_MAX;
+                kcount--;
+                line_len--;
+                if (echo_len > 0)
+                    echo_len--;
+                if (tty_echo) {
+                    out_write((const uint8_t *) "\b \b", 3);
+                    out_flush(false);
+                }
+            }
+            return;
+        }
+
+        /* Ctrl-U erases the pending line. */
+        if (tty_canon && k == 0x15) {
+            while (line_len > 0) {
+                khead = (khead + TTY_KEY_MAX - 1) % TTY_KEY_MAX;
+                kcount--;
+                line_len--;
+                if (echo_len > 0)
+                    echo_len--;
+                if (tty_echo)
+                    out_write((const uint8_t *) "\b \b", 3);
+            }
+            if (tty_echo)
+                out_flush(false);
+            return;
+        }
+
+        if (tty_canon && k == '\n')
+            line_len = 0;
+        else if (tty_canon && k >= 0x20 && k < 0x7f)
+            line_len++;
+
         key_push(k);
         echo_key(k);
         /* Paint the echo before the reader runs, so the newline is not glued
