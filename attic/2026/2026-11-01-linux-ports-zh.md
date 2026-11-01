@@ -30,9 +30,8 @@
 init 先找 `/bin/bash`。
 init 再找 `/data/bin/bash`。
 两者都缺时 init 启动 `/bin/hansh`。
-`make run-ports` 构建带移植包的 ISO。
+`make run-hdd-ports` 构建带移植包的 HDD 镜像。
 该目标启动 QEMU。
-`make run-hdd-ports` 对带移植包的 HDD 镜像做同样的事。
 
 ## 移植要点
 

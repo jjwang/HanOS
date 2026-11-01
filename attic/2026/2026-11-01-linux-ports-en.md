@@ -33,8 +33,7 @@ it against the HanOS musl sysroot, and stages the binaries in
 init starts `/bin/bash` when the initrd carries it, then `/data/bin/bash` on
 the HDD data partition, and falls back to `/bin/hansh` otherwise.
 
-`make run-ports` builds the ports ISO and starts QEMU with it.
-`make run-hdd-ports` does the same for the ports HDD image.
+`make run-hdd-ports` builds the ports HDD image and starts QEMU with it.
 
 ## Port notes
 
