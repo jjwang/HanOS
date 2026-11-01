@@ -20,6 +20,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <arch/x64/cpu.h>
+#include <arch/x64/idt.h>
+#include <arch/x64/ioapic.h>
+#include <arch/x64/madt.h>
+#include <arch/x64/isr_base.h>
 #include <arch/x64/pci.h>
 #include <arch/x64/pit.h>
 #include <arch/x64/serial.h>
@@ -115,6 +119,15 @@ static gfx_pci_t gfx_pci = { 0 };
 static gfx_gtt_t gfx_gtt = { 0 };
 static gfx_mem_manager_t gfx_mgr = { 0 };
 static gfx_fb_t gfx_fb = { 0 };
+
+/* Display engine vblank. The handler runs on the boot core; the counter is
+ * read by the flip path. */
+#define GFX_VBLANK_VECTOR       (IRQ0 + 16)
+static volatile uint64_t gfx_vblank_seq;
+static bool gfx_vblank_irq;
+static uint8_t gfx_vblank_line;
+
+static bool gfx_vblank_irq_setup(void);
 
 bool gfx_validate_chipset(uint16_t device_id)
 {
@@ -769,11 +782,387 @@ bool gfx_alloc(gfx_mem_manager_t * mgr, gfx_gtt_t * gtt, gfx_object_t * obj,
 
     obj->cpu_addr = (volatile uint8_t *)PHYS_TO_VIRT(phys);
     obj->gfx_addr = gpu_addr;
+    obj->phys = phys;
+    obj->size = (uint64_t) num_pages * PAGE_SIZE;
+    obj->pages = num_pages;
 
     klogi("GFX: alloc %u pages phys 0x%016lx -> gpu 0x%016lx\n",
           num_pages, phys, gpu_addr);
 
     return true;
+}
+
+/* Release an object allocated by gfx_alloc. The caller must stop scanning it
+ * before the free. */
+static bool gfx_obj_free(gfx_object_t * obj)
+{
+    if (obj->cpu_addr == NULL || obj->pages == 0)
+        return false;
+
+    gfx_gtt_clear(&gfx_gtt, obj->gfx_addr, obj->size);
+    pmm_free(obj->phys, obj->pages, __func__, __LINE__);
+
+    if (gfx_mgr.shared.current == obj->gfx_addr + PAGE_ALIGN_UP(obj->size))
+        gfx_mgr.shared.current = obj->gfx_addr;
+
+    memset(obj, 0, sizeof(*obj));
+    return true;
+}
+
+bool gfx_fb_alloc(uint32_t width, uint32_t height, gfx_fb_t * out_fb)
+{
+    uint32_t stride = (width * 4 + 63) & ~63u;
+    uint64_t size = (uint64_t) stride * height;
+
+    memset(out_fb, 0, sizeof(*out_fb));
+    if (!gfx_alloc(&gfx_mgr, &gfx_gtt, &out_fb->obj, size, PAGE_SIZE))
+        return false;
+    out_fb->width = width;
+    out_fb->height = height;
+    out_fb->stride = stride;
+    out_fb->format = DISPPLANE_BGRX888;
+    return true;
+}
+
+void gfx_fb_free(gfx_fb_t * fb)
+{
+    if (fb == NULL)
+        return;
+    gfx_obj_free(&fb->obj);
+    memset(fb, 0, sizeof(*fb));
+}
+
+/* Broadwell and Skylake moved the pipe interrupts out of DEIER into the
+ * per-pipe GEN8_DE_PIPE_* registers. Haswell still uses the legacy block. */
+static bool gfx_gen8_pipe_irq(gfx_pci_t * pci)
+{
+    return gfx_generation(pci->device_id) >= GFX_GEN8;
+}
+
+static void gfx_vblank_handler(void)
+{
+    if (gfx_gen8_pipe_irq(&gfx_pci)) {
+        uint32_t iir = gfx_ind(&gfx_pci, GEN8_DE_PIPE_IIR(0));
+
+        if (!(iir & GEN8_PIPE_VBLANK))
+            return;
+        gfx_outd(&gfx_pci, GEN8_DE_PIPE_IIR(0), GEN8_PIPE_VBLANK);
+    } else {
+        uint32_t iir = gfx_ind(&gfx_pci, DEIIR);
+
+        if (!(iir & DE_PIPEA_VBLANK))
+            return;
+        gfx_outd(&gfx_pci, DEIIR, DE_PIPEA_VBLANK);
+    }
+    gfx_vblank_seq++;
+}
+
+static bool gfx_vblank_irq_setup(void)
+{
+    uint8_t line;
+    uint16_t cmd;
+
+    if (!ioapic_available()) {
+        klogw("GFX: no I/O APIC, vblank falls back to polling\n");
+        return false;
+    }
+
+    line = pci_inb(gfx_pci.id, PCI_CONFIG_INTERRUPT_LINE);
+    if (line == 0 || line == 0xff) {
+        klogw("GFX: no PCI interrupt line, vblank falls back to polling\n");
+        return false;
+    }
+
+    /* Clear the INTx disable bit; the display engine drives the line. */
+    cmd = pci_inw(gfx_pci.id, PCI_CONFIG_COMMAND);
+    cmd &= ~(1u << 10);
+    cmd |= 1u << 2;
+    pci_outw(gfx_pci.id, PCI_CONFIG_COMMAND, cmd);
+
+    /* Mask the entry, install the handler, then unmask through the explicit
+     * vector. An interrupt that arrives between the unmask and the handler
+     * registration would enter an unhandled vector and panic the kernel. */
+    ioapic_set_line(line, true);
+    exc_register_handler(GFX_VBLANK_VECTOR, gfx_vblank_handler);
+    if (!irq_route_vector(line, GFX_VBLANK_VECTOR, true, true)) {
+        klogw("GFX: cannot route IRQ line %u to vector 0x%x\n", line,
+              GFX_VBLANK_VECTOR);
+        return false;
+    }
+    if (gfx_gen8_pipe_irq(&gfx_pci)) {
+        uint32_t imr;
+        uint32_t ier;
+
+        /* Keep only pipe A vblank: a shared GPU INTx must not stay asserted
+         * for a GT or misc source this driver never clears. */
+        gfx_outd(&gfx_pci, DEIER, 0);
+        gfx_outd(&gfx_pci, DEIMR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, DEIIR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, GTIER, 0);
+        gfx_outd(&gfx_pci, GTIMR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, GTIIR, 0xFFFFFFFF);
+        for (uint32_t i = 0; i < 4; i++) {
+            gfx_outd(&gfx_pci, GEN8_GT_IER(i), 0);
+            gfx_outd(&gfx_pci, GEN8_GT_IMR(i), 0xFFFFFFFF);
+            gfx_outd(&gfx_pci, GEN8_GT_IIR(i), 0xFFFFFFFF);
+        }
+        gfx_outd(&gfx_pci, GEN8_DE_MISC_IER, 0);
+        gfx_outd(&gfx_pci, GEN8_DE_MISC_IMR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, GEN8_DE_MISC_IIR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, GEN8_DE_PORT_IER, 0);
+        gfx_outd(&gfx_pci, GEN8_DE_PORT_IMR, 0xFFFFFFFF);
+        gfx_outd(&gfx_pci, GEN8_DE_PORT_IIR, 0xFFFFFFFF);
+
+        gfx_outd(&gfx_pci, GEN8_DE_PIPE_IIR(0), GEN8_PIPE_VBLANK);
+        imr = gfx_ind(&gfx_pci, GEN8_DE_PIPE_IMR(0));
+        imr &= ~GEN8_PIPE_VBLANK;
+        gfx_outd(&gfx_pci, GEN8_DE_PIPE_IMR(0), imr);
+        ier = gfx_ind(&gfx_pci, GEN8_DE_PIPE_IER(0));
+        ier |= GEN8_PIPE_VBLANK;
+        gfx_outd(&gfx_pci, GEN8_DE_PIPE_IER(0), ier);
+        uint32_t master = gfx_ind(&gfx_pci, GEN8_MASTER_IRQ);
+        master |= GEN8_MASTER_IRQ_CONTROL;
+        gfx_outd(&gfx_pci, GEN8_MASTER_IRQ, master);
+    } else {
+        gfx_enable_interrupts(&gfx_pci, DE_PIPEA_VBLANK);
+    }
+
+    gfx_vblank_line = line;
+    gfx_vblank_irq = true;
+    klogi("GFX: vblank IRQ line %u -> vector 0x%x\n", line,
+          GFX_VBLANK_VECTOR);
+    return true;
+}
+
+/* Arm the vblank line after the I/O APIC is up. The mode set runs earlier, so
+ * gfx_init cannot route the line itself. */
+bool gfx_vblank_irq_start(void)
+{
+    if (gfx_pci.id == 0 || gfx_fb.obj.cpu_addr == NULL)
+        return false;
+    if (gfx_vblank_irq)
+        return true;
+    return gfx_vblank_irq_setup();
+}
+
+uint64_t gfx_vblank_count(void)
+{
+    return gfx_vblank_seq;
+}
+
+bool gfx_vblank_irq_active(void)
+{
+    return gfx_vblank_irq;
+}
+
+uint8_t gfx_vblank_irq_line(void)
+{
+    return gfx_vblank_line;
+}
+
+uint32_t gfx_display_iir(void)
+{
+    if (gfx_pci.mmio_bar == NULL)
+        return 0;
+    if (gfx_gen8_pipe_irq(&gfx_pci))
+        return gfx_ind(&gfx_pci, GEN8_DE_PIPE_IIR(0));
+    return gfx_ind(&gfx_pci, DEIIR);
+}
+
+uint32_t gfx_display_ier(void)
+{
+    if (gfx_pci.mmio_bar == NULL)
+        return 0;
+    if (gfx_gen8_pipe_irq(&gfx_pci))
+        return gfx_ind(&gfx_pci, GEN8_DE_PIPE_IER(0));
+    return gfx_ind(&gfx_pci, DEIER);
+}
+
+uint32_t gfx_display_imr(void)
+{
+    if (gfx_pci.mmio_bar == NULL)
+        return 0;
+    if (gfx_gen8_pipe_irq(&gfx_pci))
+        return gfx_ind(&gfx_pci, GEN8_DE_PIPE_IMR(0));
+    return gfx_ind(&gfx_pci, DEIMR);
+}
+
+uint32_t gfx_master_irq(void)
+{
+    if (gfx_pci.mmio_bar == NULL || !gfx_gen8_pipe_irq(&gfx_pci))
+        return 0;
+    return gfx_ind(&gfx_pci, GEN8_MASTER_IRQ);
+}
+
+uint32_t gfx_pipe_frame(void)
+{
+    if (gfx_pci.mmio_bar == NULL)
+        return 0;
+    return gfx_ind(&gfx_pci, 0x70040);
+}
+
+uint32_t gfx_pipe_frame_after(uint32_t ms)
+{
+    if (gfx_pci.mmio_bar == NULL)
+        return 0;
+    pit_wait(ms);
+    return gfx_ind(&gfx_pci, 0x70040);
+}
+
+uint64_t gfx_vblank_route(void)
+{
+    uint32_t low = 0;
+    uint32_t high = 0;
+
+    if (gfx_vblank_line == 0
+        || !ioapic_read_line(gfx_vblank_line, &low, &high))
+        return 0;
+    return (uint64_t) low | ((uint64_t) high << 32);
+}
+
+static void gfx_vblank_irq_disable(void)
+{
+    if (gfx_gen8_pipe_irq(&gfx_pci)) {
+        uint32_t ier = gfx_ind(&gfx_pci, GEN8_DE_PIPE_IER(0));
+
+        ier &= ~GEN8_PIPE_VBLANK;
+        gfx_outd(&gfx_pci, GEN8_DE_PIPE_IER(0), ier);
+    } else {
+        gfx_disable_interrupts(&gfx_pci, DE_PIPEA_VBLANK);
+    }
+}
+
+bool gfx_wait_vblank_frame(void)
+{
+    if (gfx_vblank_irq) {
+        uint64_t start = gfx_vblank_seq;
+
+        for (int32_t i = 0; i < 100; i++) {
+            if (gfx_vblank_seq != start)
+                return true;
+            sched_sleep(1);
+        }
+
+        /* The line did not arrive. Mask it and poll the status bit so the
+         * caller still gets a frame boundary. */
+        klogw("GFX: vblank IRQ timeout (line %u), polling\n",
+              gfx_vblank_line);
+        gfx_vblank_irq_disable();
+        gfx_vblank_irq = false;
+    }
+    return gfx_wait_vblank(&gfx_pci, 0);
+}
+
+void gfx_flip_to(const gfx_fb_t * fb)
+{
+    if (fb == NULL)
+        return;
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A, (uint32_t) fb->obj.gfx_addr);
+    (void) gfx_ind(&gfx_pci, PLANE_SURF_1_A);
+}
+
+/* Fill a surface with a vertical bar. Non-temporal stores leave the frame in
+ * DRAM for the display engine instead of a dirty CPU cache line. */
+static void gfx_fill_bar(gfx_fb_t * fb, uint32_t bar_x, uint32_t bar_w,
+                         uint32_t fg, uint32_t bg)
+{
+    for (uint32_t y = 0; y < fb->height; y++) {
+        volatile uint8_t *row = fb->obj.cpu_addr + (uint64_t) y * fb->stride;
+        uint32_t x = 0;
+
+        for (; x + 2 <= fb->width; x += 2) {
+            uint32_t p0 = (x >= bar_x && x < bar_x + bar_w) ? fg : bg;
+            uint32_t p1 = (x + 1 >= bar_x && x + 1 < bar_x + bar_w)
+                ? fg : bg;
+            uint64_t two = (uint64_t) p0 | ((uint64_t) p1 << 32);
+
+            asm volatile ("movnti %1, (%0)"::"r"(row + x * 4),
+                          "r"(two):"memory");
+        }
+        for (; x < fb->width; x++) {
+            uint32_t p = (x >= bar_x && x < bar_x + bar_w) ? fg : bg;
+
+            *(volatile uint32_t *) (row + x * 4) = p;
+        }
+    }
+    asm volatile ("sfence":::"memory");
+}
+
+bool gfx_flip_test(void)
+{
+    gfx_fb_t a, b;
+    int32_t flips = 0;
+    bool ok = false;
+    uint32_t saved_ctl, saved_pos, saved_size, saved_stride, saved_surf;
+
+    if (!gfx_pci.gen9 || gfx_fb.obj.cpu_addr == NULL) {
+        klogw("GFX: flip test needs a Gen9 mode set\n");
+        return false;
+    }
+
+    if (!gfx_fb_alloc(640, 480, &a)) {
+        kloge("GFX: flip test: alloc A failed\n");
+        return false;
+    }
+    if (!gfx_fb_alloc(640, 480, &b)) {
+        kloge("GFX: flip test: alloc B failed\n");
+        gfx_fb_free(&a);
+        return false;
+    }
+
+    gfx_fill_bar(&a, 0, 16, 0x00ffffff, 0x00102030);
+    gfx_fill_bar(&b, 0, 16, 0x00ffffff, 0x00102030);
+
+    saved_ctl = gfx_ind(&gfx_pci, PLANE_CTL_1_A);
+    saved_pos = gfx_ind(&gfx_pci, PLANE_POS_1_A);
+    saved_size = gfx_ind(&gfx_pci, PLANE_SIZE_1_A);
+    saved_stride = gfx_ind(&gfx_pci, PLANE_STRIDE_1_A);
+    saved_surf = gfx_ind(&gfx_pci, PLANE_SURF_1_A);
+
+    /* Disable the plane before changing its geometry. */
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, 0);
+    gfx_wait_vblank_frame();
+
+    gfx_outd(&gfx_pci, PLANE_OFFSET_1_A, 0);
+    gfx_outd(&gfx_pci, PLANE_POS_1_A, 0);
+    gfx_outd(&gfx_pci, PLANE_SIZE_1_A, (480 - 1) << 16 | (640 - 1));
+    gfx_outd(&gfx_pci, PLANE_STRIDE_1_A, a.stride / 64);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A,
+             PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB
+             | PLANE_CTL_TILED_LINEAR);
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A, (uint32_t) a.obj.gfx_addr);
+    gfx_wait_vblank_frame();
+
+    for (int32_t i = 0; i < 180; i++) {
+        gfx_fb_t *next = (i & 1) ? &a : &b;
+
+        if (!gfx_wait_vblank_frame())
+            break;
+        gfx_fill_bar(next, (uint32_t) (i * 4) % 640, 16, 0x00ffffff,
+                     0x00102030);
+        gfx_flip_to(next);
+        flips++;
+    }
+
+    /* Restore the plane and let the console buffer become the scanout again
+     * before the test buffers are freed. */
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, 0);
+    gfx_wait_vblank_frame();
+    gfx_outd(&gfx_pci, PLANE_POS_1_A, saved_pos);
+    gfx_outd(&gfx_pci, PLANE_SIZE_1_A, saved_size);
+    gfx_outd(&gfx_pci, PLANE_STRIDE_1_A, saved_stride);
+    gfx_outd(&gfx_pci, PLANE_CTL_1_A, saved_ctl);
+    gfx_outd(&gfx_pci, PLANE_SURF_1_A, saved_surf);
+    gfx_wait_vblank_frame();
+    gfx_wait_vblank_frame();
+
+    gfx_fb_free(&a);
+    gfx_fb_free(&b);
+
+    ok = (flips == 180);
+    klogi("GFX: flip test %d frames, vblank %lu, irq %d, %s\n",
+          flips, gfx_vblank_seq, gfx_vblank_irq, ok ? "PASS" : "FAIL");
+    return ok;
 }
 
 bool gfx_edp_panel_on(gfx_pci_t * pci)
@@ -1107,9 +1496,9 @@ bool gfx_enable_interrupts(gfx_pci_t * pci, uint32_t mask)
     /* Clear pending interrupts */
     gfx_outd(pci, DEIIR, mask);
 
-    /* Unmask interrupts */
+    /* Unmask interrupts, including the master gate in bit 31. */
     uint32_t imr = gfx_ind(pci, DEIMR);
-    imr &= ~mask;
+    imr &= ~(mask | DE_MASTER_IRQ_CONTROL);
     gfx_outd(pci, DEIMR, imr);
 
     /* Enable interrupts */
@@ -1327,18 +1716,21 @@ bool gfx_disable_cursor(gfx_pci_t * pci, uint8_t pipe)
  */
 bool gfx_wait_vblank(gfx_pci_t * pci, uint8_t pipe)
 {
-    uint32_t vblank_bit = (pipe == 0) ? DE_PIPEA_VBLANK :
-                          (pipe == 1) ? DE_PIPEB_VBLANK : DE_PIPEC_VBLANK;
+    bool gen8 = gfx_gen8_pipe_irq(pci);
+    uint32_t reg = gen8 ? GEN8_DE_PIPE_IIR(pipe) : DEIIR;
+    uint32_t vblank_bit = gen8 ? GEN8_PIPE_VBLANK :
+        (pipe == 0) ? DE_PIPEA_VBLANK :
+        (pipe == 1) ? DE_PIPEB_VBLANK : DE_PIPEC_VBLANK;
 
     /* Clear any pending vblank */
-    gfx_outd(pci, DEIIR, vblank_bit);
+    gfx_outd(pci, reg, vblank_bit);
 
     /* Wait for vblank */
     int32_t timeout = 50000;  /* 50ms */
     while (timeout-- > 0) {
-        uint32_t iir = gfx_ind(pci, DEIIR);
+        uint32_t iir = gfx_ind(pci, reg);
         if (iir & vblank_bit) {
-            gfx_outd(pci, DEIIR, vblank_bit);  /* Clear */
+            gfx_outd(pci, reg, vblank_bit);     /* Clear */
             return true;
         }
         pit_wait(1);

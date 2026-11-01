@@ -155,4 +155,26 @@ void irq11(void *p);
 [[gnu::interrupt]]
 void irq12(void *p);
 [[gnu::interrupt]]
+void irq13(void *p);
+[[gnu::interrupt]]
+void irq14(void *p);
+[[gnu::interrupt]]
+void irq15(void *p);
+[[gnu::interrupt]]
+void irq16(void *p);
+[[gnu::interrupt]]
+void irq17(void *p);
+[[gnu::interrupt]]
+void irq18(void *p);
+[[gnu::interrupt]]
+void irq19(void *p);
+[[gnu::interrupt]]
+void irq20(void *p);
+[[gnu::interrupt]]
+void irq21(void *p);
+[[gnu::interrupt]]
+void irq22(void *p);
+[[gnu::interrupt]]
+void irq23(void *p);
+[[gnu::interrupt]]
 void irq128(void *p);

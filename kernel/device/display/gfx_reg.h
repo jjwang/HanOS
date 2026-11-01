@@ -301,10 +301,43 @@
 #define DEIER                           0x4400C
 
 #define DE_MASTER_IRQ_CONTROL           (1u << 31)
-#define DE_PCH_EVENT                    (1 << 28)
-#define DE_PIPEC_VBLANK                 (1 << 10)
-#define DE_PIPEB_VBLANK                 (1 << 5)
-#define DE_PIPEA_VBLANK                 (1 << 0)
+#define DE_PCH_EVENT                    (1 << 21)
+/* Haswell legacy DEIER pipe vblank bits. Ivy Bridge used 0/5/10. */
+#define DE_PIPEC_VBLANK                 (1 << 23)
+#define DE_PIPEB_VBLANK                 (1 << 15)
+#define DE_PIPEA_VBLANK                 (1 << 7)
+
+/* Gen8+ (Broadwell, Skylake) per-pipe interrupt registers. Pipe A starts at
+ * 0x44400; the pipe stride is 0x10. The vblank bit inside a pipe register is
+ * bit 0, unlike the legacy DEIER layout. */
+#define GEN8_DE_PIPE_ISR(pipe)          (0x44400 + (pipe) * 0x10)
+#define GEN8_DE_PIPE_IMR(pipe)          (0x44404 + (pipe) * 0x10)
+#define GEN8_DE_PIPE_IIR(pipe)          (0x44408 + (pipe) * 0x10)
+#define GEN8_DE_PIPE_IER(pipe)          (0x4440C + (pipe) * 0x10)
+#define GEN8_PIPE_VBLANK                (1u << 0)
+
+/* Gen8+ master gate: bit 31 enables the master, bit 16 the pipe A source. */
+#define GEN8_MASTER_IRQ                 0x44200
+#define GEN8_MASTER_IRQ_CONTROL         (1u << 31)
+#define GEN8_DE_PIPE_IRQ(pipe)          (1u << (16 + (pipe)))
+
+/* Gen8+ misc/port and GT interrupt blocks. The display vblank path masks them
+ * so a shared GPU INTx is driven only by pipe A vblank. */
+#define GEN8_DE_PORT_ISR                0x44440
+#define GEN8_DE_PORT_IMR                0x44444
+#define GEN8_DE_PORT_IIR                0x44448
+#define GEN8_DE_PORT_IER                0x4444C
+#define GEN8_DE_MISC_ISR                0x44460
+#define GEN8_DE_MISC_IMR                0x44464
+#define GEN8_DE_MISC_IIR                0x44468
+#define GEN8_DE_MISC_IER                0x4446C
+#define GEN8_GT_ISR(which)              (0x44300 + (which) * 0x10)
+#define GEN8_GT_IMR(which)              (0x44304 + (which) * 0x10)
+#define GEN8_GT_IIR(which)              (0x44308 + (which) * 0x10)
+#define GEN8_GT_IER(which)              (0x4430C + (which) * 0x10)
+#define GTIMR                           0x44014
+#define GTIIR                           0x44018
+#define GTIER                           0x4401C
 
 /* Cursor Registers */
 #define CURABASE                        0x70084

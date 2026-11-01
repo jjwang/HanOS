@@ -259,5 +259,16 @@ irq_noerrcode   9           /* IRQ9: ACPI */
 irq_noerrcode   10          /* IRQ10: Reserved */
 irq_noerrcode   11          /* IRQ11: Reserved */
 irq_noerrcode   12          /* IRQ12: PS/2 Mouse */
+irq_noerrcode   13          /* IRQ13: FPU */
+irq_noerrcode   14          /* IRQ14: Primary ATA */
+irq_noerrcode   15          /* IRQ15: Secondary ATA */
+irq_noerrcode   16          /* GSI 16: PCI INTx */
+irq_noerrcode   17          /* GSI 17: PCI INTx */
+irq_noerrcode   18          /* GSI 18: PCI INTx */
+irq_noerrcode   19          /* GSI 19: PCI INTx */
+irq_noerrcode   20          /* GSI 20: PCI INTx */
+irq_noerrcode   21          /* GSI 21: PCI INTx */
+irq_noerrcode   22          /* GSI 22: PCI INTx */
+irq_noerrcode   23          /* GSI 23: PCI INTx */
 irq_noerrcode   128         /* IRQ128: Syscall (userspace system calls) */
 

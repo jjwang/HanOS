@@ -64,6 +64,9 @@ typedef struct {
 typedef struct {
     volatile uint8_t *cpu_addr;
     volatile uint64_t gfx_addr;
+    uint64_t phys;              /* physical base of the contiguous allocation */
+    uint64_t size;              /* allocation size in bytes */
+    uint32_t pages;             /* page count for pmm_free */
 } gfx_object_t;
 
 /**
@@ -178,6 +181,24 @@ bool gfx_disable_cursor(gfx_pci_t * pci, uint8_t pipe);
 #define gfx_outd(pci, reg, val)     mmio_outd((uint8_t*)(pci)->mmio_bar + (reg), val)
 #define gfx_inl(pci, reg)           mmio_inl((uint8_t*)(pci)->mmio_bar + (reg))
 #define gfx_outl(pci, reg, val)     mmio_outl((uint8_t*)(pci)->mmio_bar + (reg), val)
+
+/* Double buffering and vblank */
+bool gfx_fb_alloc(uint32_t width, uint32_t height, gfx_fb_t * out_fb);
+void gfx_fb_free(gfx_fb_t * fb);
+void gfx_flip_to(const gfx_fb_t * fb);
+bool gfx_wait_vblank_frame(void);
+bool gfx_vblank_irq_start(void);
+bool gfx_flip_test(void);
+uint64_t gfx_vblank_count(void);
+bool gfx_vblank_irq_active(void);
+uint8_t gfx_vblank_irq_line(void);
+uint32_t gfx_display_iir(void);
+uint32_t gfx_display_ier(void);
+uint32_t gfx_display_imr(void);
+uint32_t gfx_master_irq(void);
+uint32_t gfx_pipe_frame(void);
+uint32_t gfx_pipe_frame_after(uint32_t ms);
+uint64_t gfx_vblank_route(void);
 
 /* eDP panel and mode setting */
 bool gfx_edp_panel_on(gfx_pci_t * pci);

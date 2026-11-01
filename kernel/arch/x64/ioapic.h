@@ -27,3 +27,11 @@ void ioapic_set_line(uint8_t irq, bool masked);
 /* Program an entry with an explicit trigger and polarity. PCI INTx lines are
  * level, active low. */
 void ioapic_set_irq(uint8_t irq, bool masked, bool level, bool active_low);
+
+/* Program a GSI to an explicit vector. Used when a PCI device needs its own
+ * handler outside the ISA delivery path. */
+bool ioapic_route_gsi(uint32_t gsi, uint32_t vector, bool masked, bool level,
+                      bool active_low);
+
+/* Read back the redirection entry for a line (diagnostics). */
+bool ioapic_read_line(uint8_t line, uint32_t * low, uint32_t * high);

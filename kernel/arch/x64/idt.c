@@ -24,6 +24,7 @@
 #include <arch/x64/isr_base.h>
 #include <arch/x64/idt.h>
 #include <arch/x64/ioapic.h>
+#include <arch/x64/madt.h>
 #include <arch/x64/cpu.h>
 #include <arch/x64/panic.h>
 
@@ -110,6 +111,28 @@ void irq_route(uint8_t line, bool level, bool active_low)
     pic_mask(line, false);
 }
 
+/* Route a line to an explicit LAPIC vector. A PCI INTx line shares GSIs, so a
+ * device that installs its own handler must not enter the ISA delivery path. */
+bool irq_route_vector(uint8_t line, uint8_t vector, bool level,
+                      bool active_low)
+{
+    uint32_t gsi;
+    uint16_t flags;
+
+    if (ioapic_available()) {
+        madt_isa_to_gsi(line, &gsi, &flags);
+        (void) flags;
+        bool ok = ioapic_route_gsi(gsi, vector, false, level, active_low);
+
+        if (line < 16)
+            pic_mask(line, true);
+        return ok;
+    }
+    if (line < 16)
+        pic_mask(line, false);
+    return false;
+}
+
 void idt_init()
 {
     /* start 8259A PIC initialization */
@@ -172,6 +195,17 @@ void idt_init()
     idt[42] = idt_make_entry((uint64_t) & irq10);
     idt[43] = idt_make_entry((uint64_t) & irq11);
     idt[44] = idt_make_entry((uint64_t) & irq12);
+    idt[45] = idt_make_entry((uint64_t) & irq13);
+    idt[46] = idt_make_entry((uint64_t) & irq14);
+    idt[47] = idt_make_entry((uint64_t) & irq15);
+    idt[48] = idt_make_entry((uint64_t) & irq16);
+    idt[49] = idt_make_entry((uint64_t) & irq17);
+    idt[50] = idt_make_entry((uint64_t) & irq18);
+    idt[51] = idt_make_entry((uint64_t) & irq19);
+    idt[52] = idt_make_entry((uint64_t) & irq20);
+    idt[53] = idt_make_entry((uint64_t) & irq21);
+    idt[54] = idt_make_entry((uint64_t) & irq22);
+    idt[55] = idt_make_entry((uint64_t) & irq23);
 
     idt_register_t idt_register = {
         .size = sizeof(idt_entry_t) * IDT_ENTRIES - 1,

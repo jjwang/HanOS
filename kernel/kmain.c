@@ -373,6 +373,10 @@ void kmain(void)
     ioapic_init();
     irq_clear_mask(0);
 
+    /* The display mode set ran before the I/O APIC was ready, so route the
+     * GPU vblank line now. */
+    gfx_vblank_irq_start();
+
     klogi("Init syscall...\n");
     syscall_init();
 

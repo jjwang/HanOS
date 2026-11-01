@@ -42,6 +42,8 @@ static command_help_t help_msg[] = {
     {"<help> cd",       "Change current directoy."},
     {"<help> dmesg [keyword...]", "Print kernel log lines containing all keywords."},
     {"<help> lspci",    "List PCI devices."},
+    {"<help> gfx flip", "Run the vblank double-buffer flip test."},
+    {"<help> gfx status", "Report the vblank counter."},
     {"<help> mem",      "Display memory usage information."},
     {"<help> usb",      "Report the USB block device."},
 };
@@ -412,6 +414,11 @@ int32_t main(void)
                    && buf[3] == 'c' && buf[4] == 'i' && buf[5] == '\0') {
             if (sys_runcmd(buf) < 0)
                 dprintf(STDERR, "lspci: cannot list pci devices\n");
+            continue;
+        } else if (buf[0] == 'g' && buf[1] == 'f' && buf[2] == 'x'
+                   && (buf[3] == '\0' || buf[3] == ' ')) {
+            if (sys_runcmd(buf) < 0)
+                dprintf(STDERR, "gfx: command failed\n");
             continue;
         }
 

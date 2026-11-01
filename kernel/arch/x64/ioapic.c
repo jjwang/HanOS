@@ -24,6 +24,7 @@
 
 #define IOAPIC_IOREGSEL     0x00
 #define IOAPIC_IOWIN        0x10
+#define IOAPIC_VER          0x01
 #define IOAPIC_REDTBL       0x10
 
 static volatile uint32_t *ioapic = NULL;
@@ -33,6 +34,12 @@ static void ioapic_write(uint32_t reg, uint32_t val)
 {
     ioapic[IOAPIC_IOREGSEL / 4] = reg;
     ioapic[IOAPIC_IOWIN / 4] = val;
+}
+
+static uint32_t ioapic_read(uint32_t reg)
+{
+    ioapic[IOAPIC_IOREGSEL / 4] = reg;
+    return ioapic[IOAPIC_IOWIN / 4];
 }
 
 void ioapic_init(void)
@@ -77,21 +84,19 @@ void ioapic_set_line(uint8_t irq, bool masked)
     (void) gsi;
 }
 
-void ioapic_set_irq(uint8_t irq, bool masked, bool level, bool active_low)
+bool ioapic_route_gsi(uint32_t gsi, uint32_t vector, bool masked, bool level,
+                      bool active_low)
 {
-    if (!ioapic_available() || irq == 2)
-        return;
-
-    uint32_t gsi;
-    uint16_t flags;
-
-    madt_isa_to_gsi(irq, &gsi, &flags);
-
-    if (gsi < gsi_base)
-        return;
+    if (!ioapic_available() || gsi < gsi_base)
+        return false;
 
     uint32_t idx = gsi - gsi_base;
-    uint32_t low = (uint32_t) (0x20 + irq);     /* PIC-compatible vector */
+    uint32_t max_entry = (ioapic_read(IOAPIC_VER) >> 16) & 0xff;
+
+    if (idx > max_entry)
+        return false;
+
+    uint32_t low = vector & 0xff;
 
     if (active_low)
         low |= 1u << 13;
@@ -104,4 +109,43 @@ void ioapic_set_irq(uint8_t irq, bool masked, bool level, bool active_low)
 
     ioapic_write(IOAPIC_REDTBL + 2 * idx, low);
     ioapic_write(IOAPIC_REDTBL + 2 * idx + 1, high);
+    return true;
+}
+
+bool ioapic_read_line(uint8_t line, uint32_t * low, uint32_t * high)
+{
+    uint32_t gsi;
+    uint16_t flags;
+
+    if (!ioapic_available())
+        return false;
+
+    madt_isa_to_gsi(line, &gsi, &flags);
+    (void) flags;
+
+    if (gsi < gsi_base)
+        return false;
+
+    uint32_t idx = gsi - gsi_base;
+    uint32_t max_entry = (ioapic_read(IOAPIC_VER) >> 16) & 0xff;
+
+    if (idx > max_entry)
+        return false;
+
+    *low = ioapic_read(IOAPIC_REDTBL + 2 * idx);
+    *high = ioapic_read(IOAPIC_REDTBL + 2 * idx + 1);
+    return true;
+}
+
+void ioapic_set_irq(uint8_t irq, bool masked, bool level, bool active_low)
+{
+    if (!ioapic_available() || irq == 2)
+        return;
+
+    uint32_t gsi;
+    uint16_t flags;
+
+    madt_isa_to_gsi(irq, &gsi, &flags);
+
+    ioapic_route_gsi(gsi, 0x20 + irq, masked, level, active_low);
 }

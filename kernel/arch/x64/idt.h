@@ -41,3 +41,5 @@ uint8_t idt_get_available_vector(void);
 void irq_set_mask(uint8_t line);
 void irq_clear_mask(uint8_t line);
 void irq_route(uint8_t line, bool level, bool active_low);
+bool irq_route_vector(uint8_t line, uint8_t vector, bool level,
+                      bool active_low);
