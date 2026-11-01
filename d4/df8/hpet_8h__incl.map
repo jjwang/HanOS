@@ -1,0 +1,10 @@
+<map id="kernel/arch/x64/hpet.h" name="kernel/arch/x64/hpet.h">
+<area shape="rect" id="Node000001" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="7,5,173,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,152,76,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="88,32,70,80,51,139,45,138,65,78,83,30"/>
+<area shape="rect" id="Node000003" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="79,79,200,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="100,29,126,66,121,69,96,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="125,106,69,146,66,142,122,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="100,152,272,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="149,103,173,139,169,142,145,106"/>
+</map>

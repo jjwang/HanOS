@@ -1,0 +1,16 @@
+<map id="userspace/help.h" name="userspace/help.h">
+<area shape="rect" id="Node000001" title="Definition of help command related data structures." alt="" coords="5,5,137,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="61,225,132,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="73,31,72,94,79,177,89,212,84,213,74,178,67,94,68,31"/>
+<area shape="rect" id="Node000003" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="92,79,176,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="84,29,117,66,113,70,80,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="122,106,103,126,87,153,84,183,90,211,84,212,79,183,82,151,98,123,118,102"/>
+<area shape="rect" id="Node000004" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="97,152,171,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="137,104,137,138,131,138,131,104"/>
+<area shape="rect" id="Node000005" href="$da/d7c/bootinfo_8h.html" title="Startup information passed to a userspace server." alt="" coords="195,152,283,177"/>
+<area shape="poly" id="edge6_Node000003_Node000005" title=" " alt="" coords="152,102,212,142,210,147,149,106"/>
+<area shape="rect" id="Node000006" href="$d2/d5e/protocol_8h.html" title="IPC protocol tags shared by the kernel and the userspace servers." alt="" coords="308,152,395,177"/>
+<area shape="poly" id="edge8_Node000003_Node000006" title=" " alt="" coords="170,101,304,145,302,150,168,107"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="130,179,111,215,107,212,125,176"/>
+<area shape="poly" id="edge7_Node000005_Node000002" title=" " alt="" coords="218,180,133,221,131,217,215,175"/>
+</map>

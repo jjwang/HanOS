@@ -1,0 +1,16 @@
+<map id="kernel/lib/time.h" name="kernel/lib/time.h">
+<area shape="rect" id="Node000001" title="Definition of time related data structures and functions." alt="" coords="26,5,154,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="82,225,153,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="78,33,52,59,25,96,15,116,9,136,9,156,16,176,40,202,71,219,68,224,37,206,11,179,4,157,4,135,10,114,20,93,48,56,75,29"/>
+<area shape="rect" id="Node000003" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="131,79,254,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="108,28,166,68,163,73,105,33"/>
+<area shape="rect" id="Node000006" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="25,152,154,177"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="92,31,92,138,87,138,87,31"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="193,105,185,139,169,179,142,217,137,213,165,176,180,137,188,104"/>
+<area shape="rect" id="Node000004" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="230,152,352,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="210,102,266,142,263,146,207,106"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="264,180,160,222,158,218,262,175"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="205,225,377,251"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="294,178,294,212,288,212,288,178"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="97,177,111,212,106,214,92,179"/>
+</map>

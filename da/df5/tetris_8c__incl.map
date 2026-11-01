@@ -1,0 +1,46 @@
+<map id="userspace/games/tetris.c" name="userspace/games/tetris.c">
+<area shape="rect" id="Node000001" title="A terminal Tetris for HanOS." alt="" coords="275,5,461,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="393,152,476,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="365,32,355,65,355,85,360,103,377,126,400,143,396,147,373,129,355,105,349,85,350,64,360,30"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="503,299,574,324"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="462,21,492,28,521,39,548,55,570,77,584,103,591,131,592,160,588,190,573,244,554,287,549,285,568,243,583,188,587,160,586,132,579,105,566,80,545,59,519,43,490,33,460,26"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="228,79,295,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="352,33,291,73,288,69,349,28"/>
+<area shape="rect" id="Node000005" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="133,79,203,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="337,33,215,76,213,71,335,28"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="370,79,441,104"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="376,30,395,65,391,68,372,32"/>
+<area shape="rect" id="Node000008" href="$d6/d68/sysfunc_8h.html" title="System call function declarations and related macros." alt="" coords="38,152,122,177"/>
+<area shape="poly" id="edge9_Node000001_Node000008" title=" " alt="" coords="276,25,236,31,196,42,157,58,122,81,110,93,100,108,88,139,83,137,95,106,105,90,118,77,154,53,194,37,235,26,275,20"/>
+<area shape="rect" id="Node000012" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="645,79,709,104"/>
+<area shape="poly" id="edge16_Node000001_Node000012" title=" " alt="" coords="418,28,633,77,631,82,417,33"/>
+<area shape="rect" id="Node000017" href="$dc/d54/common_8h.html" title="Shared terminal and timing runtime for the HanOS games." alt="" coords="465,79,556,104"/>
+<area shape="poly" id="edge25_Node000001_Node000017" title=" " alt="" coords="392,28,476,70,474,75,390,33"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="204,99,380,146,379,151,203,105"/>
+<area shape="poly" id="edge7_Node000005_Node000003" title=" " alt="" coords="189,102,509,289,506,294,186,106"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="147,152,221,177"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="173,104,181,138,176,139,168,105"/>
+<area shape="poly" id="edge10_Node000008_Node000003" title=" " alt="" coords="61,180,39,195,19,213,9,232,9,240,14,249,37,261,83,271,216,288,367,299,490,305,489,311,366,305,215,293,82,276,35,266,10,253,4,242,3,230,15,209,35,190,58,175"/>
+<area shape="rect" id="Node000009" href="$dc/df8/hanos_8h.html" title="HanOS wire types shared between userspace and the kernel." alt="" coords="25,225,98,251"/>
+<area shape="poly" id="edge11_Node000008_Node000009" title=" " alt="" coords="79,178,70,213,65,212,74,177"/>
+<area shape="rect" id="Node000010" href="$da/d7c/bootinfo_8h.html" title="Startup information passed to a userspace server." alt="" coords="233,225,321,251"/>
+<area shape="poly" id="edge13_Node000008_Node000010" title=" " alt="" coords="113,175,233,218,231,223,111,180"/>
+<area shape="rect" id="Node000011" href="$d2/d5e/protocol_8h.html" title="IPC protocol tags shared by the kernel and the userspace servers." alt="" coords="122,225,209,251"/>
+<area shape="poly" id="edge15_Node000008_Node000011" title=" " alt="" coords="95,175,143,214,139,219,92,179"/>
+<area shape="poly" id="edge12_Node000009_Node000003" title=" " alt="" coords="99,246,110,248,321,281,490,302,489,307,320,287,109,253,98,251"/>
+<area shape="poly" id="edge14_Node000010_Node000003" title=" " alt="" coords="320,248,491,294,489,299,319,253"/>
+<area shape="poly" id="edge17_Node000012_Node000003" title=" " alt="" coords="673,105,637,169,585,252,558,289,554,286,580,249,632,166,669,103"/>
+<area shape="rect" id="Node000013" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="759,152,881,177"/>
+<area shape="poly" id="edge18_Node000012_Node000013" title=" " alt="" coords="701,102,786,143,783,148,699,106"/>
+<area shape="rect" id="Node000016" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="653,225,782,251"/>
+<area shape="poly" id="edge23_Node000012_Node000016" title=" " alt="" coords="683,104,713,211,708,213,678,105"/>
+<area shape="poly" id="edge19_Node000013_Node000003" title=" " alt="" coords="823,178,817,214,809,235,796,253,760,272,705,288,588,307,587,302,704,282,758,267,793,249,805,232,812,213,817,177"/>
+<area shape="rect" id="Node000014" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="858,225,979,251"/>
+<area shape="poly" id="edge20_Node000013_Node000014" title=" " alt="" coords="837,175,893,215,890,219,834,180"/>
+<area shape="poly" id="edge21_Node000014_Node000003" title=" " alt="" coords="858,253,588,303,587,298,857,248"/>
+<area shape="rect" id="Node000015" title=" " alt="" coords="833,299,1005,324"/>
+<area shape="poly" id="edge22_Node000014_Node000015" title=" " alt="" coords="921,251,921,285,916,285,916,251"/>
+<area shape="poly" id="edge24_Node000016_Node000003" title=" " alt="" coords="690,253,581,296,579,291,688,248"/>
+<area shape="poly" id="edge26_Node000017_Node000002" title=" " alt="" coords="500,106,459,144,455,141,497,102"/>
+<area shape="poly" id="edge27_Node000017_Node000003" title=" " alt="" coords="515,104,538,285,533,285,509,105"/>
+</map>

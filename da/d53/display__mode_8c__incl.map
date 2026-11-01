@@ -1,0 +1,24 @@
+<map id="kernel/device/display/display_mode.c" name="kernel/device/display/display_mode.c">
+<area shape="rect" id="Node000001" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="44,5,204,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="283,255,354,280"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="100,48,63,80,28,120,15,142,9,164,10,185,21,205,36,218,61,228,127,245,202,255,269,261,269,266,202,261,126,250,59,233,34,222,16,208,5,187,4,164,10,140,23,117,59,76,96,44"/>
+<area shape="rect" id="Node000003" href="$d4/d92/klog_8h.html" title="Definition of kernel log related functions." alt="" coords="83,101,165,126"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="127,46,127,87,121,87,121,46"/>
+<area shape="rect" id="Node000008" href="$d8/d04/display__mode_8h.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="361,93,527,133"/>
+<area shape="poly" id="edge9_Node000001_Node000008" title=" " alt="" coords="195,43,361,87,360,92,193,48"/>
+<area shape="poly" id="edge5_Node000003_Node000002" title=" " alt="" coords="97,128,68,143,41,163,26,184,26,194,31,205,46,217,70,228,133,244,205,255,270,261,269,266,204,260,132,249,68,233,44,222,27,208,21,195,21,182,37,159,65,139,95,124"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="41,181,116,207"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="119,128,94,171,90,168,115,125"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="140,181,215,207"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="134,125,164,168,159,171,130,128"/>
+<area shape="rect" id="Node000006" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="423,181,531,207"/>
+<area shape="poly" id="edge6_Node000003_Node000006" title=" " alt="" coords="166,121,413,176,412,181,165,126"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="453,209,358,251,356,247,451,204"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="507,255,589,280"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="491,205,529,243,525,247,487,209"/>
+<area shape="poly" id="edge11_Node000008_Node000002" title=" " alt="" coords="490,131,517,146,539,164,551,185,551,197,545,208,533,219,516,228,470,243,368,263,367,257,469,238,514,223,530,214,540,205,545,195,546,186,535,168,514,150,488,136"/>
+<area shape="poly" id="edge10_Node000008_Node000007" title=" " alt="" coords="525,131,561,150,577,164,590,180,595,197,592,215,572,246,568,243,587,213,590,198,585,183,573,167,558,155,522,136"/>
+<area shape="rect" id="Node000009" href="$d1/d67/edid_8h.html" title="EDID (Extended Display Identification Data) definitions." alt="" coords="239,181,399,207"/>
+<area shape="poly" id="edge12_Node000008_Node000009" title=" " alt="" coords="415,136,350,176,347,172,412,131"/>
+<area shape="poly" id="edge13_Node000009_Node000002" title=" " alt="" coords="321,207,321,241,316,241,316,207"/>
+</map>

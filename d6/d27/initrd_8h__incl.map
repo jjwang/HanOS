@@ -1,0 +1,5 @@
+<map id="kernel/fs/initrd.h" name="kernel/fs/initrd.h">
+<area shape="rect" id="Node000001" title="Read files from the boot initrd image." alt="" coords="5,5,133,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="34,79,105,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="72,31,72,65,67,65,67,31"/>
+</map>

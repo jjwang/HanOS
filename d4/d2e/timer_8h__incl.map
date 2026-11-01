@@ -1,0 +1,19 @@
+<map id="kernel/arch/x64/timer.h" name="kernel/arch/x64/timer.h">
+<area shape="rect" id="Node000001" title="Definition of APIC timer related macros, data structures, functions." alt="" coords="5,5,177,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="211,299,281,324"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="88,32,70,72,52,129,48,160,48,192,54,222,68,249,95,274,128,291,163,301,197,306,196,311,162,306,126,296,91,279,64,252,49,224,42,192,42,160,47,128,65,70,83,30"/>
+<area shape="rect" id="Node000003" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="177,79,261,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="113,28,187,69,185,74,111,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="223,104,246,284,240,285,218,105"/>
+<area shape="rect" id="Node000004" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="283,152,406,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="241,102,314,143,311,147,238,106"/>
+<area shape="rect" id="Node000007" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="79,225,208,251"/>
+<area shape="poly" id="edge9_Node000003_Node000007" title=" " alt="" coords="215,106,158,215,153,212,211,103"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="339,179,264,289,260,286,334,176"/>
+<area shape="rect" id="Node000005" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="335,225,456,251"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="355,176,381,213,377,216,351,179"/>
+<area shape="poly" id="edge7_Node000005_Node000002" title=" " alt="" coords="372,253,284,295,282,290,370,248"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="309,299,481,324"/>
+<area shape="poly" id="edge8_Node000005_Node000006" title=" " alt="" coords="398,251,398,285,393,285,393,251"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="161,248,219,288,216,293,158,253"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="kernel/arch/x64/mtrr.h" name="kernel/arch/x64/mtrr.h">
+<area shape="rect" id="Node000001" title="Definition of MTRR macros and save/restore functions." alt="" coords="170,5,335,31"/>
+<area shape="rect" id="Node000002" href="$d0/d5f/mtrr_8c.html" title="MTRR configuration to speed up memory reading &amp; writing operations." alt="" coords="5,79,169,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="215,38,115,81,113,76,213,34"/>
+<area shape="rect" id="Node000003" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="193,79,312,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="255,44,255,79,250,79,250,44"/>
+<area shape="rect" id="Node000004" href="$db/d43/vmm_8c.html" title="Implementation of virtual memory management functions." alt="" coords="335,79,477,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="291,34,382,76,380,81,288,39"/>
+</map>

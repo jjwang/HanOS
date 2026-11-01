@@ -1,0 +1,12 @@
+<map id="kernel/mm/slab.h" name="kernel/mm/slab.h">
+<area shape="rect" id="Node000001" title="Slab allocator definitions." alt="" coords="50,5,185,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,80,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="107,33,67,71,63,67,104,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="82,152,153,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="120,31,120,138,115,138,115,31"/>
+<area shape="rect" id="Node000004" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="155,79,263,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="134,29,185,68,182,72,130,33"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="196,106,145,146,141,141,193,102"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="177,152,260,177"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="214,104,218,138,213,139,208,105"/>
+</map>

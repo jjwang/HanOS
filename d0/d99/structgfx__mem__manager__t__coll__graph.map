@@ -1,0 +1,5 @@
+<map id="gfx_mem_manager_t" name="gfx_mem_manager_t">
+<area shape="rect" id="Node000001" title="Graphics memory allocator state." alt="" coords="5,123,167,148"/>
+<area shape="rect" id="Node000002" href="$d3/d1a/structgfx__mem__range__t.html" title="A range of GPU&#45;addressable memory." alt="" coords="16,5,156,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="89,44,89,123,83,123,83,44"/>
+</map>

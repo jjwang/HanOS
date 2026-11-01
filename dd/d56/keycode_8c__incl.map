@@ -1,0 +1,7 @@
+<map id="userspace/runtime/keycode.c" name="userspace/runtime/keycode.c">
+<area shape="rect" id="Node000001" title="Keyboard ASCII key code lookup table." alt="" coords="5,5,217,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="25,79,96,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,33,79,69,75,66,101,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="121,79,203,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="122,29,148,66,144,69,118,33"/>
+</map>

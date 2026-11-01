@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['madt_2ec_0',['madt.c',['../de/d50/madt_8c.html',1,'']]],
+  ['madt_2eh_1',['madt.h',['../df/de9/madt_8h.html',1,'']]],
+  ['mem_2ec_2',['mem.c',['../d3/d8f/mem_8c.html',1,'']]],
+  ['mem_5finfo_5ft_3',['mem_info_t',['../d4/dff/structmem__info__t.html',1,'']]],
+  ['mem_5fmap_5ft_4',['mem_map_t',['../da/dd9/structmem__map__t.html',1,'']]],
+  ['memobj_2ec_5',['memobj.c',['../d3/d29/memobj_8c.html',1,'']]],
+  ['memobj_2eh_6',['memobj.h',['../dc/d7e/memobj_8h.html',1,'']]],
+  ['memobj_5ft_7',['memobj_t',['../d1/dda/structmemobj__t.html',1,'']]],
+  ['memory_5fmetadata_5ft_8',['memory_metadata_t',['../dd/db1/structmemory__metadata__t.html',1,'']]],
+  ['microkernel_20based_20general_20purpose_20operating_20system_9',['HanOS - Microkernel-based General Purpose Operating System',['../index.html',1,'']]],
+  ['misc_2ec_10',['misc.c',['../d0/ddb/misc_8c.html',1,'']]],
+  ['misc_2eh_11',['misc.h',['../d4/d08/misc_8h.html',1,'']]],
+  ['misc_5fsrv_2ec_12',['misc_srv.c',['../de/d77/misc__srv_8c.html',1,'']]],
+  ['misc_5fsrv_2eh_13',['misc_srv.h',['../d5/d9b/misc__srv_8h.html',1,'']]],
+  ['misc_5futsname_5ft_14',['misc_utsname_t',['../d0/d55/structmisc__utsname__t.html',1,'']]],
+  ['mm_2eh_15',['mm.h',['../df/d61/mm_8h.html',1,'']]],
+  ['mm_5fsrv_2ec_16',['mm_srv.c',['../df/dd9/mm__srv_8c.html',1,'']]],
+  ['mm_5fsrv_2eh_17',['mm_srv.h',['../de/d75/mm__srv_8h.html',1,'']]],
+  ['mm_5fstats_5ft_18',['mm_stats_t',['../d9/d98/structmm__stats__t.html',1,'']]],
+  ['modeset_5fstate_5ft_19',['modeset_state_t',['../d4/d5c/structmodeset__state__t.html',1,'']]],
+  ['mtrr_2ec_20',['mtrr.c',['../d0/d5f/mtrr_8c.html',1,'']]],
+  ['mtrr_2eh_21',['mtrr.h',['../d8/d4a/mtrr_8h.html',1,'']]]
+];

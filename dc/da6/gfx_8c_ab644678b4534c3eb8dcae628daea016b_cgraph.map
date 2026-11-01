@@ -1,0 +1,7 @@
+<map id="gfx_get_display_info" name="gfx_get_display_info">
+<area shape="rect" id="Node000001" title="Get display information." alt="" coords="5,31,163,56"/>
+<area shape="rect" id="Node000002" href="$dc/da6/gfx_8c.html#ac53b4ade41f31ee3258fde1d665ba516" title="Read GPU frequency status." alt="" coords="221,5,355,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="163,31,206,25,207,31,164,36"/>
+<area shape="rect" id="Node000003" href="$dc/da6/gfx_8c.html#aece1a895a2983c98698aefd4feaa536e" title="Check if display pipe is enabled." alt="" coords="211,55,365,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="163,50,197,54,196,59,163,55"/>
+</map>

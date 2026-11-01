@@ -1,0 +1,30 @@
+<map id="kernel/device/display/fb.c" name="kernel/device/display/fb.c">
+<area shape="rect" id="Node000001" title="Implementation of framebuffer related functions." alt="" coords="213,5,401,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="390,152,461,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="402,25,452,43,474,58,493,77,498,96,491,115,476,132,458,146,455,142,473,128,487,112,493,96,488,80,471,62,450,47,400,30"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="112,152,187,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="241,33,198,51,178,64,162,80,155,93,151,108,149,138,144,138,145,107,150,91,158,77,175,60,195,46,239,28"/>
+<area shape="rect" id="Node000004" href="$da/d66/string_8h.html" title="Definition of string operation related functions." alt="" coords="26,79,97,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="268,33,110,79,109,74,267,28"/>
+<area shape="rect" id="Node000006" href="$df/dfc/version_8h.html" title="Definition of version information." alt="" coords="265,79,348,104"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="309,31,309,65,304,65,304,31"/>
+<area shape="rect" id="Node000007" href="$dc/d25/fb_8h.html" title="Definition of framebuffer related functions." alt="" coords="554,79,699,104"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="359,28,562,73,561,78,358,33"/>
+<area shape="rect" id="Node000009" href="$d4/d03/kmalloc_8h.html" title="Definition of memory allocation related functions." alt="" coords="372,79,479,104"/>
+<area shape="poly" id="edge11_Node000001_Node000009" title=" " alt="" coords="327,28,395,69,393,74,324,33"/>
+<area shape="rect" id="Node000010" href="$d3/d6b/printf_8h.html" title="printf, sprintf and snprintf declarations (third&#45;party)" alt="" coords="173,79,241,104"/>
+<area shape="poly" id="edge14_Node000001_Node000010" title=" " alt="" coords="292,33,236,73,233,68,289,29"/>
+<area shape="poly" id="edge6_Node000004_Node000002" title=" " alt="" coords="97,97,377,151,376,156,96,102"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="77,102,126,141,123,145,74,106"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="5,152,88,177"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="62,105,54,139,49,138,56,104"/>
+<area shape="poly" id="edge9_Node000007_Node000002" title=" " alt="" coords="595,107,472,150,470,145,593,102"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="541,152,713,177"/>
+<area shape="poly" id="edge10_Node000007_Node000008" title=" " alt="" coords="629,104,629,138,624,138,624,104"/>
+<area shape="poly" id="edge13_Node000009_Node000002" title=" " alt="" coords="428,104,428,138,423,138,423,104"/>
+<area shape="poly" id="edge12_Node000009_Node000003" title=" " alt="" coords="382,107,201,153,199,148,380,101"/>
+<area shape="poly" id="edge15_Node000010_Node000002" title=" " alt="" coords="242,101,378,145,376,150,240,106"/>
+<area shape="poly" id="edge17_Node000010_Node000003" title=" " alt="" coords="199,106,169,143,165,139,195,103"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="211,152,285,177"/>
+<area shape="poly" id="edge16_Node000010_Node000011" title=" " alt="" coords="216,103,237,139,232,141,211,106"/>
+</map>

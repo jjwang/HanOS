@@ -1,0 +1,7 @@
+<map id="include/misc.h" name="include/misc.h">
+<area shape="rect" id="Node000001" title="Protocol for the misc server." alt="" coords="122,5,238,31"/>
+<area shape="rect" id="Node000002" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="5,79,160,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="155,41,100,81,97,76,152,37"/>
+<area shape="rect" id="Node000003" href="$d0/ddb/misc_8c.html" title="Userspace misc server." alt="" coords="184,79,371,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="208,37,263,76,260,81,205,41"/>
+</map>

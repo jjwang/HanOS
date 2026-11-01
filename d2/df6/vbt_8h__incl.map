@@ -1,0 +1,25 @@
+<map id="kernel/device/display/vbt.h" name="kernel/device/display/vbt.h">
+<area shape="rect" id="Node000001" title="VBT panel timing reader." alt="" coords="87,5,247,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="139,255,222,280"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="132,48,84,78,38,117,21,138,11,160,9,183,19,205,35,218,61,230,127,251,125,256,59,235,32,222,15,208,4,184,5,159,16,135,34,113,81,73,129,43"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="247,255,317,280"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="206,43,234,64,258,92,274,130,283,171,286,241,281,241,278,172,269,132,253,95,230,68,203,48"/>
+<area shape="rect" id="Node000004" href="$d9/d97/pci_8h.html" title="Definition of PCI related data structures and functions." alt="" coords="29,181,143,207"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="129,48,101,68,80,95,75,112,74,131,80,168,75,169,68,132,69,111,76,92,98,64,126,43"/>
+<area shape="rect" id="Node000006" href="$d8/dd5/gfx_8h.html" title="Graphics device handling definitions." alt="" coords="91,101,244,126"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="170,46,170,87,165,87,165,46"/>
+<area shape="rect" id="Node000007" href="$d8/d04/display__mode_8h.html" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="320,93,487,133"/>
+<area shape="poly" id="edge11_Node000001_Node000007" title=" " alt="" coords="220,43,340,86,338,91,218,48"/>
+<area shape="poly" id="edge6_Node000004_Node000002" title=" " alt="" coords="103,205,156,244,153,248,100,209"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="118,204,238,247,236,252,117,209"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="41,255,115,280"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="87,207,83,241,78,241,82,207"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="171,126,181,241,176,241,166,126"/>
+<area shape="poly" id="edge9_Node000006_Node000003" title=" " alt="" coords="178,124,267,242,263,245,174,128"/>
+<area shape="poly" id="edge10_Node000006_Node000004" title=" " alt="" coords="157,128,110,174,106,170,153,124"/>
+<area shape="poly" id="edge12_Node000007_Node000002" title=" " alt="" coords="377,136,211,249,208,244,374,131"/>
+<area shape="poly" id="edge13_Node000007_Node000003" title=" " alt="" coords="397,135,379,170,353,208,311,248,307,245,349,205,375,167,393,132"/>
+<area shape="rect" id="Node000008" href="$d1/d67/edid_8h.html" title="EDID (Extended Display Identification Data) definitions." alt="" coords="421,181,581,207"/>
+<area shape="poly" id="edge14_Node000007_Node000008" title=" " alt="" coords="429,131,477,170,474,175,425,136"/>
+<area shape="poly" id="edge15_Node000008_Node000003" title=" " alt="" coords="466,209,331,253,330,248,465,204"/>
+</map>

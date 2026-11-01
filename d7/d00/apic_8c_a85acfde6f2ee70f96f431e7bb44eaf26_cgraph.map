@@ -1,0 +1,5 @@
+<map id="apic_send_ipi" name="apic_send_ipi">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,116,31"/>
+<area shape="rect" id="Node000002" href="$d7/d00/apic_8c.html#a38b1673e7ab82010537ec0acbfb64b64" title=" " alt="" coords="164,5,281,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,15,150,15,150,21,116,21"/>
+</map>

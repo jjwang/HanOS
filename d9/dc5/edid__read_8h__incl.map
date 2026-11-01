@@ -1,0 +1,21 @@
+<map id="kernel/device/display/edid_read.h" name="kernel/device/display/edid_read.h">
+<area shape="rect" id="Node000001" title="EDID source readers." alt="" coords="160,5,320,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,240,88,265"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="160,34,126,41,93,53,63,70,38,95,30,110,25,127,23,162,29,197,39,226,34,228,24,198,18,163,20,126,25,108,34,92,59,66,91,48,125,36,159,28"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="235,240,306,265"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="245,45,270,226,265,227,240,46"/>
+<area shape="rect" id="Node000004" href="$d9/d97/pci_8h.html" title="Definition of PCI related data structures and functions." alt="" coords="89,167,202,192"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="240,46,232,82,216,120,197,143,176,161,173,157,193,139,211,117,227,80,235,45"/>
+<area shape="rect" id="Node000006" href="$d8/dd5/gfx_8h.html" title="Graphics device handling definitions." alt="" coords="49,93,202,119"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="214,48,155,88,152,83,211,43"/>
+<area shape="rect" id="Node000007" href="$d1/d67/edid_8h.html" title="EDID (Extended Display Identification Data) definitions." alt="" coords="328,167,488,192"/>
+<area shape="poly" id="edge11_Node000001_Node000007" title=" " alt="" coords="263,44,387,155,383,159,259,48"/>
+<area shape="poly" id="edge6_Node000004_Node000002" title=" " alt="" coords="131,194,75,234,72,230,128,190"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="167,190,240,231,237,235,164,194"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="112,240,187,265"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="149,192,151,226,145,227,143,192"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="115,121,96,142,78,168,65,198,55,228,50,226,60,196,74,165,92,139,111,117"/>
+<area shape="poly" id="edge9_Node000006_Node000003" title=" " alt="" coords="148,116,181,137,215,165,241,196,261,227,256,230,237,199,211,169,178,141,146,121"/>
+<area shape="poly" id="edge10_Node000006_Node000004" title=" " alt="" coords="131,118,141,153,136,154,126,120"/>
+<area shape="poly" id="edge12_Node000007_Node000003" title=" " alt="" coords="387,194,306,236,304,231,385,190"/>
+</map>

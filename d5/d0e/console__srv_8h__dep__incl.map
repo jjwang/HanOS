@@ -1,0 +1,11 @@
+<map id="kernel/srv/console_srv.h" name="kernel/srv/console_srv.h">
+<area shape="rect" id="Node000001" title="Spawn the userspace console server and forward output to it." alt="" coords="220,5,360,45"/>
+<area shape="rect" id="Node000002" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="5,101,124,126"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="228,53,96,103,94,98,227,48"/>
+<area shape="rect" id="Node000003" href="$d6/d15/klog_8c.html" title="Implementation of kernel log related functions." alt="" coords="149,101,274,126"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="265,57,224,102,220,98,261,54"/>
+<area shape="rect" id="Node000004" href="$d5/d73/console__srv_8c.html" title="Spawn the userspace console server and forward output to it." alt="" coords="299,93,439,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="319,54,353,91,349,95,315,57"/>
+<area shape="rect" id="Node000005" href="$df/d5c/tty__srv_8c.html" title="Spawn and drive the userspace tty server." alt="" coords="463,101,608,126"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="358,47,504,98,502,103,356,52"/>
+</map>

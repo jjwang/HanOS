@@ -1,0 +1,21 @@
+<map id="include/syscall_nr.h" name="include/syscall_nr.h">
+<area shape="rect" id="Node000001" title="Syscall numbers shared by the kernel and userspace." alt="" coords="611,5,760,31"/>
+<area shape="rect" id="Node000002" href="$de/ddf/syscall_8h.html" title="Definitions and declarations for system calls." alt="" coords="505,79,660,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="659,41,601,81,598,76,656,36"/>
+<area shape="rect" id="Node000010" href="$df/d13/sysfunc_8c.html" title="Implementation of system call functions." alt="" coords="684,79,892,104"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="715,36,773,76,770,81,712,41"/>
+<area shape="rect" id="Node000003" href="$d8/d78/isr_8c.html" title="Implementation of ISR related functions." alt="" coords="5,152,157,177"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="492,108,158,155,157,150,491,103"/>
+<area shape="rect" id="Node000004" href="$dc/dfb/smp_8c.html" title="SMP initialization and other support functions." alt="" coords="181,152,347,177"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="519,110,316,154,315,149,518,104"/>
+<area shape="rect" id="Node000005" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="371,152,485,177"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="547,112,454,154,452,149,544,107"/>
+<area shape="rect" id="Node000006" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="509,152,657,177"/>
+<area shape="poly" id="edge5_Node000002_Node000006" title=" " alt="" coords="585,118,585,152,580,152,580,118"/>
+<area shape="rect" id="Node000007" href="$d5/d27/kmain_8c.html" title="Entry function of HanOS kernel." alt="" coords="681,152,799,177"/>
+<area shape="poly" id="edge6_Node000002_Node000007" title=" " alt="" coords="622,107,715,149,713,154,619,112"/>
+<area shape="rect" id="Node000008" href="$d3/d29/memobj_8c.html" title="Implementation of shareable memory objects." alt="" coords="823,152,985,177"/>
+<area shape="poly" id="edge7_Node000002_Node000008" title=" " alt="" coords="648,104,853,149,851,154,647,110"/>
+<area shape="rect" id="Node000009" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="1009,152,1164,177"/>
+<area shape="poly" id="edge8_Node000002_Node000009" title=" " alt="" coords="674,103,1009,150,1009,155,674,108"/>
+</map>

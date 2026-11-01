@@ -1,0 +1,9 @@
+<map id="kernel/lib/printf.h" name="kernel/lib/printf.h">
+<area shape="rect" id="Node000001" title="printf, sprintf and snprintf declarations (third&#45;party)" alt="" coords="72,5,204,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,79,76,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="124,33,69,72,66,68,121,29"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="101,79,175,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="141,31,141,65,135,65,135,31"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="199,79,274,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="155,29,211,68,208,73,152,33"/>
+</map>

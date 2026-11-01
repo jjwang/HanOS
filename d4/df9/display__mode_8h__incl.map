@@ -1,0 +1,10 @@
+<map id="kernel/device/display/display_mode.h" name="kernel/device/display/display_mode.h">
+<area shape="rect" id="Node000001" title="Display timing model derived from EDID or the current framebuffer." alt="" coords="45,5,205,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,93,88,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="108,47,70,85,66,82,104,44"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="149,167,219,192"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="132,45,140,79,153,118,172,154,167,156,148,120,135,81,127,46"/>
+<area shape="rect" id="Node000004" href="$d1/d67/edid_8h.html" title="EDID (Extended Display Identification Data) definitions." alt="" coords="163,93,323,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="155,43,216,84,213,88,152,48"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="235,121,204,158,200,155,231,117"/>
+</map>

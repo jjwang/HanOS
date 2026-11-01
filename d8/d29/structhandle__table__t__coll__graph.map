@@ -1,0 +1,7 @@
+<map id="handle_table_t" name="handle_table_t">
+<area shape="rect" id="Node000001" title="Per&#45;process table of handle slots." alt="" coords="62,93,181,119"/>
+<area shape="rect" id="Node000002" href="$d4/d5c/structhandle__slot__t.html" title="One handle&#45;table slot referencing an object with rights and generation." alt="" coords="5,5,115,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="79,41,115,91,111,94,74,44"/>
+<area shape="rect" id="Node000003" href="$d9/dda/structspinlock__t.html" title="Interrupt&#45;safe spinlock holding the lock state and owner&#39;s RFLAGS." alt="" coords="139,5,227,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="168,44,132,94,128,91,164,41"/>
+</map>

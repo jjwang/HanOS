@@ -1,0 +1,5 @@
+<map id="addrspace_t" name="addrspace_t">
+<area shape="rect" id="Node000001" title="Virtual address space: top&#45;level page table, mappings and lock." alt="" coords="5,93,107,119"/>
+<area shape="rect" id="Node000002" href="$d9/dda/structspinlock__t.html" title="Interrupt&#45;safe spinlock holding the lock state and owner&#39;s RFLAGS." alt="" coords="12,5,100,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="59,45,59,93,53,93,53,45"/>
+</map>

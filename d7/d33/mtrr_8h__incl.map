@@ -1,0 +1,12 @@
+<map id="kernel/arch/x64/mtrr.h" name="kernel/arch/x64/mtrr.h">
+<area shape="rect" id="Node000001" title="Definition of MTRR macros and save/restore functions." alt="" coords="6,5,171,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,152,76,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="86,32,69,80,50,139,45,138,63,78,81,30"/>
+<area shape="rect" id="Node000003" href="$dc/da7/cpu_8h.html" title="Definition of CPU related data structures and macros." alt="" coords="78,79,195,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="99,30,124,66,119,69,94,33"/>
+<area shape="poly" id="edge4_Node000003_Node000002" title=" " alt="" coords="123,106,69,146,66,141,120,102"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="101,152,175,177"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="140,104,140,138,135,139,134,104"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="199,152,282,177"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="155,102,214,142,211,146,152,106"/>
+</map>

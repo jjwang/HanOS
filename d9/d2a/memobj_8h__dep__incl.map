@@ -1,0 +1,31 @@
+<map id="kernel/mm/memobj.h" name="kernel/mm/memobj.h">
+<area shape="rect" id="Node000001" title="Refcounted, shareable sets of physical pages." alt="" coords="631,5,794,31"/>
+<area shape="rect" id="Node000002" href="$d5/da3/kernel_2fs_2vfs_8c.html" title="Forward file operations to the userspace servers." alt="" coords="5,152,119,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="620,35,499,55,367,81,217,120,99,155,97,149,216,114,365,76,498,50,619,30"/>
+<area shape="rect" id="Node000003" href="$d9/d20/selftest_8c.html" title="Boot&#45;time self&#45;test for the IPC/handle layer." alt="" coords="827,79,975,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="756,33,871,76,869,81,755,38"/>
+<area shape="rect" id="Node000004" href="$d5/db8/ipc__buf_8c.html" title="Implementation of bulk&#45;transfer helpers." alt="" coords="143,152,296,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="638,36,547,56,448,81,336,119,247,154,245,149,334,114,447,76,546,50,637,31"/>
+<area shape="rect" id="Node000005" href="$dd/d19/ipc__buf_8h.html" title="Bulk&#45;transfer helpers built on memory objects." alt="" coords="495,79,650,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="679,39,597,81,594,76,677,34"/>
+<area shape="rect" id="Node000006" href="$db/dd8/syscall_8c.html" title="Implementation of system calls." alt="" coords="321,152,475,177"/>
+<area shape="poly" id="edge13_Node000001_Node000006" title=" " alt="" coords="619,35,551,52,485,81,461,98,440,117,409,153,405,150,436,113,458,93,482,76,549,47,617,30"/>
+<area shape="rect" id="Node000007" href="$db/dba/ext2__srv_8c.html" title="Spawn the userspace ext2 server." alt="" coords="671,152,827,177"/>
+<area shape="poly" id="edge15_Node000001_Node000007" title=" " alt="" coords="715,45,717,73,722,103,732,129,744,150,739,153,727,131,717,105,711,74,710,45"/>
+<area shape="rect" id="Node000008" href="$d2/dc5/fat32__srv_8c.html" title="Spawn and probe the userspace FAT32 server." alt="" coords="851,152,1012,177"/>
+<area shape="poly" id="edge16_Node000001_Node000008" title=" " alt="" coords="726,42,745,73,772,102,796,118,823,131,876,149,875,154,821,136,793,123,768,106,741,76,721,45"/>
+<area shape="rect" id="Node000009" href="$d1/de9/net__srv_8c.html" title="Spawn the userspace network server." alt="" coords="1036,152,1184,177"/>
+<area shape="poly" id="edge17_Node000001_Node000009" title=" " alt="" coords="734,39,770,72,816,102,856,115,913,128,1036,150,1035,155,912,133,855,120,814,106,767,76,730,43"/>
+<area shape="rect" id="Node000011" href="$d3/d29/memobj_8c.html" title="Implementation of shareable memory objects." alt="" coords="999,79,1160,104"/>
+<area shape="poly" id="edge12_Node000001_Node000011" title=" " alt="" coords="785,31,1020,76,1019,81,784,36"/>
+<area shape="rect" id="Node000012" href="$de/dde/block__srv_8c.html" title="Spawn the userspace block server." alt="" coords="1185,79,1347,104"/>
+<area shape="poly" id="edge14_Node000001_Node000012" title=" " alt="" coords="808,29,1185,77,1184,82,807,34"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="482,107,130,155,119,156,118,151,130,149,481,101"/>
+<area shape="poly" id="edge6_Node000005_Node000004" title=" " alt="" coords="503,109,277,155,276,149,502,104"/>
+<area shape="poly" id="edge7_Node000005_Node000006" title=" " alt="" coords="533,112,428,154,426,149,531,107"/>
+<area shape="poly" id="edge8_Node000005_Node000007" title=" " alt="" coords="615,107,721,149,719,154,613,112"/>
+<area shape="poly" id="edge9_Node000005_Node000008" title=" " alt="" coords="644,104,874,149,873,155,643,109"/>
+<area shape="poly" id="edge10_Node000005_Node000009" title=" " alt="" coords="664,102,1025,149,1036,151,1036,156,1024,155,664,107"/>
+<area shape="rect" id="Node000010" href="$d9/de9/vfs__srv_8c.html" title="Spawn the userspace VFS server." alt="" coords="499,152,646,177"/>
+<area shape="poly" id="edge11_Node000005_Node000010" title=" " alt="" coords="575,118,575,152,570,152,570,118"/>
+</map>

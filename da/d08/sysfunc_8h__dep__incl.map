@@ -1,0 +1,67 @@
+<map id="userspace/include/sysfunc.h" name="userspace/include/sysfunc.h">
+<area shape="rect" id="Node000001" title="System call function declarations and related macros." alt="" coords="2811,5,3016,31"/>
+<area shape="rect" id="Node000002" href="$d1/d8f/cat_8c.html" title="Implementation of the &#39;cat&#39; command for HanOS userspace." alt="" coords="5,79,152,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="2797,23,2268,28,1507,38,734,56,410,68,166,81,153,82,152,77,165,76,410,62,734,51,1507,33,2268,23,2797,17"/>
+<area shape="rect" id="Node000003" href="$da/daf/echo_8c.html" title="Implementation of the &#39;echo&#39; command for HanOS userspace." alt="" coords="177,79,335,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="2797,23,1591,41,874,58,575,69,348,81,336,82,336,77,348,76,575,64,874,53,1591,35,2797,18"/>
+<area shape="rect" id="Node000004" href="$d4/d22/edit_8c.html" title="A small full&#45;screen text editor for HanOS." alt="" coords="360,79,512,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="2797,23,1674,41,1011,59,735,69,526,81,513,82,512,77,525,76,735,64,1011,53,1674,36,2797,18"/>
+<area shape="rect" id="Node000005" href="$df/dc6/hansh_8c.html" title="Implementation of the HanOS shell (hansh) for userspace." alt="" coords="537,79,703,104"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="2796,21,2444,22,1931,30,1330,48,1020,62,716,81,704,82,704,77,716,76,1020,57,1330,42,1931,24,2444,17,2796,16"/>
+<area shape="rect" id="Node000006" href="$d8/d60/init_8c.html" title="Initialization process for HanOS userspace." alt="" coords="727,79,875,104"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="2797,21,2469,22,1998,29,1448,47,1165,62,888,81,876,82,875,77,888,76,1165,57,1448,42,1998,24,2469,17,2797,16"/>
+<area shape="rect" id="Node000007" href="$de/d77/ls_8c.html" title="List directory contents." alt="" coords="900,79,1039,104"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="2797,21,2493,23,2061,30,1560,48,1303,63,1051,81,1039,82,1039,77,1050,76,1303,57,1560,43,2061,25,2493,17,2797,16"/>
+<area shape="rect" id="Node000008" href="$d6/d54/pwd_8c.html" title="Implementation of the &#39;pwd&#39; command for HanOS userspace." alt="" coords="1063,79,1217,104"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="2797,23,2519,26,2131,35,1685,53,1231,81,1218,82,1217,77,1230,76,1684,47,2131,30,2519,21,2797,17"/>
+<area shape="rect" id="Node000009" href="$dc/d14/rm_8c.html" title="Implementation of the &#39;rm&#39; command for HanOS userspace." alt="" coords="1242,79,1387,104"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="2797,23,2544,27,2198,36,1802,54,1400,81,1388,83,1387,77,1400,76,1802,48,2198,31,2544,22,2797,18"/>
+<area shape="rect" id="Node000010" href="$d3/d7a/wc_8c.html" title="Implementation of the &#39;wc&#39; command for HanOS userspace." alt="" coords="1411,79,1557,104"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="2797,24,2265,39,1919,56,1570,81,1557,83,1557,77,1569,76,1919,51,2265,34,2797,18"/>
+<area shape="rect" id="Node000011" href="$de/dfe/2048_8c.html" title="A terminal 2048 for HanOS." alt="" coords="1581,79,1763,104"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="2797,26,2349,45,2064,61,1776,81,1764,82,1764,77,1776,76,2063,56,2348,40,2797,21"/>
+<area shape="rect" id="Node000012" href="$d1/df2/snake_8c.html" title="A terminal Snake for HanOS." alt="" coords="1788,79,1977,104"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="2797,28,2437,49,1991,81,1978,82,1977,77,1990,76,2437,44,2797,23"/>
+<area shape="rect" id="Node000013" href="$d5/db7/tetris_8c.html" title="A terminal Tetris for HanOS." alt="" coords="2002,79,2187,104"/>
+<area shape="poly" id="edge12_Node000001_Node000013" title=" " alt="" coords="2797,31,2200,81,2188,83,2187,77,2200,76,2797,25"/>
+<area shape="rect" id="Node000014" href="$db/df1/help_8h.html" title="Definition of help command related data structures." alt="" coords="2211,79,2343,104"/>
+<area shape="poly" id="edge13_Node000001_Node000014" title=" " alt="" coords="2797,33,2356,81,2344,83,2343,78,2356,76,2797,28"/>
+<area shape="rect" id="Node000016" href="$d5/d16/runtime_2block_8c.html" title="Block&#45;server client shared by the filesystem servers." alt="" coords="2367,79,2561,104"/>
+<area shape="poly" id="edge15_Node000001_Node000016" title=" " alt="" coords="2828,35,2537,81,2536,76,2827,30"/>
+<area shape="rect" id="Node000017" href="$df/d13/sysfunc_8c.html" title="Implementation of system call functions." alt="" coords="2585,79,2793,104"/>
+<area shape="poly" id="edge16_Node000001_Node000017" title=" " alt="" coords="2865,37,2726,81,2725,76,2864,32"/>
+<area shape="rect" id="Node000018" href="$d3/d59/servers_2block_8c.html" title="Userspace AHCI (SATA) block server." alt="" coords="2818,79,3009,104"/>
+<area shape="poly" id="edge17_Node000001_Node000018" title=" " alt="" coords="2916,44,2916,79,2911,79,2911,44"/>
+<area shape="rect" id="Node000019" href="$d0/d56/console_8c.html" title="Userspace framebuffer console server." alt="" coords="3033,79,3239,104"/>
+<area shape="poly" id="edge18_Node000001_Node000019" title=" " alt="" coords="2963,32,3101,76,3099,81,2961,37"/>
+<area shape="rect" id="Node000020" href="$da/d6e/ext2_8c.html" title="Userspace ext2 server." alt="" coords="3263,79,3447,104"/>
+<area shape="poly" id="edge19_Node000001_Node000020" title=" " alt="" coords="2998,30,3284,76,3283,81,2997,35"/>
+<area shape="rect" id="Node000021" href="$d0/d3b/fat32_8c.html" title="Userspace FAT32 server." alt="" coords="3471,79,3660,104"/>
+<area shape="poly" id="edge20_Node000001_Node000021" title=" " alt="" coords="3030,29,3471,77,3470,82,3029,35"/>
+<area shape="rect" id="Node000022" href="$d1/d06/input_8c.html" title="Userspace PS/2 keyboard, mouse and serial input server." alt="" coords="3685,79,3873,104"/>
+<area shape="poly" id="edge21_Node000001_Node000022" title=" " alt="" coords="3030,25,3322,47,3672,76,3685,77,3684,83,3672,81,3322,52,3030,30"/>
+<area shape="rect" id="Node000023" href="$d3/d8f/mem_8c.html" title="Userspace MM server." alt="" coords="3897,79,4087,104"/>
+<area shape="poly" id="edge22_Node000001_Node000023" title=" " alt="" coords="3030,22,3410,43,3886,76,3897,77,3897,82,3885,81,3410,48,3030,27"/>
+<area shape="rect" id="Node000024" href="$d0/ddb/misc_8c.html" title="Userspace misc server." alt="" coords="4111,79,4297,104"/>
+<area shape="poly" id="edge23_Node000001_Node000024" title=" " alt="" coords="3030,20,3497,39,3797,55,4099,76,4111,77,4110,82,4098,81,3796,61,3497,45,3030,26"/>
+<area shape="rect" id="Node000025" href="$d7/d5f/net_8c.html" title="Userspace network server." alt="" coords="4321,79,4497,104"/>
+<area shape="poly" id="edge24_Node000001_Node000025" title=" " alt="" coords="3030,19,3582,36,3944,52,4310,76,4321,77,4321,82,4309,81,3943,58,3582,41,3030,24"/>
+<area shape="rect" id="Node000026" href="$d1/d47/pipe_8c.html" title="Userspace pipe server." alt="" coords="4522,79,4705,104"/>
+<area shape="poly" id="edge25_Node000001_Node000026" title=" " alt="" coords="3030,18,3661,33,4082,50,4510,76,4522,77,4521,82,4509,81,4082,56,3661,39,3029,23"/>
+<area shape="rect" id="Node000027" href="$d4/d73/userspace_2servers_2process_8c.html" title="Userspace process server." alt="" coords="4729,79,4935,104"/>
+<area shape="poly" id="edge26_Node000001_Node000027" title=" " alt="" coords="3030,18,3743,33,4226,50,4717,76,4729,77,4729,82,4717,81,4226,55,3743,38,3030,23"/>
+<area shape="rect" id="Node000028" href="$dc/d03/tty_8c.html" title="Userspace tty server." alt="" coords="4959,79,5129,104"/>
+<area shape="poly" id="edge27_Node000001_Node000028" title=" " alt="" coords="3030,17,3358,19,3832,27,4384,44,4668,58,4947,76,4959,77,4958,82,4946,81,4668,64,4384,50,3832,32,3358,24,3030,22"/>
+<area shape="rect" id="Node000029" href="$d1/d3b/userspace_2servers_2vfs_8c.html" title="Userspace VFS/name server over the boot initrd." alt="" coords="5154,79,5329,104"/>
+<area shape="poly" id="edge28_Node000001_Node000029" title=" " alt="" coords="3030,16,3386,17,3907,25,4518,43,4833,57,5142,76,5154,77,5153,82,5141,81,4832,63,4517,48,3907,30,3386,23,3030,22"/>
+<area shape="rect" id="Node000030" href="$da/d25/cloexectest_8c.html" title="Check that O_CLOEXEC descriptors are marked and closed on exec." alt="" coords="5353,79,5559,104"/>
+<area shape="poly" id="edge29_Node000001_Node000030" title=" " alt="" coords="3030,16,3414,18,3984,26,4655,44,5002,58,5341,76,5352,77,5352,82,5341,81,5001,63,4655,49,3984,31,3414,23,3030,22"/>
+<area shape="rect" id="Node000031" href="$d0/d57/crtest_8c.html" title="Create, write and re&#45;read a file through the VFS server." alt="" coords="5583,79,5753,104"/>
+<area shape="poly" id="edge30_Node000001_Node000031" title=" " alt="" coords="3030,18,4278,35,5024,53,5336,64,5572,76,5583,77,5583,82,5572,81,5336,69,5024,58,4278,41,3030,23"/>
+<area shape="rect" id="Node000032" href="$dc/dc1/fdtest_8c.html" title="Check that a server&#45;backed fd is shared correctly across fork." alt="" coords="5777,79,5948,104"/>
+<area shape="poly" id="edge31_Node000001_Node000032" title=" " alt="" coords="3030,18,4367,34,5173,52,5510,63,5766,76,5777,77,5777,82,5765,81,5510,68,5173,57,4367,40,3030,23"/>
+<area shape="rect" id="Node000033" href="$db/d54/nettest_8c.html" title="Loop a datagram through the userspace network server." alt="" coords="5972,79,6151,104"/>
+<area shape="poly" id="edge32_Node000001_Node000033" title=" " alt="" coords="3030,18,4457,34,5323,51,5686,63,5960,76,5972,77,5972,82,5960,81,5686,68,5323,57,4457,39,3030,23"/>
+<area shape="rect" id="Node000015" href="$db/d9f/help_8c.html" title="Implementation of the &#39;help&#39; command." alt="" coords="2200,152,2355,177"/>
+<area shape="poly" id="edge14_Node000014_Node000015" title=" " alt="" coords="2280,118,2280,152,2275,152,2275,118"/>
+</map>

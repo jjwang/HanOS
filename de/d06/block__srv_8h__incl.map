@@ -1,0 +1,33 @@
+<map id="kernel/srv/block_srv.h" name="kernel/srv/block_srv.h">
+<area shape="rect" id="Node000001" title="Spawn and (for now) probe the userspace block server." alt="" coords="357,5,519,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="433,299,515,324"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="442,30,474,284,468,285,437,31"/>
+<area shape="rect" id="Node000003" href="$d9/d24/ipc_8h.html" title="Synchronous inter&#45;process communication primitives." alt="" coords="473,79,549,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="452,29,491,67,488,71,448,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="508,105,489,153,478,224,476,285,471,285,473,224,483,151,503,103"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="360,372,431,397"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="550,101,610,122,673,154,698,175,715,198,721,224,714,252,690,285,660,313,626,335,588,352,511,374,445,383,444,378,510,368,586,347,623,330,657,309,686,282,709,250,716,224,710,200,694,178,670,159,608,127,549,106"/>
+<area shape="rect" id="Node000005" href="$df/d63/spinlock_8h.html" title="Definition of the interrupt&#45;safe spinlock." alt="" coords="591,225,699,251"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="540,102,575,122,609,150,629,181,641,211,636,213,624,183,605,154,572,126,538,106"/>
+<area shape="rect" id="Node000006" href="$de/df7/time_8h.html" title="Definition of time related data structures and functions." alt="" coords="265,152,349,177"/>
+<area shape="poly" id="edge8_Node000003_Node000006" title=" " alt="" coords="479,107,354,150,352,145,478,102"/>
+<area shape="rect" id="Node000011" href="$de/d10/object_8h.html" title="Kernel object and per&#45;process handle model." alt="" coords="497,152,595,177"/>
+<area shape="poly" id="edge17_Node000003_Node000011" title=" " alt="" coords="519,103,537,138,532,141,515,106"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="618,253,515,296,513,291,616,248"/>
+<area shape="poly" id="edge7_Node000005_Node000004" title=" " alt="" coords="640,253,613,288,594,309,573,326,542,344,508,358,445,377,444,372,506,353,539,339,570,322,591,305,609,285,635,249"/>
+<area shape="poly" id="edge9_Node000006_Node000004" title=" " alt="" coords="316,176,342,228,372,298,391,358,386,359,368,300,337,230,311,179"/>
+<area shape="rect" id="Node000007" href="$da/d06/hpet_8h.html" title="Definition of HPET (High Precision Event Timer) related data structures." alt="" coords="129,225,251,251"/>
+<area shape="poly" id="edge10_Node000006_Node000007" title=" " alt="" coords="290,180,222,220,220,216,287,175"/>
+<area shape="rect" id="Node000010" href="$db/daa/cmos_8h.html" title="Definition of CMOS related data structures." alt="" coords="228,299,357,324"/>
+<area shape="poly" id="edge15_Node000006_Node000010" title=" " alt="" coords="309,178,298,285,293,285,303,178"/>
+<area shape="poly" id="edge11_Node000007_Node000004" title=" " alt="" coords="193,250,199,286,207,305,219,322,247,344,280,360,315,370,347,377,346,382,313,376,278,365,244,349,215,326,202,308,194,287,188,251"/>
+<area shape="rect" id="Node000008" href="$d3/d61/acpi_8h.html" title="Definition of ACPI (Advanced Configuration and Power Management Interface) related data structures." alt="" coords="31,299,152,324"/>
+<area shape="poly" id="edge12_Node000007_Node000008" title=" " alt="" coords="176,253,120,293,117,288,173,249"/>
+<area shape="poly" id="edge13_Node000008_Node000004" title=" " alt="" coords="141,321,347,369,346,375,140,327"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="5,372,177,397"/>
+<area shape="poly" id="edge14_Node000008_Node000009" title=" " alt="" coords="94,324,94,358,89,358,89,324"/>
+<area shape="poly" id="edge16_Node000010_Node000004" title=" " alt="" coords="311,322,369,362,366,366,308,326"/>
+<area shape="poly" id="edge18_Node000011_Node000002" title=" " alt="" coords="542,179,488,287,483,285,538,177"/>
+<area shape="poly" id="edge19_Node000011_Node000004" title=" " alt="" coords="551,177,554,206,555,245,548,287,540,307,529,326,512,344,491,358,445,376,443,371,488,354,508,340,525,322,536,305,543,285,549,244,549,206,546,178"/>
+<area shape="poly" id="edge20_Node000011_Node000005" title=" " alt="" coords="563,175,619,215,616,219,560,180"/>
+</map>
