@@ -40,6 +40,7 @@ typedef struct {
 } psf1_t;
 
 extern psf1_t term_font_norm;
+extern psf1_t term_font_bold;
 
 #define FONT_W      8
 #define FONT_H      15
@@ -161,9 +162,9 @@ static void putpixel(uint32_t x, uint32_t y, uint32_t c)
 
 /* Draw one glyph at an absolute pixel position. */
 static void draw_glyph_px(uint32_t x, uint32_t y, uint8_t ch, uint32_t fgc,
-                          uint32_t bgc)
+                          uint32_t bgc, bool bold)
 {
-    psf1_t *f = &term_font_norm;
+    psf1_t *f = bold ? &term_font_bold : &term_font_norm;
     uint32_t off = (uint32_t) ch * f->charsize;
     static const uint8_t masks[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
@@ -179,11 +180,12 @@ static void draw_glyph_px(uint32_t x, uint32_t y, uint8_t ch, uint32_t fgc,
 
 /* Draw one glyph cell, relative to the terminal grid origin. */
 static void draw_glyph(uint32_t col, uint32_t row, uint8_t ch, uint32_t fgc,
-                       uint32_t bgc)
+                       uint32_t bgc, bool bold)
 {
     if (col >= cols || row >= rows)
         return;
-    draw_glyph_px(term_x + col * FONT_W, term_y + row * FONT_H, ch, fgc, bgc);
+    draw_glyph_px(term_x + col * FONT_W, term_y + row * FONT_H, ch, fgc, bgc,
+                  bold);
 }
 
 static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
@@ -295,10 +297,10 @@ static void rain_draw_col(uint32_t c)
             uint8_t ch = (uint8_t) set[rain_hash(col->seed, r) % ns];
 
             draw_glyph_px(c * FONT_W, r * FONT_H, ch,
-                          rain_color(d, col->len), COLOR_BLACK);
+                          rain_color(d, col->len), COLOR_BLACK, false);
         } else {
             draw_glyph_px(c * FONT_W, r * FONT_H, ' ',
-                          COLOR_BLACK, COLOR_BLACK);
+                          COLOR_BLACK, COLOR_BLACK, false);
         }
     }
     drawing_rain = false;
@@ -331,10 +333,10 @@ static void rain_draw_span(uint32_t c, int32_t old_head, int32_t new_head)
                                        % (sizeof(set) - 1)];
 
             draw_glyph_px(c * FONT_W, (uint32_t) r * FONT_H, ch,
-                          rain_color(d, col->len), COLOR_BLACK);
+                          rain_color(d, col->len), COLOR_BLACK, false);
         } else {
             draw_glyph_px(c * FONT_W, (uint32_t) r * FONT_H, ' ',
-                          COLOR_BLACK, COLOR_BLACK);
+                          COLOR_BLACK, COLOR_BLACK, false);
         }
     }
     drawing_rain = false;
@@ -402,8 +404,8 @@ static const uint32_t ansi_light[16] = {
     0x333333,                   /* white   */
     0x555555,                   /* bright black   */
     0xCC0000,                   /* bright red     */
-    0x008800,                   /* bright green   */
-    0x806000,                   /* bright yellow  */
+    0x00AA00,                   /* bright green   */
+    0xAA8800,                   /* bright yellow  */
     0x0000EE,                   /* bright blue    */
     0xCC00CC,                   /* bright magenta */
     0x008888,                   /* bright cyan    */
@@ -478,7 +480,15 @@ static void render_cell(uint32_t row, uint32_t col)
         f |= 0xFF000000u;
         b |= 0xFF000000u;
     }
-    draw_glyph(col, row, ch, f, b);
+    draw_glyph(col, row, ch, f, b, cell.attrs.bold);
+
+    if (cell.attrs.underline) {
+        uint32_t y = term_y + row * FONT_H + FONT_H - 1;
+
+        for (uint32_t k = 0; k < FONT_W; k++)
+            putpixel(term_x + col * FONT_W + k, y, f);
+        mark_row(y);
+    }
 }
 
 static void render_dirty(void)
@@ -622,7 +632,7 @@ static void draw_status(void)
         mark_row(y);
     }
     for (uint32_t i = 0; buf[i] != '\0'; i++)
-        draw_glyph_px(8 + i * 8, 2, (uint8_t) buf[i], fg, bg);
+        draw_glyph_px(8 + i * 8, 2, (uint8_t) buf[i], fg, bg, false);
 }
 
 static void status_tick(void)
