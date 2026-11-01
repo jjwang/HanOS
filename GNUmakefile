@@ -26,7 +26,7 @@ ISO_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd kernel run run-hdd run-hdd-ports run-uefi run-hdd-uefi
+.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports run-uefi run-hdd-uefi
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -63,6 +63,10 @@ $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
 # Option for debug information: -d in_asm,out_asm,int,op
 run: $(ISO_IMAGE)
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
+
+run-ports:
+	$(MAKE) $(ISO_IMAGE) WITH_PORTS=1
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 2 -no-reboot -rtc base=localtime -cdrom $(ISO_IMAGE)
 
 run-uefi: ovmf $(ISO_IMAGE)
