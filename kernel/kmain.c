@@ -250,21 +250,7 @@ _Noreturn void kshell(pid_t pid)
      * init never prints before the disk lines. */
     block_server_probe_start();
     block_server_probe_wait();
-#if ENABLE_BASH
-    const char *argv[] = { "/usr/bin/bash", "--login", NULL };
-    const char *envp[] = {
-        "HOME=/root",
-        "TIME_STYLE=posix-long-iso",
-        "PATH=/usr/bin:/bin",
-        "SHELL=/usr/bin/bash",
-        "TERM=xterm-color",
-        NULL
-    };
-
-    sched_execve(DEFAULT_SHELL_APP, argv, envp, "/root");
-#else
-    sched_execve(DEFAULT_SHELL_APP, NULL, NULL, "/root");
-#endif
+    sched_execve("/bin/init", NULL, NULL, "/root");
 
     /* This should be idle process which frees resources of all dead processes */
     process_t *t = sched_get_current_process();

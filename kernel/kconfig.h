@@ -20,7 +20,6 @@
 
 #define ENABLE_KLOG_DEBUG       false   /* default: false */
 #define ENABLE_MEM_DEBUG        false   /* default: false */
-#define ENABLE_BASH             false   /* default: false */
 
 /* Microkernel self-test: IPC endpoints and handles at boot. */
 #define ENABLE_MICROKERNEL_SELFTEST true
@@ -30,12 +29,6 @@
 
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
-
-#if !ENABLE_BASH
-#define DEFAULT_SHELL_APP       "/bin/init"
-#else
-#define DEFAULT_SHELL_APP       "/usr/bin/bash"
-#endif
 
 #define DEFAULT_INPUT_SVR       "/bin/input"
 #define DEFAULT_CONSOLE_SVR     "/bin/console"
