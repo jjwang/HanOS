@@ -27,93 +27,95 @@
  * @brief Graphics PCI device resources
  */
 typedef struct {
-    uint32_t id;
-    uint16_t device_id;
-    bool gen9;                  /* Skylake display path */
-    bool pte64;                 /* 64-bit GTT entries (Gen8+) */
+    uint32_t id;                /**< PCI id: bus, device and function. */
+    uint16_t device_id;         /**< PCI device id. */
+    bool gen9;                  /**< Skylake display path. */
+    bool pte64;                 /**< 64-bit GTT entries (Gen8+). */
 
-    uint32_t gtt_offset;
-    uint32_t gtt_size;
+    uint32_t gtt_offset;        /**< GTT offset inside the MMIO BAR. */
+    uint32_t gtt_size;          /**< GTT window size. */
 
-    volatile void *aperture_bar;
-    volatile void *mmio_bar;
-    volatile uint64_t *gtt_addr;
-    uint16_t iobase;
+    volatile void *aperture_bar;        /**< GMADR aperture base. */
+    volatile void *mmio_bar;    /**< GTTMMADR MMIO base. */
+    volatile uint64_t *gtt_addr;        /**< GTT entry array. */
+    uint16_t iobase;            /**< I/O BAR base. */
 
-    uint32_t aperture_size;
+    uint32_t aperture_size;     /**< Aperture size in bytes. */
 } gfx_pci_t;
 
 /**
  * @brief Graphics translation table (GTT) state
  */
 typedef struct {
-    uint32_t stolen_mem_size;
-    uint32_t gtt_mem_size;
-    uint32_t stolen_mem_base;
+    uint32_t stolen_mem_size;   /**< Stolen memory size. */
+    uint32_t gtt_mem_size;      /**< GTT window size. */
+    uint32_t stolen_mem_base;   /**< Stolen memory base. */
 
-    uint32_t num_total_entries; /* How many entries in the GTT */
-    uint32_t num_mappable_entries;      /* How many can be mapped at once */
-    bool pte64;                 /* 64-bit GTT entries (Gen8+) */
+    uint32_t num_total_entries; /**< GTT entry count. */
+    uint32_t num_mappable_entries;      /**< Mappable entry count. */
+    bool pte64;                 /**< 64-bit GTT entries (Gen8+). */
 
-    volatile uint64_t *entries;
+    volatile uint64_t *entries; /**< GTT entry array. */
 } gfx_gtt_t;
 
 /**
  * @brief A GPU object mapped through the GTT
  */
 typedef struct {
-    volatile uint8_t *cpu_addr;
-    volatile uint64_t gfx_addr;
-    uint64_t phys;              /* physical base of the contiguous allocation */
-    uint64_t size;              /* allocation size in bytes */
-    uint32_t pages;             /* page count for pmm_free */
+    volatile uint8_t *cpu_addr; /**< CPU direct-map address. */
+    volatile uint64_t gfx_addr; /**< GPU address. */
+    uint64_t phys;              /**< Physical base of the contiguous allocation. */
+    uint64_t size;              /**< Allocation size in bytes. */
+    uint32_t pages;             /**< Page count for pmm_free. */
 } gfx_object_t;
 
 /**
  * @brief A range of GPU-addressable memory
  */
 typedef struct {
-    uint64_t base;
-    uint64_t top;
-    uint64_t current;
+    uint64_t base;              /**< Range base. */
+    uint64_t top;               /**< Range top. */
+    uint64_t current;           /**< Next free address. */
 } gfx_mem_range_t;
 
 /**
  * @brief Graphics memory allocator state
  */
 typedef struct {
-    gfx_mem_range_t vram;       /* Stolen Memory */
-    gfx_mem_range_t shared;     /* Addresses mapped through aperture. */
-    gfx_mem_range_t priv;       /* Only accessable by GPU, but allocated by CPU. */
+    gfx_mem_range_t vram;       /**< Stolen memory. */
+    gfx_mem_range_t shared;     /**< Aperture-mapped addresses. */
+    gfx_mem_range_t priv;       /**< GPU-only, CPU-allocated addresses. */
 
-    volatile uint8_t *gfx_mem_base;
-    volatile uint8_t *gfx_mem_next;
+    volatile uint8_t *gfx_mem_base;     /**< Memory base. */
+    volatile uint8_t *gfx_mem_next;     /**< Next free byte. */
 } gfx_mem_manager_t;
 
 /**
  * @brief GPU performance and frequency status
  */
 typedef struct {
-    uint32_t current_freq_mhz;
-    uint32_t requested_freq_mhz;
-    uint32_t perf_limit_reasons;
-    uint8_t rp0_freq_units;     /* GT_PERF_STATUS bits 7:0 - RP0 cap in 50MHz units */
+    uint32_t current_freq_mhz;  /**< Current GPU frequency. */
+    uint32_t requested_freq_mhz;        /**< Requested GPU frequency. */
+    uint32_t perf_limit_reasons;        /**< Performance limit reasons. */
+    uint8_t rp0_freq_units;     /**< RP0 cap in 50 MHz units. */
 } gfx_perf_status_t;
 
 /**
  * @brief A framebuffer presented on a display plane
  */
 typedef struct {
-    gfx_object_t obj;       /* GTT-mapped framebuffer */
-    uint32_t width;
-    uint32_t height;
-    uint32_t stride;        /* bytes per row */
-    uint32_t format;        /* DISPPLANE_BGRX888 etc. */
-    uint64_t *pages;        /* non-contiguous GTT page list, or NULL */
-    uint32_t page_count;
+    gfx_object_t obj;           /**< GTT-mapped framebuffer. */
+    uint32_t width;             /**< Width in pixels. */
+    uint32_t height;            /**< Height in pixels. */
+    uint32_t stride;            /**< Bytes per row. */
+    uint32_t format;            /**< DISPPLANE_BGRX888 and similar. */
+    uint64_t *pages;            /**< Scatter GTT page list, or NULL. */
+    uint32_t page_count;        /**< Scatter page count. */
 } gfx_fb_t;
 
+/** @brief Graphics fence register base. */
 #define FENCE_BASE                      0x100000
+/** @brief Number of graphics fence registers. */
 #define FENCE_COUNT                     16
 
 bool pci_get_gfx_device(pci_device_t * gfx_dev);
@@ -185,25 +187,70 @@ bool gfx_disable_cursor(gfx_pci_t * pci, uint8_t pipe);
 #define gfx_outl(pci, reg, val)     mmio_outl((uint8_t*)(pci)->mmio_bar + (reg), val)
 
 /* Double buffering and vblank */
+/** @brief Allocate a contiguous GTT framebuffer.
+ * @param width Width in pixels.
+ * @param height Height in pixels.
+ * @param out_fb Output framebuffer.
+ * @return true on success. */
 bool gfx_fb_alloc(uint32_t width, uint32_t height, gfx_fb_t * out_fb);
+/** @brief Free a GTT framebuffer.
+ * @param fb Framebuffer to free. */
 void gfx_fb_free(gfx_fb_t * fb);
+/** @brief Point plane 1 at a framebuffer.
+ * @param fb New scan-out surface. */
 void gfx_flip_to(const gfx_fb_t * fb);
+/** @brief Wait for one frame boundary.
+ * @return true on a frame, false on timeout. */
 bool gfx_wait_vblank_frame(void);
+/** @brief Route and enable the vblank interrupt.
+ * @return true when the line is armed. */
 bool gfx_vblank_irq_start(void);
+/** @brief Run the double-buffer flip self-test.
+ * @return true when every frame is presented. */
 bool gfx_flip_test(void);
+/** @brief Run the three-layer composition demo.
+ * @param mode 0 full, 1 primary rain, 2 solid bands.
+ * @return true when the demo completes. */
 bool gfx_layers_demo(int mode);
+/** @brief Bring up the persistent scrolled-rain desktop.
+ * @return true when the desktop owns the display. */
 bool gfx_desktop_start(void);
+/** @brief Report whether the desktop owns the display.
+ * @return true when active. */
 bool gfx_desktop_active(void);
+/** @brief Return the console sprite surface.
+ * @return The sprite, or NULL when the desktop is inactive. */
 gfx_fb_t *gfx_desktop_console_fb(void);
+/** @brief Return the vblank interrupt count.
+ * @return Frames counted by the handler. */
 uint64_t gfx_vblank_count(void);
+/** @brief Report whether the vblank interrupt is armed.
+ * @return true when armed. */
 bool gfx_vblank_irq_active(void);
+/** @brief Return the routed GPU interrupt line.
+ * @return PCI interrupt line, or 0. */
 uint8_t gfx_vblank_irq_line(void);
+/** @brief Read the display pipe interrupt identity.
+ * @return IIR value. */
 uint32_t gfx_display_iir(void);
+/** @brief Read the display pipe interrupt enable.
+ * @return IER value. */
 uint32_t gfx_display_ier(void);
+/** @brief Read the display pipe interrupt mask.
+ * @return IMR value. */
 uint32_t gfx_display_imr(void);
+/** @brief Read the master display interrupt register.
+ * @return GEN8_MASTER_IRQ value. */
 uint32_t gfx_master_irq(void);
+/** @brief Read the pipe A frame counter.
+ * @return Frame counter value. */
 uint32_t gfx_pipe_frame(void);
+/** @brief Read the frame counter after a delay.
+ * @param ms Delay in milliseconds.
+ * @return Frame counter value. */
 uint32_t gfx_pipe_frame_after(uint32_t ms);
+/** @brief Read the I/O APIC route for the vblank line.
+ * @return Low and high redirection entry, or 0. */
 uint64_t gfx_vblank_route(void);
 
 /* eDP panel and mode setting */
