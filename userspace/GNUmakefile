@@ -55,8 +55,12 @@ LC_FLAGS :=                 \
 LD_FLAGS :=                 \
 	-no-pie                 \
 	-nostdlib               \
+	-Wl,--build-id=none     \
+	-Wl,-z,max-page-size=0x2000 \
 	-T$(MUSL_HANOS)/linker.ld \
 	-O2 -mcmodel=large
+
+STRIP := x86_64-elf-strip
 
 LIB_FILES :=
 
@@ -180,17 +184,20 @@ $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
 		$(MUSL_CRT1) $(MUSL_CRTI) $< $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+	$(STRIP) --strip-unneeded $@
 
 # The console server renders through libvterm, so it links those objects too.
 servers/console: servers/console.o $(VTERM_OBJS) $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
 		$(MUSL_CRT1) $(MUSL_CRTI) $< $(VTERM_OBJS) $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+	$(STRIP) --strip-unneeded $@
 
 $(DISK_APPS): %: %.o games/common.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
 		$(MUSL_CRT1) $(MUSL_CRTI) $< games/common.o $(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+	$(STRIP) --strip-unneeded $@
 
 clean:
 	rm -f $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) $(VTERM_OBJS) sh.sym
