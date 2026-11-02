@@ -749,10 +749,29 @@ static int at_resolve(int64_t dirfd, const char *path, char *out,
         return 0;
     }
 
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL && t->at_dirfd == (int32_t) dirfd && t->at_path[0] != '\0') {
+        uint64_t dl = strlen(t->at_path);
+
+        if (dl + 1 + strlen(path) + 1 > outsz)
+            return -1;
+        memcpy(out, t->at_path, dl);
+        if (dl > 0 && out[dl - 1] != '/')
+            out[dl++] = '/';
+        strcpy(out + dl, path);
+        return 0;
+    }
+
     n = vfs_fd_path((int32_t) dirfd, dir, sizeof(dir));
     if (n <= 0)
         return -1;
     dir[n - 1] = '\0';
+
+    if (t != NULL && n < (int64_t) sizeof(t->at_path)) {
+        t->at_dirfd = (int32_t) dirfd;
+        memcpy(t->at_path, dir, (uint64_t) n);
+    }
 
     uint64_t dl = strlen(dir);
     bool slash = (dl > 0 && dir[dl - 1] != '/');
@@ -1044,6 +1063,9 @@ int64_t k_close(int64_t fd)
 {
     process_t *t = sched_get_current_process();
     cpu_set_errno(0);
+
+    if (t != NULL && fd == t->at_dirfd)
+        t->at_dirfd = -1;
 
     klogd("k_close: close fd %ld\n", fd);
 
@@ -2875,6 +2897,11 @@ static int32_t exec_via_server(process_t * t, const char *kpath,
 
 int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 {
+    process_t *tcache = sched_get_current_process();
+
+    if (tcache != NULL)
+        tcache->at_dirfd = -1;
+
     char *cwd = NULL;
     process_t *t = sched_get_current_process();
     if (t != NULL)
@@ -3127,6 +3154,9 @@ int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
         cpu_set_errno(EBADF);
         return -1;
     }
+
+    if (t != NULL && r >= 0 && r == t->at_dirfd)
+        t->at_dirfd = -1;
 
     if ((flags & O_CLOEXEC) && r >= 0)
         process_fd_fcntl((int32_t) r, F_SETFD, FD_CLOEXEC);

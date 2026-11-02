@@ -264,6 +264,8 @@ typedef struct process {
     uint64_t fs_base;
 
     char *cwd;
+    int32_t at_dirfd;           /* cached dirfd for at_resolve */
+    char at_path[512];          /* cached absolute directory path */
     char name[64];
 
     signal_state_t signals;
