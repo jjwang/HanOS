@@ -28,7 +28,8 @@
 #include <time.h>
 
 #define SEC                 512
-#define EXT2_BLK_ADDR       0x20000000  /* block I/O memory-object mapping */
+#define EXT2_BLK_ADDR       0x20000000  /* request memory-object mapping */
+#define EXT2_BLKBUF_ADDR    0x30000000  /* block bounce memory-object mapping */
 #define EXT2_REQ_ADDR       0x21000000  /* request/result buffer mapping */
 #define EXT2_DATA_OFF       EXT2_IO_DATA_OFF
 #define EXT2_DATA_MAX       (EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF)
@@ -93,7 +94,7 @@ static uint32_t rd32(const uint8_t * p)
 static int32_t blk_read(uint32_t lba, uint8_t count, uint8_t *dst)
 {
     return blk_client_read((int64_t) bi.block_ep, lba, count, dst,
-                           EXT2_BLK_ADDR);
+                           EXT2_BLKBUF_ADDR);
 }
 
 /* Ask the block server for a partition's LBA range. */
@@ -347,7 +348,7 @@ static uint64_t file_read(const uint8_t * inode, uint64_t off, uint64_t len,
 static int32_t blk_write(uint32_t lba, uint8_t count, const uint8_t *src)
 {
     return blk_client_write((int64_t) bi.block_ep, lba, count, src,
-                            EXT2_BLK_ADDR);
+                            EXT2_BLKBUF_ADDR);
 }
 
 static int32_t write_block(uint32_t block, const uint8_t *src)

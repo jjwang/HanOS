@@ -64,6 +64,7 @@
 #define VFS_IO_DATA_OFF     4096
 
 #define VFS_FD_PATH         0x40        /* words[0]=fd; out: path in xfer[1] */
+#define VFS_RMDIR           0x41        /* in: cwd+path */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 

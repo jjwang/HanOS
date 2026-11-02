@@ -84,6 +84,9 @@
 #define H_UNAME      63
 #define H_SIGNALFD4  289
 #define H_CHDIR      80
+#define H_RMDIR      84
+#define H_UNLINK     87
+#define H_FTRUNCATE  77
 #define H_FCHDIR     81
 #define H_GETRUSAGE  98
 #define H_GETPPID    110
@@ -187,6 +190,9 @@
 #define L_getitimer   36
 #define L_setitimer   38
 #define L_chdir       80
+#define L_rmdir       84
+#define L_ftruncate   77
+#define L_unlink      87
 #define L_fchdir      81
 #define L_fchmod      91
 #define L_fchmodat    268
@@ -590,6 +596,12 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         }
     case L_chdir:
         return __hanos_raw(H_CHDIR, a1, 0, 0, 0, 0, 0);
+    case L_rmdir:
+        return __hanos_raw(H_RMDIR, a1, 0, 0, 0, 0, 0);
+    case L_unlink:
+        return __hanos_raw(H_UNLINK, a1, 0, 0, 0, 0, 0);
+    case L_ftruncate:
+        return __hanos_raw(H_FTRUNCATE, a1, a2, 0, 0, 0, 0);
     case L_fchdir:
         return __hanos_raw(H_FCHDIR, a1, 0, 0, 0, 0, 0);
     case L_chmod:

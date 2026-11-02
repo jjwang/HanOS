@@ -18,14 +18,15 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <bootinfo.h>
 #include <protocol.h>
 #include <string.h>
 #include <sysfunc.h>
 
-#define PROC_PID_MAX    128
-#define PROC_FD_MAX     64
+#define PROC_PID_MAX    4096
+#define PROC_FD_MAX     256
 #define PROC_FD_BASE    3       /* fds 0..2 are stdin/stdout/stderr */
 
 /* Service ids sent by the kernel; must match kernel/router/router.h. */
@@ -48,7 +49,7 @@ typedef struct {
     bool cloexec;
 } proc_fd_t;
 
-static proc_fd_t table[PROC_PID_MAX][PROC_FD_MAX];
+static proc_fd_t *table[PROC_PID_MAX];
 
 /**
  * @brief Parent/child bookkeeping for wait and exit
@@ -130,14 +131,28 @@ static void fd_ref_one(proc_fd_t * e)
     sys_ipc_send((int64_t) ep, &fm);
 }
 
-static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
+static proc_fd_t *fd_table(int32_t pid, bool alloc)
 {
     if (pid < 0 || pid >= PROC_PID_MAX)
+        return NULL;
+    if (table[pid] == NULL && alloc) {
+        table[pid] = calloc(PROC_FD_MAX, sizeof(proc_fd_t));
+        if (table[pid] == NULL)
+            return NULL;
+    }
+    return table[pid];
+}
+
+static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
+{
+    proc_fd_t *t = fd_table(pid, true);
+
+    if (t == NULL)
         return -1;
 
     for (int32_t fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
-        if (!table[pid][fd].used) {
-            *out = &table[pid][fd];
+        if (!t[fd].used) {
+            *out = &t[fd];
             return fd;
         }
     }
@@ -147,10 +162,12 @@ static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
 
 static proc_fd_t *fd_get(int32_t pid, int32_t fd)
 {
-    if (pid < 0 || pid >= PROC_PID_MAX || fd < 0 || fd >= PROC_FD_MAX)
+    proc_fd_t *t = fd_table(pid, false);
+
+    if (t == NULL || fd < 0 || fd >= PROC_FD_MAX)
         return NULL;
 
-    return table[pid][fd].used ? &table[pid][fd] : NULL;
+    return t[fd].used ? &t[fd] : NULL;
 }
 
 static void reply_fd(proc_fd_t * e, sys_ipc_msg_t * rep)
@@ -211,13 +228,17 @@ static void clone_fds(int32_t parent, int32_t child)
         || child >= PROC_PID_MAX)
         return;
 
-    memcpy(table[child], table[parent], sizeof(table[child]));
+    proc_fd_t *src = fd_table(parent, false);
+    proc_fd_t *dst = fd_table(child, true);
+
+    if (src == NULL || dst == NULL)
+        return;
+    memcpy(dst, src, PROC_FD_MAX * sizeof(proc_fd_t));
 
     /* The child inherits a reference to each server-side open file
      * description, so tell the owning server to add one. */
     for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
-        proc_fd_t *e = &table[child][fd];
-        uint64_t ep;
+        proc_fd_t *e = &dst[fd];
 
         if (!e->used || e->kind != PROC_FD_SERVER)
             continue;
@@ -230,11 +251,13 @@ static void clone_fds(int32_t parent, int32_t child)
  * fd table has been cloned for an exec, so the child does not inherit them. */
 static void close_cloexec(int32_t pid)
 {
-    if (pid < 0 || pid >= PROC_PID_MAX)
+    proc_fd_t *t = fd_table(pid, false);
+
+    if (t == NULL)
         return;
 
     for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
-        proc_fd_t *e = &table[pid][fd];
+        proc_fd_t *e = &t[fd];
 
         if (!e->used || !e->cloexec)
             continue;
@@ -521,7 +544,13 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     return;
                 }
             } else if (newfd < PROC_FD_MAX) {
-                dst = &table[pid][newfd];
+                proc_fd_t *t = fd_table(pid, true);
+
+                if (t == NULL) {
+                    rep->words[0] = (uint64_t) (int64_t) -12;
+                    return;
+                }
+                dst = &t[newfd];
             } else {
                 rep->words[0] = (uint64_t) (int64_t) -9;
                 return;
@@ -656,15 +685,20 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
 
     case PROC_FD_EXIT:
-        if (pid >= 0 && pid < PROC_PID_MAX) {
-            for (int32_t i = 0; i < PROC_FD_MAX; i++) {
-                proc_fd_t *e = &table[pid][i];
+        {
+            proc_fd_t *t = fd_table(pid, false);
 
-                if (!e->used || e->kind != PROC_FD_SERVER)
-                    continue;
-                fd_close_one(e);
+            if (t != NULL) {
+                for (int32_t i = 0; i < PROC_FD_MAX; i++) {
+                    proc_fd_t *e = &t[i];
+
+                    if (!e->used || e->kind != PROC_FD_SERVER)
+                        continue;
+                    fd_close_one(e);
+                }
+                free(t);
+                table[pid] = NULL;
             }
-            memset(table[pid], 0, sizeof(table[pid]));
         }
         rep->words[0] = 0;
         return;

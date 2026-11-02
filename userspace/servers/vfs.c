@@ -34,7 +34,7 @@
 #define VFS_NAME_MAX        100
 #define VFS_MAX_FDS         16
 #define VFS_MAX_ENTS        16384
-#define VFS_MAX_DYN         16
+#define VFS_MAX_DYN         256
 #define VFS_DYN_CAP         (64 * 1024)
 #define VFS_DYN_MAX         (1024 * 1024)
 
@@ -1512,6 +1512,62 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         free(path);
         free(abs);
         free(rel);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+
+    if (m->tag == VFS_RMDIR) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        char *cwd = NULL, *path = NULL, *abs = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+        if (split_cwd_path(buf, VFS_IO_DATA_OFF, &cwd, &path)) {
+            abs = join_path(cwd, path);
+            if (abs == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            } else {
+                int32_t e = resolve(abs);
+                if (e < 0 || !idx_is_dir(e) || !idx_is_dyn(e)) {
+                    rep->words[0] = (uint64_t) (int64_t) -20;   /* -ENOTDIR */
+                } else {
+                    uint64_t alen = strlen(abs);
+                    bool nonempty = false;
+                    for (int32_t i = ent_count; i < ent_count + VFS_MAX_DYN; i++) {
+                        vfs_dyn_t *d = &dyns[i - ent_count];
+                        if (!d->used || d->name == NULL)
+                            continue;
+                        if (strncmp(d->name, abs, alen) == 0
+                            && d->name[alen] == '/') {
+                            nonempty = true;
+                            break;
+                        }
+                    }
+                    if (nonempty) {
+                        rep->words[0] = (uint64_t) (int64_t) -39;
+                    } else {
+                        vfs_dyn_t *d = &dyns[e - ent_count];
+                        d->used = false;
+                        free(d->name);
+                        d->name = NULL;
+                        store_save();
+                        rep->words[0] = 0;
+                    }
+                }
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+        free(cwd);
+        free(path);
+        free(abs);
         sys_mem_unmap(memh, VFS_BUF_VADDR);
         sys_handle_close(memh);
         return;

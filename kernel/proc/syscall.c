@@ -870,6 +870,30 @@ int64_t k_unlink(char *path)
     return 0;
 }
 
+
+int64_t k_rmdir(char *dir)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+    char *kpath = copy_user_path_alloc(dir);
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t r = vfs_rmdir_path(cwd, kpath);
+
+    kmfree(kpath);
+
+    if (r < 0) {
+        cpu_set_errno((r == -39) ? ENOTEMPTY : ENOENT);
+        return -1;
+    }
+    return 0;
+}
+
 int64_t k_mkdirat(int32_t dirfd, const char *path, int32_t mode)
 {
     process_t *t = sched_get_current_process();
@@ -4712,6 +4736,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
     [SYSCALL_FCHDIR] = (syscall_ptr_t) k_fchdir,
     [SYSCALL_UNLINK] = (syscall_ptr_t) k_unlink,
+    [SYSCALL_RMDIR] = (syscall_ptr_t) k_rmdir,
     [SYSCALL_MKDIRAT] = (syscall_ptr_t) k_mkdirat,
     [SYSCALL_SYMLINKAT] = (syscall_ptr_t) k_symlinkat,
     [SYSCALL_RENAMEAT] = (syscall_ptr_t) k_renameat,

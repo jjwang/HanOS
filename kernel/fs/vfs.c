@@ -811,6 +811,34 @@ static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
     return (int64_t) rep.words[1];
 }
 
+
+int64_t vfs_rmdir_path(const char *cwd, const char *path)
+{
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_RMDIR;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_unref(mo);
+    return (int64_t) rep.words[0];
+}
+
 /* Add a reference to a server fd's open file description (used by fork). */
 void vfs_server_ref_fd(int32_t svc, int64_t sfd)
 {
