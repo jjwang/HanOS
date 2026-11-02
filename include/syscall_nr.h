@@ -57,6 +57,7 @@
 #define SYSCALL_FTRUNCATE       77
 #define SYSCALL_GETCWD          79
 #define SYSCALL_CHDIR           80
+#define SYSCALL_FCHDIR          81
 #define SYSCALL_UNLINK          87
 #define SYSCALL_READLINK        89
 #define SYSCALL_GETRUSAGE       98

@@ -752,6 +752,48 @@ int64_t vfs_server_readdir(vfs_fd_t fd, void *out)
     return 0;
 }
 
+
+/* Return the normalized path of an open directory fd. */
+int64_t vfs_fd_path(int32_t fd, char *out, uint64_t outsz)
+{
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) != 0
+        || svc != SVC_FS)
+        return -1;
+
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_FD_PATH;
+    req.words[0] = (uint64_t) sfd;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    uint64_t n = rep.words[1];
+
+    if (n == 0 || n > outsz || n > VFS_IO_BUF_SIZE) {
+        memobj_unref(mo);
+        return -1;
+    }
+    memobj_copy_out(mo, out, n, 0);
+    memobj_unref(mo);
+    return (int64_t) n;
+}
+
 /* Move a server-backed file descriptor's read offset. */
 static int64_t vfs_server_seek(int64_t sfd, uint64_t pos, int64_t whence)
 {
@@ -1112,11 +1154,8 @@ int64_t vfs_close(vfs_fd_t fd)
     if (process_fd_close((int32_t) fd, &kind, &svc, &sfd) != 0)
         return -1;
 
-    /* The process server reports -1 when another fd still shares the open
-     * file description, so the owning server must keep it open. */
-    if (svc < 0)
+    if (svc == SVC_TTY)
         return 0;
-
     if (svc == SVC_FAT)
         return fat32_close_fd(sfd);
     if (svc == SVC_EXT)

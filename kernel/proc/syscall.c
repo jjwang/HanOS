@@ -736,6 +736,37 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     return (uint64_t) NULL;
 }
 
+static int at_resolve(int64_t dirfd, const char *path, char *out,
+                      uint64_t outsz)
+{
+    char dir[VFS_MAX_PATH_LEN];
+    int64_t n;
+
+    if (dirfd == -100 || path == NULL || path[0] == '/') {
+        if (path == NULL || (uint64_t) strlen(path) + 1 > outsz)
+            return -1;
+        strcpy(out, path);
+        return 0;
+    }
+
+    n = vfs_fd_path((int32_t) dirfd, dir, sizeof(dir));
+    if (n <= 0)
+        return -1;
+    dir[n - 1] = '\0';
+
+    uint64_t dl = strlen(dir);
+    bool slash = (dl > 0 && dir[dl - 1] != '/');
+
+    if (dl + (slash ? 1 : 0) + strlen(path) + 1 > outsz)
+        return -1;
+
+    memcpy(out, dir, dl);
+    if (slash)
+        out[dl++] = '/';
+    strcpy(out + dl, path);
+    return 0;
+}
+
 int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 {
     /* "mode" is always zero */
@@ -753,10 +784,22 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
     int32_t svc = SVC_FS;
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = kpath;
+
+    if (dirfd != -100 && kpath[0] != '/') {
+        if (at_resolve(dirfd, kpath, abspath, sizeof(abspath)) != 0) {
+            kmfree(kpath);
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        use = abspath;
+        cwd = "/";
+    }
 
     /* The VFS server owns the namespace and resolves cwd+path; it redirects
      * paths under the FAT mount to the FAT server. */
-    vfs_fd_t nfd = vfs_open_path(cwd, kpath, (int32_t) flags, &svc);
+    vfs_fd_t nfd = vfs_open_path(cwd, use, (int32_t) flags, &svc);
 
     kmfree(kpath);
 
@@ -774,10 +817,11 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
 
 int64_t k_chmod(char *path, int64_t flags)
 {
+    /* The kernel has no permission model; keep the call successful. */
     (void) path;
     (void) flags;
-    cpu_set_errno(ENOSYS);
-    return -1;
+    cpu_set_errno(0);
+    return 0;
 }
 
 int64_t k_unlink(char *path)
@@ -811,7 +855,6 @@ int64_t k_mkdirat(int32_t dirfd, const char *path, int32_t mode)
 {
     process_t *t = sched_get_current_process();
 
-    (void) dirfd;
     (void) mode;
     cpu_set_errno(0);
 
@@ -823,7 +866,20 @@ int64_t k_mkdirat(int32_t dirfd, const char *path, int32_t mode)
     }
 
     const char *cwd = (t != NULL) ? t->cwd : "/";
-    int64_t r = vfs_mkdir_path(cwd, kpath);
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = kpath;
+
+    if (dirfd != -100 && kpath[0] != '/') {
+        if (at_resolve(dirfd, kpath, abspath, sizeof(abspath)) != 0) {
+            kmfree(kpath);
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        use = abspath;
+        cwd = "/";
+    }
+
+    int64_t r = vfs_mkdir_path(cwd, use);
 
     kmfree(kpath);
 
@@ -992,12 +1048,14 @@ int64_t k_close(int64_t fd)
     klogd("k_close: close fd %ld\n", fd);
 
     if (fd >= 0 && fd < 3) {
-        /* Closing a standard fd only drops any redirection to a file. */
         int32_t kind = 0, svc = 0;
         int64_t sfd = 0;
 
-        process_fd_close((int32_t) fd, &kind, &svc, &sfd);
-        return 0;
+        /* An implicit tty fd has no process entry. A redirected standard fd
+         * owns a server description and must close it like any other fd. */
+        if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0)
+            return 0;
+        return vfs_close(fd);
     }
 
     if (t == NULL) {
@@ -1245,7 +1303,6 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf,
                   int64_t flags)
 {
-    (void) dirfd;
     (void) flags;
 
     char *kpath = copy_user_path_alloc(path);
@@ -1256,9 +1313,21 @@ int64_t k_fstatat(int64_t dirfd, const char *path, int64_t statbuf,
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = kpath;
     vfs_stat_t st;
 
-    int64_t r = vfs_stat_path(cwd, kpath, &st);
+    if (dirfd != -100 && kpath[0] != '/') {
+        if (at_resolve(dirfd, kpath, abspath, sizeof(abspath)) != 0) {
+            kmfree(kpath);
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        use = abspath;
+        cwd = "/";
+    }
+
+    int64_t r = vfs_stat_path(cwd, use, &st);
 
     kmfree(kpath);
 
@@ -1341,8 +1410,6 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
 int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
                     uint64_t flags)
 {
-    (void) dirfd;
-
     cpu_set_errno(0);
 
     /* The kernel has one uid, so AT_EACCESS is the same as the default check.
@@ -1360,10 +1427,22 @@ int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
 
     process_t *t = sched_get_current_process();
     const char *cwd = (t != NULL) ? t->cwd : "/";
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = kpath;
 
-    klogi("k_faccessat: access \"%s\" at mode 0x%016lx\n", kpath, mode);
+    if (dirfd != -100 && kpath[0] != '/') {
+        if (at_resolve(dirfd, kpath, abspath, sizeof(abspath)) != 0) {
+            kmfree(kpath);
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        use = abspath;
+        cwd = "/";
+    }
 
-    int64_t r = vfs_access_path(cwd, kpath, mode);
+    klogd("k_faccessat: access \"%s\" at mode 0x%016lx\n", use, mode);
+
+    int64_t r = vfs_access_path(cwd, use, mode);
 
     kmfree(kpath);
 
@@ -1513,6 +1592,31 @@ int64_t k_chdir(char *dir)
     if (currdir != NULL)
         kmfree(currdir);
     return -1;
+}
+
+
+int64_t k_fchdir(int64_t fd)
+{
+    process_t *t = sched_get_current_process();
+    char path[VFS_MAX_PATH_LEN];
+    int64_t n;
+
+    cpu_set_errno(0);
+
+    if (t == NULL) {
+        cpu_set_errno(ENODEV);
+        return -1;
+    }
+
+    n = vfs_fd_path((int32_t) fd, path, sizeof(path));
+    if (n <= 0) {
+        cpu_set_errno(ENOTDIR);
+        return -1;
+    }
+
+    path[n - 1] = '\0';
+    process_set_cwd(t, path);
+    return 0;
 }
 
 int64_t k_readdir(int64_t fd, uint64_t buff)
@@ -2440,6 +2544,21 @@ int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
         }
         return r;
     }
+
+    if (request == F_GETFL) {
+        int32_t kind = 0, svc = 0;
+        int64_t sfd = 0;
+
+        if (!(fd >= 0 && fd < 3)
+            && process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        return O_RDWR;
+    }
+
+    if (request == F_SETFL)
+        return 0;
 
     /* Only the descriptor flags live in the process server for now. */
     if (request == F_GETFD || request == F_SETFD) {
@@ -4561,6 +4680,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_FCNTL] = (syscall_ptr_t) k_fcntl,
     [SYSCALL_GETCWD] = (syscall_ptr_t) k_getcwd,
     [SYSCALL_CHDIR] = (syscall_ptr_t) k_chdir,
+    [SYSCALL_FCHDIR] = (syscall_ptr_t) k_fchdir,
     [SYSCALL_UNLINK] = (syscall_ptr_t) k_unlink,
     [SYSCALL_MKDIRAT] = (syscall_ptr_t) k_mkdirat,
     [SYSCALL_SYMLINKAT] = (syscall_ptr_t) k_symlinkat,

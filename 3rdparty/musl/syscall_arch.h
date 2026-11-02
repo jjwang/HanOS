@@ -83,6 +83,9 @@
 #define H_EPOLL_PWAIT 281
 #define H_UNAME      63
 #define H_SIGNALFD4  289
+#define H_CHDIR      80
+#define H_FCHDIR     81
+#define H_GETRUSAGE  98
 #define H_GETPPID    110
 #define H_CHMOD      0x404
 
@@ -183,12 +186,21 @@
 #define L_alarm       37
 #define L_getitimer   36
 #define L_setitimer   38
-#define L_chmod       90
+#define L_chdir       80
+#define L_fchdir      81
 #define L_fchmod      91
+#define L_fchmodat    268
 #define L_chown       92
 #define L_fchown      93
 #define L_lchown      94
+#define L_fchownat    260
+#define L_utime       132
+#define L_utimes      235
+#define L_futimesat   261
+#define L_utimensat   280
+#define L_chmod       90
 #define L_umask       95
+#define L_getrusage   98
 #define L_times       100
 #define L_setuid      105
 #define L_setgid      106
@@ -205,6 +217,7 @@
 #define L_getpgid     121
 #define L_getsid      124
 #define L_sigaltstack 131
+#define L_sync        162
 #define L_getcpu      309
 #define L_fadvise64   221
 #define L_faccessat2  439
@@ -575,8 +588,28 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
                 mask = a1;
             return old;
         }
+    case L_chdir:
+        return __hanos_raw(H_CHDIR, a1, 0, 0, 0, 0, 0);
+    case L_fchdir:
+        return __hanos_raw(H_FCHDIR, a1, 0, 0, 0, 0, 0);
     case L_chmod:
         return __hanos_raw(H_CHMOD, a1, a2, 0, 0, 0, 0);
+    case L_fchmod:
+    case L_fchmodat:
+    case L_chown:
+    case L_fchown:
+    case L_lchown:
+    case L_fchownat:
+    case L_utime:
+    case L_utimes:
+    case L_futimesat:
+    case L_utimensat:
+        /* No permission model and no stored timestamps; accept the change. */
+        return 0;
+    case L_getrusage:
+        return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);
+    case L_sync:
+        return 0;
     case L_times:
         if (a1 != 0) {
             long *t = (long *) a1;

@@ -25,7 +25,7 @@
 #include <sysfunc.h>
 
 #define PROC_PID_MAX    128
-#define PROC_FD_MAX     32
+#define PROC_FD_MAX     64
 #define PROC_FD_BASE    3       /* fds 0..2 are stdin/stdout/stderr */
 
 /* Service ids sent by the kernel; must match kernel/router/router.h. */
@@ -97,6 +97,37 @@ static uint64_t close_tag_for_svc(int32_t svc)
     if (svc == SVC_FAT_ID)
         return FAT_CLOSE;
     return 0;
+}
+
+static void fd_close_one(proc_fd_t * e)
+{
+    uint64_t ep = ep_for_svc(e->svc);
+    uint64_t tag = close_tag_for_svc(e->svc);
+
+    if (ep == 0 || tag == 0)
+        return;
+
+    sys_ipc_msg_t cm;
+
+    memset(&cm, 0, sizeof(cm));
+    cm.tag = tag;
+    cm.words[0] = (uint64_t) e->server_fd;
+    sys_ipc_send((int64_t) ep, &cm);
+}
+
+static void fd_ref_one(proc_fd_t * e)
+{
+    uint64_t ep = ep_for_svc(e->svc);
+
+    if (ep == 0)
+        return;
+
+    sys_ipc_msg_t fm;
+
+    memset(&fm, 0, sizeof(fm));
+    fm.tag = VFS_FD_FORK;
+    fm.words[0] = (uint64_t) e->server_fd;
+    sys_ipc_send((int64_t) ep, &fm);
 }
 
 static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
@@ -191,15 +222,7 @@ static void clone_fds(int32_t parent, int32_t child)
         if (!e->used || e->kind != PROC_FD_SERVER)
             continue;
 
-        ep = ep_for_svc(e->svc);
-        if (ep == 0)
-            continue;
-
-        sys_ipc_msg_t fm;
-        memset(&fm, 0, sizeof(fm));
-        fm.tag = VFS_FD_FORK;
-        fm.words[0] = (uint64_t) e->server_fd;
-        sys_ipc_send((int64_t) ep, &fm);
+        fd_ref_one(e);
     }
 }
 
@@ -210,24 +233,13 @@ static void close_cloexec(int32_t pid)
     if (pid < 0 || pid >= PROC_PID_MAX)
         return;
 
-    for (int32_t fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
         proc_fd_t *e = &table[pid][fd];
 
         if (!e->used || !e->cloexec)
             continue;
 
-        if (e->kind == PROC_FD_SERVER) {
-            uint64_t ep = ep_for_svc(e->svc);
-            uint64_t tag = close_tag_for_svc(e->svc);
-
-            if (ep != 0 && tag != 0) {
-                sys_ipc_msg_t cm;
-                memset(&cm, 0, sizeof(cm));
-                cm.tag = tag;
-                cm.words[0] = (uint64_t) e->server_fd;
-                sys_ipc_send((int64_t) ep, &cm);
-            }
-        }
+        fd_close_one(e);
         e->used = false;
     }
 }
@@ -480,32 +492,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     case PROC_FD_CLOSE:{
             proc_fd_t *e = fd_get(pid, fd);
-            bool shared = false;
 
             if (e == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -9;
                 return;
             }
 
-            /* A duplicated fd shares the server-side open file description.
-             * Keep that description alive until the last copy closes. */
-            if (e->kind == PROC_FD_SERVER) {
-                for (int32_t i = 0; i < PROC_FD_MAX; i++) {
-                    proc_fd_t *o = &table[pid][i];
-
-                    if (i == fd || !o->used || o->kind != PROC_FD_SERVER)
-                        continue;
-                    if (o->svc == e->svc && o->server_fd == e->server_fd) {
-                        shared = true;
-                        break;
-                    }
-                }
-            }
-
             rep->words[0] = 0;
             reply_fd(e, rep);
-            if (shared)
-                rep->words[2] = (uint64_t) (int64_t) -1;
             e->used = false;
             return;
         }
@@ -533,9 +527,20 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 return;
             }
 
+            if (newfd == fd) {
+                rep->words[0] = 0;
+                rep->words[1] = (uint64_t) newfd;
+                return;
+            }
+
+            if (dst->used && dst->kind == PROC_FD_SERVER)
+                fd_close_one(dst);
+
             *dst = *src;
             dst->used = true;
             dst->cloexec = false;
+            if (dst->kind == PROC_FD_SERVER)
+                fd_ref_one(dst);
             rep->words[0] = 0;
             rep->words[1] = (uint64_t) newfd;
             return;
@@ -657,16 +662,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                 if (!e->used || e->kind != PROC_FD_SERVER)
                     continue;
-                uint64_t ep = ep_for_svc(e->svc);
-                uint64_t tag = close_tag_for_svc(e->svc);
-
-                if (ep != 0 && tag != 0) {
-                    sys_ipc_msg_t cm;
-                    memset(&cm, 0, sizeof(cm));
-                    cm.tag = tag;
-                    cm.words[0] = (uint64_t) e->server_fd;
-                    sys_ipc_send((int64_t) ep, &cm);
-                }
+                fd_close_one(e);
             }
             memset(table[pid], 0, sizeof(table[pid]));
         }

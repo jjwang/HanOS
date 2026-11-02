@@ -255,6 +255,14 @@ void *sys_malloc(int32_t size)
     return ret;
 }
 
+int32_t sys_munmap(void *addr, uint64_t size)
+{
+    int32_t ret, errno;
+
+    SYSCALL2(SYSCALL_MUNMAP, addr, size);
+    return ret;
+}
+
 int32_t sys_mkdirat(const char *path)
 {
     int32_t ret, errno;

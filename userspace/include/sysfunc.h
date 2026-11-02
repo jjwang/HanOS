@@ -131,6 +131,7 @@ void sys_exit(int32_t status);
 int32_t sys_wait(int32_t pid);
 void sys_panic(const char *message);
 void *sys_malloc(int32_t size);
+int32_t sys_munmap(void *addr, uint64_t size);
 int32_t sys_mkdirat(const char *path);
 int32_t sys_dup(int32_t fd, int32_t flags, int32_t newfd);
 int32_t sys_fcntl(int32_t fd, int32_t cmd, int32_t arg);

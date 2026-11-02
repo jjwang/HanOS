@@ -35,7 +35,8 @@
 #define VFS_MAX_FDS         16
 #define VFS_MAX_ENTS        16384
 #define VFS_MAX_DYN         16
-#define VFS_DYN_CAP         8192
+#define VFS_DYN_CAP         (64 * 1024)
+#define VFS_DYN_MAX         (1024 * 1024)
 
 /* ustar header field offsets. */
 #define USTAR_MODE_OFF      100
@@ -46,9 +47,9 @@
 #define USTAR_BLOCK         512
 
 /* whence values, matching kernel/fs/vfs.h. */
+#define VFS_SEEK_SET        0
 #define VFS_SEEK_CUR        1
 #define VFS_SEEK_END        2
-#define VFS_SEEK_SET        3
 
 /* resolve() returns this for the root directory. */
 #define ROOT_INDEX          (-2)
@@ -980,6 +981,41 @@ static void store_save(void)
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 {
+
+    if (m->tag == VFS_FD_PATH) {
+        int32_t fd = (int32_t) m->words[0];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+            || !fds[fd - 1].is_dir || fds[fd - 1].dir == NULL || memh == 0) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            return;
+        }
+
+        if (sys_mem_map(memh, VFS_BUF_VADDR, 3) != 0) {
+            sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        uint64_t n = (uint64_t) strlen(fds[fd - 1].dir) + 1;
+
+        if (n > VFS_IO_BUF_SIZE) {
+            sys_mem_unmap(memh, VFS_BUF_VADDR);
+            sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -7;
+            return;
+        }
+        memcpy((void *) VFS_BUF_VADDR, fds[fd - 1].dir, n);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        rep->words[0] = 0;
+        rep->words[1] = n;
+        return;
+    }
+
     if (m->tag == VFS_PING) {
         rep->words[0] = VFS_PONG;
         return;
@@ -1221,6 +1257,26 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             uint64_t off = fds[fd - 1].off;
             uint64_t n = len;
 
+            if (off + len > d->cap) {
+                uint64_t newcap = d->cap ? d->cap : VFS_DYN_CAP;
+                char *nd;
+
+                while (newcap < off + len && newcap < VFS_DYN_MAX)
+                    newcap *= 2;
+                if (newcap > VFS_DYN_MAX)
+                    newcap = VFS_DYN_MAX;
+
+                nd = sys_malloc(newcap);
+                if (nd == NULL) {
+                    n = 0;
+                } else {
+                    if (d->data != NULL && d->size > 0)
+                        memcpy(nd, d->data, d->size);
+                    d->data = nd;
+                    d->cap = newcap;
+                }
+            }
+
             if (off >= d->cap)
                 n = 0;
             else if (off + n > d->cap)
@@ -1239,7 +1295,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fds[fd - 1].off += n;
             if (fds[fd - 1].off > d->size)
                 d->size = fds[fd - 1].off;
-            if (n > 0)
+            if (n > 0 && strncmp(d->name, "/tmp/", 5) != 0)
                 store_save();
             rep->words[0] = 0;
             rep->words[1] = n;
@@ -1398,7 +1454,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             offset = (int64_t) fds[fd - 1].off + pos;
             break;
         case VFS_SEEK_END:
-            offset = (int64_t) fsize - pos;
+            offset = (int64_t) fsize + pos;
             break;
         }
 

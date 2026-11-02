@@ -63,6 +63,7 @@
 #define VFS_IO_BUF_SIZE     8192
 #define VFS_IO_DATA_OFF     4096
 
+#define VFS_FD_PATH         0x40        /* words[0]=fd; out: path in xfer[1] */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 
@@ -103,6 +104,8 @@
 #define F_DUPFD_CLOEXEC     1030
 #define F_GETFD             1
 #define F_SETFD             2
+#define F_GETFL             3
+#define F_SETFL             4
 #define FD_CLOEXEC          1
 
 /* PROC_FD_GET/CLOSE kind. */

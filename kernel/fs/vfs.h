@@ -187,6 +187,7 @@ vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func);
 /* Path operations. The VFS server resolves cwd+path and redirects paths under
  * the FAT mount to the FAT server. */
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out);
+int64_t vfs_fd_path(int32_t fd, char *out, uint64_t outsz);
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
 int64_t vfs_unlink_path(const char *cwd, const char *path);
 int64_t vfs_mkdir_path(const char *cwd, const char *path);
