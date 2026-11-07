@@ -19,5 +19,7 @@ latex/
 # Optional ports image staging
 initrd-ports.tar
 initrd-ports/
+initrd-ports-hdd.tar
+initrd-ports-hdd/
 .image-ports
 .image-noports

@@ -45,20 +45,25 @@ static const char *shell_path(const char **name)
         nanosleep(&delay, NULL);
     }
 
-    for (int i = 0; i < 50; i++) {
-        if (shell_file("/bin/bash")) {
-            *name = "bash";
-            return "/bin/bash";
+    /* A ports image carries /etc/ports-image in the initrd. Wait for the
+     * requested bash until the data partition is mounted; do not fall back. */
+    if (shell_file("/etc/ports-image")) {
+        for (;;) {
+            if (shell_file("/bin/bash")) {
+                *name = "bash";
+                return "/bin/bash";
+            }
+            if (shell_file("/data/bin/bash")) {
+                *name = "bash";
+                return "/data/bin/bash";
+            }
+            nanosleep(&delay, NULL);
         }
-        if (shell_file("/data/bin/bash")) {
-            *name = "bash";
-            return "/data/bin/bash";
-        }
-        /* The ext2 mount exposes /data/bin in one step. Once it is there,
-         * the absence of bash is final. */
-        if (shell_file("/data/bin"))
-            break;
-        nanosleep(&delay, NULL);
+    }
+
+    if (shell_file("/bin/bash")) {
+        *name = "bash";
+        return "/bin/bash";
     }
 
     *name = "hansh";

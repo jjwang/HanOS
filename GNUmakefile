@@ -13,16 +13,19 @@ PORTS_BUILD  = 3rdparty/build/ports
 PORTS_STAGE  = $(PORTS_BUILD)/root
 PORTS_STAMP  = $(PORTS_BUILD)/.installed
 PORTS_INITRD = initrd-ports.tar
+PORTS_HDD_INITRD = initrd-ports-hdd.tar
 INITRD_TAR   = initrd.tar
 MUSL_LIB     = 3rdparty/build/musl/lib/libc.a
 
 ifeq ($(WITH_PORTS),1)
 PORTS_DEP  = $(PORTS_STAMP)
 ISO_INITRD = $(PORTS_INITRD)
+HDD_INITRD = $(PORTS_HDD_INITRD)
 IMAGE_MODE = .image-ports
 else
 PORTS_DEP  =
 ISO_INITRD = $(INITRD_TAR)
+HDD_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
@@ -110,6 +113,15 @@ $(INITRD_TAR): initrd
 	cp -rf sysroot/* initrd
 	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data
 
+$(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
+	rm -rf initrd-ports-hdd
+	mkdir -p initrd-ports-hdd
+	tar -xpf $(INITRD_TAR) -C initrd-ports-hdd
+	mkdir -p initrd-ports-hdd/etc
+	touch initrd-ports-hdd/etc/ports-image
+	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data
+	rm -rf initrd-ports-hdd
+
 $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -rf iso_root
 	mkdir -p iso_root
@@ -124,7 +136,7 @@ $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	limine/limine bios-install $(ISO_IMAGE)
 	rm -rf iso_root
 
-$(HDD_IMAGE): limine $(INITRD_TAR) kernel $(IMAGE_MODE) $(PORTS_DEP)
+$(HDD_IMAGE): limine $(HDD_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
 	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
@@ -134,7 +146,8 @@ $(HDD_IMAGE): limine $(INITRD_TAR) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
 	mformat -F -i $(HDD_IMAGE).esp ::
 	mmd -i $(HDD_IMAGE).esp ::/EFI ::/EFI/BOOT
-	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf $(INITRD_TAR) limine.conf limine/limine-bios.sys ::/
+	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf limine.conf limine/limine-bios.sys ::/
+	mcopy -i $(HDD_IMAGE).esp $(HDD_INITRD) ::/initrd.tar
 	mcopy -i $(HDD_IMAGE).esp limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
 	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
 	rm -f $(HDD_IMAGE).esp
@@ -150,7 +163,8 @@ endif
 
 clean:
 	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \
-        initrd-ports.tar initrd-ports .image-ports .image-noports \
+        initrd-ports.tar initrd-ports initrd-ports-hdd.tar initrd-ports-hdd \
+        .image-ports .image-noports \
         release/hdd.img initrd/etc initrd/usr
 	rm -rf initrd
 	$(MAKE) -C userspace clean
