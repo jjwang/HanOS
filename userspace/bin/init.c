@@ -45,13 +45,20 @@ static const char *shell_path(const char **name)
         nanosleep(&delay, NULL);
     }
 
-    if (shell_file("/bin/bash")) {
-        *name = "bash";
-        return "/bin/bash";
-    }
-    if (shell_file("/data/bin/bash")) {
-        *name = "bash";
-        return "/data/bin/bash";
+    for (int i = 0; i < 50; i++) {
+        if (shell_file("/bin/bash")) {
+            *name = "bash";
+            return "/bin/bash";
+        }
+        if (shell_file("/data/bin/bash")) {
+            *name = "bash";
+            return "/data/bin/bash";
+        }
+        /* The ext2 mount exposes /data/bin in one step. Once it is there,
+         * the absence of bash is final. */
+        if (shell_file("/data/bin"))
+            break;
+        nanosleep(&delay, NULL);
     }
 
     *name = "hansh";
