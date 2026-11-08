@@ -30,7 +30,7 @@
 
 /* A minimal address space (PML4 only) used to check memory-object mapping
  * without disturbing the kernel address space. The page tables created while
- * mapping are tracked in mem_list and released again by the free helper. */
+ * mapping are tracked in page_tables and released again by the free helper. */
 static addrspace_t *test_addrspace(void)
 {
     addrspace_t *as = kmalloc(sizeof(addrspace_t));
@@ -53,11 +53,11 @@ static addrspace_t *test_addrspace(void)
 
 static void test_addrspace_free(addrspace_t * as)
 {
-    uint64_t n = vec_length(&as->mem_list);
+    uint64_t n = vec_length(&as->page_tables);
 
     for (uint64_t i = 0; i < n; i++)
-        pmm_free(vec_at(&as->mem_list, i), 8, __func__, __LINE__);
-    vec_erase_all(&as->mem_list);
+        pmm_free(vec_at(&as->page_tables, i), 8, __func__, __LINE__);
+    vec_erase_all(&as->page_tables);
 
     kmfree_chunk((void *) as->PML4, __func__, __LINE__);
     kmfree(as);

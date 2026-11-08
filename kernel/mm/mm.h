@@ -116,7 +116,7 @@ void pmm_register_buddy_allocator(void);
  */
 typedef struct addrspace {
     uint64_t *PML4;
-    vec_struct(uint64_t) mem_list;
+    vec_struct(uint64_t) page_tables;   /* physical bases of owned tables */
     vec_struct(mem_map_t) owned_list;   /* kernel buffers, never user mapped */
     vma_map_t vmas;                      /* user mappings */
     uint32_t refs;

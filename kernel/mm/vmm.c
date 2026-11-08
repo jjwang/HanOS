@@ -45,10 +45,10 @@ static spinlock_t global_mmap_lock;
 
 static bool table_owned(addrspace_t * as, uint64_t phys)
 {
-    uint64_t n = vec_length(&as->mem_list);
+    uint64_t n = vec_length(&as->page_tables);
 
     for (uint64_t i = 0; i < n; i++)
-        if (vec_at(&as->mem_list, i) == phys)
+        if (vec_at(&as->page_tables, i) == phys)
             return true;
 
     return false;
@@ -64,7 +64,7 @@ static uint64_t *alloc_table(addrspace_t * as)
 
     uint64_t *t = (uint64_t *) PHYS_TO_VIRT(phys);
     memset(t, 0, PAGE_SIZE * 8);
-    vec_push_back(&as->mem_list, phys);
+    vec_push_back(&as->page_tables, phys);
     return t;
 }
 
@@ -79,7 +79,7 @@ static uint64_t *clone_table(addrspace_t * as, uint64_t src_phys)
 
     uint64_t *dst = (uint64_t *) PHYS_TO_VIRT(phys);
     memcpy(dst, (void *)PHYS_TO_VIRT(src_phys), PAGE_SIZE * 8);
-    vec_push_back(&as->mem_list, phys);
+    vec_push_back(&as->page_tables, phys);
     return dst;
 }
 
@@ -169,54 +169,8 @@ static void unmap_page(addrspace_t * addrspace, uint64_t vaddr)
             asm volatile ("invlpg (%0)"::"r" (vaddr));
     }
 
-    for (int32_t i = 0; i < 512 * 8; i++)
-        if (pt[i] != 0)
-            goto done;
-
-    pd[pde] = 0;
-    pmm_free(VIRT_TO_PHYS(pt), 8, __func__, __LINE__);
-
-    int64_t mem_num, i;
-    mem_num = vec_length(&as->mem_list);
-    for (i = 0; i < mem_num; i++) {
-        uint64_t m = vec_at(&as->mem_list, i);
-        if (m == VIRT_TO_PHYS(pt)) {
-            vec_erase(&as->mem_list, i);
-            break;
-        }
-    }
-
-    for (int32_t i = 0; i < 512 * 8; i++)
-        if (pd[i] != 0)
-            goto done;
-
-    pdpt[pdpe] = 0;
-    pmm_free(VIRT_TO_PHYS(pd), 8, __func__, __LINE__);
-
-    mem_num = vec_length(&as->mem_list);
-    for (i = 0; i < mem_num; i++) {
-        uint64_t m = vec_at(&as->mem_list, i);
-        if (m == VIRT_TO_PHYS(pd)) {
-            vec_erase(&as->mem_list, i);
-            break;
-        }
-    }
-    for (int32_t i = 0; i < 512 * 8; i++)
-        if (pdpt[i] != 0)
-            goto done;
-
-    pml4[pml4e] = 0;
-    pmm_free(VIRT_TO_PHYS(pdpt), 8, __func__, __LINE__);
-
-    mem_num = vec_length(&as->mem_list);
-    for (i = 0; i < mem_num; i++) {
-        uint64_t m = vec_at(&as->mem_list, i);
-        if (m == VIRT_TO_PHYS(pdpt)) {
-            vec_erase(&as->mem_list, i);
-            break;
-        }
-    }
-
+    /* Keep the table until the address space is destroyed. Reusing it after
+     * an unmap races stale TLB entries and corrupts unrelated mappings. */
   done:
     return;
 }

@@ -394,21 +394,15 @@ void process_free_addrspace(addrspace_t * as)
     vma_destroy(as, &as->vmas);
     addrspace_owned_destroy(as);
 
-    uint64_t mem_num = vec_length(&as->mem_list);
+    uint64_t table_count = vec_length(&as->page_tables);
 
-    for (uint64_t i = 0; i < mem_num; i++) {
-        /*
-         * Maybe it was already freed in unmap(), but it is also harmless for
-         * calling pmm_free() in which it will check if the referenced physical
-         * page is valid and then do free. VMM_UNMAP() invokes pmm_free() for us,
-         * but it will not free the records represented by uint64_t type in
-         * mem_list.
-         */
-        uint64_t m = vec_at(&as->mem_list, i);
+    for (uint64_t i = 0; i < table_count; i++) {
+        /* Each entry is the physical base of an 8-page table. */
+        uint64_t phys = vec_at(&as->page_tables, i);
 
-        pmm_free(m, 8, __func__, __LINE__);
+        pmm_free(phys, 8, __func__, __LINE__);
     }
-    vec_erase_all(&as->mem_list);
+    vec_erase_all(&as->page_tables);
 
     kmfree_chunk((void *) as->PML4, __func__, __LINE__);
     kmfree((void *) as);
