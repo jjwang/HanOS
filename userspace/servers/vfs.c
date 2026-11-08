@@ -1185,7 +1185,7 @@ static void store_load(void)
     uint64_t off = sizeof(*h);
 
     for (uint32_t i = 0; i < h->count && i < VFS_MAX_DYN; i++) {
-        if (off + 11 > size)
+        if (off + 12 > size)
             break;
         uint8_t type = buf[off++];
         uint8_t nlen = buf[off++];
@@ -1221,6 +1221,27 @@ static void store_load(void)
                 idx = dyn_create_symlink(name, target);
                 free(target);
             }
+        } else if (type == 3) {
+            char *target = malloc(dlen + 1);
+
+            if (target != NULL) {
+                memcpy(target, data, dlen);
+                target[dlen] = '\0';
+                int32_t home = resolve(target);
+
+                if (home >= 0 && idx_is_dyn(home)) {
+                    idx = dyn_alloc(name);
+                    if (idx >= 0) {
+                        vfs_dyn_t *alias = &dyns[idx - ent_count];
+                        vfs_dyn_t *canon =
+                            dyn_file(&dyns[home - ent_count]);
+
+                        alias->link = canon;
+                        canon->links++;
+                    }
+                }
+                free(target);
+            }
         } else if (type == 0) {
             idx = dyn_create(name);
             if (idx >= 0) {
@@ -1254,19 +1275,41 @@ static void store_save(void)
     h->version = VFS_STORE_VERSION;
 
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
-        if (!dyns[i].used || dyns[i].name == NULL || dyns[i].link != NULL)
+        if (!dyns[i].used || dyns[i].name == NULL)
             continue;
-        uint64_t nlen = strlen(dyns[i].name);
-        uint64_t dlen = 0;
-        uint8_t type = dyns[i].is_dir ? 1 : (dyns[i].is_symlink ? 2 : 0);
+        if (strncmp(dyns[i].name, "/tmp/", 5) == 0
+            || strcmp(dyns[i].name, "dev") == 0
+            || strncmp(dyns[i].name, "dev/", 4) == 0)
+            continue;
 
-        if (nlen > VFS_NAME_MAX + 1 || off + 11 + nlen > VFS_STORE_MAX)
+        vfs_dyn_t *home = dyn_file(&dyns[i]);
+        uint8_t type;
+        const char *payload = NULL;
+        uint64_t dlen = 0;
+
+        if (dyns[i].link != NULL) {
+            if (home->name == NULL
+                || strncmp(home->name, "/tmp/", 5) == 0)
+                continue;
+            type = 3;
+            payload = home->name;
+            dlen = strlen(payload);
+        } else {
+            type = dyns[i].is_dir ? 1 : (dyns[i].is_symlink ? 2 : 0);
+            if (type == 2) {
+                payload = dyns[i].target;
+                dlen = (payload != NULL) ? strlen(payload) : 0;
+            } else if (type == 0) {
+                payload = dyns[i].data;
+                dlen = dyns[i].size;
+            }
+        }
+
+        uint64_t nlen = strlen(dyns[i].name);
+
+        if (nlen > VFS_NAME_MAX + 1 || off + 12 + nlen > VFS_STORE_MAX)
             break;
-        if (type == 2)
-            dlen = (dyns[i].target != NULL) ? strlen(dyns[i].target) : 0;
-        else if (type == 0)
-            dlen = dyns[i].size;
-        if (off + 11 + nlen + dlen > VFS_STORE_MAX)
+        if (off + 12 + nlen + dlen > VFS_STORE_MAX)
             break;
 
         buf[off++] = type;
@@ -1277,10 +1320,8 @@ static void store_save(void)
         store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mtime);
         memcpy(buf + off, dyns[i].name, nlen);
         off += nlen;
-        if (type == 2 && dlen > 0)
-            memcpy(buf + off, dyns[i].target, dlen);
-        else if (type == 0 && dlen > 0)
-            memcpy(buf + off, dyns[i].data, dlen);
+        if (dlen > 0 && payload != NULL)
+            memcpy(buf + off, payload, dlen);
         off += dlen;
         count++;
     }
@@ -2446,6 +2487,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                         alias->link = home;
                         home->links++;
+                        store_save();
                         rep->words[0] = 0;
                     }
                 }
