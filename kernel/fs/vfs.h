@@ -192,6 +192,7 @@ int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode);
 int64_t vfs_unlink_path(const char *cwd, const char *path);
 int64_t vfs_rmdir_path(const char *cwd, const char *path);
 int64_t vfs_mkdir_path(const char *cwd, const char *path);
+int64_t vfs_mknod_path(const char *cwd, const char *path, uint32_t mode);
 int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path);
 int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp);
 int64_t vfs_link_path(const char *oldp, const char *newp);

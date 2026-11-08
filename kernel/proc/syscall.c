@@ -933,6 +933,44 @@ int64_t k_mkdirat(int32_t dirfd, const char *path, int32_t mode)
     return 0;
 }
 
+int64_t k_mknodat(int32_t dirfd, const char *path, int64_t mode, int64_t dev)
+{
+    (void) dev;
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = kpath;
+
+    if (dirfd != -100 && kpath[0] != '/') {
+        if (at_resolve(dirfd, kpath, abspath, sizeof(abspath)) != 0) {
+            kmfree(kpath);
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        use = abspath;
+        cwd = "/";
+    }
+
+    int64_t r = vfs_mknod_path(cwd, use, (uint32_t) mode);
+
+    kmfree(kpath);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+    return 0;
+}
+
 int64_t k_symlinkat(const char *target, int32_t newdirfd, const char *linkpath)
 {
     process_t *t = sched_get_current_process();
@@ -4865,6 +4903,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MKDIRAT] = (syscall_ptr_t) k_mkdirat,
     [SYSCALL_SYMLINKAT] = (syscall_ptr_t) k_symlinkat,
     [SYSCALL_LINKAT] = (syscall_ptr_t) k_linkat,
+    [SYSCALL_MKNODAT] = (syscall_ptr_t) k_mknodat,
     [SYSCALL_RENAMEAT] = (syscall_ptr_t) k_renameat,
     [SYSCALL_RENAMEAT2] = (syscall_ptr_t) k_renameat,
     [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,

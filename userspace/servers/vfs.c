@@ -70,16 +70,23 @@ typedef struct {
 /**
  * @brief A file, directory or symlink created at runtime
  */
-typedef struct {
+typedef struct vfs_dyn {
     bool used;
     bool is_dir;
     bool is_symlink;
+    bool is_fifo;
     char *name;
     char *target;               /* symlink target */
     char *data;
     uint64_t size;
     uint64_t cap;
     uint32_t mtime;
+    uint8_t fifo_data[4096];
+    uint64_t fifo_head;
+    uint64_t fifo_tail;
+    uint64_t fifo_count;
+    struct vfs_dyn *link;       /* hard-link canonical entry, NULL for self */
+    uint32_t links;             /* names referring to this inode */
 } vfs_dyn_t;
 
 static vfs_ent_t ents[VFS_MAX_ENTS];
@@ -399,13 +406,73 @@ static bool idx_is_symlink(int32_t i)
     return idx_is_dyn(i) && dyns[i - ent_count].is_symlink;
 }
 
+static bool idx_is_fifo(int32_t i)
+{
+    return idx_is_dyn(i) && dyns[i - ent_count].is_fifo;
+}
+
+static vfs_dyn_t *dyn_file(vfs_dyn_t * d)
+{
+    while (d->link != NULL)
+        d = d->link;
+    return d;
+}
+
+static int32_t dyn_inode_index(int32_t i)
+{
+    if (!idx_is_dyn(i))
+        return i;
+    vfs_dyn_t *d = dyn_file(&dyns[i - ent_count]);
+
+    return ent_count + (int32_t) (d - dyns);
+}
+
+static void dyn_unlink(vfs_dyn_t * d)
+{
+    if (d->link != NULL) {
+        vfs_dyn_t *home = d->link;
+
+        if (home->links > 0)
+            home->links--;
+        free(d->name);
+        d->name = NULL;
+        d->used = false;
+        if (home->links == 0) {
+            free(home->name);
+            home->name = NULL;
+            if (home->data != NULL)
+                sys_munmap(home->data, home->cap);
+            home->data = NULL;
+            home->used = false;
+        }
+        return;
+    }
+
+    if (d->links > 1) {
+        d->links--;
+        free(d->name);
+        d->name = NULL;
+        return;
+    }
+
+    free(d->name);
+    d->name = NULL;
+    if (d->data != NULL)
+        sys_munmap(d->data, d->cap);
+    d->data = NULL;
+    d->used = false;
+}
+
 static uint64_t idx_size(int32_t i)
 {
     if (idx_is_dyn(i)) {
         vfs_dyn_t *d = &dyns[i - ent_count];
 
+        d = dyn_file(d);
         if (d->is_symlink)
             return (d->target != NULL) ? strlen(d->target) : 0;
+        if (d->is_fifo)
+            return 0;
         return d->size;
     }
     return ents[i].size;
@@ -415,8 +482,11 @@ static int64_t idx_mtime(int32_t i)
 {
     if (i == ROOT_INDEX)
         return root_mtime;
-    if (idx_is_dyn(i))
-        return dyns[i - ent_count].mtime;
+    if (idx_is_dyn(i)) {
+        vfs_dyn_t *d = dyn_file(&dyns[i - ent_count]);
+
+        return d->mtime;
+    }
     return ents[i].mtime;
 }
 
@@ -455,7 +525,8 @@ static int32_t resolve(const char *path)
     }
 
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
-        if (dyns[i].used && strcmp(dyns[i].name, path) == 0)
+        if (dyns[i].used && dyns[i].name != NULL
+            && strcmp(dyns[i].name, path) == 0)
             return ent_count + i;
     }
     return -1;
@@ -471,6 +542,7 @@ static int32_t dyn_alloc(const char *path)
 
         memset(&dyns[i], 0, sizeof(dyns[i]));
         dyns[i].used = true;
+        dyns[i].links = 1;
         dyns[i].name = strdup(path);
         if (dyns[i].name == NULL) {
             dyns[i].used = false;
@@ -515,6 +587,15 @@ static int32_t dyn_create_dir(const char *path)
     return idx;
 }
 
+static int32_t dyn_create_fifo(const char *path)
+{
+    int32_t idx = dyn_alloc(path);
+
+    if (idx >= 0)
+        dyns[idx - ent_count].is_fifo = true;
+    return idx;
+}
+
 static int32_t dyn_create_symlink(const char *path, const char *target)
 {
     int32_t idx = dyn_alloc(path);
@@ -543,17 +624,27 @@ static void fill_stat(int32_t e, void *out)
     st->st_nlink = 1;
     st->st_mtim.tv_sec = idx_mtime(e);
 
+    if (idx_is_dyn(e)) {
+        vfs_dyn_t *d = dyn_file(&dyns[e - ent_count]);
+
+        st->st_nlink = d->links;
+    }
+
     if (idx_is_dir(e)) {
         st->st_mode = S_IFDIR | (idx_mode(e) & 0777);
         st->st_ino = (e == ROOT_INDEX) ? 1 : (uint64_t) e + 1;
         st->st_size = 4096;
+    } else if (idx_is_fifo(e)) {
+        st->st_mode = 0x1000 | 0666;
+        st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
+        st->st_size = 0;
     } else if (idx_is_symlink(e)) {
         st->st_mode = S_IFLNK | 0777;
-        st->st_ino = (uint64_t) e + 1;
+        st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
         st->st_size = (int64_t) idx_size(e);
     } else {
         st->st_mode = S_IFREG | (idx_mode(e) & 0777);
-        st->st_ino = (uint64_t) e + 1;
+        st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
         st->st_size = (int64_t) idx_size(e);
     }
 }
@@ -921,7 +1012,7 @@ static void store_save(void)
     h->version = VFS_STORE_VERSION;
 
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
-        if (!dyns[i].used)
+        if (!dyns[i].used || dyns[i].name == NULL || dyns[i].link != NULL)
             continue;
         uint64_t nlen = strlen(dyns[i].name);
         uint64_t dlen = 0;
@@ -1244,6 +1335,28 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         } else if (fds[fd - 1].special == 2) {
             rep->words[0] = 0;
             rep->words[1] = 0;
+        } else if (idx_is_fifo(fds[fd - 1].ent)) {
+            vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
+            uint64_t n = len;
+
+            if (n > d->fifo_count)
+                n = d->fifo_count;
+            if (n > 0 && memh != 0
+                && sys_mem_map(memh, VFS_BUF_VADDR, 3) == 0) {
+                uint8_t *dst = (uint8_t *) VFS_BUF_VADDR;
+
+                for (uint64_t i = 0; i < n; i++) {
+                    dst[i] = d->fifo_data[d->fifo_head];
+                    d->fifo_head = (d->fifo_head + 1)
+                        % sizeof(d->fifo_data);
+                }
+                d->fifo_count -= n;
+                sys_mem_unmap(memh, VFS_BUF_VADDR);
+            } else {
+                n = 0;
+            }
+            rep->words[0] = 0;
+            rep->words[1] = n;
         } else {
             int32_t e = fds[fd - 1].ent;
             uint64_t off = fds[fd - 1].off;
@@ -1256,7 +1369,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (n > 0 && memh != 0
                 && sys_mem_map(memh, VFS_BUF_VADDR, 3) == 0) {
                 const uint8_t *src = idx_is_dyn(e)
-                    ? (const uint8_t *) dyns[e - ent_count].data + off
+                    ? (const uint8_t *) dyn_file(&dyns[e - ent_count])->data
+                    + off
                     : (const uint8_t *) bi.initrd_vaddr + ents[e].off + off;
                 uint8_t *buf = (uint8_t *) VFS_BUF_VADDR;
 
@@ -1291,12 +1405,16 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         int32_t e = fds[fd - 1].ent;
 
+        if (idx_is_fifo(e)) {
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            return;
+        }
         if (!idx_is_dyn(e)) {
             rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
             return;
         }
 
-        vfs_dyn_t *d = &dyns[e - ent_count];
+        vfs_dyn_t *d = dyn_file(&dyns[e - ent_count]);
 
         if (size > VFS_DYN_MAX) {
             rep->words[0] = (uint64_t) (int64_t) -27;   /* -EFBIG */
@@ -1324,7 +1442,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
 
         d->size = size;
-        if (strncmp(d->name, "/tmp/", 5) != 0)
+        if (d->name != NULL && strncmp(d->name, "/tmp/", 5) != 0)
             store_save();
         rep->words[0] = 0;
         rep->words[1] = size;
@@ -1342,10 +1460,33 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         } else if (fds[fd - 1].special != 0) {
             rep->words[0] = 0;
             rep->words[1] = len;
+        } else if (idx_is_fifo(fds[fd - 1].ent)) {
+            vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
+            uint64_t n = len;
+            uint64_t space = sizeof(d->fifo_data) - d->fifo_count;
+
+            if (n > space)
+                n = space;
+            if (n > 0 && memh != 0
+                && sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
+                const uint8_t *src = (const uint8_t *) VFS_BUF_VADDR;
+
+                for (uint64_t i = 0; i < n; i++) {
+                    d->fifo_data[d->fifo_tail] = src[i];
+                    d->fifo_tail = (d->fifo_tail + 1)
+                        % sizeof(d->fifo_data);
+                }
+                d->fifo_count += n;
+                sys_mem_unmap(memh, VFS_BUF_VADDR);
+            } else {
+                n = 0;
+            }
+            rep->words[0] = 0;
+            rep->words[1] = n;
         } else if (!idx_is_dyn(fds[fd - 1].ent)) {
             rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
         } else {
-            vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
+            vfs_dyn_t *d = dyn_file(&dyns[fds[fd - 1].ent - ent_count]);
             uint64_t off = fds[fd - 1].off;
             uint64_t n = len;
 
@@ -1387,7 +1528,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fds[fd - 1].off += n;
             if (fds[fd - 1].off > d->size)
                 d->size = fds[fd - 1].off;
-            if (n > 0 && strncmp(d->name, "/tmp/", 5) != 0)
+            if (n > 0 && d->name != NULL
+                && strncmp(d->name, "/tmp/", 5) != 0)
                 store_save();
             rep->words[0] = 0;
             rep->words[1] = n;
@@ -1455,7 +1597,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             }
         }
         for (int32_t i = 0; i < VFS_MAX_DYN && found < 0; i++) {
-            if (dyns[i].used && is_child(dyns[i].name, dir)) {
+            if (dyns[i].used && dyns[i].name != NULL
+                && is_child(dyns[i].name, dir)) {
                 if (seen == wanted) {
                     found = ent_count + i;
                     break;
@@ -1477,7 +1620,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
             memset(de, 0, sizeof(*de));
             de->d_ino = (uint64_t) found + 1;
-            de->d_type = idx_is_dir(found) ? DT_DIR : DT_REG;
+            de->d_type = idx_is_dir(found) ? DT_DIR
+                : (idx_is_fifo(found) ? DT_FIFO : DT_REG);
             int32_t k = 0;
             while (k < (int32_t) sizeof(de->d_name) - 1 && base[k] != '\0') {
                 de->d_name[k] = base[k];
@@ -1586,7 +1730,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 if (e == -1 || idx_is_dir(e)) {
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
-                    dyns[e - ent_count].used = false;
+                    dyn_unlink(&dyns[e - ent_count]);
                     store_save();
                     rep->words[0] = 0;
                 } else {
@@ -1770,6 +1914,62 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_MKNODAT) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        uint64_t mode = m->words[0];
+        char *cwd = NULL, *path = NULL, *abs = NULL, *rel = NULL, *norm = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if ((mode & 0xF000) != 0x1000) {
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+        } else if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+            rel = (abs != NULL) ? ext_rel(abs) : NULL;
+
+            if (abs == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            } else if (rel != NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+            } else if (fat_rel(abs) != NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
+            } else if (resolve(abs) != -1) {
+                rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
+            } else {
+                norm = norm_dir(abs);
+                if (norm == NULL || norm[0] == '\0')
+                    rep->words[0] = (uint64_t) (int64_t) -22;
+                else if (dyn_create_fifo(norm) < 0)
+                    rep->words[0] = (uint64_t) (int64_t) -28;
+                else {
+                    store_save();
+                    rep->words[0] = 0;
+                }
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(path);
+        free(abs);
+        free(rel);
+        free(norm);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
     if (m->tag == VFS_STATFS) {
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
@@ -1825,7 +2025,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t pos = 0;
         char *cwd = NULL, *oldp = NULL, *newp = NULL;
         char *oldabs = NULL, *newabs = NULL;
-        char *oldrel = NULL, *newrel = NULL;
+        char *oldrel = NULL, *newrel = NULL, *norm = NULL;
 
         if (buf == NULL) {
             if (memh != 0)
@@ -1860,7 +2060,33 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else if (oldrel != NULL || newrel != NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -18;   /* -EXDEV */
             } else {
-                rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+                int32_t e = resolve(oldabs);
+
+                if (e == -1) {
+                    rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
+                } else if (!idx_is_dyn(e) || idx_is_dir(e)
+                           || idx_is_fifo(e) || idx_is_symlink(e)) {
+                    rep->words[0] = (uint64_t) (int64_t) -1;    /* -EPERM */
+                } else if (resolve(newabs) != -1) {
+                    rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
+                } else if (strncmp(oldabs, "/tmp/", 5) != 0
+                           || strncmp(newabs, "/tmp/", 5) != 0) {
+                    rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+                } else {
+                    norm = norm_dir(newabs);
+                    int32_t idx = (norm != NULL) ? dyn_alloc(norm) : -1;
+
+                    if (idx < 0) {
+                        rep->words[0] = (uint64_t) (int64_t) -28;
+                    } else {
+                        vfs_dyn_t *alias = &dyns[idx - ent_count];
+                        vfs_dyn_t *home = dyn_file(&dyns[e - ent_count]);
+
+                        alias->link = home;
+                        home->links++;
+                        rep->words[0] = 0;
+                    }
+                }
             }
         } else {
             rep->words[0] = (uint64_t) (int64_t) -12;
@@ -1873,6 +2099,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         free(newabs);
         free(oldrel);
         free(newrel);
+        free(norm);
         sys_mem_unmap(memh, VFS_BUF_VADDR);
         sys_handle_close(memh);
         return;

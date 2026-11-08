@@ -69,6 +69,7 @@
 #define VFS_LINKAT          0x48        /* in: cwd+oldpath+newpath */
 #define VFS_STATFS          0x49        /* in: cwd+path; out: statfs at
                                            VFS_IO_DATA_OFF */
+#define VFS_MKNODAT         0x4A        /* words[0]=mode; in: cwd+path */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 

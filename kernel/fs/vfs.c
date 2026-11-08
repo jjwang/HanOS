@@ -604,6 +604,36 @@ int64_t vfs_mkdir_path(const char *cwd, const char *path)
     return vfs_path_cmd(VFS_MKDIRAT, cwd, path, NULL);
 }
 
+int64_t vfs_mknod_path(const char *cwd, const char *path, uint32_t mode)
+{
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_MKNODAT;
+    req.words[0] = mode;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    memobj_unref(mo);
+    return rc;
+}
+
 int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path)
 {
     return vfs_path_cmd(VFS_SYMLINKAT, cwd, path, target);
