@@ -77,6 +77,7 @@
 #define SYSCALL_NEWFSTATAT      262
 #define SYSCALL_UNLINKAT        263
 #define SYSCALL_RENAMEAT        264
+#define SYSCALL_LINKAT          265
 #define SYSCALL_SYMLINKAT       266
 #define SYSCALL_FACCESSAT       269
 #define SYSCALL_PSELECT6        270

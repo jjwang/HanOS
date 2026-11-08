@@ -96,6 +96,7 @@ static struct {
     uint64_t dir_idx;           /* readdir cursor for directories */
     char *dir;                  /* normalized directory path */
     uint32_t refs;              /* number of forks sharing this description */
+    int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
 } fds[VFS_MAX_FDS];
 
 static bootinfo_t bi;
@@ -1149,6 +1150,22 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             goto openat_out;
         }
 
+        if (strcmp(abs, "/dev/zero") == 0 || strcmp(abs, "/dev/null") == 0) {
+            int32_t sfd = fd_alloc();
+
+            if (sfd < 0) {
+                rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
+                goto openat_out;
+            }
+            fds[sfd - 1].special =
+                (strcmp(abs, "/dev/zero") == 0) ? 1 : 2;
+            rep->words[0] = 0;
+            rep->words[1] = (uint64_t) sfd;
+            rep->words[2] = 0;
+            rep->words[3] = 0;
+            goto openat_out;
+        }
+
         uint64_t redir = mount_rel(abs, &rel);
 
         if (redir != 0) {
@@ -1210,6 +1227,23 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+        } else if (fds[fd - 1].special == 1) {
+            uint64_t n = len;
+
+            if (n > VFS_IO_BUF_SIZE)
+                n = VFS_IO_BUF_SIZE;
+            if (n > 0 && memh != 0
+                && sys_mem_map(memh, VFS_BUF_VADDR, 3) == 0) {
+                memset((void *) VFS_BUF_VADDR, 0, n);
+                sys_mem_unmap(memh, VFS_BUF_VADDR);
+                rep->words[0] = 0;
+                rep->words[1] = n;
+            } else {
+                rep->words[0] = (uint64_t) (int64_t) -5;
+            }
+        } else if (fds[fd - 1].special == 2) {
+            rep->words[0] = 0;
+            rep->words[1] = 0;
         } else {
             int32_t e = fds[fd - 1].ent;
             uint64_t off = fds[fd - 1].off;
@@ -1242,6 +1276,61 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_TRUNC) {
+        int32_t fd = (int32_t) m->words[0];
+        uint64_t size = m->words[1];
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        if (fds[fd - 1].is_dir) {
+            rep->words[0] = (uint64_t) (int64_t) -21;   /* -EISDIR */
+            return;
+        }
+
+        int32_t e = fds[fd - 1].ent;
+
+        if (!idx_is_dyn(e)) {
+            rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
+            return;
+        }
+
+        vfs_dyn_t *d = &dyns[e - ent_count];
+
+        if (size > VFS_DYN_MAX) {
+            rep->words[0] = (uint64_t) (int64_t) -27;   /* -EFBIG */
+            return;
+        }
+        if (size > d->cap) {
+            uint64_t newcap = d->cap ? d->cap : VFS_DYN_CAP;
+            char *nd;
+
+            while (newcap < size)
+                newcap *= 2;
+            nd = sys_malloc(newcap);
+            if (nd == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -28;       /* -ENOSPC */
+                return;
+            }
+            if (d->data != NULL && d->size > 0)
+                memcpy(nd, d->data, d->size);
+            if (size > d->size)
+                memset(nd + d->size, 0, size - d->size);
+            d->data = nd;
+            d->cap = newcap;
+        } else if (size > d->size) {
+            memset(d->data + d->size, 0, size - d->size);
+        }
+
+        d->size = size;
+        if (strncmp(d->name, "/tmp/", 5) != 0)
+            store_save();
+        rep->words[0] = 0;
+        rep->words[1] = size;
+        return;
+    }
+
     if (m->tag == VFS_WRITE) {
         int32_t fd = (int32_t) m->words[0];
         uint64_t len = m->words[1];
@@ -1250,6 +1339,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+        } else if (fds[fd - 1].special != 0) {
+            rep->words[0] = 0;
+            rep->words[1] = len;
         } else if (!idx_is_dyn(fds[fd - 1].ent)) {
             rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
         } else {
@@ -1673,6 +1765,65 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         free(abs);
         free(rel);
         free(norm);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_LINKAT) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *oldp = NULL, *newp = NULL;
+        char *oldabs = NULL, *newabs = NULL;
+        char *oldrel = NULL, *newrel = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        oldp = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        newp = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && oldp != NULL && newp != NULL) {
+            oldabs = join_path(cwd, oldp);
+            newabs = join_path(cwd, newp);
+            oldrel = (oldabs != NULL) ? ext_rel(oldabs) : NULL;
+            newrel = (newabs != NULL) ? ext_rel(newabs) : NULL;
+
+            if (oldrel != NULL && newrel != NULL) {
+                uint64_t n1 = strlen(oldrel) + 1;
+                uint64_t n2 = strlen(newrel) + 1;
+
+                if (n1 + n2 > VFS_IO_DATA_OFF) {
+                    rep->words[0] = (uint64_t) (int64_t) -36;   /* -ENAMETOOLONG */
+                } else {
+                    memcpy(buf, oldrel, n1);
+                    memcpy(buf + n1, newrel, n2);
+                    rep->words[0] = VFS_REDIRECT_EXT;
+                }
+            } else if (oldabs == NULL || newabs == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            } else if (oldrel != NULL || newrel != NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -18;   /* -EXDEV */
+            } else {
+                rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(oldp);
+        free(newp);
+        free(oldabs);
+        free(newabs);
+        free(oldrel);
+        free(newrel);
         sys_mem_unmap(memh, VFS_BUF_VADDR);
         sys_handle_close(memh);
         return;

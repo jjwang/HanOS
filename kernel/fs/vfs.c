@@ -267,25 +267,38 @@ static void memobj_pack_cwd_path(memobj_t * mo, const char *cwd,
         memobj_copy_in(mo, path, plen, clen);
 }
 
-/* Read the redirect path into a buffer sized to the string. The caller frees
- * it with kmfree(). */
-static char *memobj_read_path_alloc(memobj_t * mo)
+/* Read the index-th NUL-terminated path from a redirect buffer. The caller
+ * frees it with kmfree(). */
+static char *memobj_read_path_at_alloc(memobj_t * mo, uint32_t index)
 {
     char *tmp = kmalloc(VFS_IO_DATA_OFF);
-    char *out;
-    uint64_t n;
+    char *out = NULL;
+    uint64_t pos = 0;
 
     if (tmp == NULL)
         return NULL;
     memobj_copy_out(mo, tmp, VFS_IO_DATA_OFF - 1, 0);
     tmp[VFS_IO_DATA_OFF - 1] = '\0';
 
-    n = strlen(tmp);
-    out = kmalloc(n + 1);
-    if (out != NULL)
-        memcpy(out, tmp, n + 1);
+    for (uint32_t i = 0; i <= index && pos < VFS_IO_DATA_OFF; i++) {
+        uint64_t n = strlen(tmp + pos);
+
+        if (i == index) {
+            out = kmalloc(n + 1);
+            if (out != NULL)
+                memcpy(out, tmp + pos, n + 1);
+            break;
+        }
+        pos += n + 1;
+    }
+
     kmfree(tmp);
     return out;
+}
+
+static char *memobj_read_path_alloc(memobj_t * mo)
+{
+    return memobj_read_path_at_alloc(mo, 0);
 }
 
 /* Stat a path. The VFS server resolves cwd+path; when the path is under the FAT
@@ -536,6 +549,49 @@ int64_t vfs_mkdir_path(const char *cwd, const char *path)
 int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path)
 {
     return vfs_path_cmd(VFS_SYMLINKAT, cwd, path, target);
+}
+
+int64_t vfs_link_path(const char *oldp, const char *newp)
+{
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_paths(mo, "/", oldp, newp);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_LINKAT;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_EXT) {
+        char *oldrel = memobj_read_path_at_alloc(mo, 0);
+        char *newrel = memobj_read_path_at_alloc(mo, 1);
+
+        rc = (oldrel != NULL && newrel != NULL)
+            ? ext2_link_path(oldrel, newrel) : -1;
+        if (oldrel != NULL)
+            kmfree(oldrel);
+        if (newrel != NULL)
+            kmfree(newrel);
+    } else if (rc == VFS_REDIRECT_FAT) {
+        rc = -30;               /* -EROFS */
+    }
+
+    memobj_unref(mo);
+    return rc;
 }
 
 int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp)
@@ -991,7 +1047,19 @@ int64_t vfs_truncate(vfs_fd_t fd, uint64_t newsize)
         return fat32_trunc_fd(desc->server_fd, newsize);
     if (desc->svc == SVC_EXT)
         return ext2_trunc_fd(desc->server_fd, newsize);
-    return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_TRUNC;
+    req.words[0] = (uint64_t) desc->server_fd;
+    req.words[1] = newsize;
+
+    if (!router_forward(SVC_FS, &req, &rep)
+        || (int64_t) rep.words[0] < 0)
+        return -1;
+    return (int64_t) rep.words[1];
 }
 
 int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable)

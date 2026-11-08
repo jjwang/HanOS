@@ -965,6 +965,78 @@ int64_t k_symlinkat(const char *target, int32_t newdirfd, const char *linkpath)
     return 0;
 }
 
+/* Build an absolute path from a dirfd. Relative paths under AT_FDCWD are
+ * joined with the process cwd; other dirfds resolve through vfs_fd_path. */
+static int32_t link_abs_path(int64_t dirfd, const char *path, char *out,
+                             uint64_t outsz)
+{
+    if (path[0] == '/') {
+        if ((uint64_t) strlen(path) + 1 > outsz)
+            return -1;
+        strcpy(out, path);
+        return 0;
+    }
+
+    if (dirfd == -100) {
+        process_t *t = sched_get_current_process();
+        const char *cwd = (t != NULL) ? t->cwd : "/";
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+        bool slash = (cl > 0 && cwd[cl - 1] != '/');
+
+        if (cl + (slash ? 1 : 0) + pl + 1 > outsz)
+            return -1;
+        memcpy(out, cwd, cl);
+        if (slash)
+            out[cl++] = '/';
+        memcpy(out + cl, path, pl + 1);
+        return 0;
+    }
+
+    return at_resolve(dirfd, path, out, outsz);
+}
+
+int64_t k_linkat(int32_t olddirfd, const char *oldpath, int32_t newdirfd,
+                 const char *newpath, int32_t flags)
+{
+    (void) flags;
+    cpu_set_errno(0);
+
+    char *kold = copy_user_path_alloc(oldpath);
+    char *knew = copy_user_path_alloc(newpath);
+
+    if (kold == NULL || knew == NULL) {
+        if (kold != NULL)
+            kmfree(kold);
+        if (knew != NULL)
+            kmfree(knew);
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    char oldabs[VFS_MAX_PATH_LEN];
+    char newabs[VFS_MAX_PATH_LEN];
+
+    if (link_abs_path(olddirfd, kold, oldabs, sizeof(oldabs)) != 0
+        || link_abs_path(newdirfd, knew, newabs, sizeof(newabs)) != 0) {
+        kmfree(kold);
+        kmfree(knew);
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    kmfree(kold);
+    kmfree(knew);
+
+    int64_t r = vfs_link_path(oldabs, newabs);
+
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+    return 0;
+}
+
 int64_t k_renameat(int32_t olddirfd, const char *oldpath, int32_t newdirfd,
                    const char *newpath)
 {
@@ -4734,6 +4806,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_RMDIR] = (syscall_ptr_t) k_rmdir,
     [SYSCALL_MKDIRAT] = (syscall_ptr_t) k_mkdirat,
     [SYSCALL_SYMLINKAT] = (syscall_ptr_t) k_symlinkat,
+    [SYSCALL_LINKAT] = (syscall_ptr_t) k_linkat,
     [SYSCALL_RENAMEAT] = (syscall_ptr_t) k_renameat,
     [SYSCALL_RENAMEAT2] = (syscall_ptr_t) k_renameat,
     [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,

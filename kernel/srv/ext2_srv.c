@@ -153,6 +153,42 @@ int64_t ext2_unlink_path(const char *path)
     return ext2_path_call(EXT2_UNLINK, path, NULL, NULL, NULL);
 }
 
+int64_t ext2_link_path(const char *oldp, const char *newp)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = memobj_alloc_handle(EXT2_IO_BUF_SIZE, &h);
+    uint64_t n1 = strlen(oldp) + 1;
+    uint64_t n2 = strlen(newp) + 1;
+
+    if (mo == NULL)
+        return -1;
+    if (n1 + n2 > EXT2_IO_DATA_OFF) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    memobj_copy_in(mo, oldp, n1, 0);
+    memobj_copy_in(mo, newp, n2, n1);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_LINK;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_EXT, &req, &rep))
+        rc = (int64_t) rep.words[0];
+
+    memobj_unref(mo);
+    return rc;
+}
+
 int64_t ext2_write_fd(int64_t fd, uint64_t len, const void *buf)
 {
     if (!ext2_active)

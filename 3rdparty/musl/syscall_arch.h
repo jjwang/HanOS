@@ -56,6 +56,7 @@
 #define H_UNLINK     87
 #define H_MKDIRAT    258
 #define H_SYMLINKAT  266
+#define H_LINKAT     265
 #define H_RENAMEAT   264
 #define H_READLINK   89
 #define H_PRLIMIT64  302
@@ -150,6 +151,8 @@
 #define L_unlinkat    263
 #define L_mkdir       83
 #define L_mkdirat     258
+#define L_link        86
+#define L_linkat      265
 #define L_symlink     88
 #define L_symlinkat   266
 #define L_rename      82
@@ -507,6 +510,10 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_MKDIRAT, -100, a1, a2, 0, 0, 0);
     case L_mkdirat:
         return __hanos_raw(H_MKDIRAT, a1, a2, a3, 0, 0, 0);
+    case L_link:
+        return __hanos_raw(H_LINKAT, -100, a1, -100, a2, 0, 0);
+    case L_linkat:
+        return __hanos_raw(H_LINKAT, a1, a2, a3, a4, a5, 0);
     case L_symlink:
         return __hanos_raw(H_SYMLINKAT, a1, -100, a2, 0, 0, 0);
     case L_symlinkat:
