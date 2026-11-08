@@ -92,6 +92,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.vaddr = (uint64_t) elf_buff;
     m.paddr = VIRT_TO_PHYS(elf_buff);
     m.np = NUM_PAGES(elf_len);
+    m.kind = 1;
 
     vec_push_back(&process->addrspace->mmap_list, m);
 
@@ -131,6 +132,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.vaddr = (uint64_t) phdr;
     m.paddr = VIRT_TO_PHYS(phdr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(elf_phdr_t));
+    m.kind = 1;
 
     vec_push_back(&process->addrspace->mmap_list, m);
 
@@ -144,6 +146,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.vaddr = (uint64_t) phaddr;
     m.paddr = VIRT_TO_PHYS(phaddr);
     m.np = NUM_PAGES(hdr.phnum * sizeof(uint64_t));
+    m.kind = 1;
 
     vec_push_back(&process->addrspace->mmap_list, m);
 
@@ -247,6 +250,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
         m1.paddr = addr;
         m1.np = page_count;
         m1.flags = pf;
+        m1.kind = 0;
 
         vec_push_back(&process->addrspace->mmap_list, m1);
 
@@ -270,6 +274,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     m.vaddr = (uint64_t) shdr;
     m.paddr = VIRT_TO_PHYS(shdr);
     m.np = NUM_PAGES(hdr.shnum * sizeof(elf_shdr_t));
+    m.kind = 1;
 
     vec_push_back(&process->addrspace->mmap_list, m);
 

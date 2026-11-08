@@ -67,6 +67,7 @@ typedef struct {
     uint64_t paddr;
     uint64_t flags;
     uint64_t np;
+    uint32_t kind;              /* 0 user mapping, 1 kernel buffer */
 } mem_map_t;
 
 void pmm_init(struct limine_memmap_response *map, uint64_t higher_half);

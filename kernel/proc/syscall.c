@@ -691,6 +691,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     m.paddr = phys_ptr;
     m.np = NUM_PAGES(length);
     m.flags = pf;
+    m.kind = 0;
 
     vec_push_back(&t->addrspace->mmap_list, m);
 
@@ -3796,6 +3797,7 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
             .paddr = dst,
             .np = 1,
             .flags = pf,
+            .kind = 0,
         };
         vec_push_back(&t->addrspace->mmap_list, mm);
     }

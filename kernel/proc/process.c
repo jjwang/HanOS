@@ -165,6 +165,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         m.paddr = (uint64_t) nproc->ustack_limit;
         m.np = NUM_PAGES(STACK_SIZE);
         m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
+        m.kind = 0;
 
         vec_push_back(&as->mmap_list, m);
 
@@ -282,7 +283,8 @@ process_t *process_fork(process_t * tp)
                   "map to 0x%016lx with top 0x%016lx\n",
                   new_pid, tp->pid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
         }
-        vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
+        if (m.kind == 0)
+            vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
 
         m.paddr = ptr;
         vec_push_back(&tc->addrspace->mmap_list, m);
@@ -416,7 +418,8 @@ void process_free_addrspace(addrspace_t * as)
     for (uint64_t i = 0; i < mmap_num; i++) {
         mem_map_t m = vec_at(&as->mmap_list, i);
 
-        vmm_unmap(as, m.vaddr, m.np);
+        if (m.kind == 0)
+            vmm_unmap(as, m.vaddr, m.np);
         kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
     }
     vec_erase_all(&as->mmap_list);
