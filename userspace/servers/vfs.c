@@ -85,6 +85,9 @@ typedef struct vfs_dyn {
     uint64_t fifo_head;
     uint64_t fifo_tail;
     uint64_t fifo_count;
+    uint32_t fifo_readers;
+    uint32_t fifo_writers;
+    bool fifo_had_writer;
     struct vfs_dyn *link;       /* hard-link canonical entry, NULL for self */
     uint32_t links;             /* names referring to this inode */
 } vfs_dyn_t;
@@ -95,6 +98,18 @@ static int64_t root_mtime;      /* newest initrd entry, used for the root */
 
 static vfs_dyn_t dyns[VFS_MAX_DYN];
 
+typedef struct {
+    bool used;
+    int32_t ent;
+    int64_t reply;
+    int64_t memh;
+    uint64_t len;
+} fifo_wait_t;
+
+#define VFS_FIFO_WAITS 8
+static fifo_wait_t fifo_waits[VFS_FIFO_WAITS];
+static bool defer_reply;
+
 static struct {
     bool in_use;
     bool is_dir;
@@ -103,6 +118,7 @@ static struct {
     uint64_t dir_idx;           /* readdir cursor for directories */
     char *dir;                  /* normalized directory path */
     uint32_t refs;              /* number of forks sharing this description */
+    bool fifo_write;            /* FIFO descriptor refers to the write end */
     int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
 } fds[VFS_MAX_FDS];
 
@@ -594,6 +610,52 @@ static int32_t dyn_create_fifo(const char *path)
     if (idx >= 0)
         dyns[idx - ent_count].is_fifo = true;
     return idx;
+}
+
+static void fifo_wake(int32_t ent, bool eof)
+{
+    vfs_dyn_t *d = &dyns[ent - ent_count];
+
+    for (int32_t i = 0; i < VFS_FIFO_WAITS; i++) {
+        fifo_wait_t *w = &fifo_waits[i];
+
+        if (!w->used || w->ent != ent)
+            continue;
+        if (!eof && d->fifo_count == 0)
+            break;
+
+        uint64_t n = eof ? 0 : w->len;
+
+        if (!eof && n > d->fifo_count)
+            n = d->fifo_count;
+
+        if (n > 0 && w->memh != 0
+            && sys_mem_map(w->memh, VFS_BUF_VADDR, 3) == 0) {
+            uint8_t *dst = (uint8_t *) VFS_BUF_VADDR;
+
+            for (uint64_t k = 0; k < n; k++) {
+                dst[k] = d->fifo_data[d->fifo_head];
+                d->fifo_head = (d->fifo_head + 1) % sizeof(d->fifo_data);
+            }
+            d->fifo_count -= n;
+            sys_mem_unmap(w->memh, VFS_BUF_VADDR);
+        } else {
+            n = 0;
+        }
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.words[0] = 0;
+        rep.words[1] = n;
+        if (w->reply != 0) {
+            sys_ipc_send(w->reply, &rep);
+            sys_handle_close(w->reply);
+        }
+        if (w->memh != 0)
+            sys_handle_close(w->memh);
+        w->used = false;
+    }
 }
 
 static int32_t dyn_create_symlink(const char *path, const char *target)
@@ -1294,6 +1356,18 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fds[fd - 1].dir = norm_dir(abs);
         } else {
             fds[fd - 1].ent = e;
+            if (idx_is_fifo(e)) {
+                vfs_dyn_t *d = &dyns[e - ent_count];
+                uint32_t acc = (uint32_t) flags & 3;
+
+                fds[fd - 1].fifo_write = (acc == 1);
+                if (acc != 1)
+                    d->fifo_readers++;
+                if (acc != 0) {
+                    d->fifo_writers++;
+                    d->fifo_had_writer = true;
+                }
+            }
         }
 
         rep->words[0] = 0;
@@ -1352,11 +1426,34 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 d->fifo_count -= n;
                 sys_mem_unmap(memh, VFS_BUF_VADDR);
+                rep->words[0] = 0;
+                rep->words[1] = n;
+            } else if (len == 0 || (d->fifo_writers == 0
+                                    && d->fifo_had_writer)) {
+                rep->words[0] = 0;
+                rep->words[1] = 0;
             } else {
-                n = 0;
+                int32_t slot = -1;
+
+                for (int32_t i = 0; i < VFS_FIFO_WAITS; i++)
+                    if (!fifo_waits[i].used) {
+                        slot = i;
+                        break;
+                    }
+                if (slot < 0) {
+                    rep->words[0] = (uint64_t) (int64_t) -11;   /* -EAGAIN */
+                } else {
+                    fifo_wait_t *w = &fifo_waits[slot];
+
+                    w->used = true;
+                    w->ent = fds[fd - 1].ent;
+                    w->reply = (int64_t) m->xfer[0];
+                    w->memh = memh;
+                    w->len = len;
+                    defer_reply = true;
+                    return;
+                }
             }
-            rep->words[0] = 0;
-            rep->words[1] = n;
         } else {
             int32_t e = fds[fd - 1].ent;
             uint64_t off = fds[fd - 1].off;
@@ -1478,6 +1575,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 d->fifo_count += n;
                 sys_mem_unmap(memh, VFS_BUF_VADDR);
+                if (n > 0)
+                    fifo_wake(fds[fd - 1].ent, false);
             } else {
                 n = 0;
             }
@@ -1645,6 +1744,18 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (fds[fd - 1].refs > 0)
                 fds[fd - 1].refs--;
             if (fds[fd - 1].refs == 0) {
+                if (idx_is_fifo(fds[fd - 1].ent)) {
+                    vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
+
+                    if (fds[fd - 1].fifo_write) {
+                        if (d->fifo_writers > 0)
+                            d->fifo_writers--;
+                        if (d->fifo_writers == 0 && d->fifo_had_writer)
+                            fifo_wake(fds[fd - 1].ent, true);
+                    } else if (d->fifo_readers > 0) {
+                        d->fifo_readers--;
+                    }
+                }
                 if (fds[fd - 1].dir != NULL)
                     free(fds[fd - 1].dir);
                 fds[fd - 1].in_use = false;
@@ -2262,7 +2373,28 @@ int32_t main(void)
     store_load();
     store_ready = true;
 
-    sys_server_run((int64_t) bi.service_ep, 1000, handle);
+    for (;;) {
+        sys_ipc_msg_t m;
+
+        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0)
+            continue;
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.tag = m.tag;
+        defer_reply = false;
+        handle(&m, &rep);
+        if (defer_reply)
+            continue;
+
+        int64_t reply = (int64_t) m.xfer[0];
+
+        if (reply != 0) {
+            sys_ipc_send(reply, &rep);
+            sys_handle_close(reply);
+        }
+    }
 
     return 0;
 }
