@@ -211,6 +211,36 @@ static int32_t read_ind(uint32_t block)
     return 0;
 }
 
+#define INODE_BLK_CACHE_ENTRIES 16
+
+static struct {
+    bool used;
+    uint32_t block;
+    uint8_t data[4096];
+} inode_blk_cache[INODE_BLK_CACHE_ENTRIES];
+static uint32_t inode_blk_next;
+
+static void inode_blk_clear(void)
+{
+    memset(inode_blk_cache, 0, sizeof(inode_blk_cache));
+    inode_blk_next = 0;
+}
+
+static const uint8_t *inode_blk_get(uint32_t block)
+{
+    for (uint32_t i = 0; i < INODE_BLK_CACHE_ENTRIES; i++)
+        if (inode_blk_cache[i].used && inode_blk_cache[i].block == block)
+            return inode_blk_cache[i].data;
+
+    uint32_t idx = inode_blk_next++ % INODE_BLK_CACHE_ENTRIES;
+
+    if (read_block(block, inode_blk_cache[idx].data) != 0)
+        return NULL;
+    inode_blk_cache[idx].used = true;
+    inode_blk_cache[idx].block = block;
+    return inode_blk_cache[idx].data;
+}
+
 static int32_t inode_read(uint32_t n, uint8_t *out)
 {
     if (n == 0 || n > inode_count)
@@ -223,17 +253,20 @@ static int32_t inode_read(uint32_t n, uint8_t *out)
     uint32_t block = (uint32_t) (off / blk_size);
     uint32_t boff = (uint32_t) (off % blk_size);
 
-    if (read_block(block, blk) != 0)
+    const uint8_t *src = inode_blk_get(block);
+
+    if (src == NULL)
         return -1;
     if (boff + inode_size <= blk_size) {
-        memcpy(out, blk + boff, inode_size);
+        memcpy(out, src + boff, inode_size);
     } else {
         uint32_t first = blk_size - boff;
 
-        memcpy(out, blk + boff, first);
-        if (read_block(block + 1, blk) != 0)
+        memcpy(out, src + boff, first);
+        src = inode_blk_get(block + 1);
+        if (src == NULL)
             return -1;
-        memcpy(out + first, blk, inode_size - first);
+        memcpy(out + first, src, inode_size - first);
     }
     return 0;
 }
@@ -511,6 +544,7 @@ static void inode_write(uint32_t n, const uint8_t *inode)
         memcpy(second, inode + first, inode_size - first);
         write_block(block + 1, second);
     }
+    inode_blk_clear();
 }
 
 /* Map a logical block to a physical one, allocating as needed. Handles the
