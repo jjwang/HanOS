@@ -209,8 +209,10 @@ static void ext2_fill_meta(ext2_meta_t * m, const ipc_msg_t * rep)
     uint64_t meta = rep->words[4];
 
     m->size = rep->words[1];
+    m->ino = rep->words[6];
     m->is_dir = rep->words[2] != 0;
     m->mode = (uint32_t) rep->words[3];
+    m->blocks = (uint32_t) rep->words[7];
     m->uid = (uint32_t) (meta & 0xffff);
     m->gid = (uint32_t) ((meta >> 16) & 0xffff);
     m->nlink = (uint32_t) ((meta >> 32) & 0xffff);
@@ -341,6 +343,43 @@ int64_t ext2_fstat_fd(int64_t fd, ext2_meta_t * m)
 
     ext2_fill_meta(m, &rep);
     return 0;
+}
+
+int64_t ext2_fd_path(int64_t fd, char *out, uint64_t outsz)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = memobj_alloc_handle(EXT2_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_FD_PATH;
+    req.words[0] = (uint64_t) fd;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_EXT, &req, &rep)) {
+        uint64_t n = rep.words[1];
+
+        if ((int64_t) rep.words[0] == 0 && n > 0 && n <= outsz) {
+            const char *src = (const char *)
+                (PHYS_TO_VIRT(memobj_page(mo, EXT2_IO_DATA_OFF / PAGE_SIZE))
+                 + (EXT2_IO_DATA_OFF % PAGE_SIZE));
+
+            memcpy(out, src, n);
+            rc = (int64_t) n;
+        }
+    }
+
+    memobj_unref(mo);
+    return rc;
 }
 
 int64_t ext2_readdir_fd(int64_t fd, uint64_t index, char *name,

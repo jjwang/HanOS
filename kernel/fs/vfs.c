@@ -348,11 +348,14 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
         if (r < 0)
             return -1;
         memset(out, 0, sizeof(*out));
+        out->st_dev = 2;
+        out->st_ino = (ino_t) m.ino;
         out->st_mode = (uint16_t) m.mode;
         out->st_nlink = m.nlink;
         out->st_uid = m.uid;
         out->st_gid = m.gid;
         out->st_size = (off_t) m.size;
+        out->st_blocks = (blkcnt_t) m.blocks;
         out->st_mtim.tv_sec = m.mtime;
         return 0;
     }
@@ -759,8 +762,44 @@ int64_t vfs_fd_path(int32_t fd, char *out, uint64_t outsz)
     int32_t kind = 0, svc = 0;
     int64_t sfd = 0;
 
-    if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) != 0
-        || svc != SVC_FS)
+    int32_t gr = process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL);
+
+    if (gr != 0)
+        return -1;
+
+    if (svc == SVC_EXT) {
+        char rel[EXT2_PATH_MAX];
+        int64_t n = ext2_fd_path(sfd, rel, sizeof(rel));
+
+        if (n <= 0)
+            return -1;
+
+        /* The ext2 server sees the mount-relative path; callers need the
+         * guest-visible path under /data. */
+        const char *rp = rel;
+        uint64_t rl = strlen(rel);
+        uint64_t prefix = 5;
+        uint64_t outn = prefix;
+
+        if (rl == 1 && rel[0] == '/') {
+            rl = 0;
+        } else if (rl > 0 && rel[0] == '/') {
+            rp++;
+            rl--;
+        }
+        if (prefix + (rl ? rl + 1 : 0) + 1 > outsz)
+            return -1;
+        memcpy(out, "/data", prefix);
+        if (rl) {
+            out[outn++] = '/';
+            memcpy(out + outn, rp, rl);
+            outn += rl;
+        }
+        out[outn] = '\0';
+        return (int64_t) outn + 1;
+    }
+
+    if (svc != SVC_FS)
         return -1;
 
     handle_t mh;

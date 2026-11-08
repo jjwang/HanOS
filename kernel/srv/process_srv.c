@@ -54,6 +54,7 @@ static void process_spawn_attach(process_t * tc)
     endpoint_t *pp = router_lookup(SVC_PIPE);
     endpoint_t *tt = router_lookup(SVC_TTY);
     endpoint_t *ft = router_lookup(SVC_FAT);
+    endpoint_t *ex = router_lookup(SVC_EXT);
 
     if (fs != NULL)
         bi->fs_ep = handle_alloc(&tc->handles, endpoint_object(fs),
@@ -67,6 +68,9 @@ static void process_spawn_attach(process_t * tc)
     if (ft != NULL)
         bi->fat_ep = handle_alloc(&tc->handles, endpoint_object(ft),
                                   HANDLE_RIGHT_SEND);
+    if (ex != NULL)
+        bi->ext2_ep = handle_alloc(&tc->handles, endpoint_object(ex),
+                                   HANDLE_RIGHT_SEND);
 
     tc->bootinfo = bi;
 

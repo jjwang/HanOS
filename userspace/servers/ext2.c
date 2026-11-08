@@ -869,10 +869,13 @@ typedef struct {
     uint32_t size;
     bool is_dir;
     uint32_t mode;
+    uint32_t blocks;            /* i_blocks in 512-byte units */
     uint64_t meta;              /* uid | gid<<16 | nlink<<32 */
     uint32_t mtime;
     uint64_t off;
     uint64_t dir_idx;           /* readdir cursor */
+    int32_t refs;
+    char path[EXT2_PATH_MAX];   /* path used to open this descriptor */
 } ext2_fd_t;
 
 static ext2_fd_t fdtab[EXT2_FD_MAX];
@@ -935,7 +938,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     if (m->tag == EXT2_OPEN || m->tag == EXT2_STAT || m->tag == EXT2_READ
         || m->tag == EXT2_READDIR || m->tag == EXT2_CREATE
-        || m->tag == EXT2_UNLINK || m->tag == EXT2_WRITE) {
+        || m->tag == EXT2_UNLINK || m->tag == EXT2_WRITE
+        || m->tag == EXT2_FD_PATH) {
         memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         if (memh == 0 || sys_mem_map(memh, EXT2_REQ_ADDR, 3) != 0) {
             if (memh != 0)
@@ -950,11 +954,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     case EXT2_OPEN:
     case EXT2_STAT:{
             char *path = read_path(buf);
+            char fpath[EXT2_PATH_MAX];
 
             if (path == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;
                 break;
             }
+            strncpy(fpath, path, sizeof(fpath) - 1);
+            fpath[sizeof(fpath) - 1] = '\0';
             uint32_t ino = path_resolve(path);
 
             free(path);
@@ -987,6 +994,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 rep->words[3] = mode;
                 rep->words[4] = meta;
                 rep->words[5] = mtime;
+                rep->words[6] = ino;
+                rep->words[7] = rd32(inode + 28);
                 break;
             }
 
@@ -1001,10 +1010,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fdtab[nfd].size = size;
             fdtab[nfd].is_dir = is_dir;
             fdtab[nfd].mode = mode;
+            fdtab[nfd].blocks = rd32(inode + 28);
             fdtab[nfd].meta = meta;
             fdtab[nfd].mtime = mtime;
             fdtab[nfd].off = 0;
             fdtab[nfd].dir_idx = 0;
+            fdtab[nfd].refs = 1;
+            strncpy(fdtab[nfd].path, fpath, sizeof(fdtab[nfd].path) - 1);
+            fdtab[nfd].path[sizeof(fdtab[nfd].path) - 1] = '\0';
             rep->words[0] = 0;
             rep->words[1] = (uint64_t) nfd;
             rep->words[2] = size;
@@ -1017,9 +1030,39 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -9;
             break;
         }
-        fdtab[fd].used = false;
+        if (fdtab[fd].refs > 1) {
+            fdtab[fd].refs--;
+        } else {
+            fdtab[fd].used = false;
+        }
         rep->words[0] = 0;
         break;
+
+    case EXT2_FD_REF:
+        if (!fd_ok(fd)) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+            break;
+        }
+        fdtab[fd].refs++;
+        rep->words[0] = 0;
+        break;
+
+    case EXT2_FD_PATH:{
+            if (!fd_ok(fd)) {
+                rep->words[0] = (uint64_t) (int64_t) -9;
+                break;
+            }
+            uint64_t n = strlen(fdtab[fd].path) + 1;
+
+            if (n > EXT2_DATA_MAX) {
+                rep->words[0] = (uint64_t) (int64_t) -7;
+                break;
+            }
+            memcpy(buf + EXT2_IO_DATA_OFF, fdtab[fd].path, n);
+            rep->words[0] = 0;
+            rep->words[1] = n;
+            break;
+        }
 
     case EXT2_FSTAT:
         if (!fd_ok(fd)) {
@@ -1032,6 +1075,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[3] = fdtab[fd].mode;
         rep->words[4] = fdtab[fd].meta;
         rep->words[5] = fdtab[fd].mtime;
+        rep->words[6] = fdtab[fd].ino;
+        rep->words[7] = fdtab[fd].blocks;
         break;
 
     case EXT2_READ:{
@@ -1110,11 +1155,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     case EXT2_CREATE:{
             char *path = read_path(buf);
+            char fpath[EXT2_PATH_MAX];
 
             if (path == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;
                 break;
             }
+            strncpy(fpath, path, sizeof(fpath) - 1);
+            fpath[sizeof(fpath) - 1] = '\0';
 
             uint32_t ino = path_resolve(path);
 
@@ -1177,12 +1225,16 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             fdtab[nfd].size = rd32(inode + 4);
             fdtab[nfd].is_dir = ((rd16(inode) & 0xF000) == 0x4000);
             fdtab[nfd].mode = rd16(inode);
+            fdtab[nfd].blocks = rd32(inode + 28);
             fdtab[nfd].meta = (rd16(inode + 2) & 0xffffu)
                 | ((uint64_t) (rd16(inode + 24) & 0xffffu) << 16)
                 | ((uint64_t) (rd16(inode + 26) & 0xffffu) << 32);
             fdtab[nfd].mtime = rd32(inode + 16);
             fdtab[nfd].off = 0;
             fdtab[nfd].dir_idx = 0;
+            fdtab[nfd].refs = 1;
+            strncpy(fdtab[nfd].path, fpath, sizeof(fdtab[nfd].path) - 1);
+            fdtab[nfd].path[sizeof(fdtab[nfd].path) - 1] = '\0';
             rep->words[0] = 0;
             rep->words[1] = (uint64_t) nfd;
             rep->words[2] = fdtab[nfd].size;

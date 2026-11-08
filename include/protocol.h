@@ -196,9 +196,13 @@ typedef struct {
                                            words[2]=size */
 #define EXT2_TRUNC          0x89        /* words[0]=fd, words[1]=new size */
 #define EXT2_UNLINK         0x8a        /* in: path */
+#define EXT2_FD_PATH        0x8b        /* words[0]=fd; out: path at
+                                           EXT2_IO_DATA_OFF, words[1]=length */
+#define EXT2_FD_REF         0x8c        /* words[0]=fd; add a reference */
 #define VFS_REDIRECT_EXT    101         /* path belongs to the ext2 mount */
 #define EXT2_IO_BUF_SIZE    (64 * 1024) /* request buffer for a bulk transfer */
 #define EXT2_IO_DATA_OFF    4096        /* payload offset inside it */
+#define EXT2_PATH_MAX       512
 
 /* Network server. Datagram sockets only; traffic to the loopback address is
  * delivered to the matching bound socket. A data buffer travels in xfer[1];

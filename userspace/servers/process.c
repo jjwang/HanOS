@@ -34,6 +34,7 @@
 #define SVC_PIPE_ID     5
 #define SVC_TTY_ID      6
 #define SVC_FAT_ID      7
+#define SVC_EXT_ID      8
 
 /**
  * @brief One descriptor in a process's file-descriptor table
@@ -75,6 +76,7 @@ static uint64_t fs_ep;
 static uint64_t pipe_ep;
 static uint64_t tty_ep;
 static uint64_t fat_ep;
+static uint64_t ext_ep;
 
 static uint64_t ep_for_svc(int32_t svc)
 {
@@ -86,6 +88,8 @@ static uint64_t ep_for_svc(int32_t svc)
         return tty_ep;
     if (svc == SVC_FAT_ID)
         return fat_ep;
+    if (svc == SVC_EXT_ID)
+        return ext_ep;
     return 0;
 }
 
@@ -97,6 +101,17 @@ static uint64_t close_tag_for_svc(int32_t svc)
         return PIPE_CLOSE;
     if (svc == SVC_FAT_ID)
         return FAT_CLOSE;
+    if (svc == SVC_EXT_ID)
+        return EXT2_CLOSE;
+    return 0;
+}
+
+static uint64_t ref_tag_for_svc(int32_t svc)
+{
+    if (svc == SVC_FS_ID || svc == SVC_PIPE_ID)
+        return VFS_FD_FORK;
+    if (svc == SVC_EXT_ID)
+        return EXT2_FD_REF;
     return 0;
 }
 
@@ -119,16 +134,37 @@ static void fd_close_one(proc_fd_t * e)
 static void fd_ref_one(proc_fd_t * e)
 {
     uint64_t ep = ep_for_svc(e->svc);
+    uint64_t tag = ref_tag_for_svc(e->svc);
 
-    if (ep == 0)
+    if (ep == 0 || tag == 0)
         return;
 
-    sys_ipc_msg_t fm;
+    int64_t reply = sys_ep_create();
+
+    if (reply < 0)
+        return;
+    int64_t reply_send = sys_handle_dup(reply);
+
+    if (reply_send < 0) {
+        sys_handle_close(reply);
+        return;
+    }
+
+    sys_ipc_msg_t fm, rm;
 
     memset(&fm, 0, sizeof(fm));
-    fm.tag = VFS_FD_FORK;
+    fm.tag = tag;
     fm.words[0] = (uint64_t) e->server_fd;
-    sys_ipc_send((int64_t) ep, &fm);
+    fm.xfer[0] = reply_send;
+    fm.xfer_count = 1;
+
+    /* The reference must reach the service before the caller closes the
+     * original descriptor, or the service drops the description early. */
+    if (sys_ipc_send((int64_t) ep, &fm) == 0)
+        sys_ipc_recv_timeout(reply, &rm, 1000);
+
+    sys_handle_close(reply_send);
+    sys_handle_close(reply);
 }
 
 static proc_fd_t *fd_table(int32_t pid, bool alloc)
@@ -720,6 +756,7 @@ int32_t main(void)
     pipe_ep = bi.pipe_ep;
     tty_ep = bi.tty_ep;
     fat_ep = bi.fat_ep;
+    ext_ep = bi.ext2_ep;
 
     sys_server_run((int64_t) bi.service_ep, 500, handle);
 
