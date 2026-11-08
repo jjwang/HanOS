@@ -826,13 +826,58 @@ static int32_t dir_walk(const uint8_t * inode, const char *want, uint64_t index,
     return -1;                  /* not found / end of directory */
 }
 
+#define PATH_CACHE_ENTRIES  64
+#define PATH_CACHE_LEN      256
+
+static struct {
+    bool used;
+    uint32_t ino;
+    char path[PATH_CACHE_LEN];
+} path_cache[PATH_CACHE_ENTRIES];
+static uint32_t path_cache_next;
+
+static void path_cache_clear(void)
+{
+    memset(path_cache, 0, sizeof(path_cache));
+    path_cache_next = 0;
+}
+
+static uint32_t path_cache_find(const char *path)
+{
+    for (uint32_t i = 0; i < PATH_CACHE_ENTRIES; i++)
+        if (path_cache[i].used && strcmp(path_cache[i].path, path) == 0)
+            return path_cache[i].ino;
+    return 0;
+}
+
+static void path_cache_add(const char *path, uint32_t ino)
+{
+    uint64_t n = strlen(path);
+
+    if (n >= PATH_CACHE_LEN)
+        return;
+    uint32_t idx = path_cache_next++ % PATH_CACHE_ENTRIES;
+
+    path_cache[idx].used = true;
+    path_cache[idx].ino = ino;
+    memcpy(path_cache[idx].path, path, n + 1);
+}
+
 static uint32_t path_resolve(const char *path)
 {
+    uint32_t cached = path_cache_find(path);
+
+    if (cached != 0)
+        return cached;
     uint32_t ino = EXT2_ROOT_INO;
     uint8_t inode[256];
+    char prefix[PATH_CACHE_LEN];
+    uint64_t plen = 1;
 
     if (path == NULL)
         return 0;
+    prefix[0] = '/';
+    prefix[1] = '\0';
     if (path[0] == '/')
         path++;
 
@@ -848,6 +893,23 @@ static uint32_t path_resolve(const char *path)
         if (ci == 0)
             continue;
 
+        if (plen > 1) {
+            if (plen + 1 >= sizeof(prefix))
+                return 0;
+            prefix[plen++] = '/';
+        }
+        if (plen + ci >= sizeof(prefix))
+            return 0;
+        memcpy(prefix + plen, comp, ci);
+        plen += ci;
+        prefix[plen] = '\0';
+
+        cached = path_cache_find(prefix);
+        if (cached != 0) {
+            ino = cached;
+            continue;
+        }
+
         if (inode_read(ino, inode) != 0)
             return 0;
         if ((rd16(inode) & 0xF000) != 0x4000)
@@ -857,10 +919,12 @@ static uint32_t path_resolve(const char *path)
         if (dir_walk(inode, comp, 0, &next, NULL, NULL, 0) != 0)
             return 0;
         ino = next;
+        path_cache_add(prefix, ino);
     }
 
     return ino;
 }
+
 
 /** @brief Open file state in the ext2 server */
 typedef struct {
@@ -1240,6 +1304,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     break;
                 }
                 ino = nino;
+                path_cache_clear();
             }
             free(path);
 
@@ -1372,6 +1437,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else {
                 free_inode(ino);
             }
+            path_cache_clear();
             rep->words[0] = 0;
             break;
         }
@@ -1448,6 +1514,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 rep->words[0] = (uint64_t) (int64_t) -5;
                 break;
             }
+            path_cache_clear();
             rep->words[0] = 0;
             break;
         }

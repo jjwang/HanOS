@@ -303,10 +303,76 @@ static char *memobj_read_path_alloc(memobj_t * mo)
     return memobj_read_path_at_alloc(mo, 0);
 }
 
+/* Return the ext2 mount-relative path for cwd+path, or NULL when the path is
+ * outside /data. The caller supplies the result buffer. */
+static const char *vfs_ext_rel(const char *cwd, const char *path, char *buf,
+                               uint64_t bufsz)
+{
+    char joined[VFS_MAX_PATH_LEN];
+    const char *abs = path;
+
+    if (path == NULL)
+        return NULL;
+
+    if (path[0] != '/') {
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+
+        if (cl + pl + 2 > sizeof(joined))
+            return NULL;
+        memcpy(joined, cwd, cl);
+        if (cl > 0 && joined[cl - 1] != '/')
+            joined[cl++] = '/';
+        memcpy(joined + cl, path, pl + 1);
+        abs = joined;
+    }
+
+    if (strncmp(abs, "/data", 5) != 0
+        || (abs[5] != '\0' && abs[5] != '/'))
+        return NULL;
+
+    const char *rel = abs + 5;
+
+    if (*rel == '\0')
+        rel = "/";
+    uint64_t n = strlen(rel) + 1;
+
+    if (n > bufsz)
+        return NULL;
+    memcpy(buf, rel, n);
+    return buf;
+}
+
+static void ext2_meta_to_vfs(const ext2_meta_t * m, vfs_stat_t * out)
+{
+    memset(out, 0, sizeof(*out));
+    out->st_dev = 2;
+    out->st_ino = (ino_t) m->ino;
+    out->st_mode = (uint16_t) m->mode;
+    out->st_nlink = m->nlink;
+    out->st_uid = m->uid;
+    out->st_gid = m->gid;
+    out->st_size = (off_t) m->size;
+    out->st_blocks = (blkcnt_t) m->blocks;
+    out->st_mtim.tv_sec = m->mtime;
+}
+
 /* Stat a path. The VFS server resolves cwd+path; when the path is under the FAT
  * mount it redirects and the kernel asks the FAT server. */
 int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
 {
+    char relbuf[VFS_MAX_PATH_LEN];
+    const char *rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
+
+    if (rel != NULL) {
+        ext2_meta_t m;
+
+        if (ext2_stat_path(rel, &m) < 0)
+            return -1;
+        ext2_meta_to_vfs(&m, out);
+        return 0;
+    }
+
     handle_t mh;
     memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
@@ -362,16 +428,7 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
         kmfree(rel);
         if (r < 0)
             return -1;
-        memset(out, 0, sizeof(*out));
-        out->st_dev = 2;
-        out->st_ino = (ino_t) m.ino;
-        out->st_mode = (uint16_t) m.mode;
-        out->st_nlink = m.nlink;
-        out->st_uid = m.uid;
-        out->st_gid = m.gid;
-        out->st_size = (off_t) m.size;
-        out->st_blocks = (blkcnt_t) m.blocks;
-        out->st_mtim.tv_sec = m.mtime;
+        ext2_meta_to_vfs(&m, out);
         return 0;
     }
 
@@ -732,6 +789,35 @@ int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc)
 {
+    char relbuf[VFS_MAX_PATH_LEN];
+    const char *rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
+
+    if (rel != NULL) {
+        uint64_t size = 0;
+        bool is_dir = false;
+        uint32_t mode = 0;
+        int64_t efd = (flags & O_CREAT)
+            ? ext2_create_path(rel, &size)
+            : ext2_open_path(rel, &size, &is_dir, &mode);
+
+        if (efd < 0)
+            return VFS_INVALID_FD;
+        if (flags & O_TRUNC) {
+            if (ext2_trunc_fd(efd, 0) < 0) {
+                ext2_close_fd(efd);
+                return VFS_INVALID_FD;
+            }
+            size = 0;
+        }
+
+        vfs_openmode_t wmode = ((flags & O_ACCMODE) == O_RDONLY)
+            ? VFS_MODE_READ : VFS_MODE_READWRITE;
+
+        if (svc != NULL)
+            *svc = SVC_EXT;
+        return vfs_open_server_svc(efd, rel, wmode, size, SVC_EXT);
+    }
+
     handle_t mh;
     memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
 
