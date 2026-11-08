@@ -1371,7 +1371,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
             if (norm != NULL && norm[0] != '\0') {
                 e = dyn_create(norm);
-                if (e != -1)
+                if (e != -1 && strncmp(abs, "/tmp/", 5) != 0)
                     store_save();
             }
             free(norm);
@@ -1380,6 +1380,15 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         if (e == -1) {
             rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
             goto openat_out;
+        }
+
+        if ((flags & O_TRUNC) && idx_is_dyn(e) && !idx_is_dir(e)
+            && !idx_is_fifo(e) && !idx_is_symlink(e)) {
+            vfs_dyn_t *d = dyn_file(&dyns[e - ent_count]);
+
+            d->size = 0;
+            if (d->name != NULL && strncmp(d->name, "/tmp/", 5) != 0)
+                store_save();
         }
 
         int32_t fd = fd_alloc();
