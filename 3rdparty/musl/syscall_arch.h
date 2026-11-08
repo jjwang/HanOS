@@ -88,11 +88,13 @@
 #define H_CHDIR      80
 #define H_RMDIR      84
 #define H_UNLINK     87
+#define H_TRUNCATE   76
 #define H_FTRUNCATE  77
 #define H_FCHDIR     81
 #define H_GETRUSAGE  98
 #define H_GETPPID    110
 #define H_STATFS     137
+#define H_FSTATFS    138
 #define H_CHMOD      0x404
 
 /* Linux syscall numbers musl uses. */
@@ -198,6 +200,7 @@
 #define L_setitimer   38
 #define L_chdir       80
 #define L_rmdir       84
+#define L_truncate    76
 #define L_ftruncate   77
 #define L_unlink      87
 #define L_fchdir      81
@@ -215,6 +218,7 @@
 #define L_umask       95
 #define L_getrusage   98
 #define L_statfs      137
+#define L_fstatfs     138
 #define L_times       100
 #define L_setuid      105
 #define L_setgid      106
@@ -616,6 +620,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_RMDIR, a1, 0, 0, 0, 0, 0);
     case L_unlink:
         return __hanos_raw(H_UNLINK, a1, 0, 0, 0, 0, 0);
+    case L_truncate:
+        return __hanos_raw(H_TRUNCATE, a1, a2, 0, 0, 0, 0);
     case L_ftruncate:
         return __hanos_raw(H_FTRUNCATE, a1, a2, 0, 0, 0, 0);
     case L_fchdir:
@@ -638,6 +644,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);
     case L_statfs:
         return __hanos_raw(H_STATFS, a1, a2, 0, 0, 0, 0);
+    case L_fstatfs:
+        return __hanos_raw(H_FSTATFS, a1, a2, 0, 0, 0, 0);
     case L_sync:
         return 0;
     case L_times:

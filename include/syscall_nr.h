@@ -54,6 +54,7 @@
 #define SYSCALL_FCNTL           72
 #define SYSCALL_FSYNC           74
 #define SYSCALL_FDATASYNC       75
+#define SYSCALL_TRUNCATE        76
 #define SYSCALL_FTRUNCATE       77
 #define SYSCALL_GETCWD          79
 #define SYSCALL_CHDIR           80
@@ -64,6 +65,7 @@
 #define SYSCALL_GETRUSAGE       98
 #define SYSCALL_GETPPID         110
 #define SYSCALL_STATFS          137
+#define SYSCALL_FSTATFS         138
 #define SYSCALL_TKILL           200
 #define SYSCALL_GETDENTS64      217
 #define SYSCALL_SET_TID_ADDRESS 218

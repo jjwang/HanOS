@@ -1018,6 +1018,20 @@ typedef struct {
     uint64_t f_spare[4];
 } k_statfs_t;
 
+static void statfs_fill(k_statfs_t * out, const vfs_statfs_t * st)
+{
+    memset(out, 0, sizeof(*out));
+    out->f_type = 0xEF53;
+    out->f_bsize = st->bsize;
+    out->f_frsize = st->bsize;
+    out->f_blocks = st->blocks;
+    out->f_bfree = st->bfree;
+    out->f_bavail = st->bavail;
+    out->f_files = st->files;
+    out->f_ffree = st->ffree;
+    out->f_namelen = 255;
+}
+
 int64_t k_statfs(char *path, void *buf)
 {
     cpu_set_errno(0);
@@ -1043,17 +1057,35 @@ int64_t k_statfs(char *path, void *buf)
 
     k_statfs_t out;
 
-    memset(&out, 0, sizeof(out));
-    out.f_type = 0xEF53;
-    out.f_bsize = st.bsize;
-    out.f_frsize = st.bsize;
-    out.f_blocks = st.blocks;
-    out.f_bfree = st.bfree;
-    out.f_bavail = st.bavail;
-    out.f_files = st.files;
-    out.f_ffree = st.ffree;
-    out.f_namelen = 255;
+    statfs_fill(&out, &st);
+    if (copy_to_user(buf, &out, sizeof(out)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
+}
 
+int64_t k_fstatfs(int64_t fd, void *buf)
+{
+    cpu_set_errno(0);
+
+    char path[VFS_MAX_PATH_LEN];
+    vfs_statfs_t st;
+    int64_t n = vfs_fd_path((int32_t) fd, path, sizeof(path));
+
+    if (n <= 0) {
+        if (vfs_statfs_path("/", "/", &st) < 0) {
+            cpu_set_errno(EIO);
+            return -1;
+        }
+    } else if (vfs_statfs_path("/", path, &st) < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+
+    k_statfs_t out;
+
+    statfs_fill(&out, &st);
     if (copy_to_user(buf, &out, sizeof(out)) != 0) {
         cpu_set_errno(EFAULT);
         return -1;
@@ -2096,6 +2128,43 @@ int64_t k_clock_nanosleep(int32_t clockid, int32_t flags,
 int64_t k_fsync(int64_t fd)
 {
     (void)fd;
+    cpu_set_errno(0);
+    return 0;
+}
+
+int64_t k_truncate(char *path, int64_t len)
+{
+    if (len < 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int32_t svc = SVC_FS;
+    vfs_fd_t fd = vfs_open_path(cwd, kpath, 0, &svc);
+
+    kmfree(kpath);
+    if (fd == VFS_INVALID_FD) {
+        cpu_set_errno(ENOENT);
+        return -1;
+    }
+
+    int64_t r = vfs_truncate(fd, (uint64_t) len);
+
+    vfs_close(fd);
+
+    if (r < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
     cpu_set_errno(0);
     return 0;
 }
@@ -4872,6 +4941,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_CLOCK_NANOSLEEP] = (syscall_ptr_t) k_clock_nanosleep,
     [SYSCALL_SCHED_YIELD] = (syscall_ptr_t) k_sched_yield,
     [SYSCALL_FSYNC] = (syscall_ptr_t) k_fsync,
+    [SYSCALL_TRUNCATE] = (syscall_ptr_t) k_truncate,
     [SYSCALL_FTRUNCATE] = (syscall_ptr_t) k_ftruncate,
     [SYSCALL_FDATASYNC] = (syscall_ptr_t) k_fsync,
     [SYSCALL_POLL] = (syscall_ptr_t) k_poll,
@@ -4913,6 +4983,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,
     [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
     [SYSCALL_STATFS] = (syscall_ptr_t) k_statfs,
+    [SYSCALL_FSTATFS] = (syscall_ptr_t) k_fstatfs,
     [SYSCALL_GETDENTS64] = (syscall_ptr_t) k_readdir,
     [SYSCALL_CLOCK_GETTIME] = (syscall_ptr_t) k_getclock,
     [SYSCALL_OPENAT] = (syscall_ptr_t) k_openat,
