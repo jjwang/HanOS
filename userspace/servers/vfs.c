@@ -108,6 +108,16 @@ typedef struct {
 
 #define VFS_FIFO_WAITS 8
 static fifo_wait_t fifo_waits[VFS_FIFO_WAITS];
+
+typedef struct {
+    bool used;
+    int32_t ent;
+    int32_t fd;
+    int64_t reply;
+} fifo_open_t;
+
+#define VFS_FIFO_OPENS 8
+static fifo_open_t fifo_opens[VFS_FIFO_OPENS];
 static bool defer_reply;
 
 static struct {
@@ -610,6 +620,33 @@ static int32_t dyn_create_fifo(const char *path)
     if (idx >= 0)
         dyns[idx - ent_count].is_fifo = true;
     return idx;
+}
+
+static void fifo_wake_open_writers(int32_t ent)
+{
+    vfs_dyn_t *d = &dyns[ent - ent_count];
+
+    if (d->fifo_readers == 0)
+        return;
+
+    for (int32_t i = 0; i < VFS_FIFO_OPENS; i++) {
+        fifo_open_t *o = &fifo_opens[i];
+
+        if (!o->used || o->ent != ent)
+            continue;
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.tag = VFS_OPENAT;
+        rep.words[0] = 0;
+        rep.words[1] = (uint64_t) o->fd;
+        if (o->reply != 0) {
+            sys_ipc_send(o->reply, &rep);
+            sys_handle_close(o->reply);
+        }
+        o->used = false;
+    }
 }
 
 static void fifo_wake(int32_t ent, bool eof)
@@ -1367,6 +1404,27 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     d->fifo_writers++;
                     d->fifo_had_writer = true;
                 }
+                if (acc == 1 && d->fifo_readers == 0) {
+                    int32_t slot = -1;
+
+                    for (int32_t i = 0; i < VFS_FIFO_OPENS; i++)
+                        if (!fifo_opens[i].used) {
+                            slot = i;
+                            break;
+                        }
+                    if (slot < 0) {
+                        rep->words[0] = (uint64_t) (int64_t) -11;
+                        goto openat_out;
+                    }
+                    fifo_opens[slot].used = true;
+                    fifo_opens[slot].ent = e;
+                    fifo_opens[slot].fd = fd;
+                    fifo_opens[slot].reply = (int64_t) m->xfer[0];
+                    defer_reply = true;
+                    goto openat_out;
+                }
+                if (acc != 1)
+                    fifo_wake_open_writers(e);
             }
         }
 
