@@ -97,10 +97,15 @@ static int32_t ent_count;
 static int64_t root_mtime;      /* newest initrd entry, used for the root */
 
 static vfs_dyn_t dyns[VFS_MAX_DYN];
+static uint32_t vfs_fd_gen;
 
 typedef struct {
     bool used;
+    bool is_write;
     int32_t ent;
+    int32_t fd;
+    uint32_t gen;
+    int32_t pid;
     int64_t reply;
     int64_t memh;
     uint64_t len;
@@ -129,6 +134,7 @@ static struct {
     char *dir;                  /* normalized directory path */
     uint32_t refs;              /* number of forks sharing this description */
     bool fifo_write;            /* FIFO descriptor refers to the write end */
+    uint32_t gen;               /* generation, changes on reuse */
     int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
 } fds[VFS_MAX_FDS];
 
@@ -649,6 +655,27 @@ static void fifo_wake_open_writers(int32_t ent)
     }
 }
 
+static void fifo_cancel_fd(int32_t fd, uint32_t gen)
+{
+    for (int32_t i = 0; i < VFS_FIFO_WAITS; i++) {
+        fifo_wait_t *w = &fifo_waits[i];
+
+        if (!w->used || w->is_write || w->fd != fd || w->gen != gen)
+            continue;
+        if (w->reply != 0) {
+            sys_ipc_msg_t rep;
+
+            memset(&rep, 0, sizeof(rep));
+            rep.words[0] = (uint64_t) (int64_t) -9;     /* -EBADF */
+            sys_ipc_send(w->reply, &rep);
+            sys_handle_close(w->reply);
+        }
+        if (w->memh != 0)
+            sys_handle_close(w->memh);
+        w->used = false;
+    }
+}
+
 static void fifo_wake(int32_t ent, bool eof)
 {
     vfs_dyn_t *d = &dyns[ent - ent_count];
@@ -679,7 +706,6 @@ static void fifo_wake(int32_t ent, bool eof)
         } else {
             n = 0;
         }
-
         sys_ipc_msg_t rep;
 
         memset(&rep, 0, sizeof(rep));
@@ -774,6 +800,7 @@ static int32_t fd_alloc(void)
             memset(&fds[i], 0, sizeof(fds[i]));
             fds[i].in_use = true;
             fds[i].refs = 1;
+            fds[i].gen = ++vfs_fd_gen;
             return i + 1;
         }
     }
@@ -1513,7 +1540,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     fifo_wait_t *w = &fifo_waits[slot];
 
                     w->used = true;
+                    w->is_write = false;
                     w->ent = fds[fd - 1].ent;
+                    w->fd = fd;
+                    w->gen = fds[fd - 1].gen;
+                    w->pid = (int32_t) m->words[2];
                     w->reply = (int64_t) m->xfer[0];
                     w->memh = memh;
                     w->len = len;
@@ -1811,6 +1842,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (fds[fd - 1].refs > 0)
                 fds[fd - 1].refs--;
             if (fds[fd - 1].refs == 0) {
+                fifo_cancel_fd(fd, fds[fd - 1].gen);
                 if (idx_is_fifo(fds[fd - 1].ent)) {
                     vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
 

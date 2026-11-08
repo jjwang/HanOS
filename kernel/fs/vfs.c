@@ -102,6 +102,7 @@ static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
     req.tag = VFS_READ;
     req.words[0] = (uint64_t) sfd;
     req.words[1] = len;
+    req.words[2] = (uint64_t) sched_get_pid();
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
