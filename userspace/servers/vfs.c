@@ -75,6 +75,8 @@ typedef struct vfs_dyn {
     bool is_dir;
     bool is_symlink;
     bool is_fifo;
+    bool is_dev;
+    int32_t dev_kind;           /* 1 /dev/zero, 2 /dev/null */
     char *name;
     char *target;               /* symlink target */
     char *data;
@@ -443,6 +445,11 @@ static bool idx_is_fifo(int32_t i)
     return idx_is_dyn(i) && dyns[i - ent_count].is_fifo;
 }
 
+static bool idx_is_dev(int32_t i)
+{
+    return idx_is_dyn(i) && dyns[i - ent_count].is_dev;
+}
+
 static vfs_dyn_t *dyn_file(vfs_dyn_t * d)
 {
     while (d->link != NULL)
@@ -503,7 +510,7 @@ static uint64_t idx_size(int32_t i)
         d = dyn_file(d);
         if (d->is_symlink)
             return (d->target != NULL) ? strlen(d->target) : 0;
-        if (d->is_fifo)
+        if (d->is_fifo || d->is_dev)
             return 0;
         return d->size;
     }
@@ -813,6 +820,19 @@ static void fifo_wake(int32_t ent, bool eof)
     }
 }
 
+static int32_t dyn_create_dev(const char *path, int32_t kind)
+{
+    int32_t idx = dyn_alloc(path);
+
+    if (idx < 0)
+        return -1;
+    vfs_dyn_t *d = &dyns[idx - ent_count];
+
+    d->is_dev = true;
+    d->dev_kind = kind;
+    return idx;
+}
+
 static int32_t dyn_create_symlink(const char *path, const char *target)
 {
     int32_t idx = dyn_alloc(path);
@@ -851,6 +871,10 @@ static void fill_stat(int32_t e, void *out)
         st->st_mode = S_IFDIR | (idx_mode(e) & 0777);
         st->st_ino = (e == ROOT_INDEX) ? 1 : (uint64_t) e + 1;
         st->st_size = 4096;
+    } else if (idx_is_dev(e)) {
+        st->st_mode = S_IFCHR | 0666;
+        st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
+        st->st_size = 0;
     } else if (idx_is_fifo(e)) {
         st->st_mode = 0x1000 | 0666;
         st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
@@ -1946,7 +1970,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             memset(de, 0, sizeof(*de));
             de->d_ino = (uint64_t) found + 1;
             de->d_type = idx_is_dir(found) ? DT_DIR
-                : (idx_is_fifo(found) ? DT_FIFO : DT_REG);
+                : (idx_is_fifo(found) ? DT_FIFO
+                   : (idx_is_dev(found) ? DT_CHR : DT_REG));
             int32_t k = 0;
             while (k < (int32_t) sizeof(de->d_name) - 1 && base[k] != '\0') {
                 de->d_name[k] = base[k];
@@ -2598,6 +2623,13 @@ int32_t main(void)
     parse_initrd();
     store_load();
     store_ready = true;
+
+    if (resolve("/dev") == -1)
+        dyn_create_dir("dev");
+    if (resolve("/dev/zero") == -1)
+        dyn_create_dev("dev/zero", 1);
+    if (resolve("/dev/null") == -1)
+        dyn_create_dev("dev/null", 2);
 
     for (;;) {
         sys_ipc_msg_t m;
