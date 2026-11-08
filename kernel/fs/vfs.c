@@ -120,6 +120,8 @@ static int64_t vfs_server_read(int64_t sfd, uint64_t len, void *buff)
 
 static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
 {
+    if (len == 0)
+        return 0;
     if (len > VFS_SERVER_IO_MAX)
         len = VFS_SERVER_IO_MAX;
 

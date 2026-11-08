@@ -2218,7 +2218,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
             int32_t e = (abs != NULL) ? resolve(abs) : -1;
 
-            if (e == -1)
+            if (abs != NULL && ext_rel(abs) != NULL)
+                rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            else if (abs != NULL && fat_rel(abs) != NULL)
+                rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+            else if (e == -1)
                 rep->words[0] = (uint64_t) (int64_t) -2;
             else if (!idx_is_symlink(e))
                 rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */

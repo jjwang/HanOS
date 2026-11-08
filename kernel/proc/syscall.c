@@ -1598,11 +1598,14 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
                 cpu_set_errno(ENOENT);
                 return -1;
             }
+            st.st_dev = 2;
+            st.st_ino = (ino_t) m.ino;
             st.st_mode = (uint16_t) m.mode;
             st.st_nlink = m.nlink;
             st.st_uid = m.uid;
             st.st_gid = m.gid;
             st.st_size = (off_t) m.size;
+            st.st_blocks = (blkcnt_t) m.blocks;
             st.st_mtim.tv_sec = m.mtime;
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
