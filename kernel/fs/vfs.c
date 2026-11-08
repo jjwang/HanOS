@@ -49,10 +49,6 @@
 /* Internal sentinel: the pipe server would block; the caller retries. */
 #define VFS_IO_AGAIN        (-2)
 
-/* Per-CPU scratch descriptor. The fd table lives in the process server, so a
- * fd is resolved there and copied here just for the current operation. */
-static vfs_node_desc_t transient_fd[CPU_MAX];
-
 /* Return the node descriptor for a fd */
 vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func)
 {
@@ -71,7 +67,7 @@ vfs_node_desc_t *vfs_fd_to_desc(vfs_fd_t fd, const char *func)
         return NULL;
     }
 
-    vfs_node_desc_t *desc = &transient_fd[smp_get_current_cpu_id()];
+    vfs_node_desc_t *desc = &t->fd_scratch;
 
     memset(desc, 0, sizeof(*desc));
     desc->server = true;

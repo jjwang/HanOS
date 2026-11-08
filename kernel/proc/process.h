@@ -267,6 +267,10 @@ typedef struct process {
     char at_path[512];          /* cached absolute directory path */
     char name[64];
 
+    /* Scratch descriptor for the current VFS fd lookup. Per process so a
+     * blocking server call cannot overwrite it from another process. */
+    vfs_node_desc_t fd_scratch;
+
     signal_state_t signals;
 } process_t;
 

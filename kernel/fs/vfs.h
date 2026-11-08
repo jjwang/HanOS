@@ -167,7 +167,7 @@ typedef struct {
  * @brief Open file description backing a VFS fd
  *
  * The fd table lives in the process server. A fd is resolved there and the
- * result is copied into a per-CPU scratch descriptor for the current call.
+ * result is copied into the process's scratch descriptor for the current call.
  */
 typedef struct {
     bool server;
