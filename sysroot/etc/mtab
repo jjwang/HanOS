@@ -1,1 +1,2 @@
+rootfs / rootfs rw 0 0
 /dev/hda2 /data ext2 rw 0 0
