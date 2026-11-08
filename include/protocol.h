@@ -67,6 +67,8 @@
 #define VFS_RMDIR           0x41        /* in: cwd+path */
 #define VFS_TRUNC           0x47        /* words[0]=fd, words[1]=size */
 #define VFS_LINKAT          0x48        /* in: cwd+oldpath+newpath */
+#define VFS_STATFS          0x49        /* in: cwd+path; out: statfs at
+                                           VFS_IO_DATA_OFF */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 
@@ -202,6 +204,9 @@ typedef struct {
                                            EXT2_IO_DATA_OFF, words[1]=length */
 #define EXT2_FD_REF         0x8c        /* words[0]=fd; add a reference */
 #define EXT2_LINK           0x8d        /* in: oldpath\0newpath\0 */
+#define EXT2_STATFS         0x8e        /* in: path; out: words[1]=bsize,
+                                           words[2]=blocks, words[3]=bfree,
+                                           words[4]=files, words[5]=ffree */
 #define VFS_REDIRECT_EXT    101         /* path belongs to the ext2 mount */
 #define EXT2_IO_BUF_SIZE    (64 * 1024) /* request buffer for a bulk transfer */
 #define EXT2_IO_DATA_OFF    4096        /* payload offset inside it */

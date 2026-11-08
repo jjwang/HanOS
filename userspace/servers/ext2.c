@@ -950,7 +950,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == EXT2_OPEN || m->tag == EXT2_STAT || m->tag == EXT2_READ
         || m->tag == EXT2_READDIR || m->tag == EXT2_CREATE
         || m->tag == EXT2_UNLINK || m->tag == EXT2_WRITE
-        || m->tag == EXT2_LINK || m->tag == EXT2_FD_PATH) {
+        || m->tag == EXT2_LINK || m->tag == EXT2_STATFS
+        || m->tag == EXT2_FD_PATH) {
         memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         if (memh == 0 || sys_mem_map(memh, EXT2_REQ_ADDR, 3) != 0) {
             if (memh != 0)
@@ -1033,6 +1034,29 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[1] = (uint64_t) nfd;
             rep->words[2] = size;
             rep->words[3] = is_dir ? 1 : 0;
+            break;
+        }
+
+    case EXT2_STATFS:{
+            char *path = read_path(buf);
+
+            if (path == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+                break;
+            }
+            uint32_t ino = path_resolve(path);
+
+            free(path);
+            if (ino == 0) {
+                rep->words[0] = (uint64_t) (int64_t) -2;
+                break;
+            }
+            rep->words[0] = 0;
+            rep->words[1] = blk_size;
+            rep->words[2] = blocks_count;
+            rep->words[3] = rd32(sb + 12);
+            rep->words[4] = inode_count;
+            rep->words[5] = rd32(sb + 16);
             break;
         }
 

@@ -195,6 +195,17 @@ int64_t vfs_mkdir_path(const char *cwd, const char *path);
 int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path);
 int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp);
 int64_t vfs_link_path(const char *oldp, const char *newp);
+
+typedef struct {
+    uint64_t bsize;
+    uint64_t blocks;
+    uint64_t bfree;
+    uint64_t bavail;
+    uint64_t files;
+    uint64_t ffree;
+} vfs_statfs_t;
+
+int64_t vfs_statfs_path(const char *cwd, const char *path, vfs_statfs_t * out);
 int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
                           uint64_t outsz);
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,

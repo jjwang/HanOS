@@ -285,6 +285,41 @@ int64_t ext2_stat_path(const char *path, ext2_meta_t * m)
     return rc;
 }
 
+int64_t ext2_statfs_path(const char *path, vfs_statfs_t * out)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = memobj_alloc_handle(EXT2_IO_BUF_SIZE, &h);
+
+    if (mo == NULL)
+        return -1;
+    memobj_copy_in(mo, path, strlen(path) + 1, 0);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_STATFS;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_EXT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        out->bsize = rep.words[1];
+        out->blocks = rep.words[2];
+        out->bfree = rep.words[3];
+        out->bavail = rep.words[3];
+        out->files = rep.words[4];
+        out->ffree = rep.words[5];
+        rc = 0;
+    }
+
+    memobj_unref(mo);
+    return rc;
+}
+
 int64_t ext2_open_path(const char *path, uint64_t *size, bool *is_dir,
                        uint32_t *mode)
 {

@@ -91,6 +91,7 @@
 #define H_FCHDIR     81
 #define H_GETRUSAGE  98
 #define H_GETPPID    110
+#define H_STATFS     137
 #define H_CHMOD      0x404
 
 /* Linux syscall numbers musl uses. */
@@ -210,6 +211,7 @@
 #define L_chmod       90
 #define L_umask       95
 #define L_getrusage   98
+#define L_statfs      137
 #define L_times       100
 #define L_setuid      105
 #define L_setgid      106
@@ -627,6 +629,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return 0;
     case L_getrusage:
         return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);
+    case L_statfs:
+        return __hanos_raw(H_STATFS, a1, a2, 0, 0, 0, 0);
     case L_sync:
         return 0;
     case L_times:

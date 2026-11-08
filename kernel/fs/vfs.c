@@ -383,6 +383,64 @@ int64_t vfs_stat_path(const char *cwd, const char *path, vfs_stat_t * out)
     return 0;
 }
 
+int64_t vfs_statfs_path(const char *cwd, const char *path, vfs_statfs_t * out)
+{
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_STATFS;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return -1;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+
+        memobj_unref(mo);
+        if (rel == NULL)
+            return -1;
+        rc = ext2_statfs_path(rel, out);
+        kmfree(rel);
+        return rc;
+    }
+
+    if (rc == VFS_REDIRECT_FAT) {
+        memobj_unref(mo);
+        return -1;
+    }
+    if (rc < 0) {
+        memobj_unref(mo);
+        return rc;
+    }
+
+    uint64_t vals[6];
+
+    memobj_copy_out(mo, vals, sizeof(vals), VFS_IO_DATA_OFF);
+    memobj_unref(mo);
+    out->bsize = vals[0];
+    out->blocks = vals[1];
+    out->bfree = vals[2];
+    out->bavail = vals[3];
+    out->files = vals[4];
+    out->ffree = vals[5];
+    return 0;
+}
+
 int64_t vfs_access_path(const char *cwd, const char *path, uint64_t mode)
 {
     handle_t mh;

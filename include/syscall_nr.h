@@ -63,6 +63,7 @@
 #define SYSCALL_READLINK        89
 #define SYSCALL_GETRUSAGE       98
 #define SYSCALL_GETPPID         110
+#define SYSCALL_STATFS          137
 #define SYSCALL_TKILL           200
 #define SYSCALL_GETDENTS64      217
 #define SYSCALL_SET_TID_ADDRESS 218

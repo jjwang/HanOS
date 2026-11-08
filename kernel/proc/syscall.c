@@ -965,6 +965,64 @@ int64_t k_symlinkat(const char *target, int32_t newdirfd, const char *linkpath)
     return 0;
 }
 
+typedef struct {
+    uint64_t f_type;
+    uint64_t f_bsize;
+    uint64_t f_blocks;
+    uint64_t f_bfree;
+    uint64_t f_bavail;
+    uint64_t f_files;
+    uint64_t f_ffree;
+    uint64_t f_fsid[2];
+    uint64_t f_namelen;
+    uint64_t f_frsize;
+    uint64_t f_flags;
+    uint64_t f_spare[4];
+} k_statfs_t;
+
+int64_t k_statfs(char *path, void *buf)
+{
+    cpu_set_errno(0);
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    vfs_statfs_t st;
+
+    int64_t r = vfs_statfs_path(cwd, kpath, &st);
+
+    kmfree(kpath);
+    if (r < 0) {
+        cpu_set_errno((r == -1) ? EIO : -r);
+        return -1;
+    }
+
+    k_statfs_t out;
+
+    memset(&out, 0, sizeof(out));
+    out.f_type = 0xEF53;
+    out.f_bsize = st.bsize;
+    out.f_frsize = st.bsize;
+    out.f_blocks = st.blocks;
+    out.f_bfree = st.bfree;
+    out.f_bavail = st.bavail;
+    out.f_files = st.files;
+    out.f_ffree = st.ffree;
+    out.f_namelen = 255;
+
+    if (copy_to_user(buf, &out, sizeof(out)) != 0) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    return 0;
+}
+
 /* Build an absolute path from a dirfd. Relative paths under AT_FDCWD are
  * joined with the process cwd; other dirfds resolve through vfs_fd_path. */
 static int32_t link_abs_path(int64_t dirfd, const char *path, char *out,
@@ -4812,6 +4870,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,
     [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,
     [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
+    [SYSCALL_STATFS] = (syscall_ptr_t) k_statfs,
     [SYSCALL_GETDENTS64] = (syscall_ptr_t) k_readdir,
     [SYSCALL_CLOCK_GETTIME] = (syscall_ptr_t) k_getclock,
     [SYSCALL_OPENAT] = (syscall_ptr_t) k_openat,

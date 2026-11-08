@@ -1770,6 +1770,55 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_STATFS) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        char *cwd = NULL, *path = NULL, *abs = NULL, *rel = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+            uint64_t redir = (abs != NULL) ? mount_rel(abs, &rel) : 0;
+
+            if (redir == VFS_REDIRECT_EXT) {
+                buf_write_path(buf, rel);
+                rep->words[0] = VFS_REDIRECT_EXT;
+            } else if (redir == VFS_REDIRECT_FAT) {
+                rep->words[0] = VFS_REDIRECT_FAT;
+            } else if (abs == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            } else {
+                uint64_t vals[6] = {
+                    4096, 1u << 18, 1u << 17,
+                    1u << 17, 1u << 16, 1u << 15
+                };
+
+                memcpy(buf + VFS_IO_DATA_OFF, vals, sizeof(vals));
+                rep->words[0] = 0;
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
+        free(cwd);
+        free(path);
+        free(abs);
+        free(rel);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
     if (m->tag == VFS_LINKAT) {
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;

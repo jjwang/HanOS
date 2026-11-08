@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include <ipc/ipc.h>
+#include <fs/vfs.h>
 
 bool ext2_server_start(void);
 bool ext2_server_active(void);
@@ -39,6 +40,7 @@ typedef struct {
 
 /* Resolve a mount-relative path and report its metadata. */
 int64_t ext2_stat_path(const char *path, ext2_meta_t * meta);
+int64_t ext2_statfs_path(const char *path, vfs_statfs_t * out);
 int64_t ext2_open_path(const char *path, uint64_t * size, bool * is_dir,
                        uint32_t * mode);
 int64_t ext2_read_fd(int64_t fd, uint64_t len, void *buf);
