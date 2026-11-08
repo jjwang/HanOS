@@ -676,6 +676,98 @@ static void fifo_cancel_fd(int32_t fd, uint32_t gen)
     }
 }
 
+static void fifo_wake(int32_t ent, bool eof);
+
+static void fifo_fail_writers(int32_t ent, int64_t rc)
+{
+    for (int32_t i = 0; i < VFS_FIFO_WAITS; i++) {
+        fifo_wait_t *w = &fifo_waits[i];
+
+        if (!w->used || w->ent != ent || !w->is_write)
+            continue;
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.words[0] = (uint64_t) rc;
+        if (w->reply != 0) {
+            sys_ipc_send(w->reply, &rep);
+            sys_handle_close(w->reply);
+        }
+        if (w->memh != 0)
+            sys_handle_close(w->memh);
+        w->used = false;
+    }
+}
+
+static void fifo_wake_writers(int32_t ent)
+{
+    vfs_dyn_t *d = &dyns[ent - ent_count];
+
+    for (int32_t i = 0; i < VFS_FIFO_WAITS; i++) {
+        fifo_wait_t *w = &fifo_waits[i];
+
+        if (!w->used || w->ent != ent || !w->is_write)
+            continue;
+        if (w->fd < 1 || w->fd > VFS_MAX_FDS || !fds[w->fd - 1].in_use
+            || fds[w->fd - 1].gen != w->gen) {
+            if (w->reply != 0) {
+                sys_ipc_msg_t bad;
+
+                memset(&bad, 0, sizeof(bad));
+                bad.words[0] = (uint64_t) (int64_t) -9;
+                sys_ipc_send(w->reply, &bad);
+                sys_handle_close(w->reply);
+            }
+            if (w->memh != 0)
+                sys_handle_close(w->memh);
+            w->used = false;
+            continue;
+        }
+        if (d->fifo_readers == 0) {
+            fifo_fail_writers(ent, -32);        /* -EPIPE */
+            return;
+        }
+
+        uint64_t space = sizeof(d->fifo_data) - d->fifo_count;
+
+        if (space == 0)
+            break;
+
+        uint64_t n = w->len;
+
+        if (n > space)
+            n = space;
+        if (n > 0 && w->memh != 0
+            && sys_mem_map(w->memh, VFS_BUF_VADDR, 1) == 0) {
+            const uint8_t *src = (const uint8_t *) VFS_BUF_VADDR;
+
+            for (uint64_t k = 0; k < n; k++) {
+                d->fifo_data[d->fifo_tail] = src[k];
+                d->fifo_tail = (d->fifo_tail + 1) % sizeof(d->fifo_data);
+            }
+            d->fifo_count += n;
+            sys_mem_unmap(w->memh, VFS_BUF_VADDR);
+        } else {
+            n = 0;
+        }
+
+        sys_ipc_msg_t rep;
+
+        memset(&rep, 0, sizeof(rep));
+        rep.words[0] = 0;
+        rep.words[1] = n;
+        if (w->reply != 0) {
+            sys_ipc_send(w->reply, &rep);
+            sys_handle_close(w->reply);
+        }
+        if (w->memh != 0)
+            sys_handle_close(w->memh);
+        w->used = false;
+        fifo_wake(ent, false);
+    }
+}
+
 static void fifo_wake(int32_t ent, bool eof)
 {
     vfs_dyn_t *d = &dyns[ent - ent_count];
@@ -683,7 +775,7 @@ static void fifo_wake(int32_t ent, bool eof)
     for (int32_t i = 0; i < VFS_FIFO_WAITS; i++) {
         fifo_wait_t *w = &fifo_waits[i];
 
-        if (!w->used || w->ent != ent)
+        if (!w->used || w->ent != ent || w->is_write)
             continue;
         if (!eof && d->fifo_count == 0)
             break;
@@ -1657,29 +1749,65 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[1] = len;
         } else if (idx_is_fifo(fds[fd - 1].ent)) {
             vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
-            uint64_t n = len;
-            uint64_t space = sizeof(d->fifo_data) - d->fifo_count;
 
-            if (n > space)
-                n = space;
-            if (n > 0 && memh != 0
-                && sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
-                const uint8_t *src = (const uint8_t *) VFS_BUF_VADDR;
-
-                for (uint64_t i = 0; i < n; i++) {
-                    d->fifo_data[d->fifo_tail] = src[i];
-                    d->fifo_tail = (d->fifo_tail + 1)
-                        % sizeof(d->fifo_data);
-                }
-                d->fifo_count += n;
-                sys_mem_unmap(memh, VFS_BUF_VADDR);
-                if (n > 0)
-                    fifo_wake(fds[fd - 1].ent, false);
+            if (d->fifo_readers == 0) {
+                rep->words[0] = (uint64_t) (int64_t) -32;   /* -EPIPE */
+                rep->words[1] = 0;
             } else {
-                n = 0;
+                uint64_t n = len;
+                uint64_t space = sizeof(d->fifo_data) - d->fifo_count;
+
+                if (n > 0 && space == 0) {
+                    int32_t slot = -1;
+
+                    for (int32_t i = 0; i < VFS_FIFO_WAITS; i++)
+                        if (!fifo_waits[i].used) {
+                            slot = i;
+                            break;
+                        }
+                    if (slot < 0) {
+                        rep->words[0] = (uint64_t) (int64_t) -11;   /* -EAGAIN */
+                    } else {
+                        fifo_wait_t *w = &fifo_waits[slot];
+
+                        w->used = true;
+                        w->is_write = true;
+                        w->ent = fds[fd - 1].ent;
+                        w->fd = fd;
+                        w->gen = fds[fd - 1].gen;
+                        w->pid = (int32_t) m->words[2];
+                        w->reply = (int64_t) m->xfer[0];
+                        w->memh = memh;
+                        w->len = len;
+                        defer_reply = true;
+                        return;
+                    }
+                } else {
+                    if (n > space)
+                        n = space;
+                    if (n > 0 && memh != 0
+                        && sys_mem_map(memh, VFS_BUF_VADDR, 1) == 0) {
+                        const uint8_t *src =
+                            (const uint8_t *) VFS_BUF_VADDR;
+
+                        for (uint64_t i = 0; i < n; i++) {
+                            d->fifo_data[d->fifo_tail] = src[i];
+                            d->fifo_tail = (d->fifo_tail + 1)
+                                % sizeof(d->fifo_data);
+                        }
+                        d->fifo_count += n;
+                        sys_mem_unmap(memh, VFS_BUF_VADDR);
+                        if (n > 0) {
+                            fifo_wake(fds[fd - 1].ent, false);
+                            fifo_wake_writers(fds[fd - 1].ent);
+                        }
+                    } else {
+                        n = 0;
+                    }
+                    rep->words[0] = 0;
+                    rep->words[1] = n;
+                }
             }
-            rep->words[0] = 0;
-            rep->words[1] = n;
         } else if (!idx_is_dyn(fds[fd - 1].ent)) {
             rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
         } else {
@@ -1853,6 +1981,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                             fifo_wake(fds[fd - 1].ent, true);
                     } else if (d->fifo_readers > 0) {
                         d->fifo_readers--;
+                        if (d->fifo_readers == 0)
+                            fifo_fail_writers(fds[fd - 1].ent, -32);
                     }
                 }
                 if (fds[fd - 1].dir != NULL)
