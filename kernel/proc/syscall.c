@@ -659,9 +659,10 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
         goto err_exit;
     }
 
-    /* Unmap before mapping to a new malloc-ed block */
+    /* Drop any previous mapping over the fixed range. */
     if (ptr != (uint64_t) NULL)
-        vmm_unmap(as, ptr, np);
+        vma_remove_range(t->addrspace, &t->addrspace->vmas, ptr,
+                         ptr + np * PAGE_SIZE);
 
     uint64_t phys_ptr =
         VIRT_TO_PHYS(kmalloc_chunk(np * PAGE_SIZE, __func__, __LINE__));
@@ -677,23 +678,21 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
 
     vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf);
 
-    if (debug_info) {
-        klogi
-            ("k_vm_map: pid %ld #%ld 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
-             "pages, prot 0x%016lx, flags 0x%016lx\n", t->pid,
-             vec_length(&t->addrspace->mmap_list), as, as->PML4, phys_ptr, ptr, np,
-             prot, flags);
+    if (vma_add(&t->addrspace->vmas, ptr, ptr + np * PAGE_SIZE, phys_ptr,
+                pf) != 0) {
+        vmm_unmap(as, ptr, np);
+        kmfree_chunk((void *) PHYS_TO_VIRT(phys_ptr), __func__, __LINE__);
+        cpu_set_errno(ENOMEM);
+        goto err_exit;
     }
 
-    mem_map_t m = { 0 };
-
-    m.vaddr = ptr;
-    m.paddr = phys_ptr;
-    m.np = NUM_PAGES(length);
-    m.flags = pf;
-    m.kind = 0;
-
-    vec_push_back(&t->addrspace->mmap_list, m);
+    if (debug_info) {
+        klogi
+            ("k_vm_map: pid %ld #%u 0x%016lx(PML4 0x%016lx) map 0x%016lx to 0x%016lx with %ld "
+             "pages, prot 0x%016lx, flags 0x%016lx\n", t->pid,
+             vma_count(&t->addrspace->vmas), as, as->PML4, phys_ptr, ptr, np,
+             prot, flags);
+    }
 
     return ptr;
 
@@ -723,7 +722,7 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     }
 
     uint64_t np = NUM_PAGES(size);
-    vmm_unmap(as, (uint64_t) ptr, np);
+    vma_remove_range(as, &as->vmas, (uint64_t) ptr, (uint64_t) ptr + size);
 
     if (debug_info) {
         klogi("k_vm_unmap: 0x%016lx(PML4 0x%016lx) unmap 0x%016lx with %ld pages\n",
@@ -3792,14 +3791,8 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
                (void *)PHYS_TO_VIRT(memobj_page(m, i)), PAGE_SIZE);
         vmm_map(t->addrspace, vaddr + i * PAGE_SIZE, dst, 1, pf);
 
-        mem_map_t mm = {
-            .vaddr = vaddr + i * PAGE_SIZE,
-            .paddr = dst,
-            .np = 1,
-            .flags = pf,
-            .kind = 0,
-        };
-        vec_push_back(&t->addrspace->mmap_list, mm);
+        vma_add(&t->addrspace->vmas, vaddr + i * PAGE_SIZE,
+                vaddr + (i + 1) * PAGE_SIZE, dst, pf);
     }
 
     return 0;

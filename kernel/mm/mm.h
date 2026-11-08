@@ -23,6 +23,7 @@
 #include <3rd-party/boot/limine.h>
 #include <lib/spinlock.h>
 #include <lib/vector.h>
+#include <mm/vma.h>
 
 #define PAGE_SIZE               4096
 #define BMP_PAGES_PER_BYTE      8
@@ -113,10 +114,11 @@ void pmm_register_buddy_allocator(void);
 /**
  * @brief Virtual address space: top-level page table, mappings and lock
  */
-typedef struct {
+typedef struct addrspace {
     uint64_t *PML4;
     vec_struct(uint64_t) mem_list;
-    vec_struct(mem_map_t) mmap_list;
+    vec_struct(mem_map_t) owned_list;   /* kernel buffers, never user mapped */
+    vma_map_t vmas;                      /* user mappings */
     uint32_t refs;
     spinlock_t lock;
     bool initialized;
@@ -134,5 +136,8 @@ uint64_t vmm_get_paddr(addrspace_t * addrspace, uint64_t vaddr);
 uint64_t vmm_query(addrspace_t * addrspace, uint64_t vaddr);
 void vmm_map_process_phys(addrspace_t * addrspace, uint64_t vaddr,
                        uint64_t paddr, uint64_t np, uint64_t flags);
+void addrspace_owned_add(addrspace_t * as, const mem_map_t * m);
+int addrspace_owned_clone(addrspace_t * dst, addrspace_t * src);
+void addrspace_owned_destroy(addrspace_t * as);
 
 addrspace_t *create_addrspace(void);

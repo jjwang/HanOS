@@ -197,6 +197,8 @@ void do_context_switch(void *stack, int64_t mode)
         if ((uint64_t) curr != (uint64_t) idle_process[cpu_id]) {
             if (mode == SCHED_SWITCH_FORK) {
                 process_t *curr_fork = process_fork(curr);
+                if (curr_fork == NULL)
+                    kpanic("sched: process_fork failed\n");
                 if (curr_fork->status == PROC_RUNNING)
                     curr_fork->status = PROC_READY;
                 vec_push_back(&run_queues[cpu_id], curr_fork);

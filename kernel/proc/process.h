@@ -260,7 +260,6 @@ typedef struct process {
 
     /* Address space. */
     addrspace_t *addrspace;
-    vec_struct(mem_map_t) mmap_list;
     uint64_t fs_base;
 
     char *cwd;

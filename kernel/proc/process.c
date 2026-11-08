@@ -159,15 +159,10 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
                 NUM_PAGES(STACK_SIZE),
                 VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
-        mem_map_t m;
-
-        m.vaddr = (uint64_t) nproc->ustack_limit;
-        m.paddr = (uint64_t) nproc->ustack_limit;
-        m.np = NUM_PAGES(STACK_SIZE);
-        m.flags = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE;
-        m.kind = 0;
-
-        vec_push_back(&as->mmap_list, m);
+        vma_add(&as->vmas, (uint64_t) nproc->ustack_limit,
+                (uint64_t) nproc->ustack_limit + STACK_SIZE,
+                (uint64_t) nproc->ustack_limit,
+                VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE);
 
         nproc_regs = (process_regs_t *)
             PHYS_TO_VIRT((uint64_t) nproc->ustack_top
@@ -261,33 +256,16 @@ process_t *process_fork(process_t * tp)
     tc->signals.pending.sig = 0;    /* a child starts with no pending signal */
     tc->addrspace = create_addrspace();
 
-    uint64_t len = vec_length(&(tp->addrspace->mmap_list));
-    klogi("process_fork: totally %ld memory blocks (parent #%ld, child #%ld)\n",
+    uint32_t len = vma_count(&tp->addrspace->vmas);
+
+    klogi("process_fork: totally %u memory blocks (parent #%ld, child #%ld)\n",
           len, tp->pid, new_pid);
 
-    uint64_t i;
-    for (i = 0; i < len; i++) {
-        mem_map_t m = vec_at(&(tp->addrspace->mmap_list), i);
-        uint64_t ptr =
-            VIRT_TO_PHYS(kmalloc_chunk
-                         (m.np * PAGE_SIZE, __func__, __LINE__));
-        memcpy((void *) PHYS_TO_VIRT(ptr), (void *) PHYS_TO_VIRT(m.paddr),
-               m.np * PAGE_SIZE);
-        if ((uint64_t) tp->ustack_limit == (uint64_t) m.vaddr) {
-            klogi("process_fork: #%ld (parent #%ld) new user stack 0x%016lx and "
-                  "map to 0x%016lx with top 0x%016lx\n",
-                  new_pid, tp->pid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
-        }
-        if ((uint64_t) tp->kstack_limit == (uint64_t) m.vaddr) {
-            klogi("process_fork: #%ld (parent #%ld) new kern stack 0x%016lx and "
-                  "map to 0x%016lx with top 0x%016lx\n",
-                  new_pid, tp->pid, ptr, m.vaddr, m.vaddr + STACK_SIZE);
-        }
-        if (m.kind == 0)
-            vmm_map(tc->addrspace, m.vaddr, ptr, m.np, m.flags);
-
-        m.paddr = ptr;
-        vec_push_back(&tc->addrspace->mmap_list, m);
+    if (vma_clone(tc->addrspace, &tp->addrspace->vmas,
+                  &tc->addrspace->vmas) != 0
+        || addrspace_owned_clone(tc->addrspace, tp->addrspace) != 0) {
+        process_free(tc);
+        return NULL;
     }
 
     tc->pid = new_pid;
@@ -413,16 +391,8 @@ void process_free_addrspace(addrspace_t * as)
         || __atomic_fetch_sub(&as->refs, 1, __ATOMIC_ACQ_REL) != 1)
         return;
 
-    uint64_t mmap_num = vec_length(&as->mmap_list);
-
-    for (uint64_t i = 0; i < mmap_num; i++) {
-        mem_map_t m = vec_at(&as->mmap_list, i);
-
-        if (m.kind == 0)
-            vmm_unmap(as, m.vaddr, m.np);
-        kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
-    }
-    vec_erase_all(&as->mmap_list);
+    vma_destroy(as, &as->vmas);
+    addrspace_owned_destroy(as);
 
     uint64_t mem_num = vec_length(&as->mem_list);
 
