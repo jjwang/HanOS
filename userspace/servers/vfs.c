@@ -2180,9 +2180,6 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -1;    /* -EPERM */
                 } else if (resolve(newabs) != -1) {
                     rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
-                } else if (strncmp(oldabs, "/tmp/", 5) != 0
-                           || strncmp(newabs, "/tmp/", 5) != 0) {
-                    rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
                 } else {
                     norm = norm_dir(newabs);
                     int32_t idx = (norm != NULL) ? dyn_alloc(norm) : -1;
