@@ -2807,6 +2807,25 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
 }
 
+static void create_mtab(void)
+{
+    if (resolve("etc/mtab") != -1)
+        return;
+
+    int32_t idx = dyn_create("etc/mtab");
+
+    if (idx < 0)
+        return;
+
+    const char text[] = "rootfs / rootfs rw 0 0\n"
+                        "/dev/hda2 /data ext2 rw 0 0\n";
+    vfs_dyn_t *d = &dyns[idx - ent_count];
+    uint64_t n = sizeof(text) - 1;
+
+    memcpy(d->data, text, n);
+    d->size = n;
+}
+
 int32_t main(void)
 {
     while (sys_bootinfo(&bi) < 0 || bi.magic != BOOTINFO_MAGIC) {
@@ -2816,6 +2835,7 @@ int32_t main(void)
     parse_initrd();
     store_load();
     store_ready = true;
+    create_mtab();
 
     if (resolve("/dev") == -1)
         dyn_create_dir("dev");
