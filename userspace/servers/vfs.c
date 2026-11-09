@@ -136,6 +136,7 @@ static struct {
     char *dir;                  /* normalized directory path */
     uint32_t refs;              /* number of forks sharing this description */
     bool fifo_write;            /* FIFO descriptor refers to the write end */
+    bool nonblock;              /* O_NONBLOCK */
     uint32_t gen;               /* generation, changes on reuse */
     int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
 } fds[VFS_MAX_FDS];
@@ -1591,6 +1592,13 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 uint32_t acc = (uint32_t) flags & 3;
 
                 fds[fd - 1].fifo_write = (acc == 1);
+                fds[fd - 1].nonblock = (flags & O_NONBLOCK) != 0;
+                if (acc == 1 && d->fifo_readers == 0
+                    && fds[fd - 1].nonblock) {
+                    fds[fd - 1].in_use = false;
+                    rep->words[0] = (uint64_t) (int64_t) -6;    /* -ENXIO */
+                    goto openat_out;
+                }
                 if (acc != 1)
                     d->fifo_readers++;
                 if (acc != 0) {
@@ -1682,6 +1690,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else if (len == 0 || (d->fifo_writers == 0
                                     && d->fifo_had_writer)) {
                 rep->words[0] = 0;
+                rep->words[1] = 0;
+            } else if (fds[fd - 1].nonblock) {
+                rep->words[0] = (uint64_t) (int64_t) -11;   /* -EAGAIN */
                 rep->words[1] = 0;
             } else {
                 int32_t slot = -1;
@@ -1823,6 +1834,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 uint64_t space = sizeof(d->fifo_data) - d->fifo_count;
 
                 if (n > 0 && space == 0) {
+                    if (fds[fd - 1].nonblock) {
+                        rep->words[0] = (uint64_t) (int64_t) -11;
+                        rep->words[1] = 0;
+                        goto fifo_write_done;
+                    }
                     int32_t slot = -1;
 
                     for (int32_t i = 0; i < VFS_FIFO_WAITS; i++)
@@ -1873,6 +1889,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[1] = n;
                 }
             }
+          fifo_write_done:
+            ;
         } else if (!idx_is_dyn(fds[fd - 1].ent)) {
             rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
         } else {
