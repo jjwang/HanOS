@@ -1424,7 +1424,21 @@ int64_t k_write(int64_t fd, const void *buf, uint64_t count)
         }
     }
 
-    return vfs_write(fd, count, buf);
+    int64_t r = vfs_write(fd, count, buf);
+
+    if (r == -32) {             /* -EPIPE */
+        process_t *curr = sched_get_current_process();
+
+        if (curr != NULL)
+            signal_raise(curr, SIGPIPE);
+        cpu_set_errno(EPIPE);
+        return -1;
+    }
+    if (r < 0) {
+        cpu_set_errno((int32_t) -r);
+        return -1;
+    }
+    return r;
 }
 
 int64_t k_set_fs_base(uint64_t val)

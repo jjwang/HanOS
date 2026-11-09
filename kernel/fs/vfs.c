@@ -139,9 +139,15 @@ static int64_t vfs_server_write(int64_t sfd, uint64_t len, const void *buff)
     req.xfer[0] = mh;
     req.xfer_count = 1;
 
-    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0) {
+    if (!router_forward(SVC_FS, &req, &rep)) {
         memobj_unref(mo);
         return -1;
+    }
+    if ((int64_t) rep.words[0] < 0) {
+        int64_t rc = (int64_t) rep.words[0];
+
+        memobj_unref(mo);
+        return rc;
     }
 
     memobj_unref(mo);
@@ -218,7 +224,7 @@ static int64_t vfs_pipe_xfer(int64_t sfd, uint64_t tag, uint64_t len,
 
         if (mo != NULL)
             memobj_unref(mo);
-        return (rc == PIPE_EAGAIN) ? VFS_IO_AGAIN : -1;
+        return (rc == PIPE_EAGAIN) ? VFS_IO_AGAIN : rc;
     }
 
     int64_t n = (int64_t) rep.words[1];
