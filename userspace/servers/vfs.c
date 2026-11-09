@@ -2525,11 +2525,41 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             } else if (abs == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;
             } else {
-                uint64_t vals[6] = {
-                    4096, 1u << 18, 1u << 17,
-                    1u << 17, 1u << 16, 1u << 15
-                };
+                uint64_t used = bi.initrd_size;
+                mm_stats_t ms;
 
+                for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+                    if (!dyns[i].used || dyns[i].name == NULL
+                        || dyns[i].link != NULL)
+                        continue;
+                    if (dyns[i].is_dir)
+                        used += 4096;
+                    else if (dyns[i].is_symlink)
+                        used += dyns[i].target != NULL
+                            ? strlen(dyns[i].target) : 0;
+                    else if (!dyns[i].is_fifo && !dyns[i].is_dev)
+                        used += dyns[i].size;
+                }
+
+                uint64_t vals[6];
+
+                if (sys_mem_stats(&ms) == 0 && ms.free < (1ULL << 62)) {
+                    uint64_t total = used + ms.free;
+
+                    vals[0] = 4096;
+                    vals[1] = (total + 4095) / 4096;
+                    vals[2] = ms.free / 4096;
+                    vals[3] = ms.free / 4096;
+                    vals[4] = 0;
+                    vals[5] = 0;
+                } else {
+                    uint64_t fixed[6] = {
+                        4096, 1u << 18, 1u << 17,
+                        1u << 17, 1u << 16, 1u << 15
+                    };
+
+                    memcpy(vals, fixed, sizeof(vals));
+                }
                 memcpy(buf + VFS_IO_DATA_OFF, vals, sizeof(vals));
                 rep->words[0] = 0;
             }
