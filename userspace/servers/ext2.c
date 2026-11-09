@@ -192,10 +192,39 @@ static void mount(void)
     mounted = true;
 }
 
+#define BLOCK_CACHE_ENTRIES 32
+
+static struct {
+    bool used;
+    uint32_t block;
+    uint8_t data[4096];
+} block_cache[BLOCK_CACHE_ENTRIES];
+static uint32_t block_cache_next;
+
+static void block_cache_clear(void)
+{
+    memset(block_cache, 0, sizeof(block_cache));
+    block_cache_next = 0;
+}
+
 static int32_t read_block(uint32_t block, uint8_t *dst)
 {
-    return blk_read(part_lba + (uint64_t) block * (blk_size / SEC),
-                    (uint8_t) (blk_size / SEC), dst);
+    for (uint32_t i = 0; i < BLOCK_CACHE_ENTRIES; i++)
+        if (block_cache[i].used && block_cache[i].block == block) {
+            memcpy(dst, block_cache[i].data, blk_size);
+            return 0;
+        }
+
+    if (blk_read(part_lba + (uint64_t) block * (blk_size / SEC),
+                 (uint8_t) (blk_size / SEC), dst) != 0)
+        return -1;
+
+    uint32_t idx = block_cache_next++ % BLOCK_CACHE_ENTRIES;
+
+    block_cache[idx].used = true;
+    block_cache[idx].block = block;
+    memcpy(block_cache[idx].data, dst, blk_size);
+    return 0;
 }
 
 /* Read one indirect block into `ind`, skipping the read when the same block is
@@ -388,8 +417,12 @@ static int32_t write_block(uint32_t block, const uint8_t *src)
 {
     if (block == ind_cached)
         ind_cached = 0;
-    return blk_write(part_lba + (uint64_t) block * (blk_size / SEC),
-                     (uint8_t) (blk_size / SEC), src);
+    int32_t rc = blk_write(part_lba + (uint64_t) block * (blk_size / SEC),
+                           (uint8_t) (blk_size / SEC), src);
+
+    if (rc == 0)
+        block_cache_clear();
+    return rc;
 }
 
 static uint32_t gdt_block_num(void)
@@ -400,6 +433,7 @@ static uint32_t gdt_block_num(void)
 static void sb_write(void)
 {
     blk_write(part_lba + 1024 / SEC, 2, sb);
+    block_cache_clear();
 }
 
 static void gdt_write(void)
