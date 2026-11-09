@@ -137,6 +137,8 @@ static struct {
     uint32_t refs;              /* number of forks sharing this description */
     bool fifo_write;            /* FIFO descriptor refers to the write end */
     bool nonblock;              /* O_NONBLOCK */
+    int64_t poll_key;           /* FIFO poll wake key */
+    int32_t poll_events;
     uint32_t gen;               /* generation, changes on reuse */
     int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
 } fds[VFS_MAX_FDS];
@@ -776,6 +778,8 @@ static void fifo_wake_writers(int32_t ent)
     }
 }
 
+static void fifo_poll_wake(int32_t ent);
+
 static void fifo_wake(int32_t ent, bool eof)
 {
     vfs_dyn_t *d = &dyns[ent - ent_count];
@@ -832,6 +836,29 @@ static int32_t dyn_create_dev(const char *path, int32_t kind)
     d->is_dev = true;
     d->dev_kind = kind;
     return idx;
+}
+
+static void fifo_poll_wake(int32_t ent)
+{
+    vfs_dyn_t *d = &dyns[ent - ent_count];
+
+    for (int32_t i = 0; i < VFS_MAX_FDS; i++) {
+        if (!fds[i].in_use || !fds[i].poll_key
+            || !idx_is_fifo(fds[i].ent) || fds[i].ent != ent)
+            continue;
+
+        bool rd = d->fifo_count > 0
+            || (d->fifo_writers == 0 && d->fifo_had_writer);
+        bool wr = d->fifo_readers > 0
+            && d->fifo_count < sizeof(d->fifo_data);
+
+        if (((fds[i].poll_events & 1) && rd)
+            || ((fds[i].poll_events & 4) && wr)) {
+            sys_poll_wake((uint64_t) fds[i].poll_key);
+            fds[i].poll_key = 0;
+            fds[i].poll_events = 0;
+        }
+    }
 }
 
 static int32_t dyn_create_symlink(const char *path, const char *target)
@@ -1605,6 +1632,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     d->fifo_writers++;
                     d->fifo_had_writer = true;
                 }
+                fifo_poll_wake(e);
                 if (acc == 1 && d->fifo_readers == 0) {
                     int32_t slot = -1;
 
@@ -1878,6 +1906,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                         }
                         d->fifo_count += n;
                         sys_mem_unmap(memh, VFS_BUF_VADDR);
+                        fifo_poll_wake(fds[fd - 1].ent);
                         if (n > 0) {
                             fifo_wake(fds[fd - 1].ent, false);
                             fifo_wake_writers(fds[fd - 1].ent);
@@ -2068,7 +2097,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                         if (d->fifo_readers == 0)
                             fifo_fail_writers(fds[fd - 1].ent, -32);
                     }
+                    fifo_poll_wake(fds[fd - 1].ent);
                 }
+                fds[fd - 1].poll_key = 0;
                 if (fds[fd - 1].dir != NULL)
                     free(fds[fd - 1].dir);
                 fds[fd - 1].in_use = false;
@@ -2391,6 +2422,40 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         free(norm);
         sys_mem_unmap(memh, VFS_BUF_VADDR);
         sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_POLL) {
+        int32_t fd = (int32_t) m->words[0];
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+        } else if (idx_is_fifo(fds[fd - 1].ent)) {
+            vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
+
+            rep->words[0] = 0;
+            rep->words[1] = d->fifo_count > 0
+                || (d->fifo_writers == 0 && d->fifo_had_writer);
+            rep->words[2] = d->fifo_readers > 0
+                && d->fifo_count < sizeof(d->fifo_data);
+        } else {
+            rep->words[0] = 0;
+            rep->words[1] = 1;
+            rep->words[2] = 1;
+        }
+        return;
+    }
+
+    if (m->tag == VFS_POLL_REG) {
+        int32_t fd = (int32_t) m->words[0];
+
+        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+            rep->words[0] = (uint64_t) (int64_t) -9;
+        } else {
+            fds[fd - 1].poll_key = (int64_t) m->words[1];
+            fds[fd - 1].poll_events = (int32_t) m->words[2];
+            rep->words[0] = 0;
+        }
         return;
     }
 

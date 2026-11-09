@@ -1269,6 +1269,40 @@ int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable)
     return 0;
 }
 
+int64_t vfs_fifo_poll(int64_t sfd, int32_t * readable, int32_t * writable)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_POLL;
+    req.words[0] = (uint64_t) sfd;
+
+    if (!router_forward(SVC_FS, &req, &rep) || (int64_t) rep.words[0] < 0)
+        return -1;
+    if (readable != NULL)
+        *readable = (int32_t) rep.words[1];
+    if (writable != NULL)
+        *writable = (int32_t) rep.words[2];
+    return 0;
+}
+
+int64_t vfs_fifo_poll_register(int64_t sfd, void *key, int32_t events)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_POLL_REG;
+    req.words[0] = (uint64_t) sfd;
+    req.words[1] = (uint64_t) key;
+    req.words[2] = (uint32_t) events;
+
+    if (!router_forward(SVC_FS, &req, &rep))
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
 int64_t vfs_pipe_poll_register(int64_t sfd, void *key, int32_t events)
 {
     ipc_msg_t req;

@@ -70,6 +70,10 @@
 #define VFS_STATFS          0x49        /* in: cwd+path; out: statfs at
                                            VFS_IO_DATA_OFF */
 #define VFS_MKNODAT         0x4A        /* words[0]=mode; in: cwd+path */
+#define VFS_POLL            0x4B        /* words[0]=fd; out: words[1]=readable,
+                                           words[2]=writable */
+#define VFS_POLL_REG        0x4C        /* words[0]=fd, words[1]=key,
+                                           words[2]=events */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
 #define VFS_PONG            0x504f4e47ULL       /* "PONG" */
 

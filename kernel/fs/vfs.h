@@ -241,6 +241,8 @@ int64_t vfs_truncate(vfs_fd_t fd, uint64_t newsize);
 /* Readiness of a pipe end: 1 when readable (data or EOF) and 1 when writable.
  * Returns 0, or -1 on error. */
 int64_t vfs_pipe_poll(int64_t sfd, int32_t * readable, int32_t * writable);
+int64_t vfs_fifo_poll(int64_t sfd, int32_t * readable, int32_t * writable);
+int64_t vfs_fifo_poll_register(int64_t sfd, void *key, int32_t events);
 
 /* Register a poll wake key with a pipe end for the given event bits. The pipe
  * server wakes the key when the end state matches. */

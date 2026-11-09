@@ -2377,6 +2377,18 @@ static int16_t fd_poll_revents(int32_t fd, int16_t events, bool *want_tty)
         return rev;
     }
 
+    if (svc == SVC_FS) {
+        int32_t rd = 0, wr = 0;
+
+        if (vfs_fifo_poll(sfd, &rd, &wr) != 0)
+            return POLLNVAL;
+        if ((events & POLLIN) && rd)
+            rev |= POLLIN;
+        if ((events & POLLOUT) && wr)
+            rev |= POLLOUT;
+        return rev;
+    }
+
     if (svc == SVC_NET) {
         int32_t rd = 0, wr = 0;
 
@@ -2477,6 +2489,8 @@ static void poll_register_one(int32_t fd, void *key, int32_t events)
 
     if (svc == SVC_PIPE) {
         vfs_pipe_poll_register(sfd, key, events);
+    } else if (svc == SVC_FS) {
+        vfs_fifo_poll_register(sfd, key, events);
     } else if (svc == SVC_NET) {
         net_poll_register(fd, key, events);
     } else if (svc == SVC_EVENT) {
