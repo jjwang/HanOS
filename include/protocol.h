@@ -211,6 +211,7 @@ typedef struct {
                                            EXT2_IO_DATA_OFF, words[1]=length */
 #define EXT2_FD_REF         0x8c        /* words[0]=fd; add a reference */
 #define EXT2_LINK           0x8d        /* in: oldpath\0newpath\0 */
+#define EXT2_MKFIFO         0x8f        /* in: path */
 #define EXT2_STATFS         0x8e        /* in: path; out: words[1]=bsize,
                                            words[2]=blocks, words[3]=bfree,
                                            words[4]=files, words[5]=ffree */

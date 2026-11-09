@@ -127,7 +127,9 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
             if (size != NULL)
                 *size = rep.words[2];
             if (is_dir != NULL)
-                *is_dir = false;
+                *is_dir = rep.words[3] != 0;
+            if (mode != NULL)
+                *mode = (uint32_t) rep.words[4];
         } else {
             if (size != NULL)
                 *size = rep.words[1];
@@ -146,6 +148,11 @@ static int64_t ext2_path_call(uint64_t tag, const char *path, uint64_t *size,
 int64_t ext2_create_path(const char *path, uint64_t *size)
 {
     return ext2_path_call(EXT2_CREATE, path, size, NULL, NULL);
+}
+
+int64_t ext2_mkfifo_path(const char *path)
+{
+    return ext2_path_call(EXT2_MKFIFO, path, NULL, NULL, NULL);
 }
 
 int64_t ext2_unlink_path(const char *path)

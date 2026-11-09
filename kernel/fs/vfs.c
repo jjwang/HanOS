@@ -707,6 +707,17 @@ int64_t vfs_mknod_path(const char *cwd, const char *path, uint32_t mode)
 
     int64_t rc = (int64_t) rep.words[0];
 
+    if (rc == VFS_REDIRECT_EXT) {
+        char *rel = memobj_read_path_alloc(mo);
+
+        memobj_unref(mo);
+        if (rel == NULL)
+            return -1;
+        rc = ext2_mkfifo_path(rel);
+        kmfree(rel);
+        return rc;
+    }
+
     memobj_unref(mo);
     return rc;
 }
@@ -804,6 +815,48 @@ int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
 }
 
 /* Open a path; fills *svc with the service that owns the returned fd. */
+static vfs_fd_t vfs_open_fifo_vfs(const char *cwd, const char *path,
+                                  int32_t flags, int32_t *svc)
+{
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return VFS_INVALID_FD;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_OPENAT;
+    req.words[0] = (uint64_t) flags;
+    req.words[2] = 1;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    if (!router_forward(SVC_FS, &req, &rep)) {
+        memobj_unref(mo);
+        return VFS_INVALID_FD;
+    }
+
+    int64_t rc = (int64_t) rep.words[0];
+
+    if (rc < 0) {
+        memobj_unref(mo);
+        return VFS_INVALID_FD;
+    }
+
+    int64_t sfd = (int64_t) rep.words[1];
+    uint64_t size = rep.words[2];
+
+    memobj_unref(mo);
+    if (svc != NULL)
+        *svc = SVC_FS;
+    return vfs_open_server(sfd, path, VFS_MODE_READWRITE, size);
+}
+
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc)
 {
@@ -814,12 +867,16 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         uint64_t size = 0;
         bool is_dir = false;
         uint32_t mode = 0;
-        int64_t efd = (flags & O_CREAT)
-            ? ext2_create_path(rel, &size)
-            : ext2_open_path(rel, &size, &is_dir, &mode);
+        int64_t efd = ext2_open_path(rel, &size, &is_dir, &mode);
 
+        if (efd < 0 && (flags & O_CREAT))
+            efd = ext2_create_path(rel, &size);
         if (efd < 0)
             return VFS_INVALID_FD;
+        if ((mode & 0xF000) == 0x1000) {
+            ext2_close_fd(efd);
+            return vfs_open_fifo_vfs(cwd, path, flags, svc);
+        }
         if (flags & O_TRUNC) {
             if (ext2_trunc_fd(efd, 0) < 0) {
                 ext2_close_fd(efd);

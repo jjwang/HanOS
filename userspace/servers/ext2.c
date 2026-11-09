@@ -1082,8 +1082,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == EXT2_OPEN || m->tag == EXT2_STAT || m->tag == EXT2_READ
         || m->tag == EXT2_READDIR || m->tag == EXT2_CREATE
         || m->tag == EXT2_UNLINK || m->tag == EXT2_WRITE
-        || m->tag == EXT2_LINK || m->tag == EXT2_STATFS
-        || m->tag == EXT2_FD_PATH) {
+        || m->tag == EXT2_LINK || m->tag == EXT2_MKFIFO
+        || m->tag == EXT2_STATFS || m->tag == EXT2_FD_PATH) {
         memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         if (memh == 0 || sys_mem_map(memh, EXT2_REQ_ADDR, 3) != 0) {
             if (memh != 0)
@@ -1166,6 +1166,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[1] = (uint64_t) nfd;
             rep->words[2] = size;
             rep->words[3] = is_dir ? 1 : 0;
+            rep->words[4] = mode;
             break;
         }
 
@@ -1506,6 +1507,55 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 free_inode(ino);
             }
             path_cache_clear();
+            rep->words[0] = 0;
+            break;
+        }
+
+    case EXT2_MKFIFO:{
+            char *path = read_path(buf);
+
+            if (path == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+                break;
+            }
+            if (path_resolve(path) != 0) {
+                free(path);
+                rep->words[0] = (uint64_t) (int64_t) -17;
+                break;
+            }
+            char parent[256], base[256];
+
+            split_path(path, parent, base);
+            free(path);
+            uint32_t pino = path_resolve(parent);
+            uint8_t pdir[256];
+
+            if (pino == 0 || inode_read(pino, pdir) != 0
+                || (rd16(pdir) & 0xF000) != 0x4000) {
+                rep->words[0] = (uint64_t) (int64_t) -2;
+                break;
+            }
+            uint32_t nino = alloc_inode();
+
+            if (nino == 0) {
+                rep->words[0] = (uint64_t) (int64_t) -28;
+                break;
+            }
+            uint8_t ni[256];
+
+            if (inode_read(nino, ni) != 0) {
+                free_inode(nino);
+                rep->words[0] = (uint64_t) (int64_t) -5;
+                break;
+            }
+            wr16(ni + 0, 0x11A4);
+            wr16(ni + 26, 1);
+            inode_write(nino, ni);
+            if (dir_add(pdir, pino, base, nino, 5) != 0) {
+                free_inode(nino);
+                rep->words[0] = (uint64_t) (int64_t) -5;
+                break;
+            }
             rep->words[0] = 0;
             break;
         }

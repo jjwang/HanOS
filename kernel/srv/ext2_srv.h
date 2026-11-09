@@ -52,6 +52,7 @@ int64_t ext2_readdir_fd(int64_t fd, uint64_t index, char *name,
                         uint64_t namesz, uint64_t * size, bool * is_dir);
 int64_t ext2_create_path(const char *path, uint64_t * size);
 int64_t ext2_unlink_path(const char *path);
+int64_t ext2_mkfifo_path(const char *path);
 int64_t ext2_link_path(const char *oldp, const char *newp);
 int64_t ext2_write_fd(int64_t fd, uint64_t len, const void *buf);
 int64_t ext2_trunc_fd(int64_t fd, uint64_t newsize);

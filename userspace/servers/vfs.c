@@ -629,6 +629,22 @@ static int32_t dyn_create_dir(const char *path)
     return idx;
 }
 
+static void dyn_remove_path(const char *abs)
+{
+    char *norm = norm_dir(abs);
+
+    if (norm == NULL)
+        return;
+    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+        if (!dyns[i].used || dyns[i].name == NULL
+            || strcmp(dyns[i].name, norm) != 0)
+            continue;
+        dyn_unlink(&dyns[i]);
+        break;
+    }
+    free(norm);
+}
+
 static int32_t dyn_create_fifo(const char *path)
 {
     int32_t idx = dyn_alloc(path);
@@ -1305,7 +1321,8 @@ static void store_save(void)
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
         if (!dyns[i].used || dyns[i].name == NULL)
             continue;
-        if (strncmp(dyns[i].name, "/tmp/", 5) == 0
+        if (dyns[i].is_fifo
+            || strncmp(dyns[i].name, "/tmp/", 5) == 0
             || strcmp(dyns[i].name, "dev") == 0
             || strncmp(dyns[i].name, "dev/", 4) == 0)
             continue;
@@ -1552,6 +1569,21 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             goto openat_out;
         }
 
+        if ((m->words[2] & 1) != 0) {
+            e = resolve(abs);
+            if (e == -1) {
+                char *norm = norm_dir(abs);
+
+                e = (norm != NULL) ? dyn_create_fifo(norm) : -1;
+                free(norm);
+            }
+            if (e == -1) {
+                rep->words[0] = (uint64_t) (int64_t) -28;
+                goto openat_out;
+            }
+            goto open_fd;
+        }
+
         if (strcmp(abs, "/dev/zero") == 0 || strcmp(abs, "/dev/null") == 0) {
             int32_t sfd = fd_alloc();
 
@@ -1603,6 +1635,8 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 store_save();
         }
 
+      open_fd:
+        ;
         int32_t fd = fd_alloc();
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
@@ -2177,6 +2211,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             uint64_t redir = mount_rel(abs, &rel);
 
             if (redir != 0) {
+                dyn_remove_path(abs);
                 buf_write_path(buf, rel);
                 rep->words[0] = redir;
             } else if (abs != NULL) {
@@ -2395,7 +2430,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             if (abs == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;
             } else if (rel != NULL) {
-                rep->words[0] = (uint64_t) (int64_t) -38;   /* -ENOSYS */
+                dyn_remove_path(abs);
+                buf_write_path(buf, rel);
+                rep->words[0] = VFS_REDIRECT_EXT;
             } else if (fat_rel(abs) != NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
             } else if (resolve(abs) != -1) {
