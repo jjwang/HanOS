@@ -476,8 +476,23 @@ int64_t vfs_statfs_path(const char *cwd, const char *path, vfs_statfs_t * out)
     }
 
     if (rc == VFS_REDIRECT_FAT) {
+        char *rel = memobj_read_path_alloc(mo);
+        uint64_t bsize = 0, blocks = 0, bfree = 0;
+
         memobj_unref(mo);
-        return -1;
+        if (rel == NULL)
+            return -1;
+        rc = fat32_statfs_path(rel, &bsize, &blocks, &bfree);
+        kmfree(rel);
+        if (rc < 0)
+            return -1;
+        out->bsize = bsize;
+        out->blocks = blocks;
+        out->bfree = bfree;
+        out->bavail = bfree;
+        out->files = 0;
+        out->ffree = 0;
+        return 0;
     }
     if (rc < 0) {
         memobj_unref(mo);

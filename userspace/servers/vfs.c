@@ -2400,6 +2400,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 buf_write_path(buf, rel);
                 rep->words[0] = VFS_REDIRECT_EXT;
             } else if (redir == VFS_REDIRECT_FAT) {
+                buf_write_path(buf, rel);
                 rep->words[0] = VFS_REDIRECT_FAT;
             } else if (abs == NULL) {
                 rep->words[0] = (uint64_t) (int64_t) -12;

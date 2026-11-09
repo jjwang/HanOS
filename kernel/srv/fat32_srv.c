@@ -126,6 +126,41 @@ int64_t fat32_stat_path(const char *path, uint64_t *size, bool *is_dir)
     return rc;
 }
 
+int64_t fat32_statfs_path(const char *path, uint64_t *bsize,
+                          uint64_t *blocks, uint64_t *bfree)
+{
+    if (!fat32_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &h);
+
+    if (mo == NULL)
+        return -1;
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = FAT_STATFS;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_FAT, &req, &rep) && (int64_t) rep.words[0] == 0) {
+        if (bsize != NULL)
+            *bsize = rep.words[1];
+        if (blocks != NULL)
+            *blocks = rep.words[2];
+        if (bfree != NULL)
+            *bfree = rep.words[3];
+        rc = 0;
+    }
+    memobj_unref(mo);
+    return rc;
+}
+
 int64_t fat32_open_path(const char *path, uint64_t *size)
 {
     if (!fat32_active)

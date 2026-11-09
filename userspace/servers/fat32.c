@@ -1110,7 +1110,8 @@ static void handle(sys_ipc_msg_t *m, sys_ipc_msg_t *rep)
     if (m->tag != FAT_READ && m->tag != FAT_STAT && m->tag != FAT_READDIR
         && m->tag != FAT_OPEN && m->tag != FAT_CLOSE && m->tag != FAT_SEEK
         && m->tag != FAT_FSTAT && m->tag != FAT_CREATE && m->tag != FAT_WRITE
-        && m->tag != FAT_TRUNC && m->tag != FAT_UNLINK) {
+        && m->tag != FAT_TRUNC && m->tag != FAT_UNLINK
+        && m->tag != FAT_STATFS) {
         rep->words[0] = (uint64_t) (int64_t) -38;
         return;
     }
@@ -1267,6 +1268,20 @@ static void handle(sys_ipc_msg_t *m, sys_ipc_msg_t *rep)
         rep->words[0] = (uint64_t) (int64_t) truncate_file(fd, m->words[1]);
         rep->words[1] = fdtab[fd].size;
         break;
+
+    case FAT_STATFS:{
+            uint32_t clusters = max_cluster >= 2 ? max_cluster - 1 : 0;
+            uint32_t free_clusters = 0;
+
+            for (uint32_t c = 2; c <= max_cluster; c++)
+                if (fat_raw(c) == 0)
+                    free_clusters++;
+            rep->words[0] = 0;
+            rep->words[1] = SEC;
+            rep->words[2] = (uint64_t) clusters * spc;
+            rep->words[3] = (uint64_t) free_clusters * spc;
+            break;
+        }
 
     case FAT_UNLINK:{
             char *path = read_path(buf);

@@ -179,6 +179,8 @@ typedef struct {
                                            words[2]=size */
 #define FAT_TRUNC           0x79        /* words[0]=fd, words[1]=new size */
 #define FAT_UNLINK          0x7a        /* in: path */
+#define FAT_STATFS          0x7b        /* out: words[1]=bsize,
+                                           words[2]=blocks, words[3]=bfree */
 
 /* ext2 server. The path and data layout matches the FAT server: the path sits
  * at offset 0 and file data or a directory name at VFS_IO_DATA_OFF of the

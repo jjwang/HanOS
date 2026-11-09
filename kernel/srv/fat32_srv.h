@@ -23,6 +23,8 @@ bool fat32_server_active(void);
 /* Kernel-side FAT32 client used by the path routing. The server keeps the fd
  * state (offset), so read/seek/readdir take a server fd. */
 int64_t fat32_stat_path(const char *path, uint64_t *size, bool *is_dir);
+int64_t fat32_statfs_path(const char *path, uint64_t *bsize, uint64_t *blocks,
+                          uint64_t *bfree);
 int64_t fat32_open_path(const char *path, uint64_t *size);
 int64_t fat32_read_fd(int64_t fd, uint64_t len, void *buf);
 int64_t fat32_seek_fd(int64_t fd, uint64_t off, int64_t whence);
