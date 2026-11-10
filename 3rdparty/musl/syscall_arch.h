@@ -487,15 +487,15 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
             unsigned long cnt = (unsigned long) a3;
             long total = 0;
 
-            if (a1 == 1 || a1 == 2) {
-                for (unsigned long i = 0; i < cnt; i++) {
-                    long r = __hanos_raw(H_WRITE, a1, (long) iov[i].base,
-                                         (long) iov[i].len, 0, 0, 0);
+            for (unsigned long i = 0; i < cnt; i++) {
+                long r = __hanos_raw(H_WRITE, a1, (long) iov[i].base,
+                                     (long) iov[i].len, 0, 0, 0);
 
-                    if (r < 0)
-                        return total ? total : r;
-                    total += r;
-                }
+                if (r < 0)
+                    return total ? total : r;
+                total += r;
+                if ((unsigned long) r < iov[i].len)
+                    break;
             }
             return total;
         }
