@@ -1254,7 +1254,11 @@ static void store_load(void)
 
         int32_t idx = -1;
 
-        if (type == 1)
+        if (strcmp(name, "tmp") == 0 || strncmp(name, "tmp/", 4) == 0
+            || strcmp(name, "dev") == 0
+            || strncmp(name, "dev/", 4) == 0) {
+            /* /tmp and /dev are volatile. */
+        } else if (type == 1)
             idx = dyn_create_dir(name);
         else if (type == 2) {
             char *target = malloc(dlen + 1);
@@ -1322,7 +1326,8 @@ static void store_save(void)
         if (!dyns[i].used || dyns[i].name == NULL)
             continue;
         if (dyns[i].is_fifo
-            || strncmp(dyns[i].name, "/tmp/", 5) == 0
+            || strcmp(dyns[i].name, "tmp") == 0
+            || strncmp(dyns[i].name, "tmp/", 4) == 0
             || strcmp(dyns[i].name, "dev") == 0
             || strncmp(dyns[i].name, "dev/", 4) == 0)
             continue;
@@ -1637,6 +1642,10 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
       open_fd:
         ;
+        if ((flags & O_DIRECTORY) && !idx_is_dir(e)) {
+            rep->words[0] = (uint64_t) (int64_t) -20;   /* -ENOTDIR */
+            goto openat_out;
+        }
         int32_t fd = fd_alloc();
         if (fd < 0) {
             rep->words[0] = (uint64_t) (int64_t) -24;   /* -EMFILE */
@@ -2693,9 +2702,18 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
             else if (!idx_is_dyn(e))
                 rep->words[0] = (uint64_t) (int64_t) -30;   /* -EROFS */
-            else if (resolve(newabs) != -1)
-                rep->words[0] = (uint64_t) (int64_t) -17;   /* -EEXIST */
+            else if (strcmp(oldabs, newabs) == 0)
+                rep->words[0] = 0;
             else {
+                int32_t ne = resolve(newabs);
+
+                if (ne != -1) {
+                    if (!idx_is_dyn(ne) || idx_is_dir(ne)) {
+                        rep->words[0] = (uint64_t) (int64_t) -17;
+                        goto rename_out;
+                    }
+                    dyn_unlink(&dyns[ne - ent_count]);
+                }
                 norm = norm_dir(newabs);
                 if (norm == NULL || norm[0] == '\0') {
                     rep->words[0] = (uint64_t) (int64_t) -22;
@@ -2741,6 +2759,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             rep->words[0] = (uint64_t) (int64_t) -12;
         }
 
+      rename_out:
         free(cwd);
         free(oldp);
         free(newp);
