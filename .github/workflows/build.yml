@@ -25,6 +25,7 @@ jobs:
           sudo chmod +x /usr/local/bin/x86_64-elf-gcc
           sudo ln -sf "$(command -v ar)" /usr/local/bin/x86_64-elf-ar
           sudo ln -sf "$(command -v ranlib)" /usr/local/bin/x86_64-elf-ranlib
+          sudo ln -sf "$(command -v strip)" /usr/local/bin/x86_64-elf-strip
 
       - name: Build kernel
         run: make -C kernel
