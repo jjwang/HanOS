@@ -15,6 +15,7 @@ Move the Intel display driver out of the kernel. The kernel keeps the Limine fra
 
 - Add `/bin/gpu`: GTT entry writer, memory-object allocator, rain desktop and hardware cursor. The server skips its own eDP mode set when `bootinfo.gpu_display_ready` says the kernel bootstrap already switched the panel.
 - The userspace source carries no mode-set or EDID parser; the cursor is the only GPU programming path it owns besides planes and desktop.
+- The desktop runs on Gen9 universal planes and on Gen7.5/Gen8 legacy primary/sprite planes. Gen7.5/Gen8 primary scroll uses `DSPOFFSET` with X/Y coordinates. Their sprite formats are XRGB only, so the console window stays opaque; the server does not blend the screen on the CPU.
 - The GPU server prepares the rain texture and console sprite before touching the planes, then answers `GPU_CONSOLE_SURFACE` with a memory object. The reply carries width, height, stride and the desktop flag.
 - `console` asks for that surface at startup and maps it write-combining at `0x21000000`. It falls back to the firmware framebuffer when the request fails.
 - Add `PROT_WC` to the memory-object map path. The display engine reads DRAM, so the surface mapping must bypass the cache.
