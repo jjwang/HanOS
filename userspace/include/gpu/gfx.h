@@ -1,0 +1,120 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gfx.h
+ @brief   Graphics device definitions for the userspace GPU server
+ @details
+ @verbatim
+
+  The kernel grants the GTTMMADR and GMADR BARs and the boot mode. This header
+  describes the GTT, the GPU objects the server allocates, and the MMIO
+  accessors used by the display driver.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#define GPU_PAGE_SIZE       4096
+#define GPU_PAGE_SHIFT      12
+
+typedef struct {
+    uint32_t device_id;
+    bool gen9;
+    bool pte64;
+
+    uint32_t gtt_offset;
+    uint32_t gtt_size;
+
+    volatile void *aperture_bar;
+    volatile void *mmio_bar;
+    volatile uint64_t *gtt_addr;
+
+    uint32_t aperture_size;
+} gfx_pci_t;
+
+typedef struct {
+    uint32_t stolen_mem_size;
+    uint32_t gtt_mem_size;
+    uint32_t stolen_mem_base;
+
+    uint32_t num_total_entries;
+    uint32_t num_mappable_entries;
+    bool pte64;
+
+    volatile uint64_t *entries;
+} gfx_gtt_t;
+
+typedef struct {
+    volatile uint8_t *cpu_addr;
+    volatile uint64_t gfx_addr;
+    uint64_t phys;
+    uint64_t size;
+    uint32_t pages;
+    int64_t mem_handle;
+} gfx_object_t;
+
+typedef struct {
+    uint64_t base;
+    uint64_t top;
+    uint64_t current;
+} gfx_mem_range_t;
+
+typedef struct {
+    gfx_mem_range_t vram;
+    gfx_mem_range_t shared;
+    gfx_mem_range_t priv;
+
+    volatile uint8_t *gfx_mem_base;
+    volatile uint8_t *gfx_mem_next;
+} gfx_mem_manager_t;
+
+typedef struct {
+    gfx_object_t obj;
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t format;
+    uint64_t *pages;
+    uint32_t page_count;
+    int64_t mem_handle;
+} gfx_fb_t;
+
+#ifndef PAGE_ALIGN_UP
+#define PAGE_ALIGN_UP(x) (((x) + GPU_PAGE_SIZE - 1) & ~(uint64_t)(GPU_PAGE_SIZE - 1))
+#endif
+#define GPU_NUM_PAGES(x) (((x) + GPU_PAGE_SIZE - 1) / GPU_PAGE_SIZE)
+
+static inline uint32_t gpu_mmio_ind(volatile void *p)
+{
+    return *(volatile uint32_t *)p;
+}
+
+static inline void gpu_mmio_outd(volatile void *p, uint32_t v)
+{
+    *(volatile uint32_t *)p = v;
+}
+
+#define gfx_ind(pci, reg) \
+    gpu_mmio_ind((volatile uint8_t *)(pci)->mmio_bar + (reg))
+#define gfx_outd(pci, reg, val) \
+    gpu_mmio_outd((volatile uint8_t *)(pci)->mmio_bar + (reg), (val))
+#define gfx_inl(pci, reg) \
+    (*(volatile uint32_t *)((volatile uint8_t *)(pci)->mmio_bar + (reg)))
+#define gfx_outl(pci, reg, val) \
+    (*(volatile uint32_t *)((volatile uint8_t *)(pci)->mmio_bar + (reg)) = (val))
+
+bool gfx_alloc(gfx_mem_manager_t *mgr, gfx_gtt_t *gtt, gfx_object_t *obj,
+               uint64_t size, uint64_t align);
+uint32_t gfx_gtt_map(gfx_gtt_t *gtt, uint64_t gpu_addr, uint64_t phys,
+                     uint64_t size);
+void gfx_gtt_write_entry(gfx_gtt_t *gtt, uint32_t index, uint64_t phys);
+
+bool gfx_fb_alloc(uint32_t width, uint32_t height, gfx_fb_t *out_fb);
+void gfx_fb_free(gfx_fb_t *fb);
+void gpu_flush(const void *addr, uint64_t len);
+bool gfx_wait_vblank_frame(void);
+uint32_t gfx_pipe_frame(void);

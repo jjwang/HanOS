@@ -215,6 +215,9 @@ bool gfx_layers_demo(int mode);
 /** @brief Bring up the persistent scrolled-rain desktop.
  * @return true when the desktop owns the display. */
 bool gfx_desktop_start(void);
+/** @brief Report whether the kernel completed the early eDP mode set.
+ * @return true when the scan-out uses the native mode. */
+bool gfx_early_active(void);
 /** @brief Report whether the desktop owns the display.
  * @return true when active. */
 bool gfx_desktop_active(void);

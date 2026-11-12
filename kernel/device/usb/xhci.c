@@ -28,7 +28,7 @@
 #include <arch/x64/pit.h>
 #include <proc/sched.h>
 #include <srv/tty_srv.h>
-#include <device/display/gfx.h>
+#include <srv/gpu_srv.h>
 #include <device/usb/xhci.h>
 
 /* Intel Lynx Point xHCI PCI config registers. */
@@ -1523,7 +1523,7 @@ static void hid_mouse(const uint8_t * rep)
         klogi("USB: pointer %d,%d buttons 0x%02x\n", dx, dy, rep[0]);
         seen++;
     }
-    gfx_cursor_move(dx, dy);
+    gpu_cursor_move(dx, dy);
 }
 
 static void hid_arm(hid_t * d)

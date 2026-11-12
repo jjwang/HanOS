@@ -26,7 +26,7 @@
 #include <srv/tty_srv.h>
 #include <ipc/irq.h>
 #include <proc/sched.h>
-#include <device/display/gfx.h>
+#include <srv/gpu_srv.h>
 #include <arch/x64/idt.h>
 #include <bootinfo.h>
 
@@ -84,7 +84,7 @@ _Noreturn static void input_kthread(pid_t pid)
             continue;
 
         if (m.tag == INPUT_MOUSE_TAG) {
-            gfx_cursor_move((int32_t) (int64_t) m.words[0],
+            gpu_cursor_move((int32_t) (int64_t) m.words[0],
                             (int32_t) (int64_t) m.words[1]);
         } else if (m.tag == INPUT_KEY_TAG) {
             /* The tty server owns /dev/tty. */

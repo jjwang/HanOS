@@ -56,6 +56,7 @@
 #define PROT_READ           0x01
 #define PROT_WRITE          0x02
 #define PROT_EXEC           0x04
+#define PROT_WC             0x08
 
 /* fcntl commands and descriptor flags. */
 #define F_GETFD             1

@@ -23,7 +23,7 @@
 #include <ipc/ipc.h>
 #include <proc/sched.h>
 #include <device/display/fb.h>
-#include <device/display/gfx.h>
+#include <srv/gpu_srv.h>
 #include <mm/mm.h>
 #include <bootinfo.h>
 
@@ -31,7 +31,7 @@ static endpoint_t *console_in_ep = NULL;
 static bool console_active = false;
 static pid_t console_spawner = PID_MAX;
 static uint64_t console_fb_size = 0;
-static bool console_desktop;
+#define CONSOLE_FB_VADDR    0x20000000UL
 
 /* Output from kprintf() is buffered here and forwarded by a kernel thread.
  * A syscall runs with interrupts disabled, so kprintf() must never wait for
@@ -58,37 +58,15 @@ static void console_spawn_attach(process_t * tc)
         return;
     }
 
-    gfx_fb_t *sprite = console_desktop ? gfx_desktop_console_fb() : NULL;
     fb_info_t *fb = fb_get();
-    uint64_t vaddr;
-    uint64_t paddr;
-    uint64_t pitch;
-    uint64_t width;
-    uint64_t height;
 
-    if (sprite != NULL) {
-        vaddr = (uint64_t) sprite->obj.cpu_addr;
-        paddr = sprite->obj.phys;
-        pitch = sprite->stride;
-        width = sprite->width;
-        height = sprite->height;
-    } else if (fb->addr != NULL) {
-        vaddr = (uint64_t) fb->addr;
-        paddr = VIRT_TO_PHYS(vaddr);
-        pitch = fb->pitch;
-        width = fb->width;
-        height = fb->height;
-    } else {
+    if (fb->addr == NULL || console_in_ep == NULL) {
         klogw("console: spawn hook has no framebuffer or endpoint\n");
         return;
     }
 
-    if (console_in_ep == NULL) {
-        klogw("console: spawn hook has no endpoint\n");
-        return;
-    }
-
-    vmm_map(tc->addrspace, vaddr, paddr, NUM_PAGES(console_fb_size),
+    vmm_map(tc->addrspace, CONSOLE_FB_VADDR, VIRT_TO_PHYS((uint64_t) fb->addr),
+            NUM_PAGES(console_fb_size),
             VMM_FLAGS_FB_WC | VMM_FLAG_USER);
 
     handle_t h = handle_alloc(&tc->handles, endpoint_object(console_in_ep),
@@ -98,46 +76,45 @@ static void console_spawn_attach(process_t * tc)
         return;
     }
 
-    uint32_t x = 0, y = 0;
-    uint32_t fg = DEFAULT_FGCOLOR, bg = DEFAULT_BGCOLOR;
-
     bootinfo_t *bi = kmalloc(sizeof(bootinfo_t));
     if (bi == NULL) {
         klogw("console: spawn hook could not allocate bootinfo\n");
         return;
     }
 
+    endpoint_t *gpu = gpu_srv_endpoint();
+    handle_t hg = HANDLE_INVALID;
+
+    if (gpu != NULL)
+        hg = handle_alloc(&tc->handles, endpoint_object(gpu),
+                          HANDLE_RIGHT_SEND);
+
     memset(bi, 0, sizeof(bootinfo_t));
     bi->magic = BOOTINFO_MAGIC;
     bi->console_ep = h;
-    bi->fb_vaddr = vaddr;
-    bi->fb_width = width;
-    bi->fb_height = height;
-    bi->fb_pitch = pitch;
+    bi->gpu_ep = (hg == HANDLE_INVALID) ? 0 : hg;
+    bi->fb_vaddr = CONSOLE_FB_VADDR;
+    bi->fb_width = fb->width;
+    bi->fb_height = fb->height;
+    bi->fb_pitch = fb->pitch;
     bi->fb_size = console_fb_size;
-    bi->desktop = console_desktop ? 1 : 0;
-    bi->cursor_x = x;
-    bi->cursor_y = y;
-    bi->fgcolor = fg;
-    bi->bgcolor = bg;
+    bi->desktop = 0;
+    bi->fgcolor = DEFAULT_FGCOLOR;
+    bi->bgcolor = DEFAULT_BGCOLOR;
     tc->bootinfo = bi;
 
-    klogi("console: attached fb 0x%016lx %ux%u to pid %ld (fg 0x%06x,%s)\n",
-          vaddr, (uint32_t) width, (uint32_t) height, (int64_t)tc->pid, fg,
-          console_desktop ? "sprite" : "primary");
+    klogi("console: attached primary fb 0x%016lx %ux%u to pid %ld\n",
+          CONSOLE_FB_VADDR, fb->width, fb->height, (int64_t)tc->pid);
 }
 
 bool console_server_start(void)
 {
-    gfx_fb_t *sprite = gfx_desktop_active() ? gfx_desktop_console_fb() : NULL;
     fb_info_t *fb = fb_get();
 
-    if (sprite == NULL && fb->addr == NULL)
+    if (fb->addr == NULL)
         return false;
 
-    console_desktop = (sprite != NULL);
-    console_fb_size = sprite ? (uint64_t) sprite->stride * sprite->height
-        : (uint64_t) fb->pitch * fb->height;
+    console_fb_size = (uint64_t) fb->pitch * fb->height;
 
     console_in_ep = endpoint_create();
     if (console_in_ep == NULL)
@@ -169,15 +146,8 @@ bool console_server_start(void)
     if (tf != NULL)
         sched_add(tf);
 
-    klogi("console: server started (fb 0x%016lx, %ldx%ld, %s)\n",
-          console_desktop
-          ? (uint64_t) gfx_desktop_console_fb()->obj.cpu_addr
-          : (uint64_t) fb->addr,
-          (int64_t) (console_desktop ? gfx_desktop_console_fb()->width
-                     : fb->width),
-          (int64_t) (console_desktop ? gfx_desktop_console_fb()->height
-                     : fb->height),
-          console_desktop ? "sprite" : "primary");
+    klogi("console: server started (fb 0x%016lx, %ldx%ld)\n",
+          CONSOLE_FB_VADDR, (int64_t) fb->width, (int64_t) fb->height);
     return true;
 }
 

@@ -44,6 +44,33 @@ typedef struct {
 } io_port_range_t;
 
 /**
+ * @brief Boot display timing passed to the GPU server
+ *
+ * The kernel parses the firmware EDID before the GPU server exists. The GPU
+ * server uses this timing for its first mode set; zero fields mean the server
+ * reads the timing from the eDP transcoder.
+ */
+typedef struct {
+    uint64_t valid;
+    uint64_t from_edid;
+    uint64_t preferred;
+    uint64_t pixel_clock_khz;
+    uint64_t hactive;
+    uint64_t hblank;
+    uint64_t hsync_offset;
+    uint64_t hsync_pulse;
+    uint64_t vactive;
+    uint64_t vblank;
+    uint64_t vsync_offset;
+    uint64_t vsync_pulse;
+    uint64_t hsync_positive;
+    uint64_t vsync_positive;
+    uint64_t interlaced;
+    uint64_t pitch;
+    uint64_t refresh_hz;
+} bootinfo_mode_t;
+
+/**
  * @brief Startup resources granted to a userspace server
  */
 typedef struct {
@@ -93,6 +120,27 @@ typedef struct {
     uint64_t block_dma_vaddr;   /**< AHCI DMA virtual address. */
     uint64_t block_dma_phys;    /**< AHCI DMA physical address. */
     uint64_t block_dma_size;    /**< AHCI DMA size in bytes. */
+
+    /* GPU BARs, GTT window and boot mode granted to the GPU server. */
+    uint64_t gpu_mmio_vaddr;    /**< GTTMMADR BAR virtual address. */
+    uint64_t gpu_mmio_size;     /**< GTTMMADR BAR size in bytes. */
+    uint64_t gpu_aperture_vaddr;        /**< GMADR BAR virtual address. */
+    uint64_t gpu_aperture_size; /**< GMADR BAR size in bytes. */
+    uint64_t gpu_gtt_offset;    /**< GTT entry array offset in GTTMMADR. */
+    uint64_t gpu_gtt_size;      /**< GTT entry array size in bytes. */
+    uint64_t gpu_device_id;     /**< PCI device id. */
+    uint64_t gpu_stolen_size;   /**< Stolen graphics memory in bytes. */
+    uint64_t gpu_stolen_base;   /**< Stolen graphics memory base. */
+    uint64_t gpu_gen9;          /**< Skylake Gen9 display path. */
+    uint64_t gpu_pte64;         /**< 64-bit GTT entries. */
+    uint64_t gpu_display_ready; /**< Kernel already set the native eDP mode. */
+    uint64_t gpu_boot_fb_width; /**< Firmware framebuffer width. */
+    uint64_t gpu_boot_fb_height;        /**< Firmware framebuffer height. */
+    uint64_t gpu_boot_fb_pitch; /**< Firmware framebuffer pitch in bytes. */
+    bootinfo_mode_t gpu_mode;   /**< Timing parsed from the firmware EDID. */
+
+    /* GPU service endpoint granted to the console server. */
+    uint64_t gpu_ep;            /**< Endpoint handle: GPU requests out. */
 
     /* HPET MMIO window and boot wall-clock granted to the misc server. */
     uint64_t misc_hpet_vaddr;   /**< HPET MMIO virtual address. */

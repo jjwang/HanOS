@@ -1659,6 +1659,11 @@ static gfx_fb_t gfx_desktop_tex;
 static gfx_fb_t gfx_desktop_sprite;
 static uint32_t gfx_desktop_period;
 
+bool gfx_early_active(void)
+{
+    return gfx_fb.obj.cpu_addr != NULL;
+}
+
 bool gfx_desktop_active(void)
 {
     return gfx_desktop_is_active;

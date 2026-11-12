@@ -127,6 +127,13 @@
 #define POLLIN_BIT          0x001
 #define POLLOUT_BIT         0x004
 
+/* GPU server. The console asks for the surface it draws and receives a memory
+ * object it maps. words[1..4] carry width, height, pitch and stride; the
+ * memory object handle arrives in xfer[1]. Cursor moves carry dx/dy in
+ * words[0..1] and need no reply. */
+#define GPU_CONSOLE_SURFACE 0xC0
+#define GPU_CURSOR_MOVE     0xC1
+
 /* MM server (SVC_MM). The allocator stays in the kernel; the server answers
  * meminfo from a read-only stats primitive. */
 #define MM_MEMINFO          0xB0        /* out: words[1]=total, words[2]=free */

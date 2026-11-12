@@ -71,6 +71,7 @@
 #include <proc/notify.h>
 #include <srv/input_srv.h>
 #include <srv/console_srv.h>
+#include <srv/gpu_srv.h>
 #include <srv/svc_monitor.h>
 #include <ipc/selftest.h>
 #include <fs/vfs.h>
@@ -123,8 +124,8 @@ _Noreturn void kshell(pid_t pid)
 {
     (void) pid;
 
-    if (!gfx_desktop_start())
-        klogw("GFX: desktop not active, console on primary\n");
+    if (!gpu_server_start())
+        klogw("gpu: server not active, console on the firmware framebuffer\n");
 
     if (!console_server_start())
         klogw("console: server failed to start\n");
@@ -350,8 +351,8 @@ void kmain(void)
 
     gfx_init();
 
-    /* Redraw the splash in case the display driver blanked the screen with its
-     * mode set, then fill the progress bar as the remaining boot steps run. */
+    /* The early mode set switched the panel; redraw the splash at the native
+     * geometry before the progress bar continues. */
     fb_splash(fb_get());
 
     klogi("Init APIC...\n");
@@ -361,9 +362,6 @@ void kmain(void)
      * up, and move the PIT line off the 8259. */
     ioapic_init();
     irq_clear_mask(0);
-
-    /* The display mode set ran before the I/O APIC was ready, so route the
-     * GPU vblank line now. */
     gfx_vblank_irq_start();
 
     klogi("Init syscall...\n");

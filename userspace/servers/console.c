@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include <bootinfo.h>
+#include <protocol.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -647,6 +648,65 @@ static void status_tick(void)
     }
 }
 
+#define CONSOLE_SURFACE_ADDR 0x21000000UL
+
+/* Ask the GPU server for the surface to draw. It returns a memory object with
+ * the console sprite (desktop) or the primary scan-out (fallback). */
+static bool gpu_console_surface(const bootinfo_t *bi)
+{
+    if (bi->gpu_ep == 0)
+        return false;
+
+    int64_t rep = sys_ep_create();
+
+    if (rep < 0)
+        return false;
+
+    int64_t rep_send = sys_handle_dup(rep);
+
+    if (rep_send < 0) {
+        sys_handle_close(rep);
+        return false;
+    }
+
+    sys_ipc_msg_t m;
+
+    memset(&m, 0, sizeof(m));
+    m.tag = GPU_CONSOLE_SURFACE;
+    m.xfer[0] = (uint64_t)rep_send;
+    m.xfer_count = 1;
+
+    if (sys_ipc_send((int64_t)bi->gpu_ep, &m) != 0) {
+        sys_handle_close(rep);
+        return false;
+    }
+
+    sys_ipc_msg_t r;
+
+    memset(&r, 0, sizeof(r));
+    if (sys_ipc_recv_timeout(rep, &r, 2000) != 0
+        || (int64_t)r.words[0] != 0 || r.xfer_count < 1) {
+        sys_handle_close(rep);
+        return false;
+    }
+
+    int64_t memh = (int64_t)r.xfer[0];
+
+    if (sys_mem_map(memh, CONSOLE_SURFACE_ADDR, PROT_READ | PROT_WRITE | PROT_WC) != 0) {
+        sys_handle_close(memh);
+        sys_handle_close(rep);
+        return false;
+    }
+
+    fbio = (uint8_t *)CONSOLE_SURFACE_ADDR;
+    fb_w = (uint32_t)r.words[1];
+    fb_h = (uint32_t)r.words[2];
+    fb_pitch = (uint32_t)r.words[3];
+    console_desktop = r.words[4] != 0;
+    sys_handle_close(rep);
+    return true;
+}
+
 int32_t main(void)
 {
     bootinfo_t bi;
@@ -655,14 +715,16 @@ int32_t main(void)
         /* The kernel sets bootinfo before the process is runnable. */
     }
 
-    fbio = (uint8_t *) bi.fb_vaddr;
-    fb_w = bi.fb_width;
-    fb_h = bi.fb_height;
-    fb_pitch = bi.fb_pitch;
+    if (!gpu_console_surface(&bi)) {
+        fbio = (uint8_t *) bi.fb_vaddr;
+        fb_w = bi.fb_width;
+        fb_h = bi.fb_height;
+        fb_pitch = bi.fb_pitch;
+        console_desktop = bi.desktop != 0;
+    }
 
     /* The terminal grid fills the middle four fifths; the margins show the
      * background. */
-    console_desktop = bi.desktop != 0;
     if (console_desktop) {
         cols = fb_w / FONT_W;
         rows = (fb_h - STATUS_H) / FONT_H;

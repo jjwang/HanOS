@@ -78,6 +78,8 @@ int32_t memobj_map(memobj_t * m, addrspace_t * as, uint64_t vaddr, uint32_t prot
 
     if (prot & PROT_WRITE)
         flags |= VMM_FLAG_READWRITE;
+    if (prot & 0x08)
+        flags |= VMM_FLAG_CACHE_DISABLE;
 
     for (uint64_t i = 0; i < vec_length(&m->pages); i++)
         vmm_map(as, vaddr + i * PAGE_SIZE, vec_at(&m->pages, i), 1, flags);

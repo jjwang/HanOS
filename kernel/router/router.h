@@ -35,6 +35,7 @@ typedef enum {
     SVC_TTY,
     SVC_FAT,
     SVC_EXT,                    /* userspace ext2 filesystem */
+    SVC_GPU,                    /* userspace display driver */
     SVC_EVENT,                  /* kernel eventfd objects */
     SVC_EPOLL,                  /* kernel epoll objects */
     SVC_SIGNALFD,               /* kernel signalfd objects */

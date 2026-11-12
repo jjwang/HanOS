@@ -31,6 +31,7 @@
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
 #define DEFAULT_INPUT_SVR       "/bin/input"
+#define DEFAULT_GPU_SVR         "/bin/gpu"
 #define DEFAULT_CONSOLE_SVR     "/bin/console"
 #define DEFAULT_BLOCK_SVR       "/bin/block"
 #define DEFAULT_VFS_SVR         "/bin/vfs"

@@ -18,7 +18,6 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
-#include <stdarg.h>
 #include <string.h>
 #include <errno.h>
 #include <numeric.h>
@@ -55,7 +54,6 @@
 #include <fs/vfs.h>
 #include <srv/process_srv.h>
 #include <srv/net_srv.h>
-#include <device/display/gfx.h>
 
 #define MMAP_ANON_BASE      0x80000000000
 
@@ -239,7 +237,7 @@ int64_t k_debug_log(char *message)
         *s = '\0';
     }
 
-    klogd("debug: %s [message buffer: 0x%016lx]\n", kmsg, kmsg);
+    klogi("%s\n", kmsg);
 
     return strlen(kmsg);
 }
@@ -443,20 +441,6 @@ int64_t syscall_post(int64_t ret, void *frame)
     return ret;
 }
 
-/* Print a kernel-command result through the tty server. kprintf() only queues
- * into the console ring, whose kernel thread can run after the shell's next
- * prompt; this write completes before the syscall returns. */
-static void kcmd_printf(const char *fmt, ...)
-{
-    char buf[256];
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
-    tty_server_write(buf, strlen(buf));
-}
-
 int64_t k_runcmd(char *cmd)
 {
     char kcmd[64];
@@ -466,64 +450,8 @@ int64_t k_runcmd(char *cmd)
         return -1;
     }
 
-    if (gfx_desktop_active()
-        && (strcmp(kcmd, "gfx flip") == 0
-            || strcmp(kcmd, "gfx layers") == 0
-            || strcmp(kcmd, "gfx scroll") == 0
-            || strcmp(kcmd, "gfx solid") == 0)) {
-        kcmd_printf("gfx: desktop is active\n");
-        cpu_set_errno(EBUSY);
-        return -1;
-    }
-
     if (strcmp(kcmd, "lspci") == 0) {
         pci_list();
-        gfx_start();
-        return 0;
-    } else if (strcmp(kcmd, "gfx layers") == 0
-               || strcmp(kcmd, "gfx scroll") == 0
-               || strcmp(kcmd, "gfx solid") == 0) {
-        int mode = (strcmp(kcmd, "gfx layers") == 0) ? 0 :
-            (strcmp(kcmd, "gfx scroll") == 0) ? 1 : 2;
-        const char *name = (mode == 0) ? "layers" :
-            (mode == 1) ? "scroll" : "solid";
-        bool ok;
-
-        kcmd_printf("gfx: %s: building texture, 15 s demo\n", name);
-        ok = gfx_layers_demo(mode);
-        kcmd_printf("gfx: %s %s\n", name, ok ? "PASS" : "FAIL");
-        if (!ok) {
-            cpu_set_errno(EIO);
-            return -1;
-        }
-        return 0;
-    } else if (strcmp(kcmd, "gfx flip") == 0) {
-        bool ok = gfx_flip_test();
-
-        kcmd_printf("gfx: flip %s\n", ok ? "PASS" : "FAIL");
-        if (!ok) {
-            cpu_set_errno(EIO);
-            return -1;
-        }
-        return 0;
-    } else if (strcmp(kcmd, "gfx status") == 0) {
-        kcmd_printf("gfx: vblank %lu, irq %d, line %u\n",
-                    gfx_vblank_count(), gfx_vblank_irq_active() ? 1 : 0,
-                    gfx_vblank_irq_line());
-        uint32_t frm0 = gfx_pipe_frame();
-        uint32_t frm1 = gfx_pipe_frame_after(20);
-        uint64_t route = gfx_vblank_route();
-
-        kcmd_printf("gfx: iir %08x ier %08x imr %08x mst %08x frm %u->%u\n",
-                    gfx_display_iir(), gfx_display_ier(),
-                    gfx_display_imr(), gfx_master_irq(), frm0, frm1);
-        kcmd_printf("gfx: route %08x/%08x\n", (uint32_t) route,
-                    (uint32_t) (route >> 32));
-        klogi("GFX: status vblank=%lu irq=%d line=%u iir=%08x ier=%08x "
-              "imr=%08x mst=%08x frm=%u\n", gfx_vblank_count(),
-              gfx_vblank_irq_active() ? 1 : 0, gfx_vblank_irq_line(),
-              gfx_display_iir(), gfx_display_ier(), gfx_display_imr(),
-              gfx_master_irq(), gfx_pipe_frame());
         return 0;
     } else {
         cpu_set_errno(EINVAL);

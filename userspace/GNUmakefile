@@ -83,14 +83,17 @@ CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net 
 # The console server links libvterm, so it builds through its own rule.
 CONSOLE   := servers/console
 
+# The GPU server links the Intel display driver.
+GPU       := servers/gpu
+
 # Applications that live on the ext2 data partition, not in the initrd image.
 DISK_APPS := games/tetris games/2048 games/snake
 
 .PHONY: clean all musl
 
-all: $(MUSL_LIB)/libc.a $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(DISK_APPS)
+all: $(MUSL_LIB)/libc.a $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(GPU) $(DISK_APPS)
 	mkdir -p ../initrd/bin
-	cp $(CELF) $(CONSOLE) ../initrd/bin
+	cp $(CELF) $(CONSOLE) $(GPU) ../initrd/bin
 
 musl: $(MUSL_LIB)/libc.a
 
@@ -186,6 +189,13 @@ $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 	$(STRIP) --strip-unneeded $@
 
+servers/gpu: servers/gpu.o servers/skl_display.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
+	$(LD) $(LD_FLAGS) \
+		$(MUSL_CRT1) $(MUSL_CRTI) servers/gpu.o servers/skl_display.o \
+		$(HONOS_RT) font.o _help.o \
+		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
+	$(STRIP) --strip-unneeded $@
+
 # The console server renders through libvterm, so it links those objects too.
 servers/console: servers/console.o $(VTERM_OBJS) $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
@@ -200,6 +210,6 @@ $(DISK_APPS): %: %.o games/common.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(STRIP) --strip-unneeded $@
 
 clean:
-	rm -f $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(DISK_APPS) $(VTERM_OBJS) sh.sym
+	rm -f $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(CONSOLE) $(GPU) $(DISK_APPS) $(VTERM_OBJS) sh.sym
 	rm -f $(VTERM_BUILD)/src/encoding/uk.inc $(VTERM_BUILD)/src/encoding/DECdrawing.inc
 	rm -rf ../initrd/bin/* _help.c _help.o
