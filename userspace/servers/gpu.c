@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <bootinfo.h>
@@ -62,6 +63,8 @@ static uint64_t gpu_heap_next = GPU_HEAP_VADDR;
 static bool desktop_active;
 static gfx_fb_t desktop_tex;
 static gfx_fb_t desktop_sprite;
+static uint64_t desktop_last_tick_ns;
+
 static uint32_t desktop_period;
 static uint32_t desktop_scroll;
 static uint32_t desktop_last_frame;
@@ -402,7 +405,7 @@ static bool gpu_desktop_prepare(uint32_t width, uint32_t height)
 
     if (desktop_prepared)
         return true;
-    if (!gpu_pci.gen9 || width == 0 || height == 0)
+    if (width == 0 || height == 0)
         return false;
 
     screen_rows = (height + term_font_norm.charsize - 1)
@@ -446,52 +449,90 @@ static bool gpu_desktop_commit(void)
         || gpu_primary.height != desktop_height)
         return false;
 
-    gfx_outd(&gpu_pci, PLANE_BUF_CFG_1A,
-             PLANE_BUF_END(445) | PLANE_BUF_START(0));
-    gfx_outd(&gpu_pci, CUR_BUF_CFG,
-             PLANE_BUF_END(477) | PLANE_BUF_START(446));
-    gfx_outd(&gpu_pci, PLANE_BUF_CFG_2A,
-             PLANE_BUF_END(511) | PLANE_BUF_START(478));
+    if (gpu_pci.gen9) {
+        gfx_outd(&gpu_pci, PLANE_BUF_CFG_1A,
+                 PLANE_BUF_END(445) | PLANE_BUF_START(0));
+        gfx_outd(&gpu_pci, CUR_BUF_CFG,
+                 PLANE_BUF_END(477) | PLANE_BUF_START(446));
+        gfx_outd(&gpu_pci, PLANE_BUF_CFG_2A,
+                 PLANE_BUF_END(511) | PLANE_BUF_START(478));
+    } else {
+        uint32_t wm = HSW_WM0_PRIMARY(0x1ff) | HSW_WM0_SPRITE(0x3f)
+            | HSW_WM0_CURSOR(0x3f);
 
-    ctl = gfx_ind(&gpu_pci, PLANE_CTL_1_A);
-    gfx_outd(&gpu_pci, PLANE_CTL_1_A, 0);
+        gfx_outd(&gpu_pci, HSW_WM0_PIPE_A, wm);
+        gfx_outd(&gpu_pci, HSW_WM1_PIPE_A, wm);
+        gfx_outd(&gpu_pci, HSW_WM2_PIPE_A, wm);
+        gfx_outd(&gpu_pci, HSW_WM3_PIPE_A, wm);
+    }
+
+    uint32_t primary_ctl = gpu_pci.gen9 ? PLANE_CTL_1_A : DSPACNTR;
+    uint32_t primary_stride = gpu_pci.gen9 ? PLANE_STRIDE_1_A : DSP_STRIDE(0);
+    uint32_t primary_pos = gpu_pci.gen9 ? PLANE_POS_1_A : DSPACNTR + 0x0C;
+    uint32_t primary_size = gpu_pci.gen9 ? PLANE_SIZE_1_A : DSPACNTR + 0x10;
+    uint32_t primary_surf = gpu_pci.gen9 ? PLANE_SURF_1_A : DSP_SURF(0);
+    uint32_t primary_offset = PLANE_OFFSET_1_A;
+    uint32_t sprite_ctl = gpu_pci.gen9 ? PLANE_CTL_2_A : HSW_SPR_CTL_A;
+    uint32_t sprite_stride = gpu_pci.gen9 ? PLANE_STRIDE_2_A : HSW_SPR_STRIDE_A;
+    uint32_t sprite_pos = gpu_pci.gen9 ? PLANE_POS_2_A : HSW_SPR_POS_A;
+    uint32_t sprite_size = gpu_pci.gen9 ? PLANE_SIZE_2_A : HSW_SPR_SIZE_A;
+    uint32_t sprite_surf = gpu_pci.gen9 ? PLANE_SURF_2_A : HSW_SPR_SURF_A;
+    uint32_t sprite_offset = gpu_pci.gen9 ? PLANE_OFFSET_2_A : HSW_SPR_OFFSET_A;
+    uint32_t plane_format = gpu_pci.gen9 ? PLANE_CTL_FORMAT_XRGB
+        : DISPPLANE_BGRX888;
+    uint32_t sprite_format = PLANE_CTL_FORMAT_XRGB;
+
+    ctl = gfx_ind(&gpu_pci, primary_ctl);
+    gfx_outd(&gpu_pci, primary_ctl, 0);
     gfx_wait_vblank_frame();
-    gfx_outd(&gpu_pci, PLANE_POS_1_A, 0);
-    gfx_outd(&gpu_pci, PLANE_SIZE_1_A,
+    gfx_outd(&gpu_pci, primary_pos, 0);
+    gfx_outd(&gpu_pci, primary_size,
              (desktop_height - 1) << 16 | (desktop_width - 1));
-    gfx_outd(&gpu_pci, PLANE_STRIDE_1_A, desktop_tex.stride / 64);
-    gfx_outd(&gpu_pci, PLANE_OFFSET_1_A,
+    gfx_outd(&gpu_pci, primary_stride,
+             gpu_pci.gen9 ? desktop_tex.stride / 64 : desktop_tex.stride);
+    gfx_outd(&gpu_pci, primary_offset,
              desktop_period_rows * term_font_norm.charsize << 16);
-    gfx_outd(&gpu_pci, PLANE_CTL_1_A, ctl);
-    gfx_outd(&gpu_pci, PLANE_SURF_1_A, (uint32_t)desktop_tex.obj.gfx_addr);
+    gfx_outd(&gpu_pci, primary_ctl,
+             PLANE_CTL_ENABLE | plane_format | PLANE_CTL_TILED_LINEAR);
+    gfx_outd(&gpu_pci, primary_surf, (uint32_t)desktop_tex.obj.gfx_addr);
     gfx_wait_vblank_frame();
 
-    gfx_outd(&gpu_pci, PLANE_CTL_2_A, 0);
-    gfx_outd(&gpu_pci, PS_CTRL_2A, 0);
-    gfx_outd(&gpu_pci, PLANE_OFFSET_2_A, 0);
-    gfx_outd(&gpu_pci, PLANE_POS_2_A,
-             (desktop_pos_y << 16) | desktop_pos_x);
-    gfx_outd(&gpu_pci, PLANE_SIZE_2_A,
-             (desktop_sprite.height - 1) << 16
-             | (desktop_sprite.width - 1));
-    gfx_outd(&gpu_pci, PLANE_STRIDE_2_A, desktop_sprite.stride / 64);
-    for (uint32_t lvl = 0; lvl < 8; lvl++)
-        gfx_outd(&gpu_pci, PLANE_WM_2A(lvl),
+    gfx_outd(&gpu_pci, sprite_ctl, 0);
+    if (gpu_pci.gen9)
+        gfx_outd(&gpu_pci, PS_CTRL_2A, 0);
+    gfx_outd(&gpu_pci, sprite_offset, 0);
+    gfx_outd(&gpu_pci, sprite_pos, (desktop_pos_y << 16) | desktop_pos_x);
+    gfx_outd(&gpu_pci, sprite_size,
+             (desktop_sprite.height - 1) << 16 | (desktop_sprite.width - 1));
+    gfx_outd(&gpu_pci, sprite_stride,
+             gpu_pci.gen9 ? desktop_sprite.stride / 64
+             : desktop_sprite.stride);
+    if (gpu_pci.gen9) {
+        for (uint32_t lvl = 0; lvl < 8; lvl++)
+            gfx_outd(&gpu_pci, PLANE_WM_2A(lvl),
+                     PLANE_WM_EN | PLANE_WM_IGNORE_LINES
+                     | PLANE_WM_BLOCKS(16));
+        gfx_outd(&gpu_pci, PLANE_WM_TRANS_2A,
                  PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
-    gfx_outd(&gpu_pci, PLANE_WM_TRANS_2A,
-             PLANE_WM_EN | PLANE_WM_IGNORE_LINES | PLANE_WM_BLOCKS(16));
-    gfx_outd(&gpu_pci, PLANE_CTL_2_A,
-             PLANE_CTL_ENABLE | PLANE_CTL_FORMAT_XRGB
-             | PLANE_CTL_ALPHA_SW_PREMULTIPLY | PLANE_CTL_TILED_LINEAR);
-    gfx_outd(&gpu_pci, PLANE_SURF_2_A,
-             (uint32_t)desktop_sprite.obj.gfx_addr);
-    (void)gfx_ind(&gpu_pci, PLANE_SURF_2_A);
+    }
+    gfx_outd(&gpu_pci, sprite_ctl,
+             PLANE_CTL_ENABLE | sprite_format
+             | (gpu_pci.gen9 ? PLANE_CTL_ALPHA_SW_PREMULTIPLY : 0)
+             | PLANE_CTL_TILED_LINEAR);
+    gfx_outd(&gpu_pci, sprite_surf, (uint32_t)desktop_sprite.obj.gfx_addr);
+    (void)gfx_ind(&gpu_pci, sprite_surf);
     gfx_wait_vblank_frame();
 
     desktop_period = desktop_period_rows * term_font_norm.charsize;
     desktop_scroll = desktop_period;
     desktop_last_frame = gfx_pipe_frame();
     desktop_active = true;
+    if (!gpu_pci.gen9) {
+        struct timespec ts;
+
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        desktop_last_tick_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+    }
 
     klogi("gpu: desktop %ux%u period %u, console %ux%u at %u,%u\n",
           desktop_width, desktop_height, desktop_period, desktop_spr_w,
@@ -501,12 +542,30 @@ static bool gpu_desktop_commit(void)
 
 static void gpu_desktop_tick(void)
 {
-    uint32_t now;
-
     if (!desktop_active)
         return;
 
-    now = gfx_pipe_frame();
+    if (!gpu_pci.gen9) {
+        struct timespec ts;
+        uint64_t now;
+
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        now = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+        if (now - desktop_last_tick_ns < 16000000ULL)
+            return;
+        desktop_last_tick_ns = now;
+        if (desktop_scroll >= LAYER_SCROLL_SPEED)
+            desktop_scroll -= LAYER_SCROLL_SPEED;
+        else
+            desktop_scroll = desktop_period;
+        gfx_outd(&gpu_pci, PLANE_OFFSET_1_A, desktop_scroll << 16);
+        gfx_outd(&gpu_pci, DSP_SURF(0),
+                 (uint32_t)desktop_tex.obj.gfx_addr);
+        return;
+    }
+
+    uint32_t now = gfx_pipe_frame();
+
     if (now == desktop_last_frame)
         return;
     desktop_last_frame = now;

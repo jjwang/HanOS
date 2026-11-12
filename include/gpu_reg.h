@@ -376,6 +376,9 @@
 #define HSW_CDCLK_FREQ                  0x46200
 
 #define HSW_WM0_PIPE_A                  0x45100
+#define HSW_WM1_PIPE_A                  0x45104
+#define HSW_WM2_PIPE_A                  0x45108
+#define HSW_WM3_PIPE_A                  0x4510C
 #define HSW_WM0_PRIMARY_MASK            (0xffffu << 16)
 #define HSW_WM0_PRIMARY(x)              (((x) & 0xffffu) << 16)
 #define HSW_WM0_SPRITE_MASK             (0xffu << 8)
@@ -488,6 +491,16 @@
 #define BLC_PWM_CTL2                    0x48250
 #define BLC_PWM_CTL                     0x48254
 #define BLC_PWM_CTL_ENABLE              (1u << 31)
+
+/* Haswell/Broadwell legacy planes */
+/* HSW sprite A uses the same control/stride/position/size/surface offsets
+ * as the Gen9 plane 2 block. Only the linear offset differs. */
+#define HSW_SPR_CTL_A                   0x70280
+#define HSW_SPR_STRIDE_A                0x70288
+#define HSW_SPR_POS_A                   0x7028C
+#define HSW_SPR_SIZE_A                  0x70290
+#define HSW_SPR_SURF_A                  0x7029C
+#define HSW_SPR_OFFSET_A                0x70284
 
 /* Skylake Gen9 Universal Plane A (pipe A, plane 1) */
 #define PLANE_CTL_1_A                   0x70180   /* same offset as DSPACNTR */

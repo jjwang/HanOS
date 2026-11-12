@@ -152,6 +152,7 @@ static void flush(void)
         rain_dirty_min = -1;
         rain_dirty_max = -1;
     }
+    __asm__ volatile ("sfence":::"memory");
 }
 
 static void putpixel(uint32_t x, uint32_t y, uint32_t c)

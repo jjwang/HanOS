@@ -75,7 +75,7 @@ bool gfx_boot_device(pci_device_t *out)
     for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
         pci_device_t dev = vec_at(&pci_devices, i);
 
-        if (dev.vendor_id == VENDOR_INTEL && gfx_generation(dev.device_id) > 0) {
+        if (dev.vendor_id == VENDOR_INTEL && gfx_generation(dev.device_id) >= 0) {
             *out = dev;
             return true;
         }
