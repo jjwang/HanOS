@@ -26,11 +26,10 @@
 #include <protocol.h>
 #include <sysfunc.h>
 
-#include <gpu/display_mode.h>
 #include <gpu/gfx.h>
-#include <gpu/gfx_reg.h>
+#include <gpu_reg.h>
 #include <gpu/gpu_log.h>
-#include <gpu/skl_display.h>
+#include <gpu/gpu_cursor.h>
 
 #define GPU_GTT_BASE        0x05000000UL
 #define GPU_FENCE_BASE      0x00100000UL
@@ -238,183 +237,6 @@ bool gfx_wait_vblank_frame(void)
     return false;
 }
 
-static bool gpu_mode_from_hw(gfx_pci_t *pci, display_mode_t *mode)
-{
-    uint32_t ht = gfx_ind(pci, 0x6F000);
-    uint32_t hs = gfx_ind(pci, 0x6F008);
-    uint32_t vt = gfx_ind(pci, 0x6F00C);
-    uint32_t vs = gfx_ind(pci, 0x6F014);
-    uint32_t hactive = (ht & 0xffff) + 1;
-    uint32_t htotal = ((ht >> 16) & 0xffff) + 1;
-    uint32_t vactive = (vt & 0xffff) + 1;
-    uint32_t vtotal = ((vt >> 16) & 0xffff) + 1;
-    uint32_t hsync_start = (hs & 0xffff) + 1;
-    uint32_t hsync_end = ((hs >> 16) & 0xffff) + 1;
-    uint32_t vsync_start = (vs & 0xffff) + 1;
-    uint32_t vsync_end = ((vs >> 16) & 0xffff) + 1;
-
-    if (hactive < 640 || hactive > 4096 || vactive < 480 || vactive > 4096)
-        return false;
-    if (htotal <= hactive || vtotal <= vactive)
-        return false;
-
-    memset(mode, 0, sizeof(*mode));
-    mode->valid = true;
-    mode->preferred = true;
-    mode->hactive = hactive;
-    mode->hblank = htotal - hactive;
-    mode->hsync_offset = (hsync_start > hactive) ? hsync_start - hactive : 0;
-    mode->hsync_pulse = (hsync_end > hsync_start) ? hsync_end - hsync_start : 0;
-    mode->vactive = vactive;
-    mode->vblank = vtotal - vactive;
-    mode->vsync_offset = (vsync_start > vactive) ? vsync_start - vactive : 0;
-    mode->vsync_pulse = (vsync_end > vsync_start) ? vsync_end - vsync_start : 0;
-    mode->pitch = hactive * 4;
-    return true;
-}
-
-static bool gpu_mode_from_edid(const uint8_t *edid, display_mode_t *mode)
-{
-    static const uint8_t header[8] = {
-        0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00
-    };
-    display_mode_t best = { 0 };
-    uint64_t best_pixels = 0;
-    uint32_t best_refresh = 0;
-    bool have = false;
-
-    if (memcmp(edid, header, sizeof(header)) != 0)
-        return false;
-
-    for (uint32_t i = 0; i < 4; i++) {
-        const uint8_t *d = edid + 54 + i * 18;
-        uint32_t clock = d[0] | ((uint32_t)d[1] << 8);
-        uint32_t hactive, hblank, vactive, vblank;
-        uint32_t hsync_offset, hsync_pulse, vsync_offset, vsync_pulse;
-        uint32_t htotal, vtotal, refresh;
-        uint64_t pixels;
-
-        if (clock == 0)
-            continue;
-
-        hactive = d[2] | ((uint32_t)(d[4] & 0xf0) << 4);
-        hblank = d[3] | ((uint32_t)(d[4] & 0x0f) << 8);
-        vactive = d[5] | ((uint32_t)(d[7] & 0xf0) << 4);
-        vblank = d[6] | ((uint32_t)(d[7] & 0x0f) << 8);
-        hsync_offset = d[8] | ((uint32_t)(d[11] & 0xc0) << 2);
-        hsync_pulse = d[9] | ((uint32_t)(d[11] & 0x30) << 4);
-        vsync_offset = (d[10] >> 4) | ((uint32_t)(d[11] & 0x0c) << 2);
-        vsync_pulse = (d[10] & 0x0f) | ((uint32_t)(d[11] & 0x03) << 4);
-        htotal = hactive + hblank;
-        vtotal = vactive + vblank;
-
-        if (hactive == 0 || vactive == 0 || hblank == 0 || vblank == 0
-            || hactive > 4096 || vactive > 4096
-            || (hsync_pulse == 0 && vsync_pulse == 0) || htotal == 0
-            || vtotal == 0)
-            continue;
-
-        display_mode_t candidate = { 0 };
-
-        candidate.valid = true;
-        candidate.from_edid = true;
-        candidate.pixel_clock_khz = clock * 10;
-        candidate.hactive = hactive;
-        candidate.hblank = hblank;
-        candidate.hsync_offset = hsync_offset;
-        candidate.hsync_pulse = hsync_pulse;
-        candidate.vactive = vactive;
-        candidate.vblank = vblank;
-        candidate.vsync_offset = vsync_offset;
-        candidate.vsync_pulse = vsync_pulse;
-        candidate.interlaced = (d[17] & 0x80) != 0;
-        candidate.vsync_positive = (d[17] & 0x04) != 0;
-        candidate.hsync_positive = (d[17] & 0x02) != 0;
-        candidate.pitch = hactive * 4;
-        refresh = (uint32_t)(((uint64_t)clock * 10000) / ((uint64_t)htotal * vtotal));
-        candidate.refresh_hz = refresh;
-
-        pixels = (uint64_t)hactive * vactive;
-        if (!have || (!candidate.interlaced && best.interlaced)
-            || (candidate.interlaced == best.interlaced
-                && (pixels > best_pixels
-                    || (pixels == best_pixels && refresh > best_refresh)))) {
-            best = candidate;
-            best_pixels = pixels;
-            best_refresh = refresh;
-            have = true;
-        }
-    }
-
-    if (!have)
-        return false;
-    *mode = best;
-    return true;
-}
-
-static void boot_mode(display_mode_t *mode, const bootinfo_t *bi)
-{
-    mode->valid = bi->gpu_mode.valid != 0;
-    mode->from_edid = bi->gpu_mode.from_edid != 0;
-    mode->preferred = bi->gpu_mode.preferred != 0;
-    mode->pixel_clock_khz = (uint32_t)bi->gpu_mode.pixel_clock_khz;
-    mode->hactive = (uint32_t)bi->gpu_mode.hactive;
-    mode->hblank = (uint32_t)bi->gpu_mode.hblank;
-    mode->hsync_offset = (uint32_t)bi->gpu_mode.hsync_offset;
-    mode->hsync_pulse = (uint32_t)bi->gpu_mode.hsync_pulse;
-    mode->vactive = (uint32_t)bi->gpu_mode.vactive;
-    mode->vblank = (uint32_t)bi->gpu_mode.vblank;
-    mode->vsync_offset = (uint32_t)bi->gpu_mode.vsync_offset;
-    mode->vsync_pulse = (uint32_t)bi->gpu_mode.vsync_pulse;
-    mode->hsync_positive = bi->gpu_mode.hsync_positive != 0;
-    mode->vsync_positive = bi->gpu_mode.vsync_positive != 0;
-    mode->interlaced = bi->gpu_mode.interlaced != 0;
-    mode->pitch = (uint32_t)bi->gpu_mode.pitch;
-    mode->refresh_hz = (uint32_t)bi->gpu_mode.refresh_hz;
-}
-
-static bool gpu_force_wake(gfx_pci_t *pci)
-{
-    int32_t timeout = 10000;
-
-    while ((gfx_ind(pci, FORCE_WAKE_MT_ACK) & 0xffff) != 0) {
-        if (--timeout <= 0)
-            return false;
-        pit_wait(1);
-    }
-
-    gfx_outd(pci, FORCE_WAKE_MT, MASKED_ENABLE(1));
-    (void)gfx_ind(pci, ECOBUS);
-
-    timeout = 10000;
-    while ((gfx_ind(pci, FORCE_WAKE_MT_ACK) & 0xffff) == 0) {
-        if (--timeout <= 0)
-            return false;
-        pit_wait(1);
-    }
-    return true;
-}
-
-static void gpu_force_wake_exit(gfx_pci_t *pci)
-{
-    gfx_outd(pci, FORCE_WAKE_MT, MASKED_DISABLE(1));
-    (void)gfx_ind(pci, ECOBUS);
-}
-
-static void gpu_mem_swizzle(gfx_pci_t *pci)
-{
-    uint32_t dimm0 = gfx_ind(pci, GFX_MCHBAR + MAD_DIMM_CH0);
-    uint32_t dimm1 = gfx_ind(pci, GFX_MCHBAR + MAD_DIMM_CH1);
-
-    if ((dimm0 & MAD_DIMM_AB_SIZE_MASK) != (dimm1 & MAD_DIMM_AB_SIZE_MASK))
-        return;
-
-    gfx_outd(pci, ARB_CTL,
-             gfx_ind(pci, ARB_CTL) | ARB_CTL_TILED_ADDRESS_SWIZZLING);
-    gfx_outd(pci, TILE_CTL, gfx_ind(pci, TILE_CTL) | TILE_CTL_SWIZZLE);
-    gfx_outd(pci, ARB_MODE, MASKED_ENABLE(ARB_MODE_AS4TS));
-}
-
 static bool gpu_init(const bootinfo_t *bi)
 {
     memset(&gpu_pci, 0, sizeof(gpu_pci));
@@ -450,21 +272,6 @@ static bool gpu_init(const bootinfo_t *bi)
     gpu_mgr.priv.current = gpu_mgr.priv.base;
     gpu_mgr.priv.top = (uint64_t)gpu_gtt.num_total_entries << GPU_PAGE_SHIFT;
     gpu_mgr.gfx_mem_base = gpu_pci.aperture_bar;
-
-    /* Match the kernel probe order: wake the GT, disable the VGA plane,
-     * enable memory swizzling, then release the GT. */
-    bool fw = gpu_force_wake(&gpu_pci);
-
-    gpu_log("gpu: force wake %s\n", fw ? "ready" : "failed");
-    gfx_outd(&gpu_pci, VGA_CONTROL,
-             gfx_ind(&gpu_pci, VGA_CONTROL) | VGA_DISABLE);
-    if (fw) {
-        gpu_mem_swizzle(&gpu_pci);
-        gpu_force_wake_exit(&gpu_pci);
-    }
-
-    for (uint32_t i = 0; i < GPU_FENCE_COUNT; i++)
-        gfx_outd(&gpu_pci, GPU_FENCE_BASE + i * 8, 0);
 
     return true;
 }
@@ -781,72 +588,20 @@ int main(void)
             (unsigned long)gpu_mgr.shared.base,
             (unsigned long)gpu_mgr.shared.top);
 
-    display_mode_t mode;
-
-    boot_mode(&mode, &bi);
-    if (!bi.gpu_mode.from_edid) {
-        uint8_t edid[128];
-        display_mode_t edid_mode;
-
-        if (skl_panel_power_on(&gpu_pci)
-            && skl_edid_read(&gpu_pci, edid, sizeof(edid))
-            && gpu_mode_from_edid(edid, &edid_mode)) {
-            mode = edid_mode;
-            gpu_log("gpu: panel EDID %ux%u clock %u\n", mode.hactive,
-                    mode.vactive, mode.pixel_clock_khz);
-        }
-    }
-    if (!mode.valid || mode.hblank == 0 || mode.vblank == 0) {
-        display_mode_t hw;
-
-        if (gpu_mode_from_hw(&gpu_pci, &hw))
-            mode = hw;
+    if (!bi.gpu_display_ready) {
+        kloge("gpu: kernel display bootstrap did not switch the panel\n");
+        return 1;
     }
 
-    gpu_log("gpu: mode %ux%u blank %u/%u clock %u\n", mode.hactive,
-            mode.vactive, mode.hblank, mode.vblank, mode.pixel_clock_khz);
-
-    uint32_t disp_w = bi.gpu_display_ready
-        ? (uint32_t)bi.gpu_boot_fb_width : mode.hactive;
-    uint32_t disp_h = bi.gpu_display_ready
-        ? (uint32_t)bi.gpu_boot_fb_height : mode.vactive;
-    uint32_t disp_pitch = bi.gpu_display_ready
-        ? (uint32_t)bi.gpu_boot_fb_pitch
-        : ((mode.hactive * 4 + 63) & ~63u);
+    uint32_t disp_w = (uint32_t)bi.gpu_boot_fb_width;
+    uint32_t disp_h = (uint32_t)bi.gpu_boot_fb_height;
+    uint32_t disp_pitch = (uint32_t)bi.gpu_boot_fb_pitch;
 
     (void)gpu_desktop_prepare(disp_w, disp_h);
 
-    bool mode_ok;
-
-    if (bi.gpu_display_ready) {
-        gpu_log("gpu: kernel early mode active, skip eDP modeset\n");
-        gpu_primary.width = disp_w;
-        gpu_primary.height = disp_h;
-        gpu_primary.stride = disp_pitch;
-        mode_ok = true;
-    } else {
-        mode_ok = skl_edp_set_mode(&gpu_pci, &gpu_mgr, &gpu_gtt, &mode,
-                                   &gpu_primary);
-
-        if (!mode_ok) {
-            /* The firmware's eDP transcoder timing is the fallback the kernel
-             * used when the EDID mode did not start. */
-            display_mode_t hw;
-
-            if (gpu_mode_from_hw(&gpu_pci, &hw)) {
-                gpu_log("gpu: retry hardware timing %ux%u blank %u/%u\n",
-                        hw.hactive, hw.vactive, hw.hblank, hw.vblank);
-                mode = hw;
-                mode_ok = skl_edp_set_mode(&gpu_pci, &gpu_mgr, &gpu_gtt,
-                                           &mode, &gpu_primary);
-            }
-        }
-        if (!mode_ok) {
-            kloge("gpu: mode set failed; console keeps the firmware framebuffer\n");
-            return 1;
-        }
-        gpu_primary.mem_handle = gpu_primary.obj.mem_handle;
-    }
+    gpu_primary.width = disp_w;
+    gpu_primary.height = disp_h;
+    gpu_primary.stride = disp_pitch;
 
     if (skl_cursor_init(&gpu_pci, &gpu_mgr, &gpu_gtt,
                         gpu_primary.width, gpu_primary.height))

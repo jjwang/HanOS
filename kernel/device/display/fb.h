@@ -63,6 +63,8 @@ typedef struct {
 fb_info_t *fb_get(void);
 void fb_init(fb_info_t *fb, struct limine_framebuffer *s);
 void fb_refresh(fb_info_t *fb);
+/* Clear the visible frame before a mode transition. */
+void fb_blank(fb_info_t *fb);
 
 /* Boot splash: a wordmark and a progress bar shown by the kernel while the
  * userspace console server is still being loaded. */

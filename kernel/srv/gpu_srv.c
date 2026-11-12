@@ -57,45 +57,6 @@ static const uint32_t gpu_gms_size[] = {
     96, 160, 224, 352, 448, 480, 512
 };
 
-static int gpu_generation(uint16_t device_id)
-{
-    switch (device_id) {
-    case 0x1902: case 0x1906: case 0x190B: case 0x190E:
-    case 0x1912: case 0x1916: case 0x191B: case 0x191D: case 0x191E:
-    case 0x1921: case 0x1923: case 0x1926: case 0x1927: case 0x192A:
-    case 0x192B: case 0x192D: case 0x1932: case 0x193A: case 0x193B:
-    case 0x193D:
-        return 2;
-    case 0x1602: case 0x1606: case 0x160A: case 0x160B: case 0x160D:
-    case 0x160E: case 0x1612: case 0x1616: case 0x161A: case 0x161E:
-    case 0x1622: case 0x1626: case 0x162A: case 0x162B: case 0x162D:
-    case 0x162E:
-        return 1;
-    case 0x0402: case 0x0406: case 0x040A: case 0x040B: case 0x040E:
-    case 0x0412: case 0x0416: case 0x041A: case 0x041E: case 0x0422:
-    case 0x0426:
-    case 0x0A06: case 0x0A0E: case 0x0A16: case 0x0A1E: case 0x0A26:
-    case 0x0D06: case 0x0D16: case 0x0D26:
-        return 0;
-    default:
-        return -1;
-    }
-}
-
-static bool gpu_find_device(pci_device_t *out)
-{
-    for (uint64_t i = 0; i < vec_length(&pci_devices); i++) {
-        pci_device_t dev = vec_at(&pci_devices, i);
-
-        if (dev.vendor_id == VENDOR_INTEL
-            && gpu_generation(dev.device_id) >= 0) {
-            *out = dev;
-            return true;
-        }
-    }
-    return false;
-}
-
 static void gpu_fill_mode(bootinfo_t *bi)
 {
     const display_mode_t *m = display_mode_get_boot();
@@ -178,8 +139,8 @@ static void gpu_spawn_attach(process_t *tc)
     if (gms < sizeof(gpu_gms_size) / sizeof(gpu_gms_size[0]))
         bi->gpu_stolen_size = (uint64_t)gpu_gms_size[gms] * 1024 * 1024;
     bi->gpu_stolen_base = bdsm & GPU_BDSM_ADDR_MASK;
-    bi->gpu_gen9 = gpu_generation(gpu_device.device_id) == 2;
-    bi->gpu_pte64 = gpu_generation(gpu_device.device_id) >= 1;
+    bi->gpu_gen9 = gfx_boot_is_gen9(gpu_device.device_id);
+    bi->gpu_pte64 = gfx_boot_has_64bit_gtt(gpu_device.device_id);
     bi->gpu_gtt_offset = bi->gpu_pte64 ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
     bi->gpu_gtt_size = bi->gpu_pte64 ? 8 * 1024 * 1024 : 2 * 1024 * 1024;
 
@@ -203,7 +164,7 @@ bool gpu_server_start(void)
     if (gpu_active)
         return true;
 
-    if (!gpu_find_device(&gpu_device)) {
+    if (!gfx_boot_device(&gpu_device)) {
         klogi("gpu: no supported Intel display device\n");
         return false;
     }

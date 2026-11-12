@@ -189,9 +189,9 @@ $(CELF): %: %.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 	$(STRIP) --strip-unneeded $@
 
-servers/gpu: servers/gpu.o servers/skl_display.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
+servers/gpu: servers/gpu.o servers/gpu_cursor.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 	$(LD) $(LD_FLAGS) \
-		$(MUSL_CRT1) $(MUSL_CRTI) servers/gpu.o servers/skl_display.o \
+		$(MUSL_CRT1) $(MUSL_CRTI) servers/gpu.o servers/gpu_cursor.o \
 		$(HONOS_RT) font.o _help.o \
 		-L$(MUSL_LIB) -lc -lgcc $(MUSL_CRTN) -o $@
 	$(STRIP) --strip-unneeded $@

@@ -79,6 +79,15 @@ void fb_refresh(fb_info_t * fb)
         fb_blit_scanout(fb->addr, fb->backbuffer, fb->backbuffer_len);
 }
 
+void fb_blank(fb_info_t *fb)
+{
+    if (fb == NULL || fb->backbuffer == NULL || fb->backbuffer_len == 0)
+        return;
+    memset(fb->backbuffer, 0, fb->backbuffer_len);
+    fb_refresh(fb);
+    asm volatile ("sfence":::"memory");
+}
+
 /* --- Boot splash --------------------------------------------------------- */
 
 extern psf1_font_t boot_font_bold;

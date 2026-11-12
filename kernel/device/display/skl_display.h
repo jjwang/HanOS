@@ -27,23 +27,3 @@
  * reason logged) on the first step that times out. */
 bool skl_edp_set_mode(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
                       const display_mode_t * mode, gfx_fb_t * out_fb);
-
-/* Raw EDID read over the eDP AUX I2C channel. edid.c calls this after
- * powering the panel VDD and validates the result. */
-bool skl_edid_read(gfx_pci_t * pci, uint8_t * buf, uint32_t len);
-
-/* Log the current display pipeline registers (read-only). */
-void skl_display_dump(gfx_pci_t * pci);
-
-/* Program the 64x64 ARGB hardware cursor after a successful mode set. */
-bool skl_cursor_init(gfx_pci_t * pci, gfx_mem_manager_t * mgr, gfx_gtt_t * gtt,
-                     uint32_t width, uint32_t height);
-
-/* Move the hardware cursor by a relative amount, clamped to the mode. */
-void skl_cursor_move(int32_t dx, int32_t dy);
-
-/* Place the hardware cursor at an absolute position, clamped to the mode. */
-void skl_cursor_set(int32_t x, int32_t y);
-
-/* Walk the cursor around the screen so it is visible without a pointer driver. */
-void skl_cursor_selftest(void);

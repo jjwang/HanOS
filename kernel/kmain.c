@@ -349,6 +349,11 @@ void kmain(void)
         display_mode_log(&display_mode);
     }
 
+    /* Hide the firmware-to-native mode transition: a black frame is less
+     * distracting than the shrunken boot image the panel holds during the
+     * pipe reconfiguration. */
+    fb_blank(fb_get());
+    hpet_sleep(40);
     gfx_init();
 
     /* The early mode set switched the panel; redraw the splash at the native
@@ -362,7 +367,6 @@ void kmain(void)
      * up, and move the PIT line off the 8259. */
     ioapic_init();
     irq_clear_mask(0);
-    gfx_vblank_irq_start();
 
     klogi("Init syscall...\n");
     syscall_init();
