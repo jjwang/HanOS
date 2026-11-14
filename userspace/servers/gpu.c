@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include <bootinfo.h>
@@ -63,7 +62,6 @@ static uint64_t gpu_heap_next = GPU_HEAP_VADDR;
 static bool desktop_active;
 static gfx_fb_t desktop_tex;
 static gfx_fb_t desktop_sprite;
-static uint64_t desktop_last_tick_ns;
 
 static uint32_t desktop_period;
 static uint32_t desktop_scroll;
@@ -484,18 +482,17 @@ static bool gpu_desktop_commit(void)
 
     ctl = gfx_ind(&gpu_pci, primary_ctl);
     gfx_outd(&gpu_pci, primary_ctl, 0);
-    gfx_wait_vblank_frame();
+    desktop_scroll = desktop_period_rows * term_font_norm.charsize;
+    desktop_period = desktop_scroll;
     gfx_outd(&gpu_pci, primary_pos, 0);
     gfx_outd(&gpu_pci, primary_size,
              (desktop_height - 1) << 16 | (desktop_width - 1));
     gfx_outd(&gpu_pci, primary_stride,
              gpu_pci.gen9 ? desktop_tex.stride / 64 : desktop_tex.stride);
-    gfx_outd(&gpu_pci, primary_offset,
-             desktop_period_rows * term_font_norm.charsize << 16);
+    gfx_outd(&gpu_pci, primary_offset, desktop_scroll << 16);
     gfx_outd(&gpu_pci, primary_ctl,
              PLANE_CTL_ENABLE | plane_format | PLANE_CTL_TILED_LINEAR);
     gfx_outd(&gpu_pci, primary_surf, (uint32_t)desktop_tex.obj.gfx_addr);
-    gfx_wait_vblank_frame();
 
     gfx_outd(&gpu_pci, sprite_ctl, 0);
     if (gpu_pci.gen9)
@@ -521,18 +518,9 @@ static bool gpu_desktop_commit(void)
              | PLANE_CTL_TILED_LINEAR);
     gfx_outd(&gpu_pci, sprite_surf, (uint32_t)desktop_sprite.obj.gfx_addr);
     (void)gfx_ind(&gpu_pci, sprite_surf);
-    gfx_wait_vblank_frame();
 
-    desktop_period = desktop_period_rows * term_font_norm.charsize;
-    desktop_scroll = desktop_period;
     desktop_last_frame = gfx_pipe_frame();
     desktop_active = true;
-    if (!gpu_pci.gen9) {
-        struct timespec ts;
-
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        desktop_last_tick_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-    }
 
     klogi("gpu: desktop %ux%u period %u, console %ux%u at %u,%u\n",
           desktop_width, desktop_height, desktop_period, desktop_spr_w,
@@ -545,25 +533,6 @@ static void gpu_desktop_tick(void)
     if (!desktop_active)
         return;
 
-    if (!gpu_pci.gen9) {
-        struct timespec ts;
-        uint64_t now;
-
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        now = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-        if (now - desktop_last_tick_ns < 16000000ULL)
-            return;
-        desktop_last_tick_ns = now;
-        if (desktop_scroll >= LAYER_SCROLL_SPEED)
-            desktop_scroll -= LAYER_SCROLL_SPEED;
-        else
-            desktop_scroll = desktop_period;
-        gfx_outd(&gpu_pci, PLANE_OFFSET_1_A, desktop_scroll << 16);
-        gfx_outd(&gpu_pci, DSP_SURF(0),
-                 (uint32_t)desktop_tex.obj.gfx_addr);
-        return;
-    }
-
     uint32_t now = gfx_pipe_frame();
 
     if (now == desktop_last_frame)
@@ -574,7 +543,7 @@ static void gpu_desktop_tick(void)
     else
         desktop_scroll = desktop_period;
     gfx_outd(&gpu_pci, PLANE_OFFSET_1_A, desktop_scroll << 16);
-    gfx_outd(&gpu_pci, PLANE_SURF_1_A,
+    gfx_outd(&gpu_pci, gpu_pci.gen9 ? PLANE_SURF_1_A : DSP_SURF(0),
              (uint32_t)desktop_tex.obj.gfx_addr);
 }
 
