@@ -664,14 +664,18 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
     return (uint64_t) NULL;
 }
 
-static int at_resolve(int64_t dirfd, const char *path, char *out,
+static int at_resolve(int64_t dirfd64, const char *path, char *out,
                       uint64_t outsz)
 {
     char dir[VFS_MAX_PATH_LEN];
     int64_t n;
 
-    if (dirfd == -100 || path == NULL || path[0] == '/') {
-        if (path == NULL || (uint64_t) strlen(path) + 1 > outsz)
+    int32_t dirfd = (int32_t) dirfd64;
+
+    if (path == NULL)
+        return -1;
+    if (path[0] == '/') {
+        if ((uint64_t) strlen(path) + 1 > outsz)
             return -1;
         strcpy(out, path);
         return 0;
@@ -679,7 +683,21 @@ static int at_resolve(int64_t dirfd, const char *path, char *out,
 
     process_t *t = sched_get_current_process();
 
-    if (t != NULL && t->at_dirfd == (int32_t) dirfd && t->at_path[0] != '\0') {
+    if (dirfd == -100) {
+        const char *cwd = (t != NULL && t->cwd != NULL) ? t->cwd : "/";
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+
+        if (cl + pl + 2 > outsz)
+            return -1;
+        memcpy(out, cwd, cl);
+        if (cl == 0 || out[cl - 1] != '/')
+            out[cl++] = '/';
+        memcpy(out + cl, path, pl + 1);
+        return 0;
+    }
+
+    if (t != NULL && t->at_dirfd == dirfd && t->at_path[0] != '\0') {
         uint64_t dl = strlen(t->at_path);
 
         if (dl + 1 + strlen(path) + 1 > outsz)
@@ -691,13 +709,13 @@ static int at_resolve(int64_t dirfd, const char *path, char *out,
         return 0;
     }
 
-    n = vfs_fd_path((int32_t) dirfd, dir, sizeof(dir));
+    n = vfs_fd_path(dirfd, dir, sizeof(dir));
     if (n <= 0)
         return -1;
     dir[n - 1] = '\0';
 
     if (t != NULL && n < (int64_t) sizeof(t->at_path)) {
-        t->at_dirfd = (int32_t) dirfd;
+        t->at_dirfd = dirfd;
         memcpy(t->at_path, dir, (uint64_t) n);
     }
 

@@ -861,7 +861,27 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc)
 {
     char relbuf[VFS_MAX_PATH_LEN];
-    const char *rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
+    char absbuf[VFS_MAX_PATH_LEN];
+    const char *rel;
+
+    /* Resolve a relative path in the kernel before forwarding it. The VFS
+     * server's cwd join is not reliable for a root-directory cwd. */
+    if (path[0] != '/') {
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+
+        if (cl + pl + 2 > sizeof(absbuf)) {
+            return VFS_INVALID_FD;
+        }
+        memcpy(absbuf, cwd, cl);
+        if (cl == 0 || absbuf[cl - 1] != '/')
+            absbuf[cl++] = '/';
+        memcpy(absbuf + cl, path, pl + 1);
+        path = absbuf;
+        cwd = "/";
+    }
+
+    rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
 
     if (rel != NULL) {
         uint64_t size = 0;
