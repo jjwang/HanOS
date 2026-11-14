@@ -1,0 +1,15 @@
+var searchData=
+[
+  ['rand_0',['rand',['../da/df1/numeric_8h.html#a965293a9c26227eda124956ecb4712db',1,'rand(int32_t seed, int32_t min, int32_t max):&#160;numeric.c'],['../d6/d27/numeric_8c.html#a965293a9c26227eda124956ecb4712db',1,'rand(int32_t seed, int32_t min, int32_t max):&#160;numeric.c']]],
+  ['realloc_1',['realloc',['../d9/d39/alloc_8c.html#ac55d806cc95a48501259f200eb716521',1,'realloc(void *ptr, uint64_t size):&#160;alloc.c'],['../d2/dfe/alloc_8h.html#a4ee75a7b4cd1ea71768129dc19623333',1,'realloc(void *addr, uint64_t s):&#160;alloc.c']]],
+  ['redircmd_2',['redircmd',['../df/dc6/hansh_8c.html#ac7a395e9d9607fee57a1d7cb622337dc',1,'hansh.c']]],
+  ['router_5fforward_3',['router_forward',['../d8/d42/router_8c.html#aae2d188ba10fec35661d0f7c1e880c3d',1,'router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep):&#160;router.c'],['../da/db7/router_8h.html#aae2d188ba10fec35661d0f7c1e880c3d',1,'router_forward(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep):&#160;router.c']]],
+  ['router_5fforward_5ftimeout_4',['router_forward_timeout',['../d8/d42/router_8c.html#a9714c6f3c27d457473243469f1e20358',1,'router_forward_timeout(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep, time_t timeout_ms):&#160;router.c'],['../da/db7/router_8h.html#a9714c6f3c27d457473243469f1e20358',1,'router_forward_timeout(service_id_t id, const ipc_msg_t *req, ipc_msg_t *rep, time_t timeout_ms):&#160;router.c']]],
+  ['router_5flookup_5',['router_lookup',['../da/db7/router_8h.html#ae3388c195e155aa014ebcb65e93401f8',1,'router_lookup(service_id_t id):&#160;router.c'],['../d8/d42/router_8c.html#ae3388c195e155aa014ebcb65e93401f8',1,'router_lookup(service_id_t id):&#160;router.c']]],
+  ['router_5fowner_6',['router_owner',['../d8/d42/router_8c.html#a18d26f9df737e83042f949269c756266',1,'router_owner(service_id_t id):&#160;router.c'],['../da/db7/router_8h.html#a18d26f9df737e83042f949269c756266',1,'router_owner(service_id_t id):&#160;router.c']]],
+  ['router_5fowner_5fdied_7',['router_owner_died',['../d8/d42/router_8c.html#afe7ea9fddab0fd8c1bef5a64c20767e1',1,'router_owner_died(pid_t pid):&#160;router.c'],['../da/db7/router_8h.html#afe7ea9fddab0fd8c1bef5a64c20767e1',1,'router_owner_died(pid_t pid):&#160;router.c']]],
+  ['router_5fregister_8',['router_register',['../d8/d42/router_8c.html#a641bd3f72ed15188d8f99f57ddd04fcc',1,'router_register(service_id_t id, endpoint_t *ep, pid_t owner):&#160;router.c'],['../da/db7/router_8h.html#a641bd3f72ed15188d8f99f57ddd04fcc',1,'router_register(service_id_t id, endpoint_t *ep, pid_t owner):&#160;router.c']]],
+  ['router_5fset_5fdown_5fhandler_9',['router_set_down_handler',['../d8/d42/router_8c.html#a2ee963c3d92363580cb51cfef14e10d7',1,'router_set_down_handler(void(*fn)(service_id_t id)):&#160;router.c'],['../da/db7/router_8h.html#a2ee963c3d92363580cb51cfef14e10d7',1,'router_set_down_handler(void(*fn)(service_id_t id)):&#160;router.c']]],
+  ['rtc_5fvalues_5fare_5fnot_5fequal_10',['rtc_values_are_not_equal',['../df/d49/cmos_8c.html#ab95715760124067792b612a09c296ed2',1,'cmos.c']]],
+  ['runcmd_11',['runcmd',['../df/dc6/hansh_8c.html#a319da478339d74f9810a2c94e06bfbff',1,'hansh.c']]]
+];

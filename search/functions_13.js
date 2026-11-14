@@ -1,0 +1,14 @@
+var searchData=
+[
+  ['uaccess_5ffind_5ffixup_0',['uaccess_find_fixup',['../d8/d40/uaccess_8h.html#aac338413f28f19963cf75f27ef897d9e',1,'uaccess_find_fixup(uint64_t rip):&#160;uaccess.c'],['../da/d77/uaccess_8c.html#aac338413f28f19963cf75f27ef897d9e',1,'uaccess_find_fixup(uint64_t rip):&#160;uaccess.c']]],
+  ['update_5fin_5fprogress_1',['update_in_progress',['../df/d49/cmos_8c.html#ad6e7ec54a5e37004878f0ccac206f9f4',1,'cmos.c']]],
+  ['usb_5fbringup_5fwait_2',['usb_bringup_wait',['../d0/d15/xhci_8c.html#afb58b6561c7cf109de0fade2ec2fbb78',1,'usb_bringup_wait(uint32_t timeout_ms):&#160;xhci.c'],['../d2/d28/xhci_8h.html#afb58b6561c7cf109de0fade2ec2fbb78',1,'usb_bringup_wait(uint32_t timeout_ms):&#160;xhci.c']]],
+  ['usb_5fhid_5finit_3',['usb_hid_init',['../d0/d15/xhci_8c.html#adf5a8ac601f905748bba1bede90cb6e9',1,'usb_hid_init(void):&#160;xhci.c'],['../d2/d28/xhci_8h.html#adf5a8ac601f905748bba1bede90cb6e9',1,'usb_hid_init(void):&#160;xhci.c']]],
+  ['usb_5fhid_5fstart_4',['usb_hid_start',['../d0/d15/xhci_8c.html#a6891eb71db1b9a2fcb8dc5746dbcd089',1,'usb_hid_start(void):&#160;xhci.c'],['../d2/d28/xhci_8h.html#a6891eb71db1b9a2fcb8dc5746dbcd089',1,'usb_hid_start(void):&#160;xhci.c']]],
+  ['usb_5fmsc_5fread_5',['usb_msc_read',['../d2/d28/xhci_8h.html#a801724c4b0b15166fedbe76086075e3a',1,'usb_msc_read(uint32_t lba, uint32_t count, void *buf):&#160;xhci.c'],['../d0/d15/xhci_8c.html#a801724c4b0b15166fedbe76086075e3a',1,'usb_msc_read(uint32_t lba, uint32_t count, void *buf):&#160;xhci.c']]],
+  ['usb_5fmsc_5fready_6',['usb_msc_ready',['../d0/d15/xhci_8c.html#a75c7f23d386570c25acbbb0e580c5716',1,'usb_msc_ready(void):&#160;xhci.c'],['../d2/d28/xhci_8h.html#a75c7f23d386570c25acbbb0e580c5716',1,'usb_msc_ready(void):&#160;xhci.c']]],
+  ['usb_5fmsc_5fsectors_7',['usb_msc_sectors',['../d0/d15/xhci_8c.html#a2300a4e2a65537f2ea9843221dafbed9',1,'usb_msc_sectors(void):&#160;xhci.c'],['../d2/d28/xhci_8h.html#a2300a4e2a65537f2ea9843221dafbed9',1,'usb_msc_sectors(void):&#160;xhci.c']]],
+  ['usb_5fmsc_5fwait_8',['usb_msc_wait',['../d0/d15/xhci_8c.html#a9c72851f6f4370a87a876d989e566208',1,'usb_msc_wait(uint32_t timeout_ms):&#160;xhci.c'],['../d2/d28/xhci_8h.html#a9c72851f6f4370a87a876d989e566208',1,'usb_msc_wait(uint32_t timeout_ms):&#160;xhci.c']]],
+  ['usb_5fmsc_5fwrite_9',['usb_msc_write',['../d0/d15/xhci_8c.html#a8fb5a778a26ec4eacf6e3c4f4a26fe5b',1,'usb_msc_write(uint32_t lba, uint32_t count, const void *buf):&#160;xhci.c'],['../d2/d28/xhci_8h.html#a8fb5a778a26ec4eacf6e3c4f4a26fe5b',1,'usb_msc_write(uint32_t lba, uint32_t count, const void *buf):&#160;xhci.c']]],
+  ['user_5frange_5fok_10',['user_range_ok',['../da/d77/uaccess_8c.html#a234d4c7a356ae5f8f95ce758b66617d9',1,'user_range_ok(process_t *t, const void *uptr, uint64_t len):&#160;uaccess.c'],['../d8/d40/uaccess_8h.html#a234d4c7a356ae5f8f95ce758b66617d9',1,'user_range_ok(process_t *t, const void *uptr, uint64_t len):&#160;uaccess.c']]]
+];

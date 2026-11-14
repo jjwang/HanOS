@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['r_5fok_0',['R_OK',['../de/ddf/syscall_8h.html#a24a7a0ceb1e8f5f44cb1038bb829030d',1,'syscall.h']]],
+  ['rain_5fcol_5fmax_1',['RAIN_COL_MAX',['../d0/d56/console_8c.html#a3d5efe60fc2c04788ccf060c53b3865d',1,'console.c']]],
+  ['rain_5ftick_5fms_2',['RAIN_TICK_MS',['../d0/d56/console_8c.html#ad9a5bdb7a182430aaab782d8c53ae0e5',1,'console.c']]],
+  ['read_5fcr_3',['read_cr',['../dc/da7/cpu_8h.html#a9f3e79faed5da39e792c996ab81dd85d',1,'cpu.h']]],
+  ['redir_4',['REDIR',['../df/dc6/hansh_8c.html#ae1749b6682612a761fc83e79c38386b1',1,'hansh.c']]],
+  ['repeat_5fconfirm_5fms_5',['REPEAT_CONFIRM_MS',['../d1/d06/input_8c.html#ae25e7cf57e6f4d9312894f35a7ef164b',1,'input.c']]],
+  ['repeat_5fdebounce_5fms_6',['REPEAT_DEBOUNCE_MS',['../d1/d06/input_8c.html#ab2b62dd19de2343ac7b4b69d40c61fc3',1,'input.c']]],
+  ['repeat_5fperiod_5fms_7',['REPEAT_PERIOD_MS',['../d1/d06/input_8c.html#afba02c8180668316f44c3bd60c73d422',1,'input.c']]],
+  ['rflags_5fif_8',['RFLAGS_IF',['../d3/d2d/spinlock_8c.html#a8731192b6eb4886aa5835341d1419a5e',1,'spinlock.c']]],
+  ['ring_5fnum_9',['RING_NUM',['../d0/d15/xhci_8c.html#ae1f788faf3fa2262796d071d05cba12b',1,'xhci.c']]],
+  ['root_5findex_10',['ROOT_INDEX',['../d1/d3b/userspace_2servers_2vfs_8c.html#a75666a6f2c5d710b4fa0845c5cf24552',1,'vfs.c']]],
+  ['round_5fdown_11',['ROUND_DOWN',['../d7/d99/klib_8h.html#aee3c58cf8c9f91020835621bc56323a5',1,'klib.h']]],
+  ['round_5fup_12',['ROUND_UP',['../d7/d99/klib_8h.html#add67fd407f2d627ce7c8138f2e64a907',1,'klib.h']]],
+  ['row_5fmax_13',['ROW_MAX',['../d0/d56/console_8c.html#a06fc4a42cf3c87aafa67518b95e9d588',1,'console.c']]],
+  ['rpl_5fkern_14',['RPL_KERN',['../d5/d4a/gdt_8h.html#a84270f96775e6f1146bd4a0ec1c23416',1,'gdt.h']]],
+  ['rpl_5fuser_15',['RPL_USER',['../d5/d4a/gdt_8h.html#a437be68b0c9ce396ffe6983e4014de38',1,'gdt.h']]],
+  ['rtdl_5faddr_16',['RTDL_ADDR',['../d2/da6/elf_8c.html#a3f0b28628411b90aae3d164f35cef714',1,'elf.c']]],
+  ['rx_5fcount_17',['RX_COUNT',['../d7/d5f/net_8c.html#aa1a4604fce40f5360534b757cb3f3c32',1,'net.c']]]
+];

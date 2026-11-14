@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['vactive_0',['vactive',['../de/d7b/structbootinfo__mode__t.html#a235b63a9d66d22c221c8d9c041159b86',1,'bootinfo_mode_t::vactive'],['../d8/d75/structdisplay__mode__t.html#ae2569cb365ac930c9fbfe7d2e51eaae0',1,'display_mode_t::vactive']]],
+  ['vaddr_1',['vaddr',['../da/dd9/structmem__map__t.html#ae9c865699aa91c9131bb02c528152ebd',1,'mem_map_t::vaddr'],['../d4/db6/structelf__phdr__t.html#aaadf3be93801c220a4f98d925414ed13',1,'elf_phdr_t::vaddr'],['../db/dfd/structelf64__phdr__t.html#a6c24423dbb132693303017289e5735e7',1,'elf64_phdr_t::vaddr']]],
+  ['valid_2',['valid',['../d8/d75/structdisplay__mode__t.html#aa06b74830e3f9038e53208966e4b8a74',1,'display_mode_t::valid'],['../de/d7b/structbootinfo__mode__t.html#a173251c05ec26033d6fd631ea7b75e7d',1,'bootinfo_mode_t::valid']]],
+  ['value_3',['value',['../d5/d69/structelf__sym__t.html#a844883cc96da994ce72083d9d6f5ce44',1,'elf_sym_t']]],
+  ['vblank_4',['vblank',['../d8/d75/structdisplay__mode__t.html#aa58e92fcb869e3aea311260a1605ec0f',1,'display_mode_t::vblank'],['../de/d7b/structbootinfo__mode__t.html#a3818a711bc7c7b7ca11de50eff2c94d4',1,'bootinfo_mode_t::vblank']]],
+  ['vendor_5fid_5',['vendor_id',['../d9/d97/pci_8h.html#abd60aba7846c925f784c3e89e2f54e45',1,'vendor_id:&#160;pci.h'],['../de/d3c/structpci__device__desc__t.html#a1b8c24c5422ca96933337ecb08b453ba',1,'pci_device_desc_t::vendor_id']]],
+  ['version_6',['version',['../db/d87/structelf__hdr__t.html#adbdf70a8e622006fd6b5978bee80e620',1,'elf_hdr_t::version'],['../d0/d55/structmisc__utsname__t.html#a44c862db9ba9c8bf8f117c603a74e261',1,'misc_utsname_t::version'],['../d1/de2/structelf64__hdr__t.html#a36f7f17b0fa4e8fd91d2302bfd4e6ce6',1,'elf64_hdr_t::version'],['../d1/d3b/userspace_2servers_2vfs_8c.html#acd99bb05ca015e7d74448acb1deba7ca',1,'version:&#160;vfs.c']]],
+  ['vert_5factive_7',['vert_active',['../d1/d67/edid_8h.html#ad78f3e82e02641a3810074699a67d08f',1,'edid.h']]],
+  ['vert_5factive_5fblank_5fmsb_8',['vert_active_blank_msb',['../d1/d67/edid_8h.html#a8e99fef1c1d635caa3e3d7ff1bbf0311',1,'edid.h']]],
+  ['vert_5fblank_9',['vert_blank',['../d1/d67/edid_8h.html#a9bc2f5e0e2e16f0a61739d96de95ec4c',1,'edid.h']]],
+  ['vert_5fborder_10',['vert_border',['../d1/d67/edid_8h.html#ac710b6fe267b7574e7f80ad93d9cdc4a',1,'edid.h']]],
+  ['vert_5fsync_11',['vert_sync',['../d1/d67/edid_8h.html#af42d952d5dbb67c0354c241534135887',1,'edid.h']]],
+  ['video_5finput_5ftype_12',['video_input_type',['../d1/d67/edid_8h.html#a76674aeb935c91728dfb46271a7eeae5',1,'edid.h']]],
+  ['vmas_13',['vmas',['../d1/d0d/structaddrspace__t.html#af6e8654f25c544aa27712c0b9bc121f9',1,'addrspace_t']]],
+  ['vram_14',['vram',['../d5/d2d/structgfx__mem__manager__t.html#a50cd19e2fcebe5399488c92c2f14025f',1,'gfx_mem_manager_t']]],
+  ['vsync_5foffset_15',['vsync_offset',['../de/d7b/structbootinfo__mode__t.html#a21b2d00dd1c053f348d0b2fc7125162e',1,'bootinfo_mode_t::vsync_offset'],['../d8/d75/structdisplay__mode__t.html#a5fe195be7eb0bcbae159765401845950',1,'display_mode_t::vsync_offset']]],
+  ['vsync_5fpositive_16',['vsync_positive',['../de/d7b/structbootinfo__mode__t.html#a2286ecb8e3a715e163f2971100c024fa',1,'bootinfo_mode_t::vsync_positive'],['../d8/d75/structdisplay__mode__t.html#ab121d6ee15f86820fa5ed96b7b66d685',1,'display_mode_t::vsync_positive']]],
+  ['vsync_5fpulse_17',['vsync_pulse',['../de/d7b/structbootinfo__mode__t.html#a404a964ce141273ea23dce897177a6d5',1,'bootinfo_mode_t::vsync_pulse'],['../d8/d75/structdisplay__mode__t.html#a54a0779a2fdc844189f5e40bb4703dbb',1,'display_mode_t::vsync_pulse']]]
+];

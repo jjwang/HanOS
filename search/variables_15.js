@@ -1,0 +1,19 @@
+var searchData=
+[
+  ['u_0',['u',['../dd/d71/structpci__bar__t.html#abfddd1a8748eb06386395d447176d8e8',1,'pci_bar_t']]],
+  ['ucode64_1',['ucode64',['../d5/d4a/gdt_8h.html#a03f4625aa6557d04fc096edf64855f34',1,'gdt.h']]],
+  ['ucontext_2',['ucontext',['../d8/d39/signal_8h.html#ab51c7fb712eacdf334e82fa835b36106',1,'signal.h']]],
+  ['udata64_3',['udata64',['../d5/d4a/gdt_8h.html#a5f0b66994a354e8e50ef4f6aeeb0d381',1,'gdt.h']]],
+  ['udp_5fhdr_5ft_4',['udp_hdr_t',['../d7/d5f/net_8c.html#a0f25a55b057b416cce74f00cd6c5ff89',1,'net.c']]],
+  ['uid_5',['uid',['../df/db8/structext2__meta__t.html#a2f74b8c7ca9159c1dd7acf4025d0aa11',1,'ext2_meta_t']]],
+  ['unused_6',['unused',['../d1/d67/edid_8h.html#af3138032961911b5742b4344e37f43d4',1,'unused:&#160;edid.h'],['../da/d06/hpet_8h.html#a5fd1f8a8cdf3c03da3a428217f698944',1,'unused:&#160;hpet.h']]],
+  ['unused0_7',['unused0',['../da/d06/hpet_8h.html#aa7e5cde2baaa83490fb6f135f40dd483',1,'hpet.h']]],
+  ['unused1_8',['unused1',['../da/d06/hpet_8h.html#aa17acae09363cf9dccb4eff7be1898cc',1,'hpet.h']]],
+  ['unused2_9',['unused2',['../da/d06/hpet_8h.html#a2e9b435ccaa87f19ef8765d91d84e8bf',1,'hpet.h']]],
+  ['unused3_10',['unused3',['../da/d06/hpet_8h.html#ab4d7583b6245ab0ad53c7121db548360',1,'hpet.h']]],
+  ['unused4_11',['unused4',['../da/d06/hpet_8h.html#aa4ce8a91611767a96d8e6d662d35ba65',1,'hpet.h']]],
+  ['urg_12',['urg',['../d7/d5f/net_8c.html#a89a0623e1b3fd50eb176a7bf32302200',1,'net.c']]],
+  ['used_13',['used',['../da/d6e/ext2_8c.html#accd366cbfd7b8a1b904ca4177a894f95',1,'used:&#160;ext2.c'],['../df/dd5/structfifo__open__t.html#a6df4b18cfd47099f8821d7578169263d',1,'fifo_open_t::used'],['../d5/d12/structfifo__wait__t.html#ad16b3bdae8466545133bdb2065b9940d',1,'fifo_wait_t::used'],['../d1/d14/structvfs__dyn__t.html#a7ea5aa76134765d603ea87c79fa28545',1,'vfs_dyn_t::used'],['../dd/dea/structproc__rec__t.html#ae24fb544faa5a1cbff02b53a58af205a',1,'proc_rec_t::used'],['../df/ddf/structtcp__ooo__t.html#a7e9c83abcf683ec89eca206fe25f61fe',1,'tcp_ooo_t::used'],['../d9/dc2/structhid__t.html#a97e49417ae13b9aeea6cb7e56aad8f14',1,'hid_t::used'],['../d0/d1d/structslab__t.html#a8f5ea67b1ef3c92a9b1d28fdad587c3a',1,'slab_t::used'],['../d3/d7c/structeventfd__obj__t.html#af8d227467cc85dd054bbdcc2bb228c42',1,'eventfd_obj_t::used'],['../d1/d5b/structsignalfd__obj__t.html#a5432ecc0e058e2ffc02c6c025077075a',1,'signalfd_obj_t::used'],['../db/d21/structepoll__obj__t.html#ae7c64dbed73862f563984d997e790a9e',1,'epoll_obj_t::used'],['../d9/dea/structblk__part__t.html#a56575be2040bbd97c18c25f572601b79',1,'blk_part_t::used'],['../de/d30/structext2__fd__t.html#a4f0b7e7fb8e50a0536ddce0fa17c052c',1,'ext2_fd_t::used'],['../db/d1b/structfat__fd__t.html#aaf55d0b651c0050b8abaa4143509234d',1,'fat_fd_t::used'],['../d3/d99/structtcp__seg__t.html#ac98848959a259b6387b77e21007f37da',1,'tcp_seg_t::used'],['../d0/d36/structproc__fd__t.html#a18a3f7367879d02b9f51d6a06c205df3',1,'proc_fd_t::used'],['../de/d24/structnet__sock__t.html#a8cbdfe89c8084224b855d594d888db87',1,'net_sock_t::used'],['../d3/db6/structnet__poll__t.html#aa4293b24d407b9b81e9f70342f9346b1',1,'net_poll_t::used'],['../da/dc2/structarp__entry__t.html#a8a98c9cb9b1bcc75945002037c6e1c20',1,'arp_entry_t::used'],['../db/dc8/structpipe__t.html#aff68c31e2ff032cdfa7162ba2b247fd3',1,'pipe_t::used'],['../d3/dbb/structend__t.html#a0cd4e5197afeaf9275572f3278a5eb8c',1,'end_t::used'],['../d7/dbe/structpipe__wait__t.html#a2e1f26e5c516f54626e2e74d301e8b74',1,'pipe_wait_t::used'],['../df/dab/structpipe__poll__t.html#ab5748a5f2a1cce79a4e00514b43f3e5c',1,'pipe_poll_t::used']]],
+  ['ustack_5flimit_14',['ustack_limit',['../db/d7d/structprocess__t.html#a0eb49aea0072e64853a7cf2185e1963a',1,'process_t']]],
+  ['ustack_5ftop_15',['ustack_top',['../db/d7d/structprocess__t.html#a0f569ff98f247cc4fa3a01b3b1f5d762',1,'process_t']]]
+];
