@@ -251,6 +251,7 @@ _Noreturn void kshell(pid_t pid)
      * init never prints before the disk lines. */
     block_server_probe_start();
     block_server_probe_wait();
+    console_wait_idle();
     sched_execve("/bin/init", NULL, NULL, "/root");
 
     /* This should be idle process which frees resources of all dead processes */

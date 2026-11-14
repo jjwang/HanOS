@@ -156,6 +156,34 @@ bool console_server_active(void)
     return console_active;
 }
 
+void console_wait_idle(void)
+{
+    if (!console_active || console_in_ep == NULL)
+        return;
+
+    /* Wait for the kernel flush thread to move every byte out of the ring. */
+    for (uint32_t i = 0; i < 2000 && !console_ring_empty(); i++)
+        sched_sleep(1);
+
+    /* Queue a barrier behind the writes. The server replies after rendering
+     * the preceding bytes, so no timing guess is involved. */
+    endpoint_t *reply = endpoint_create();
+    if (reply == NULL)
+        return;
+
+    object_ref(endpoint_object(reply));
+    kernel_object_t *objs[1] = { endpoint_object(reply) };
+    uint32_t rights[1] = { HANDLE_RIGHT_SEND };
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = CONSOLE_SYNC_TAG;
+    if (ipc_send_objs(console_in_ep, &req, objs, rights, 1) == 0)
+        ipc_recv_timeout(reply, &rep, 1000);
+    object_unref(endpoint_object(reply));
+}
+
 endpoint_t *console_srv_endpoint(void)
 {
     return console_in_ep;

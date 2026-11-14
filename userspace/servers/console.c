@@ -798,13 +798,21 @@ int32_t main(void)
 
     for (;;) {
         sys_ipc_msg_t m;
+        int64_t sync_reply = 0;
         int32_t r = sys_ipc_recv_timeout((int64_t) bi.console_ep, &m,
                                          RAIN_TICK_MS);
 
         if (r == 0) {
-            feed_msg(&m);
-            while (sys_ipc_recv_nb((int64_t) bi.console_ep, &m) == 0)
+            if (m.tag == CONSOLE_SYNC_TAG)
+                sync_reply = (int64_t) m.xfer[0];
+            else
                 feed_msg(&m);
+            while (sys_ipc_recv_nb((int64_t) bi.console_ep, &m) == 0) {
+                if (m.tag == CONSOLE_SYNC_TAG)
+                    sync_reply = (int64_t) m.xfer[0];
+                else
+                    feed_msg(&m);
+            }
 
             vterm_screen_flush_damage(vs);
             render_dirty();
@@ -812,6 +820,13 @@ int32_t main(void)
             blink_ticks = 0;
             put_cursor(true);
             flush();
+            if (sync_reply != 0) {
+                sys_ipc_msg_t rep;
+
+                memset(&rep, 0, sizeof(rep));
+                sys_ipc_send(sync_reply, &rep);
+                sys_handle_close(sync_reply);
+            }
         } else {
             if (console_desktop) {
                 if (++status_ticks >= 30) {

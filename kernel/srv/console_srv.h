@@ -32,3 +32,7 @@ endpoint_t *console_srv_endpoint(void);
 /* Forward a byte buffer to the console server. Returns false when the server
  * is not active, so the caller can fall back to the in-kernel terminal. */
 bool console_write_buf(const char *buf, uint64_t len);
+
+/* Wait until the kernel output ring has been forwarded, then give the server
+ * one render interval. Used before handing the display to init. */
+void console_wait_idle(void);

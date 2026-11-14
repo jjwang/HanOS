@@ -34,6 +34,8 @@
 #define INPUT_KEY_EOF       0xFF
 /* Message tag used by a server to write a byte to the kernel console. */
 #define CONSOLE_WRITE_TAG   0x50
+/* Console barrier: reply after all preceding bytes have been rendered. */
+#define CONSOLE_SYNC_TAG    0x51
 
 /**
  * @brief An inclusive range of I/O ports granted to a server
