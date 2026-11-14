@@ -450,12 +450,12 @@ static uint32_t control_xfer_retry(uint8_t slot, uint8_t bm_request,
 {
     uint32_t cc = 0;
 
-    for (int32_t i = 0; i < 2; i++) {
+    for (int32_t i = 0; i < 5; i++) {
         cc = control_xfer(slot, bm_request, request, value, index, length,
                           buf_phys);
         if (cc == CC_SUCCESS)
             break;
-        pit_wait(20);
+        pit_wait(50);
     }
     return cc;
 }
@@ -1178,11 +1178,18 @@ void usb_hid_init(void)
                 continue;
             }
 
+            /* A low-speed device can answer only after its port reset
+             * settles. */
+            pit_wait(50);
             uint32_t dcc = control_xfer_retry(slot, 0x80, 6, 1 << 8, 0, 18,
                                               ctrl_buf_phys);
 
-            if (dcc == CC_SUCCESS && desc[0] == 18)
+            if (dcc == CC_SUCCESS && desc[0] == 18) {
                 addressed = true;
+            } else {
+                klogw("USB: port %u speed %u descriptor cc %u len %u\n",
+                      port, speed, dcc, (uint32_t)desc[0]);
+            }
             break;
         }
 
