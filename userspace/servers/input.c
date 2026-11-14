@@ -123,18 +123,27 @@ static void mouse_init(void)
     mouse_read();
 }
 
-/* Send a keyboard command and drain its ACK. */
+/* Send a keyboard command and drain its ACK. The controller may answer with
+ * 0xFE (resend) instead of 0xFA, so retry the command rather than consuming
+ * the next command's ACK. */
 static void keyboard_cmd(uint8_t cmd)
 {
-    mouse_wait(1);
-    outb(PORT_DATA, cmd);
+    for (uint32_t attempt = 0; attempt < 3; attempt++) {
+        mouse_wait(1);
+        outb(PORT_DATA, cmd);
 
-    for (uint32_t t = 0; t < 100000; t++) {
-        uint8_t s = inb(PORT_CMD);
+        for (uint32_t t = 0; t < 100000; t++) {
+            uint8_t s = inb(PORT_CMD);
 
-        if (s & 0x01) {
-            inb(PORT_DATA);     /* ACK (0xFA) */
-            return;
+            if (!(s & 0x01))
+                continue;
+
+            uint8_t ack = inb(PORT_DATA);
+
+            if (ack == 0xfa)
+                return;
+            if (ack == 0xfe)
+                break;
         }
     }
 }
@@ -237,6 +246,7 @@ static long now_ms(void)
  * The extended (arrow) keys use the high bit of the index. */
 static bool key_down[256];
 static long key_release_ms[256];        /* debounce a make after a recent break */
+static bool key_released[256];        /* a first press has no debounce baseline */
 static int repeat_id = -1;
 static uint8_t repeat_payload;
 static bool repeat_arrow;
@@ -269,6 +279,7 @@ static void key_release(uint8_t idx)
 {
     key_down[idx] = false;
     key_release_ms[idx] = now_ms();
+    key_released[idx] = true;
     if (repeat_id == idx) {
         repeat_id = -1;
         repeat_started = false;
@@ -362,7 +373,8 @@ static void ps2_byte(uint64_t key_ep, uint8_t raw)
 
             if (fin != 0) {
                 if (!key_down[idx]) {
-                    if (now_ms() - key_release_ms[idx] >= REPEAT_DEBOUNCE_MS)
+                    if (!key_released[idx]
+                        || now_ms() - key_release_ms[idx] >= REPEAT_DEBOUNCE_MS)
                         key_press(key_ep, idx, fin, true);
                 } else if (repeat_id == idx) {
                     repeat_begin();
@@ -394,7 +406,8 @@ static void ps2_byte(uint64_t key_ep, uint8_t raw)
 
         if (payload != 0) {
             if (!key_down[sc]) {
-                if (now_ms() - key_release_ms[sc] >= REPEAT_DEBOUNCE_MS)
+                if (!key_released[sc]
+                    || now_ms() - key_release_ms[sc] >= REPEAT_DEBOUNCE_MS)
                     key_press(key_ep, sc, payload, false);
             } else if (repeat_id == sc) {
                 repeat_begin();
@@ -496,7 +509,7 @@ int32_t main(void)
     for (;;) {
         /* Wake on an interrupt, or early enough to emit the next repeat or
          * notice that the keyboard stopped its own repeats. */
-        long timeout = 1000;
+        long timeout = 10;
 
         if (repeat_id >= 0) {
             long rem = repeat_next - now_ms();
@@ -509,17 +522,19 @@ int32_t main(void)
             }
             timeout = (rem > 0) ? rem : 0;
         }
+        if (timeout > 10)
+            timeout = 10;
 
         sys_ipc_msg_t m;
         int32_t r = sys_ipc_recv_timeout((int64_t) bi.irq_ep, &m, timeout);
 
-        if (r == 0 && m.tag == IRQ_NOTIFY_TAG) {
-            if (m.words[1] != 0)
-                ps2_byte(bi.key_ep, (uint8_t) m.words[1]);
-            ps2_drain(bi.key_ep);
-            serial_drain(bi.key_ep);
-        }
+        if (r == 0 && m.tag == IRQ_NOTIFY_TAG && m.words[1] != 0)
+            ps2_byte(bi.key_ep, (uint8_t) m.words[1]);
 
+        /* Poll as well as take interrupts: the i8042 edge can be lost when a
+         * byte arrives after the kernel has already read the status port. */
+        ps2_drain(bi.key_ep);
+        serial_drain(bi.key_ep);
         repeat_tick(bi.key_ep);
     }
 
