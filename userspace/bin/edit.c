@@ -224,8 +224,10 @@ static void save(void)
 {
     int fd = sys_open(filename, O_RDWR | O_CREAT);
 
-    if (fd < 0)
+    if (fd < 0) {
+        dprintf(STDERR, "edit: cannot save %s (%d)\n", filename, fd);
         return;
+    }
     lseek(fd, 0, 0);
     ftruncate(fd, buflen);
     if (buflen > 0)
@@ -243,8 +245,10 @@ static void load(void)
 
     int fd = sys_open(filename, O_RDWR | O_CREAT);
 
-    if (fd < 0)
-        die("cannot open");
+    if (fd < 0) {
+        dprintf(STDERR, "edit: cannot open %s (%d)\n", filename, fd);
+        sys_exit(1);
+    }
     for (;;) {
         if (buflen + 4096 > bufcap) {
             bufcap *= 2;
