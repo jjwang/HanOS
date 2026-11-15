@@ -919,25 +919,32 @@ static process_t *sched_execve_prep(const char *path, const char *argv[],
     *(--stack) = 0;
 
     stack -= 2;
-    stack[0] = 10;              /* AT_ENTRY */
+    stack[0] = 9;               /* AT_ENTRY */
     stack[1] = aux.entry;
 
     stack -= 2;
-    stack[0] = 20;              /* AT_PHDR */
+    stack[0] = 3;               /* AT_PHDR */
     stack[1] = aux.phdr;
 
     stack -= 2;
-    stack[0] = 21;              /* AT_PHENT */
+    stack[0] = 4;               /* AT_PHENT */
     stack[1] = aux.phentsize;
 
     stack -= 2;
-    stack[0] = 22;              /* AT_PHNUM */
-    stack[1] = aux.phnum;
+    stack[0] = 5;               /* AT_PHNUM */
+    stack[1] = aux.phdr != 0 ? aux.phnum : 0;
+
+    if (aux.base != 0) {
+        stack -= 2;
+        stack[0] = 7;           /* AT_BASE */
+        stack[1] = aux.base;
+    }
 
     klogi
         ("SCHED: pid %ld aux stack 0x%016lx (RSP 0x%016lx), entry 0x%016lx, phdr 0x%016lx, "
-         "phentsize %ld, phnum %ld\n", tc->pid, stack, tc_regs->rsp,
-         aux.entry, aux.phdr, aux.phentsize, aux.phnum);
+         "phentsize %ld, phnum %ld, base 0x%016lx\n", tc->pid, stack,
+         tc_regs->rsp, aux.entry, aux.phdr, aux.phentsize, aux.phnum,
+         aux.base);
 
     /* Environment variables */
     *(--stack) = 0;             /* End of environment */

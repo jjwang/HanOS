@@ -16,6 +16,7 @@ PORTS_INITRD = initrd-ports.tar
 PORTS_HDD_INITRD = initrd-ports-hdd.tar
 INITRD_TAR   = initrd.tar
 MUSL_LIB     = 3rdparty/build/musl/lib/libc.a
+MUSL_SHARED  = 3rdparty/build/musl-shared/lib/libc.so
 
 ifeq ($(WITH_PORTS),1)
 PORTS_DEP  = $(PORTS_STAMP)
@@ -49,6 +50,9 @@ $(PORTS_STAMP): 3rdparty/ports/build.sh 3rdparty/ports/cc \
 		$(MUSL_LIB)
 	3rdparty/ports/build.sh $(PORTS_PACKAGES)
 
+$(MUSL_SHARED): 3rdparty/musl/build-shared.sh $(MUSL_LIB)
+	3rdparty/musl/build-shared.sh
+
 $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports
 	mkdir -p initrd-ports
@@ -60,7 +64,7 @@ $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 		esac; \
 		cp -fL $$app initrd-ports/bin/; \
 	done
-	tar -cpf $@ -C initrd-ports bin assets etc usr root data
+	tar -cpf $@ -C initrd-ports bin assets etc usr root data lib
 	rm -rf initrd-ports
 
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
@@ -100,9 +104,11 @@ indent:
 	$(MAKE) indent -C kernel
 	$(MAKE) indent -C userspace
 
-initrd:
-	mkdir -p initrd
+initrd: $(MUSL_SHARED)
+	mkdir -p initrd initrd/lib
 	cp -rf sysroot/* initrd
+	cp -f $(MUSL_SHARED) initrd/lib/ld-musl-x86_64.so.1
+	cp -f $(MUSL_SHARED) initrd/lib/libc.so
 	$(MAKE) -C userspace
 
 # Both images carry the same initrd; build it once so a sequential or
@@ -111,7 +117,7 @@ $(INITRD_TAR): initrd
 	rm -rf initrd/etc initrd/usr initrd/root
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
-	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data
+	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib
 
 $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports-hdd
@@ -119,7 +125,7 @@ $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	tar -xpf $(INITRD_TAR) -C initrd-ports-hdd
 	mkdir -p initrd-ports-hdd/etc
 	touch initrd-ports-hdd/etc/ports-image
-	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data
+	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data lib
 	rm -rf initrd-ports-hdd
 
 $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)

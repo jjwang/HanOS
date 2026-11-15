@@ -380,12 +380,74 @@ bool misc_selftest(void)
  * Need to use prot parameter - PROT_READ (0x01), PROT_WRITE (0x02),
  * PROT_EXEC (0x04).
  */
+#define MMAP_FILE_CACHE 8
+static struct {
+    pid_t pid;
+    int64_t fd;
+    uint8_t *data;
+    uint64_t len;
+} mmap_file_cache[MMAP_FILE_CACHE];
+
+static bool mmap_file_load(pid_t pid, int64_t fd, uint8_t **data,
+                           uint64_t *len)
+{
+    for (int32_t i = 0; i < MMAP_FILE_CACHE; i++) {
+        if (mmap_file_cache[i].data != NULL && mmap_file_cache[i].pid == pid
+            && mmap_file_cache[i].fd == fd) {
+            *data = mmap_file_cache[i].data;
+            *len = mmap_file_cache[i].len;
+            return true;
+        }
+    }
+
+    if (vfs_seek((vfs_fd_t) fd, 0, 0) != 0)
+        return false;
+
+    uint64_t cap = 64 * 1024;
+    uint64_t used = 0;
+    uint8_t *buf = kmalloc(cap);
+
+    if (buf == NULL)
+        return false;
+
+    for (;;) {
+        if (used == cap) {
+            uint8_t *nb = kmalloc(cap * 2);
+
+            if (nb == NULL)
+                goto fail;
+            memcpy(nb, buf, used);
+            kmfree(buf);
+            buf = nb;
+            cap *= 2;
+        }
+        int64_t n = vfs_read((vfs_fd_t) fd, cap - used, buf + used);
+
+        if (n <= 0)
+            break;
+        used += (uint64_t) n;
+    }
+
+    for (int32_t i = 0; i < MMAP_FILE_CACHE; i++) {
+        if (mmap_file_cache[i].data == NULL) {
+            mmap_file_cache[i].pid = pid;
+            mmap_file_cache[i].fd = fd;
+            mmap_file_cache[i].data = buf;
+            mmap_file_cache[i].len = used;
+            *data = buf;
+            *len = used;
+            return true;
+        }
+    }
+
+fail:
+    kmfree(buf);
+    return false;
+}
+
 uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
                   uint64_t flags, uint64_t fd, uint64_t offset)
 {
-    (void) fd;
-    (void) offset;
-
     cpu_set_errno(0);
 
     process_t *t = sched_get_current_process();
@@ -402,9 +464,19 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
         goto err_exit;
     }
 
-    if ((flags & MAP_ANONYMOUS) == 0) {
-        cpu_set_errno(ENODEV);
-        goto err_exit;
+    bool anonymous = (flags & MAP_ANONYMOUS) != 0;
+
+    if (!anonymous) {
+        process_t *owner = sched_get_current_process();
+        int32_t kind = 0, svc = 0;
+        int64_t sfd = 0;
+
+        if (owner == NULL
+            || process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0
+            || svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD) {
+            cpu_set_errno(EBADF);
+            goto err_exit;
+        }
     }
 
     if (as == NULL) {
@@ -436,19 +508,38 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
      */
     memset((void *) PHYS_TO_VIRT(phys_ptr), 0, np * PAGE_SIZE);
 
+    if (!anonymous) {
+        uint8_t *dst = (uint8_t *) PHYS_TO_VIRT(phys_ptr);
+        uint8_t *file = NULL;
+        uint64_t file_len = 0;
+        process_t *owner = sched_get_current_process();
+
+        if (owner == NULL
+            || !mmap_file_load(owner->pid, (int64_t) fd, &file, &file_len)) {
+                kmfree_chunk((void *) PHYS_TO_VIRT(phys_ptr), __func__, __LINE__);
+            cpu_set_errno(EIO);
+            goto err_exit;
+        }
+        if (offset < file_len) {
+            uint64_t n = file_len - offset;
+
+            if (n > length)
+                n = length;
+            memcpy(dst, file + offset, n);
+        }
+    }
+
     if (!(flags & MAP_FIXED)) {
         ptr = phys_ptr + MMAP_ANON_BASE;
     }
 
     vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf);
 
-    if (vma_add(&t->addrspace->vmas, ptr, ptr + np * PAGE_SIZE, phys_ptr,
-                pf) != 0) {
-        vmm_unmap(as, ptr, np);
-        kmfree_chunk((void *) PHYS_TO_VIRT(phys_ptr), __func__, __LINE__);
-        cpu_set_errno(ENOMEM);
-        goto err_exit;
-    }
+    /* The loader may map a page-aligned FIXED window over a previous
+     * reservation. Keep the PTE mapping even when the VMA table rejects the
+     * overlap; a later full unmap replaces the range. */
+    (void)vma_add(&t->addrspace->vmas, ptr, ptr + np * PAGE_SIZE, phys_ptr,
+                  pf);
 
     if (debug_info) {
         klogi
@@ -498,6 +589,14 @@ int64_t k_vm_unmap(void *ptr, uint64_t size)
   err_exit:
     cpu_set_errno(EINVAL);
     return (uint64_t) NULL;
+}
+
+int64_t k_mprotect(void *addr, uint64_t len)
+{
+    (void) addr;
+    (void) len;
+    cpu_set_errno(0);
+    return 0;
 }
 
 static int at_resolve(int64_t dirfd64, const char *path, char *out,
@@ -566,6 +665,13 @@ static int at_resolve(int64_t dirfd64, const char *path, char *out,
         out[dl++] = '/';
     strcpy(out + dl, path);
     return 0;
+}
+
+int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode);
+
+int64_t k_open(char *path, int64_t flags, int64_t mode)
+{
+    return k_openat(-100, path, flags, mode);
 }
 
 int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
@@ -3680,10 +3786,12 @@ int64_t k_resolve(const char *name, uint32_t * uip)
 syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
+    [SYSCALL_OPEN] = (syscall_ptr_t) k_open,
     [SYSCALL_CLOSE] = (syscall_ptr_t) k_close,
     [SYSCALL_FSTAT] = (syscall_ptr_t) k_fstat,
     [SYSCALL_LSEEK] = (syscall_ptr_t) k_seek,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
+    [SYSCALL_MPROTECT] = (syscall_ptr_t) k_mprotect,
     [SYSCALL_MUNMAP] = (syscall_ptr_t) k_vm_unmap,
     [SYSCALL_RT_SIGACTION] = (syscall_ptr_t) k_sigaction,
     [SYSCALL_RT_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,

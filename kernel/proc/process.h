@@ -146,6 +146,7 @@ typedef struct[[gnu::packed]] {
     uint16_t phnum;
     uint64_t shdr;
     uint16_t shnum;
+    uint64_t base;              /* interpreter load base for AT_BASE */
 } auxval_t;
 
 typedef enum {

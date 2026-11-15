@@ -17,11 +17,13 @@
 
 #define SYSCALL_READ            0
 #define SYSCALL_WRITE           1
+#define SYSCALL_OPEN            2
 #define SYSCALL_CLOSE           3
 #define SYSCALL_POLL            7
 #define SYSCALL_FSTAT           5
 #define SYSCALL_LSEEK           8
 #define SYSCALL_MMAP            9
+#define SYSCALL_MPROTECT        10
 #define SYSCALL_MUNMAP          11
 #define SYSCALL_RT_SIGACTION    13
 #define SYSCALL_RT_SIGPROCMASK  14

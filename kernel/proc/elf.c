@@ -111,6 +111,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
         goto err_exit;
 
     aux->entry = hdr.entry;
+    aux->base = 0;
     if (hdr.type == ET_SHARED)
         aux->entry += RTDL_ADDR;
     aux->phdr = 0;
@@ -165,7 +166,9 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
                           path_name, i, rdtl_path);
                 }
                 has_dynamic_linking = true;
-                elf_load(process, rdtl_path, NULL, &dynamic_aux);
+                if (elf_load(process, rdtl_path, NULL, &dynamic_aux) != 0)
+                    has_dynamic_linking = false;
+                aux->base = RTDL_ADDR;
                 kmfree(rdtl_path);
             }
             continue;
