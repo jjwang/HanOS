@@ -63,7 +63,12 @@
 #define SYSCALL_UNLINK          87
 #define SYSCALL_READLINK        89
 #define SYSCALL_GETRUSAGE       98
+#define SYSCALL_SETPGID         109
 #define SYSCALL_GETPPID         110
+#define SYSCALL_GETPGRP         111
+#define SYSCALL_SETSID          112
+#define SYSCALL_GETPGID         121
+#define SYSCALL_GETSID          124
 #define SYSCALL_STATFS          137
 #define SYSCALL_FSTATFS         138
 #define SYSCALL_TKILL           200

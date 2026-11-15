@@ -1240,11 +1240,31 @@ int64_t k_set_fs_base(uint64_t val)
 
 static uint16_t tty_win_rows = 25;
 static uint16_t tty_win_cols = 80;
+static pid_t tty_pgrp;
+
+/* Bash duplicates stderr to a high descriptor. Accept every descriptor backed
+ * by the tty server, not only fds 0..2. */
+static bool tty_fd(int64_t fd)
+{
+    process_t *t;
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (fd >= 0 && fd <= 2)
+        return true;
+    t = sched_get_current_process();
+    if (t == NULL)
+        return false;
+    return process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0
+        && svc == SVC_TTY;
+}
 
 int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
 {
 #define TIOCGWINSZ_K 0x5413
 #define TIOCSWINSZ_K 0x5414
+#define TIOCGPGRP_K 0x540F
+#define TIOCSPGRP_K 0x5410
 #define TCGETS_K    0x5401
 #define TCSETS_K    0x5402
 #define TCSETSW_K   0x5403
@@ -1278,7 +1298,7 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
             uint16_t ypixel;
         } ws = { tty_win_rows, tty_win_cols, 0, 0 };
 
-        if (fd < 0 || fd > 2 || arg == 0
+        if (!tty_fd(fd) || arg == 0
             || copy_to_user((void *) arg, &ws, sizeof(ws)) != 0) {
             cpu_set_errno(ENOTTY);
             return -1;
@@ -1306,12 +1326,40 @@ int64_t k_ioctl(int64_t fd, int64_t request, int64_t arg)
         return 0;
     }
 
+    if (request == TIOCGPGRP_K) {
+        pid_t pgrp = tty_pgrp;
+
+        if (pgrp == 0) {
+            process_t *t = sched_get_current_process();
+
+            pgrp = (t != NULL) ? t->pid : 0;
+        }
+        if (!tty_fd(fd) || arg == 0
+            || copy_to_user((void *) arg, &pgrp, sizeof(pgrp)) != 0) {
+            cpu_set_errno(ENOTTY);
+            return -1;
+        }
+        return 0;
+    }
+
+    if (request == TIOCSPGRP_K) {
+        pid_t pgrp;
+
+        if (!tty_fd(fd) || arg == 0
+            || copy_from_user(&pgrp, (void *) arg, sizeof(pgrp)) != 0) {
+            cpu_set_errno(ENOTTY);
+            return -1;
+        }
+        tty_pgrp = pgrp;
+        return 0;
+    }
+
     /* termios for the tty: a full-screen program clears ECHO and ICANON. */
     if (request == TCGETS_K || request == TCSETS_K || request == TCSETSW_K
         || request == TCSETSF_K) {
         k_termios_t t;
 
-        if (fd < 0 || fd > 2 || arg == 0) {
+        if (!tty_fd(fd) || arg == 0) {
             cpu_set_errno(ENOTTY);
             return -1;
         }
@@ -2486,6 +2534,51 @@ int64_t k_getppid()
     return (t != NULL) ? t->ppid : 0;
 }
 
+static int64_t current_pgrp(void)
+{
+    process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
+    return (t != NULL) ? (int64_t) t->pid : -1;
+}
+
+int64_t k_getpgrp(void)
+{
+    return current_pgrp();
+}
+
+int64_t k_getpgid(pid_t pid)
+{
+    if (pid == 0)
+        return current_pgrp();
+    return (process_lookup(pid) != NULL) ? (int64_t) pid : -1;
+}
+
+int64_t k_setpgid(pid_t pid, pid_t pgid)
+{
+    process_t *t = sched_get_current_process();
+
+    cpu_set_errno(0);
+    if (t == NULL || (pid != 0 && pid != t->pid)
+        || (pgid != 0 && pgid != t->pid)) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_setsid(void)
+{
+    return current_pgrp();
+}
+
+int64_t k_getsid(pid_t pid)
+{
+    if (pid == 0)
+        return current_pgrp();
+    return (process_lookup(pid) != NULL) ? (int64_t) pid : -1;
+}
+
 int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags);
 
 int64_t k_fcntl(int64_t fd, int64_t request, int64_t arg)
@@ -3647,7 +3740,12 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_RENAMEAT2] = (syscall_ptr_t) k_renameat,
     [SYSCALL_READLINK] = (syscall_ptr_t) k_readlink,
     [SYSCALL_GETRUSAGE] = (syscall_ptr_t) k_getrusage,
+    [SYSCALL_SETPGID] = (syscall_ptr_t) k_setpgid,
     [SYSCALL_GETPPID] = (syscall_ptr_t) k_getppid,
+    [SYSCALL_GETPGRP] = (syscall_ptr_t) k_getpgrp,
+    [SYSCALL_SETSID] = (syscall_ptr_t) k_setsid,
+    [SYSCALL_GETPGID] = (syscall_ptr_t) k_getpgid,
+    [SYSCALL_GETSID] = (syscall_ptr_t) k_getsid,
     [SYSCALL_STATFS] = (syscall_ptr_t) k_statfs,
     [SYSCALL_FSTATFS] = (syscall_ptr_t) k_fstatfs,
     [SYSCALL_GETDENTS64] = (syscall_ptr_t) k_readdir,
