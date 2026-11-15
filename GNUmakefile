@@ -17,6 +17,9 @@ PORTS_HDD_INITRD = initrd-ports-hdd.tar
 INITRD_TAR   = initrd.tar
 MUSL_LIB     = 3rdparty/build/musl/lib/libc.a
 MUSL_SHARED  = 3rdparty/build/musl-shared/lib/libc.so
+SYSROOT_STAGE = 3rdparty/build/sysroot
+SYSROOT_STAMP = $(SYSROOT_STAGE)/.installed
+NATIVE_BINUTILS = 3rdparty/build/toolchain/native/bin
 
 ifeq ($(WITH_PORTS),1)
 PORTS_DEP  = $(PORTS_STAMP)
@@ -30,7 +33,7 @@ HDD_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports run-uefi run-hdd-uefi
+.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -52,6 +55,20 @@ $(PORTS_STAMP): 3rdparty/ports/build.sh 3rdparty/ports/cc \
 
 $(MUSL_SHARED): 3rdparty/musl/build-shared.sh $(MUSL_LIB)
 	3rdparty/musl/build-shared.sh
+
+$(SYSROOT_STAMP): scripts/install-sysroot.sh $(MUSL_LIB) $(MUSL_SHARED)
+	scripts/install-sysroot.sh
+
+sysroot: $(SYSROOT_STAMP)
+
+binutils:
+	scripts/build-binutils.sh
+
+gcc:
+	scripts/build-gcc.sh
+
+native-binutils:
+	scripts/build-native-binutils.sh
 
 $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports
@@ -104,11 +121,13 @@ indent:
 	$(MAKE) indent -C kernel
 	$(MAKE) indent -C userspace
 
-initrd: $(MUSL_SHARED)
+initrd: $(MUSL_SHARED) $(SYSROOT_STAMP)
 	mkdir -p initrd initrd/lib
 	cp -rf sysroot/* initrd
+	cp -rf $(SYSROOT_STAGE)/* initrd
 	cp -f $(MUSL_SHARED) initrd/lib/ld-musl-x86_64.so.1
 	cp -f $(MUSL_SHARED) initrd/lib/libc.so
+	if [ -d $(NATIVE_BINUTILS) ]; then 		mkdir -p initrd/usr/bin; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-* initrd/usr/bin/; 	fi
 	$(MAKE) -C userspace
 
 # Both images carry the same initrd; build it once so a sequential or
@@ -117,6 +136,7 @@ $(INITRD_TAR): initrd
 	rm -rf initrd/etc initrd/usr initrd/root
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
+	cp -rf $(SYSROOT_STAGE)/* initrd
 	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib
 
 $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
@@ -140,13 +160,14 @@ $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		iso_root -o $(ISO_IMAGE)
 	limine/limine bios-install $(ISO_IMAGE)
+	truncate -s 512M $(ISO_IMAGE)
 	rm -rf iso_root
 
 $(HDD_IMAGE): limine $(HDD_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
 	rm -rf $(HDD_IMAGE).p2root
 	mkdir -p $(dir $(HDD_IMAGE))
-	dd if=/dev/zero bs=1M count=0 seek=256 of=$(HDD_IMAGE)
+	dd if=/dev/zero bs=1M count=0 seek=512 of=$(HDD_IMAGE)
 	sgdisk $(HDD_IMAGE) -n 1:2048:+96M -t 1:ef00 -n 2:198656:0 -t 2:8300
 	./limine/limine bios-install $(HDD_IMAGE)
 	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
@@ -164,7 +185,7 @@ ifeq ($(WITH_PORTS),1)
 endif
 	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
 	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
-		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 156M
+		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 415M
 	rm -rf $(HDD_IMAGE).p2root
 
 clean:
