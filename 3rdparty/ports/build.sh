@@ -5,7 +5,7 @@ set -e
 
 . "$(dirname "$0")/common.sh"
 
-packages=${*:-bash coreutils grep sed tar}
+packages=${*:-bash coreutils grep sed tar make m4 gawk gzip patch diffutils}
 
 rm -f "$BUILD/.installed"
 rm -rf "$STAGE"
