@@ -1,3 +1,18 @@
+/**-----------------------------------------------------------------------------
+
+ @file    syscall_internal.h
+ @brief   Declarations shared by the syscall modules
+
+ @details
+ @verbatim
+
+  Provides the prototypes that core.c needs for handlers implemented in
+  signal.c, ipc.c, net.c, time.c and usb.c. Not a public kernel interface.
+
+ @endverbatim
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

@@ -3,6 +3,15 @@
  @file    usb.c
  @brief   USB mass-storage block system calls
 
+ @details
+ @verbatim
+
+  Exposes the kernel USB mass-storage device to the block server. Moves at most
+  64 KiB per call through a kernel bounce buffer; the xHCI/EHCI transport owns
+  the device state.
+
+ @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>

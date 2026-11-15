@@ -3,6 +3,14 @@
  @file    time.c
  @brief   Clock, sleep and uname system calls
 
+ @details
+ @verbatim
+
+  Routes clock_gettime and uname through SVC_MISC and implements nanosleep and
+  clock_nanosleep with the HPET-backed scheduler clock.
+
+ @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>

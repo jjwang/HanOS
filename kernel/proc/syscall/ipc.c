@@ -3,6 +3,15 @@
  @file    ipc.c
  @brief   IPC, handle, memory-object and process-control system calls
 
+ @details
+ @verbatim
+
+  Implements endpoint creation and message transfer, handle duplication and
+  closure, IRQ binding, I/O port access, bootinfo export, memory object mapping
+  and the process spawn/map/start primitives.
+
+ @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>

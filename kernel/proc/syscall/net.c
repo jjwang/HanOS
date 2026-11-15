@@ -3,6 +3,15 @@
  @file    net.c
  @brief   Socket system calls
 
+ @details
+ @verbatim
+
+  Forwards socket, bind, sendto, recvfrom, connect, listen, accept and option
+  calls to SVC_NET. Copies addresses and option values across the user/kernel
+  boundary.
+
+ @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>

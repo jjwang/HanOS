@@ -3,6 +3,14 @@
  @file    signal.c
  @brief   Signal system calls
 
+ @details
+ @verbatim
+
+  Applies signal masks and actions, validates signal targets, records the
+  clear-child-tid address and restores a signal frame on sigreturn.
+
+ @endverbatim
+
  **-----------------------------------------------------------------------------
  */
 #include <stdint.h>
