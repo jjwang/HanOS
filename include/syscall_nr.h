@@ -19,6 +19,8 @@
 #define SYSCALL_WRITE           1
 #define SYSCALL_OPEN            2
 #define SYSCALL_CLOSE           3
+#define SYSCALL_PREAD64         17
+#define SYSCALL_PWRITE64        18
 #define SYSCALL_POLL            7
 #define SYSCALL_FSTAT           5
 #define SYSCALL_LSEEK           8

@@ -1145,6 +1145,40 @@ int64_t k_readlink(int64_t dirfd, const char *path, void *buffer,
     return n;
 }
 
+static int64_t pread_pwrite(int64_t fd, void *buf, uint64_t count,
+                            uint64_t offset, bool write)
+{
+    int64_t old = (int64_t) vfs_tell((vfs_fd_t) fd);
+    int64_t ret;
+
+    cpu_set_errno(0);
+    if (vfs_seek((vfs_fd_t) fd, offset, 0) != 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (write)
+        ret = vfs_write((vfs_fd_t) fd, count, buf);
+    else
+        ret = vfs_read((vfs_fd_t) fd, count, buf);
+    (void) vfs_seek((vfs_fd_t) fd, (uint64_t) old, 0);
+    if (ret < 0) {
+        cpu_set_errno(EIO);
+        return -1;
+    }
+    return ret;
+}
+
+int64_t k_pread64(int64_t fd, void *buf, uint64_t count, uint64_t offset)
+{
+    return pread_pwrite(fd, buf, count, offset, false);
+}
+
+int64_t k_pwrite64(int64_t fd, const void *buf, uint64_t count,
+                   uint64_t offset)
+{
+    return pread_pwrite(fd, (void *) buf, count, offset, true);
+}
+
 int64_t k_seek(int64_t fd, int64_t offset, int64_t whence)
 {
     int32_t kind = 0, svc = 0;
@@ -3788,6 +3822,8 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
     [SYSCALL_OPEN] = (syscall_ptr_t) k_open,
     [SYSCALL_CLOSE] = (syscall_ptr_t) k_close,
+    [SYSCALL_PREAD64] = (syscall_ptr_t) k_pread64,
+    [SYSCALL_PWRITE64] = (syscall_ptr_t) k_pwrite64,
     [SYSCALL_FSTAT] = (syscall_ptr_t) k_fstat,
     [SYSCALL_LSEEK] = (syscall_ptr_t) k_seek,
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,

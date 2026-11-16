@@ -2192,7 +2192,12 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             break;
         }
 
-        if (offset < 0 || offset > (int64_t) fsize) {
+        if (offset < 0) {
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            return;
+        }
+        /* A writer may seek beyond EOF before extending the file. */
+        if (offset > (int64_t) fsize && !idx_is_dyn(fds[fd - 1].ent)) {
             rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
             return;
         }
