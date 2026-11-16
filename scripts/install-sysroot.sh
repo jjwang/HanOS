@@ -28,5 +28,14 @@ cp -f "$MUSL/obj/crt/x86_64/crtn.o" "$STAGE/usr/lib/"
 if [ -f "$SHARED" ]; then
     cp -f "$SHARED" "$STAGE/usr/lib/libc.so"
 fi
+ln -sf crt1.o "$STAGE/usr/lib/crt0.o"
+x86_64-elf-ar rc "$STAGE/usr/lib/libg.a"
+GXX="$ROOT/3rdparty/build/toolchain/x86_64-hanos/x86_64-hanos/include/c++"
+if [ -d "$GXX" ]; then
+    mkdir -p "$STAGE/usr/include/c++"
+    cp -a "$GXX/." "$STAGE/usr/include/c++/"
+    cp -f "$ROOT/3rdparty/build/toolchain/x86_64-hanos/x86_64-hanos/lib/libstdc++.a" \
+        "$STAGE/usr/lib/libstdc++.a" 2>/dev/null || true
+fi
 
 touch "$STAGE/.installed"

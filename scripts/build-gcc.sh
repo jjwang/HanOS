@@ -54,6 +54,17 @@ if "x86_64-*-hanos*)" not in s:
     s = s.replace(old, new, 1)
 p.write_text(s)
 PY
+p = src / "libstdc++-v3/crossconfig.m4"
+s = p.read_text()
+s = s.replace("*-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris*",
+              "*-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris* | *-hanos*", 1)
+p.write_text(s)
+p = src / "libstdc++-v3/configure"
+s = p.read_text()
+s = s.replace("*-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris*",
+              "*-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris* | *-hanos*", 1)
+p.write_text(s)
+PY
 
 rm -rf "$BUILD"
 mkdir -p "$BUILD"
@@ -63,10 +74,23 @@ cd "$BUILD"
     --with-sysroot="$SYSROOT" --with-build-sysroot="$SYSROOT" \
     --with-as="$BIN/x86_64-hanos-as" --with-ld="$BIN/x86_64-hanos-ld" \
     --disable-nls --disable-shared --enable-static --disable-multilib \
-    --enable-languages=c --disable-bootstrap --disable-libssp \
+    --enable-languages=c,c++ --disable-bootstrap --disable-libssp \
     --disable-libquadmath --disable-libgomp --disable-libatomic \
-    --disable-libstdcxx --disable-libvtv --disable-libsanitizer
+    --disable-libvtv --disable-libsanitizer
 make -j"$(nproc)" all-gcc all-target-libgcc MAKEINFO=true
-make install-gcc install-target-libgcc MAKEINFO=true
 
-echo "gcc: $PREFIX/bin/x86_64-hanos-gcc"
+# The target specs use crt0/crtbegin/crtend and -lg. Provide the musl startup
+# object and minimal GCC startup stubs before building libstdc++.
+LIB="$PREFIX/lib/gcc/x86_64-hanos/$VERSION"
+mkdir -p "$LIB" "$SYSROOT/usr/lib"
+ln -sf crt1.o "$SYSROOT/usr/lib/crt0.o"
+printf '' | "$BIN/x86_64-hanos-as" -o "$LIB/crtbegin.o"
+printf '' | "$BIN/x86_64-hanos-as" -o "$LIB/crtend.o"
+cp -f "$LIB/crtbegin.o" "$BUILD/gcc/crtbegin.o"
+cp -f "$LIB/crtend.o" "$BUILD/gcc/crtend.o"
+"$BIN/x86_64-hanos-ar" rc "$SYSROOT/usr/lib/libg.a"
+
+make -j"$(nproc)" all-target-libstdc++-v3 MAKEINFO=true
+make install-gcc install-target-libgcc install-target-libstdc++-v3 MAKEINFO=true
+
+echo "gcc: $PREFIX/bin/x86_64-hanos-g++"
