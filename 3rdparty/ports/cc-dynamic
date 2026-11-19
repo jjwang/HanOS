@@ -29,7 +29,7 @@ fi
 
 if [ "$shared" -eq 1 ]; then
     exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib \
-        -Wl,-shared -Wl,-z,noexecstack -L"$SYS/usr/lib" -lc -lgcc
+        -Wl,-shared -Wl,-z,noexecstack -L"$SYS/usr/lib"
 fi
 
 exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib -no-pie \
