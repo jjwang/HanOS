@@ -2,7 +2,7 @@
 # Build the target GMP, MPFR and MPC libraries required by native GCC.
 set -e
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TOOL="$ROOT/3rdparty/build/toolchain"
 CROSS="$TOOL/x86_64-hanos/bin"
 SYS="$ROOT/3rdparty/build/sysroot"

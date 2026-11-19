@@ -2,7 +2,7 @@
 # Build GCC and its C/C++ frontends to run on x86_64-hanos.
 set -e
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TOOL="$ROOT/3rdparty/build/toolchain"
 SRC="$TOOL/src/gcc-10.2.0"
 BUILD="$TOOL/build-native-gcc"
@@ -11,7 +11,7 @@ SYS="$ROOT/3rdparty/build/sysroot"
 CROSS="$TOOL/x86_64-hanos/bin"
 
 [ -d "$SRC" ] || {
-    echo "run scripts/build-gcc.sh first" >&2
+    echo "run 3rdparty/toolchain/build-gcc.sh first" >&2
     exit 1
 }
 [ -x "$CROSS/x86_64-hanos-g++" ] || {
@@ -21,7 +21,7 @@ CROSS="$TOOL/x86_64-hanos/bin"
 
 for lib in libgmp.a libmpfr.a libmpc.a; do
     if [ ! -f "$SYS/usr/lib/$lib" ]; then
-        "$ROOT/scripts/build-math-libs.sh"
+        "$ROOT/3rdparty/toolchain/build-math-libs.sh"
         break
     fi
 done
@@ -57,6 +57,6 @@ find "$PREFIX/usr" -type f ! -name '*.a' | while IFS= read -r f; do
     fi
 done
 
-"$ROOT/scripts/build-libstdcxx-shared.sh"
+"$ROOT/3rdparty/toolchain/build-libstdcxx-shared.sh"
 
 echo "native gcc: $PREFIX/usr/bin"

@@ -3,7 +3,7 @@
 set -e
 
 VERSION=2.42
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 BUILD="$ROOT/3rdparty/build/toolchain"
 DL="$BUILD/dl"
 SRC="$BUILD/src"

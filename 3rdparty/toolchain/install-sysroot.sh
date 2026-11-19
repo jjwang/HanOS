@@ -2,7 +2,7 @@
 # Install the musl headers, libraries and startup objects into a target sysroot.
 set -e
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MUSL="$ROOT/3rdparty/build/musl"
 SHARED="$ROOT/3rdparty/build/musl-shared/lib/libc.so"
 STAGE="$ROOT/3rdparty/build/sysroot"

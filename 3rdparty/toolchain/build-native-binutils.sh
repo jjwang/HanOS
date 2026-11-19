@@ -3,7 +3,7 @@
 set -e
 
 VERSION=2.42
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SRC="$ROOT/3rdparty/build/toolchain/src/binutils-$VERSION"
 BUILD="$ROOT/3rdparty/build/toolchain/build-native-binutils"
 PREFIX="$ROOT/3rdparty/build/toolchain/native"
@@ -11,7 +11,7 @@ PORTS="$ROOT/3rdparty/ports"
 MUSL="$ROOT/3rdparty/build/musl"
 
 [ -d "$SRC" ] || {
-    echo "run scripts/build-binutils.sh first" >&2
+    echo "run 3rdparty/toolchain/build-binutils.sh first" >&2
     exit 1
 }
 

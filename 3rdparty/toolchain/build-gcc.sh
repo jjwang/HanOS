@@ -3,7 +3,7 @@
 set -e
 
 VERSION=10.2.0
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TOOL="$ROOT/3rdparty/build/toolchain"
 SRC="$TOOL/src/gcc-$VERSION"
 BUILD="$TOOL/build-gcc"
@@ -54,6 +54,7 @@ if "x86_64-*-hanos*)" not in s:
     s = s.replace(old, new, 1)
 p.write_text(s)
 PY
+python3 - "$SRC" <<'PY'
 p = src / "libstdc++-v3/crossconfig.m4"
 s = p.read_text()
 s = s.replace("*-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris*",

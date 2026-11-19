@@ -59,22 +59,22 @@ $(PORTS_STAMP): 3rdparty/ports/build.sh 3rdparty/ports/cc \
 $(MUSL_SHARED): 3rdparty/musl/build-shared.sh $(MUSL_LIB)
 	3rdparty/musl/build-shared.sh
 
-$(SYSROOT_STAMP): scripts/install-sysroot.sh $(MUSL_LIB) $(MUSL_SHARED)
-	scripts/install-sysroot.sh
+$(SYSROOT_STAMP): 3rdparty/toolchain/install-sysroot.sh $(MUSL_LIB) $(MUSL_SHARED)
+	3rdparty/toolchain/install-sysroot.sh
 
 sysroot: $(SYSROOT_STAMP)
 
 binutils:
-	scripts/build-binutils.sh
+	3rdparty/toolchain/build-binutils.sh
 
 gcc:
-	scripts/build-gcc.sh
+	3rdparty/toolchain/build-gcc.sh
 
 native-binutils:
-	scripts/build-native-binutils.sh
+	3rdparty/toolchain/build-native-binutils.sh
 
 native-gcc:
-	scripts/build-native-gcc.sh
+	3rdparty/toolchain/build-native-gcc.sh
 
 
 $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)

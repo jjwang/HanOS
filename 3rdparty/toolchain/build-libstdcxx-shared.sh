@@ -2,7 +2,7 @@
 # Build a shared libstdc++ for x86_64-hanos from the cross libstdc++ tree.
 set -e
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 TOOL="$ROOT/3rdparty/build/toolchain"
 CROSS="$TOOL/x86_64-hanos/bin"
 SYS="$ROOT/3rdparty/build/sysroot"
@@ -13,10 +13,10 @@ ARCHIVE="$BUILD/src/.libs/libstdc++.a"
 OUT="$TOOL/native-gcc/usr/lib"
 
 [ -d "$BUILD" ] || {
-    echo "run scripts/build-gcc.sh first" >&2
+    echo "run 3rdparty/toolchain/build-gcc.sh first" >&2
     exit 1
 }
-[ -f "$SYS/usr/lib/libgmp.a" ] || "$ROOT/scripts/build-math-libs.sh"
+[ -f "$SYS/usr/lib/libgmp.a" ] || "$ROOT/3rdparty/toolchain/build-math-libs.sh"
 
 make -C "$BUILD" clean >/dev/null 2>&1 || true
 PATH="$CROSS:$PATH" make -C "$BUILD" -j"$(nproc)" \
