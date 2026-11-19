@@ -22,6 +22,7 @@ RANLIB=${RANLIB:-x86_64-elf-ranlib}
     exit 1
 }
 
+echo "musl-shared: staging sources in $BUILD"
 rm -rf "$BUILD"
 mkdir -p "$BUILD"
 cp -a "$SRC"/. "$BUILD"/
@@ -74,9 +75,12 @@ os.execvp(ld, [ld] + out)
 LINK
 chmod +x cc-elf-link.py
 
+echo "musl-shared: configure (target x86_64-hanos, shared)"
 ./configure --target=x86_64-hanos --enable-shared --disable-static \
-    CC="$CC" CFLAGS='-mcmodel=small -mno-red-zone -Wno-return-local-addr' \
-    >/dev/null
-make AR="$AR" RANLIB="$RANLIB" CC="$BUILD/cc-elf-link.py" -j"$(nproc)" >/dev/null
+    CC="$CC" CFLAGS='-mcmodel=small -mno-red-zone -Wno-return-local-addr'
+
+echo "musl-shared: build libc.so"
+make AR="$AR" RANLIB="$RANLIB" CC="$BUILD/cc-elf-link.py" -j"$(nproc)"
 
 test -f "$BUILD/lib/libc.so"
+echo "musl-shared: $BUILD/lib/libc.so"
