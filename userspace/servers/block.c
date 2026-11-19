@@ -299,6 +299,10 @@ static bool port_bringup(uint32_t p)
         return true;
     if (sig == 0xffffffffu || sig == 0)
         return false;
+    /* Empty QEMU and PCH ports keep a stale 0xffff.... signature at DET 0.
+     * Skip them so the reset wait stays off the boot path. */
+    if (det == 0 && (sig >> 16) == 0xffffu)
+        return false;
 
     uint32_t wait_ms = (det == 0) ? 1000 : 2000;
 
