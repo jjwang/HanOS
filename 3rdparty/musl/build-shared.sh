@@ -33,6 +33,7 @@ cp "$OVERLAY/__set_thread_area.s" src/thread/x86_64/__set_thread_area.s
 cat > cc-elf-link.py <<'LINK'
 #!/usr/bin/env python3
 import os
+import shutil
 import subprocess
 import sys
 
@@ -68,7 +69,8 @@ for a in args:
         out.extend(["-L" + os.path.dirname(lib), "-lgcc"])
     else:
         out.append(a)
-os.execvp("x86_64-elf-ld", ["x86_64-elf-ld"] + out)
+ld = "x86_64-elf-ld" if shutil.which("x86_64-elf-ld") else "ld"
+os.execvp(ld, [ld] + out)
 LINK
 chmod +x cc-elf-link.py
 
