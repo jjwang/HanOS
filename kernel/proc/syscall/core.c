@@ -350,7 +350,7 @@ int64_t k_getentropy(void *buffer, uint64_t length)
         return -1;
     }
 
-    return 0;
+    return (int64_t) length;
 }
 
 /* Boot check: the misc syscalls answer through SVC_MISC. Runs after the
@@ -370,7 +370,7 @@ bool misc_selftest(void)
         ok = false;
     if (k_uname(&u) != 0 || u.sysname[0] != 'H' || u.sysname[4] != 'S')
         ok = false;
-    if (k_getentropy(rnd, sizeof(rnd)) != 0)
+    if (k_getentropy(rnd, sizeof(rnd)) != (int64_t) sizeof(rnd))
         ok = false;
 
     klogi("MK: misc %s\n", ok ? "PASS" : "FAIL");
