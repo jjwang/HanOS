@@ -169,10 +169,6 @@ $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	tar -xpf $(INITRD_TAR) -C initrd-ports-hdd
 	mkdir -p initrd-ports-hdd/etc
 	touch initrd-ports-hdd/etc/ports-image
-	if [ -f $(PORTS_STAGE)/lib/libpython3.8.so.1.0 ]; then \
-		mkdir -p initrd-ports-hdd/lib; \
-		cp -f $(PORTS_STAGE)/lib/libpython3.8.so.1.0 initrd-ports-hdd/lib/; \
-	fi
 	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data lib
 	rm -rf initrd-ports-hdd
 

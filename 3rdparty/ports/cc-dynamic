@@ -33,7 +33,7 @@ if [ "$shared" -eq 1 ]; then
 fi
 
 exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib -no-pie \
-    -Wl,--dynamic-linker=/lib/ld64.so.1 -Wl,-rpath,/data/lib \
+    -Wl,--dynamic-linker=/lib/ld64.so.1 -Wl,--enable-new-dtags -Wl,-rpath,/data/lib \
     -Wl,-z,noexecstack \
     "$SYS/usr/lib/crt1.o" "$SYS/usr/lib/crti.o" \
     -L"$SYS/usr/lib" -lc -lgcc "$SYS/usr/lib/crtn.o"

@@ -35,7 +35,7 @@
 #define EXT2_DATA_MAX       (EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF)
 #define EXT2_PART_INDEX     1
 #define EXT2_ROOT_INO       2
-#define EXT2_FD_MAX         32
+#define EXT2_FD_MAX         128
 #define EXT2_MAX_GROUPS     128
 
 static bootinfo_t bi;
