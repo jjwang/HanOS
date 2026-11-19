@@ -37,7 +37,7 @@ make            # builds cdrom.iso and release/hdd.img
 make run        # boots cdrom.iso in QEMU (KVM)
 make run-uefi   # boots under UEFI (downloads OVMF first)
 make run-hdd    # boots release/hdd.img
-make hdd-ports  # build release/hdd.img with bash/coreutils/...
+make hdd-ports  # build release/hdd.img with bash/coreutils/python/...
 ```
 
 `make run-hdd` boots the disk image. It needs `mtools` and `sgdisk`.
