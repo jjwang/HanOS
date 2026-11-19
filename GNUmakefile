@@ -36,7 +36,7 @@ HDD_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils native-gcc
+.PHONY: clean all ports clean-ports initrd indent kernel run run-ports run-hdd run-hdd-ports hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils native-gcc
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -104,11 +104,11 @@ run-uefi: ovmf $(ISO_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 4G -smp 2 -no-reboot -rtc base=localtime -bios ovmf/OVMF.fd -cdrom $(ISO_IMAGE)
 
 run-hdd: $(HDD_IMAGE)
-	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 run-hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
-	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
