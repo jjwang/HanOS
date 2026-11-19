@@ -41,6 +41,23 @@ make run-hdd    # boots release/hdd.img
 
 `make run-hdd` boots the disk image. It needs `mtools` and `sgdisk`.
 
+## Toolchain
+
+The self-host toolchain (binutils, GCC, GMP/MPFR/MPC and a shared
+libstdc++) builds from `3rdparty/build/toolchain`. The build scripts live in
+`3rdparty/toolchain/`:
+
+```
+make sysroot
+make binutils
+make gcc
+make native-gcc
+```
+
+`make native-gcc` also builds `libstdc++.so` and stages the compiler, headers
+and libraries. `make` then packs only a minimal initrd and places the
+toolchain, the ports and the games on the ext2 data partition.
+
 The CI does not install a cross toolchain. It defines `x86_64-elf-gcc` as `gcc -fno-pie` on Ubuntu 24.04 and builds with the host compiler.
 
 ## Layout
@@ -49,7 +66,7 @@ The CI does not install a cross toolchain. It defines `x86_64-elf-gcc` as `gcc -
 kernel/     the kernel (arch/x64, mm, proc, fs, ipc, router, srv) and its C library (lib/)
 userspace/  the programs (servers/, bin/, test/) and the HanOS runtime
 include/    wire headers shared by the kernel and userspace
-3rdparty/   HanOS port files for musl and libvterm; build/ holds downloads and output
+3rdparty/   musl/libvterm port files, toolchain build scripts; build/ holds downloads and output
 ```
 
 See `3rdparty/musl/README.md` for the musl build.

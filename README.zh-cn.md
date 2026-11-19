@@ -41,6 +41,21 @@ make run-hdd    # 启动 release/hdd.img
 
 `make run-hdd` 启动磁盘镜像。需要 `mtools` 与 `sgdisk`。
 
+## 工具链
+
+自举工具链（binutils、GCC、GMP/MPFR/MPC 与共享 libstdc++）在
+`3rdparty/build/toolchain` 下构建。构建脚本位于 `3rdparty/toolchain/`：
+
+```
+make sysroot
+make binutils
+make gcc
+make native-gcc
+```
+
+`make native-gcc` 同时构建 `libstdc++.so`，并把编译器、头文件与库装好。
+随后 `make` 只打包一个精简 initrd，工具链、ports 与游戏放在 ext2 数据分区。
+
 CI 不安装交叉工具链。它在 Ubuntu 24.04 上把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，用宿主编译器构建。
 
 ## 目录结构
@@ -49,7 +64,7 @@ CI 不安装交叉工具链。它在 Ubuntu 24.04 上把 `x86_64-elf-gcc` 定义
 kernel/     内核（arch/x64、mm、proc、fs、ipc、router、srv）与其 C 库（lib/）
 userspace/  用户态程序（servers/、bin/、test/）与汉操作系统 (HanOS) 运行时
 include/    内核与用户态共享的线协议头
-3rdparty/   musl 与 libvterm 的汉操作系统 (HanOS) 移植层；build/ 放下载与输出
+3rdparty/   musl/libvterm 移植层与工具链构建脚本；build/ 放下载与输出
 ```
 
 musl 的构建说明见 `3rdparty/musl/README.md`。
