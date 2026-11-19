@@ -8,7 +8,7 @@ DISK_APPS = games/tetris games/2048 games/snake
 # Optional Linux packages. `make ports` builds them and regenerates both
 # images; a plain `make` never includes them.
 WITH_PORTS   ?= 0
-PORTS_PACKAGES = bash coreutils grep sed tar make m4 gawk gzip patch diffutils
+PORTS_PACKAGES = bash coreutils grep sed tar make m4 gawk gzip patch diffutils python
 PORTS_BUILD  = 3rdparty/build/ports
 PORTS_STAGE  = $(PORTS_BUILD)/root
 PORTS_STAMP  = $(PORTS_BUILD)/.installed
@@ -84,6 +84,8 @@ $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	for app in $(PORTS_STAGE)/bin/*; do \
 		case $$(basename $$app) in \
 			block|console|ext2|fat32|init|input|mem|misc|net|pipe|process|tty|vfs) \
+				continue ;; \
+			python|python3|python3.8) \
 				continue ;; \
 		esac; \
 		cp -fL $$app initrd-ports/bin/; \

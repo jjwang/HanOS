@@ -55,7 +55,10 @@ for app in $(sed -n 's/^DISK_APPS = //p' "$ROOT/GNUmakefile"); do
     cp -f "$ROOT/userspace/$app" "$ROOTFS/bin/"
 done
 if [ -d "$ROOT/3rdparty/build/ports/root/bin" ]; then
-    cp -fL "$ROOT/3rdparty/build/ports/root/bin/"* "$ROOTFS/bin/"
+    cp -a "$ROOT/3rdparty/build/ports/root/bin/." "$ROOTFS/bin/"
+fi
+if [ -d "$ROOT/3rdparty/build/ports/root/lib" ]; then
+    cp -a "$ROOT/3rdparty/build/ports/root/lib/." "$ROOTFS/lib/"
 fi
 printf 'HanOS ext2 data partition.\n' > "$ROOTFS/assets/readme.txt"
 mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
