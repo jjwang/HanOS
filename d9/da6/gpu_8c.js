@@ -1,0 +1,27 @@
+var gpu_8c =
+[
+    [ "psf1_t", "db/d62/structpsf1__t.html", "db/d62/structpsf1__t" ],
+    [ "GPU_FENCE_BASE", "d9/da6/gpu_8c.html#ac9e7e572a4dd74a88821a0d16e1d4226", null ],
+    [ "GPU_FENCE_COUNT", "d9/da6/gpu_8c.html#a43b884d51609046d7e7bae62ae83444b", null ],
+    [ "GPU_GTT_BASE", "d9/da6/gpu_8c.html#aad7258f1967299543b8c92558baad43e", null ],
+    [ "GPU_HEAP_LIMIT", "d9/da6/gpu_8c.html#a03ac13d140809d886dbd756101b9d647", null ],
+    [ "GPU_HEAP_VADDR", "d9/da6/gpu_8c.html#abfd55abde569c1dd7496fb12a8bf1ca5", null ],
+    [ "LAYER_PERIOD_SCREENS", "d9/da6/gpu_8c.html#a85a875c406391d339de44ece285e41ad", null ],
+    [ "LAYER_SCROLL_SPEED", "d9/da6/gpu_8c.html#af573caee9e78f3c9b1910e2f1624d63c", null ],
+    [ "LAYER_UI_H", "d9/da6/gpu_8c.html#a976606f646d5080eab747d60e1a1cc8d", null ],
+    [ "LAYER_UI_W", "d9/da6/gpu_8c.html#a076bb4a15f16789cf144287e850b3d54", null ],
+    [ "LAYER_UI_X", "d9/da6/gpu_8c.html#a9e3d40acb8cc1c804da29368829b9c7d", null ],
+    [ "LAYER_UI_Y", "d9/da6/gpu_8c.html#ae7cf3220ff05cb003b452c58083bd40f", null ],
+    [ "gfx_alloc", "d9/da6/gpu_8c.html#ab4e4bd1746cd3e2645ae8ea3476a3e0d", null ],
+    [ "gfx_fb_alloc", "d9/da6/gpu_8c.html#ad27a74716dfa375813f91c410f4bd483", null ],
+    [ "gfx_fb_free", "d9/da6/gpu_8c.html#a5a62365c76469129f626fbdf561d38a4", null ],
+    [ "gfx_gtt_map", "d9/da6/gpu_8c.html#ae190ebc5024e1e6c5f518c8fc3499620", null ],
+    [ "gfx_gtt_write_entry", "d9/da6/gpu_8c.html#a9ee51e371a0d496d1995a3fcb0b126cc", null ],
+    [ "gfx_pipe_frame", "d9/da6/gpu_8c.html#aa4b6b79398926fc86509c8aeb3dc3fd7", null ],
+    [ "gfx_wait_vblank_frame", "d9/da6/gpu_8c.html#a49b42968c7ff30c51b5511cb865feeed", null ],
+    [ "gpu_flush", "d9/da6/gpu_8c.html#ae59a2d92393f547e480bb28310e632cd", null ],
+    [ "gpu_log", "d9/da6/gpu_8c.html#ab0810793438ff4bc1e4c279b7e1452b5", null ],
+    [ "main", "d9/da6/gpu_8c.html#a840291bc02cba5474a4cb46a9b9566fe", null ],
+    [ "pit_wait", "d9/da6/gpu_8c.html#a41aa258f3192e131357b57fce746e660", null ],
+    [ "term_font_norm", "d9/da6/gpu_8c.html#a63c16dad02a5d378d4d4d9f48c99ed2e", null ]
+];

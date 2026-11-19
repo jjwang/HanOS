@@ -1,0 +1,28 @@
+var userspace_2servers_2process_8c =
+[
+    [ "proc_fd_t", "d0/d36/structproc__fd__t.html", "d0/d36/structproc__fd__t" ],
+    [ "proc_rec_t", "dd/dea/structproc__rec__t.html", "dd/dea/structproc__rec__t" ],
+    [ "elf64_hdr_t", "d1/de2/structelf64__hdr__t.html", "d1/de2/structelf64__hdr__t" ],
+    [ "elf64_phdr_t", "db/dfd/structelf64__phdr__t.html", "db/dfd/structelf64__phdr__t" ],
+    [ "EXEC_PF_W", "d4/d73/userspace_2servers_2process_8c.html#ac67ed1571ccbb9bd74688ee74039d792", null ],
+    [ "EXEC_PROT_READ", "d4/d73/userspace_2servers_2process_8c.html#a9e20f1ee9d5e30f7f3b216282ad358d1", null ],
+    [ "EXEC_PROT_WRITE", "d4/d73/userspace_2servers_2process_8c.html#ae5410ddc401335212f19ead499814601", null ],
+    [ "EXEC_PT_LOAD", "d4/d73/userspace_2servers_2process_8c.html#a88238498239478dbf64b4e23c762aec6", null ],
+    [ "EXEC_PT_PHDR", "d4/d73/userspace_2servers_2process_8c.html#a3dce4a2701a30ab8c2b0ac5a202417c7", null ],
+    [ "PROC_EXEC_ARG_MAX", "d4/d73/userspace_2servers_2process_8c.html#a911331b48313e27539ce47f597de891a", null ],
+    [ "PROC_EXEC_ELF_ADDR", "d4/d73/userspace_2servers_2process_8c.html#a42f114949fd0a12c0c76c513aba4225d", null ],
+    [ "PROC_EXEC_SEG_ADDR", "d4/d73/userspace_2servers_2process_8c.html#a4cae00f89da3074c79f86bea5eecf7e5", null ],
+    [ "PROC_EXEC_STK_ADDR", "d4/d73/userspace_2servers_2process_8c.html#a7520b70fdade209d71d82697696525bb", null ],
+    [ "PROC_EXEC_STK_SIZE", "d4/d73/userspace_2servers_2process_8c.html#a14e9957f262f934be299c18d3d7dc0dd", null ],
+    [ "PROC_EXEC_STR_ADDR", "d4/d73/userspace_2servers_2process_8c.html#ad319c314ac73bd0ef1de30ed2d8a5e1d", null ],
+    [ "PROC_FD_BASE", "d4/d73/userspace_2servers_2process_8c.html#a9224fc7014b779f0879bbc19952f3b83", null ],
+    [ "PROC_FD_MAX", "d4/d73/userspace_2servers_2process_8c.html#af9a4dfaa3a4bc59a400bae578ae21512", null ],
+    [ "PROC_PID_MAX", "d4/d73/userspace_2servers_2process_8c.html#a766a008a7b299f8daaf2b8c33f6ef2e7", null ],
+    [ "SPUSH", "d4/d73/userspace_2servers_2process_8c.html#a8b49aa45aae7e0681969d24609382936", null ],
+    [ "SVC_EXT_ID", "d4/d73/userspace_2servers_2process_8c.html#a50a14744dd5c0c962eebf3da6f1b2891", null ],
+    [ "SVC_FAT_ID", "d4/d73/userspace_2servers_2process_8c.html#a3fa833c1118f7b5ce9d5c4b69d3f997c", null ],
+    [ "SVC_FS_ID", "d4/d73/userspace_2servers_2process_8c.html#a0f79357cd2caff1e665c2709e1ff837c", null ],
+    [ "SVC_PIPE_ID", "d4/d73/userspace_2servers_2process_8c.html#a3a1b67bb8686d5494fa4a9536f02865e", null ],
+    [ "SVC_TTY_ID", "d4/d73/userspace_2servers_2process_8c.html#a1bdfbeb0e0a8a441631669378706a498", null ],
+    [ "main", "d4/d73/userspace_2servers_2process_8c.html#a52d2cba30e6946c95578be946ac12a65", null ]
+];
