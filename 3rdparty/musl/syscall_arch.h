@@ -66,6 +66,7 @@
 #define H_EXIT_GROUP 231
 #define H_READDIR    217
 #define H_MUNMAP     11
+#define H_BRK        12
 #define H_GETCWD     79
 #define H_GETCLOCK   228
 #define H_FUTEX_WAIT 0x410
@@ -102,6 +103,7 @@
 #define L_write       1
 #define L_open        2
 #define L_close       3
+#define L_access      21
 #define L_dup         32
 #define L_dup2        33
 #define L_nanosleep   35
@@ -130,8 +132,13 @@
 #define L_select      23
 #define L_sched_yield 24
 #define L_madvise     28
+#define L_mremap      25
+#define L_getrlimit   97
+#define L_setrlimit   160
+#define L_sysinfo     99
 #define L_getpid      39
 #define L_clone       56
+#define L_vfork       58
 #define L_fork        57
 #define L_execve      59
 #define L_exit        60
@@ -642,6 +649,23 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return 0;
     case L_getrusage:
         return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);
+    case L_getrlimit:
+        if (a2 != 0) {
+            ((unsigned long *) a2)[0] = ~0UL;
+            ((unsigned long *) a2)[1] = ~0UL;
+        }
+        return 0;
+    case L_setrlimit:
+        return 0;
+    case L_sysinfo:
+        if (a1 != 0) {
+            __builtin_memset((void *) a1, 0, 112);
+            ((unsigned long *) a1)[4] = 256UL * 1024 * 1024;
+            ((unsigned long *) a1)[5] = 256UL * 1024 * 1024;
+        }
+        return 0;
+    case L_mremap:
+        return -12;             /* -ENOMEM: let realloc copy instead */
     case L_statfs:
         return __hanos_raw(H_STATFS, a1, a2, 0, 0, 0, 0);
     case L_fstatfs:
@@ -712,6 +736,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
             __hanos_fill_kstat(&hs, (struct hanos_kstat *) a3);
             return 0;
         }
+    case L_access:
+        return __hanos_raw(H_FACCESSAT, -100, a1, a2, 0, 0, 0);
     case L_faccessat:
     case L_faccessat2:
         return __hanos_raw(H_FACCESSAT, a1, a2, a3, a4, 0, 0);
@@ -777,6 +803,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_clone:
         return __hanos_raw(H_CLONE, a1, a2, a3, a4, a5, 0);
     case L_fork:
+    case L_vfork:
         return __hanos_raw(H_FORK, 0, 0, 0, 0, 0, 0);
     case L_execve:
         return __hanos_raw(H_EXECVE, a1, a2, a3, 0, 0, 0);
@@ -926,7 +953,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_signalfd4:
         return __hanos_raw(H_SIGNALFD4, a1, a2, a3, a4, 0, 0);
     case L_brk:
-        return -ENOSYS_NUM;
+        return __hanos_raw(H_BRK, a1, 0, 0, 0, 0, 0);
     case L_rseq:
         return -ENOSYS_NUM;
     default:{

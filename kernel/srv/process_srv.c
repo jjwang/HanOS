@@ -168,6 +168,14 @@ static int64_t proc_call_group(uint64_t tag, uint64_t w1, uint64_t w2,
     return proc_call_pid(t->tgid, tag, w1, w2, w3, w4, rep_out);
 }
 
+static void process_fd_cache_reset(void)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL)
+        t->fd_cache_fd = -1;
+}
+
 int64_t process_fd_open(int32_t svc, int64_t server_fd, uint64_t size,
                         int64_t mode)
 {
@@ -175,17 +183,46 @@ int64_t process_fd_open(int32_t svc, int64_t server_fd, uint64_t size,
     int64_t r = proc_call_group(PROC_FD_OPEN, (uint64_t) svc, (uint64_t) server_fd,
                           size, (uint64_t) mode, &rep);
 
+    process_fd_cache_reset();
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
 int64_t process_fd_get(int32_t fd, int32_t *kind, int32_t *svc, int64_t *server_fd,
                        uint64_t *size, uint64_t *seek_pos)
 {
+    process_t *t = sched_get_current_process();
+
+    if (t != NULL && t->fd_cache_fd == fd) {
+        if (kind != NULL)
+            *kind = t->fd_cache_kind;
+        if (svc != NULL)
+            *svc = t->fd_cache_svc;
+        if (server_fd != NULL)
+            *server_fd = t->fd_cache_sfd;
+        if (size != NULL)
+            *size = t->fd_cache_size;
+        if (seek_pos != NULL)
+            *seek_pos = t->fd_cache_seek;
+        return 0;
+    }
+
     ipc_msg_t rep;
     int64_t r = proc_call_group(PROC_FD_GET, (uint64_t) fd, 0, 0, 0, &rep);
 
-    if (r < 0)
+    if (r < 0) {
+        if (t != NULL)
+            t->fd_cache_fd = -1;
         return r;
+    }
+
+    if (t != NULL) {
+        t->fd_cache_fd = fd;
+        t->fd_cache_kind = (int32_t) rep.words[1];
+        t->fd_cache_svc = (int32_t) rep.words[2];
+        t->fd_cache_sfd = (int64_t) rep.words[3];
+        t->fd_cache_size = rep.words[4];
+        t->fd_cache_seek = rep.words[5];
+    }
     if (kind != NULL)
         *kind = (int32_t) rep.words[1];
     if (svc != NULL)
@@ -204,6 +241,7 @@ int64_t process_fd_close(int32_t fd, int32_t *kind, int32_t *svc, int64_t *serve
     ipc_msg_t rep;
     int64_t r = proc_call_group(PROC_FD_CLOSE, (uint64_t) fd, 0, 0, 0, &rep);
 
+    process_fd_cache_reset();
     if (r < 0)
         return r;
     if (kind != NULL)
@@ -221,6 +259,7 @@ int64_t process_fd_dup(int32_t fd, int32_t newfd)
     int64_t r = proc_call_group(PROC_FD_DUP, (uint64_t) fd, (uint64_t) newfd, 0, 0,
                           &rep);
 
+    process_fd_cache_reset();
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
@@ -230,6 +269,7 @@ int64_t process_fd_seek(int32_t fd, uint64_t pos, int32_t whence)
     int64_t r = proc_call_group(PROC_FD_SEEK, (uint64_t) fd, pos, (uint64_t) whence,
                           0, &rep);
 
+    process_fd_cache_reset();
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 
@@ -239,6 +279,7 @@ int64_t process_fd_fcntl(int32_t fd, int32_t cmd, int64_t arg)
     int64_t r = proc_call_group(PROC_FD_FCNTL, (uint64_t) fd, (uint64_t) (int64_t) cmd,
                           (uint64_t) arg, 0, &rep);
 
+    process_fd_cache_reset();
     return (r < 0) ? r : (int64_t) rep.words[1];
 }
 

@@ -121,6 +121,8 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     nproc->pid = new_pid;
     nproc->tgid = new_pid;
     nproc->forked = false;
+    nproc->brk = 0x400100000000ULL;
+    nproc->fd_cache_fd = -1;
 
     process_regs_t *nproc_regs = NULL;
 
@@ -246,6 +248,7 @@ process_t *process_fork(process_t * tp)
 
     handle_table_init(&tc->handles);
     tc->cwd = NULL;
+    tc->fd_cache_fd = -1;
     process_set_cwd(tc, tp->cwd);
 
     pid_t new_pid = __atomic_fetch_add(&curr_pid, 1, __ATOMIC_RELAXED);

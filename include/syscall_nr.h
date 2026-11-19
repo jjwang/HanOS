@@ -19,6 +19,7 @@
 #define SYSCALL_WRITE           1
 #define SYSCALL_OPEN            2
 #define SYSCALL_CLOSE           3
+#define SYSCALL_ACCESS          21
 #define SYSCALL_PREAD64         17
 #define SYSCALL_PWRITE64        18
 #define SYSCALL_POLL            7
@@ -27,6 +28,7 @@
 #define SYSCALL_MMAP            9
 #define SYSCALL_MPROTECT        10
 #define SYSCALL_MUNMAP          11
+#define SYSCALL_BRK             12
 #define SYSCALL_RT_SIGACTION    13
 #define SYSCALL_RT_SIGPROCMASK  14
 #define SYSCALL_RT_SIGRETURN    15
@@ -50,6 +52,7 @@
 #define SYSCALL_GETSOCKOPT      55
 #define SYSCALL_CLONE           56
 #define SYSCALL_FORK            57
+#define SYSCALL_VFORK           58
 #define SYSCALL_EXECVE          59
 #define SYSCALL_EXIT            60
 #define SYSCALL_WAIT4           61

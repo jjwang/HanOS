@@ -17,6 +17,7 @@
  */
 #include <stdint.h>
 #include <string.h>
+#include <string.h>
 #include <errno.h>
 
 #include <arch/x64/cpu.h>
@@ -503,11 +504,6 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     uint64_t phys_ptr =
         VIRT_TO_PHYS(kmalloc_chunk(np * PAGE_SIZE, __func__, __LINE__));
 
-    /* On QEMU, the memory will be set to zero. But on real hardaware,
-     * maybe they will not be set to zero. Need to do this!
-     */
-    memset((void *) PHYS_TO_VIRT(phys_ptr), 0, np * PAGE_SIZE);
-
     if (!anonymous) {
         uint8_t *dst = (uint8_t *) PHYS_TO_VIRT(phys_ptr);
         uint8_t *file = NULL;
@@ -555,6 +551,49 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     kloge("k_vm_map: pid %ld 0x%016lx(PML4 0x%016lx) returns NULL in malloc()\n",
           t->pid, as, as->PML4);
     return -1;
+}
+
+int64_t k_brk(uint64_t addr)
+{
+    process_t *t = sched_get_current_process();
+
+    if (t == NULL || t->addrspace == NULL) {
+        cpu_set_errno(ESRCH);
+        return -1;
+    }
+
+    if (addr == 0) {
+        cpu_set_errno(0);
+        return (int64_t) t->brk;
+    }
+
+    uint64_t cur = t->brk;
+    uint64_t old = (cur + PAGE_SIZE - 1) & ~(uint64_t) (PAGE_SIZE - 1);
+    uint64_t new_end = (addr + PAGE_SIZE - 1) & ~(uint64_t) (PAGE_SIZE - 1);
+
+    if (addr <= cur) {
+        cpu_set_errno(0);
+        return (int64_t) cur;
+    }
+
+    uint64_t np = (new_end - old) / PAGE_SIZE;
+    void *buf = kmalloc_chunk(np * PAGE_SIZE, __func__, __LINE__);
+
+    if (buf == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    memset(buf, 0, np * PAGE_SIZE);
+    uint64_t phys = VIRT_TO_PHYS((uint64_t) buf);
+    uint64_t pf = VMM_FLAGS_DEFAULT | VMM_FLAGS_USERMODE | VMM_FLAG_READWRITE;
+
+    vmm_map(t->addrspace, old, phys, np, pf);
+    vma_add(&t->addrspace->vmas, old, new_end, phys, pf);
+
+    t->brk = addr;
+    cpu_set_errno(0);
+    return (int64_t) addr;
 }
 
 int64_t k_vm_unmap(void *ptr, uint64_t size)
@@ -1686,6 +1725,11 @@ int64_t k_faccessat(int64_t dirfd, const char *path, uint64_t mode,
 
     cpu_set_errno(0);
     return 0;
+}
+
+int64_t k_access(const char *path, uint64_t mode)
+{
+    return k_faccessat(-100, path, mode, 0);
 }
 
 int64_t k_getpid()
@@ -3067,8 +3111,10 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
 {
     process_t *tcache = sched_get_current_process();
 
-    if (tcache != NULL)
+    if (tcache != NULL) {
         tcache->at_dirfd = -1;
+        tcache->fd_cache_fd = -1;
+    }
 
     char *cwd = NULL;
     process_t *t = sched_get_current_process();
@@ -3829,6 +3875,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MMAP] = (syscall_ptr_t) k_vm_map,
     [SYSCALL_MPROTECT] = (syscall_ptr_t) k_mprotect,
     [SYSCALL_MUNMAP] = (syscall_ptr_t) k_vm_unmap,
+    [SYSCALL_BRK] = (syscall_ptr_t) k_brk,
     [SYSCALL_RT_SIGACTION] = (syscall_ptr_t) k_sigaction,
     [SYSCALL_RT_SIGPROCMASK] = (syscall_ptr_t) k_sigprocmask,
     [SYSCALL_RT_SIGRETURN] = (syscall_ptr_t) k_sigreturn,
@@ -3863,6 +3910,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_LISTEN] = (syscall_ptr_t) k_listen,
     [SYSCALL_CLONE] = (syscall_ptr_t) k_clone,
     [SYSCALL_FORK] = (syscall_ptr_t) k_fork,
+    [SYSCALL_VFORK] = (syscall_ptr_t) k_fork,
     [SYSCALL_EXECVE] = (syscall_ptr_t) k_execve,
     [SYSCALL_EXIT] = (syscall_ptr_t) k_exit,
     [SYSCALL_EXIT_GROUP] = (syscall_ptr_t) k_exit_group,
@@ -3895,6 +3943,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_OPENAT] = (syscall_ptr_t) k_openat,
     [SYSCALL_NEWFSTATAT] = (syscall_ptr_t) k_fstatat,
     [SYSCALL_FACCESSAT] = (syscall_ptr_t) k_faccessat,
+    [SYSCALL_ACCESS] = (syscall_ptr_t) k_access,
     [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
     [SYSCALL_PRLIMIT64] = (syscall_ptr_t) k_prlimit64,
     [SYSCALL_EVENTFD2] = (syscall_ptr_t) k_eventfd2,

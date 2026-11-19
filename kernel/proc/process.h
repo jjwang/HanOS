@@ -262,6 +262,7 @@ typedef struct process {
     /* Address space. */
     addrspace_t *addrspace;
     uint64_t fs_base;
+    uint64_t brk;               /* current program break */
 
     char *cwd;
     int32_t at_dirfd;           /* cached dirfd for at_resolve */
@@ -271,6 +272,15 @@ typedef struct process {
     /* Scratch descriptor for the current VFS fd lookup. Per process so a
      * blocking server call cannot overwrite it from another process. */
     vfs_node_desc_t fd_scratch;
+
+    /* Last fd resolved through PROC_FD_GET. Repeated reads on the same
+     * descriptor skip the process-server round trip. */
+    int32_t fd_cache_fd;
+    int32_t fd_cache_kind;
+    int32_t fd_cache_svc;
+    int64_t fd_cache_sfd;
+    uint64_t fd_cache_size;
+    uint64_t fd_cache_seek;
 
     signal_state_t signals;
 } process_t;

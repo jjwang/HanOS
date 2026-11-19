@@ -138,7 +138,10 @@ void runcmd(cmd_t * cmd)
             pathname = sys_malloc(plen);
             if (pathname == NULL)
                 sys_exit(1);
-            snprintf(pathname, plen, "/bin/%s", ecmd->argv[0]);
+            if (strchr(ecmd->argv[0], '/') != NULL)
+                snprintf(pathname, plen, "%s", ecmd->argv[0]);
+            else
+                snprintf(pathname, plen, "/bin/%s", ecmd->argv[0]);
 
             /* Resolve the path before exec: an application that is not in the
              * initrd lives on the ext2 volume under /data/bin. */
@@ -152,6 +155,7 @@ void runcmd(cmd_t * cmd)
             } else {
                 sys_libc_log
                     ("hansh: start to execute process for current process\n");
+                ecmd->argv[0] = pathname;
                 if (sys_exec(pathname, ecmd->argv) < 0)
                     dprintf(STDERR, "exec \"%s\" failed\n", ecmd->argv[0]);
             }

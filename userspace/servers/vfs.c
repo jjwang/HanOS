@@ -36,7 +36,7 @@
 #define VFS_MAX_ENTS        16384
 #define VFS_MAX_DYN         256
 #define VFS_DYN_CAP         (64 * 1024)
-#define VFS_DYN_MAX         (1024 * 1024)
+#define VFS_DYN_MAX         (16 * 1024 * 1024)
 
 /* ustar header field offsets. */
 #define USTAR_MODE_OFF      100
@@ -1799,13 +1799,29 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
             if (n > len)
                 n = len;
+            if (n > VFS_READ_CHUNK)
+                n = VFS_READ_CHUNK;
+
+            const uint8_t *src;
+
+            if (idx_is_dyn(e)) {
+                vfs_dyn_t *d = dyn_file(&dyns[e - ent_count]);
+
+                if (d->data == NULL || off >= d->size)
+                    n = 0;
+                else if (n > d->size - off)
+                    n = d->size - off;
+                src = (const uint8_t *) d->data + off;
+            } else {
+                if ((uint64_t) ents[e].off + off > bi.initrd_size)
+                    n = 0;
+                else if (n > bi.initrd_size - (uint64_t) ents[e].off - off)
+                    n = bi.initrd_size - (uint64_t) ents[e].off - off;
+                src = (const uint8_t *) bi.initrd_vaddr + ents[e].off + off;
+            }
 
             if (n > 0 && memh != 0
                 && sys_mem_map(memh, VFS_BUF_VADDR, 3) == 0) {
-                const uint8_t *src = idx_is_dyn(e)
-                    ? (const uint8_t *) dyn_file(&dyns[e - ent_count])->data
-                    + off
-                    : (const uint8_t *) bi.initrd_vaddr + ents[e].off + off;
                 uint8_t *buf = (uint8_t *) VFS_BUF_VADDR;
 
                 memcpy(buf, src, n);

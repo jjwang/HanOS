@@ -1220,11 +1220,204 @@ void vfs_server_ref_fd(int32_t svc, int64_t sfd)
     router_forward(svc, &req, &rep);
 }
 
+/* Buffer regular-file writes in the kernel and flush them to the VFS server
+ * on close. Linkers emit an executable in many small write syscalls; batching
+ * turns that into a few large transfers. */
+#define VFS_WRITE_CACHE_MAX (16 * 1024 * 1024)
+#define VFS_WRITE_CACHE_INIT (64 * 1024)
+#define VFS_WRITE_CACHE_SLOTS 4
+
+typedef struct {
+    bool used;
+    int64_t sfd;
+    uint8_t *data;
+    uint64_t cap;
+    uint64_t len;
+    uint64_t pos;
+} vfs_write_cache_t;
+
+static vfs_write_cache_t vfs_write_caches[VFS_WRITE_CACHE_SLOTS];
+static spinlock_t vfs_write_cache_lock;
+
+static vfs_write_cache_t *vfs_write_cache_find(int64_t sfd)
+{
+    for (uint32_t i = 0; i < VFS_WRITE_CACHE_SLOTS; i++) {
+        if (vfs_write_caches[i].used && vfs_write_caches[i].sfd == sfd)
+            return &vfs_write_caches[i];
+    }
+    return NULL;
+}
+
+static void vfs_write_cache_flush(int64_t sfd)
+{
+    spinlock_acquire(&vfs_write_cache_lock);
+    vfs_write_cache_t *c = vfs_write_cache_find(sfd);
+
+    if (c == NULL) {
+        spinlock_release(&vfs_write_cache_lock);
+        return;
+    }
+
+    uint8_t *data = c->data;
+    uint64_t len = c->len;
+
+    c->used = false;
+    c->data = NULL;
+    c->len = 0;
+    spinlock_release(&vfs_write_cache_lock);
+
+    uint64_t done = 0;
+
+    while (data != NULL && done < len) {
+        int64_t n = vfs_server_write(sfd, len - done, data + done);
+
+        if (n <= 0)
+            break;
+        done += (uint64_t) n;
+    }
+    if (data != NULL)
+        kmfree(data);
+}
+
+/* Large initrd files are read through the VFS server one small BFD read at a
+ * time. Cache the whole file in the kernel on first read; the server round trip
+ * then covers the file once instead of once per object header. */
+#define VFS_FILE_CACHE_MIN  (1024 * 1024)
+#define VFS_FILE_CACHE_SLOTS 8
+
+typedef struct {
+    bool used;
+    int64_t sfd;
+    uint8_t *data;
+    uint64_t len;
+    uint64_t pos;
+} vfs_file_cache_t;
+
+static vfs_file_cache_t vfs_file_caches[VFS_FILE_CACHE_SLOTS];
+static spinlock_t vfs_file_cache_lock;
+
+static vfs_file_cache_t *vfs_file_cache_find(int64_t sfd)
+{
+    for (uint32_t i = 0; i < VFS_FILE_CACHE_SLOTS; i++) {
+        if (vfs_file_caches[i].used && vfs_file_caches[i].sfd == sfd)
+            return &vfs_file_caches[i];
+    }
+    return NULL;
+}
+
+static void vfs_file_cache_drop(int64_t sfd)
+{
+    spinlock_acquire(&vfs_file_cache_lock);
+    vfs_file_cache_t *c = vfs_file_cache_find(sfd);
+
+    if (c != NULL) {
+        c->used = false;
+        spinlock_release(&vfs_file_cache_lock);
+        if (c->data != NULL)
+            kmfree(c->data);
+        return;
+    }
+    spinlock_release(&vfs_file_cache_lock);
+}
+
+static int64_t vfs_file_cache_load(int64_t sfd, uint64_t size)
+{
+    uint8_t *data = kmalloc(size);
+
+    if (data == NULL)
+        return -1;
+
+    uint64_t done = 0;
+
+    while (done < size) {
+        int64_t n = vfs_server_read(sfd, size - done, data + done);
+
+        if (n <= 0)
+            break;
+        done += (uint64_t) n;
+    }
+
+    if (done == 0) {
+        kmfree(data);
+        return -1;
+    }
+
+    spinlock_acquire(&vfs_file_cache_lock);
+
+    vfs_file_cache_t *c = vfs_file_cache_find(sfd);
+
+    if (c == NULL) {
+        for (uint32_t i = 0; i < VFS_FILE_CACHE_SLOTS; i++) {
+            if (!vfs_file_caches[i].used) {
+                c = &vfs_file_caches[i];
+                c->used = true;
+                c->sfd = sfd;
+                break;
+            }
+        }
+    }
+
+    if (c == NULL) {
+        spinlock_release(&vfs_file_cache_lock);
+        kmfree(data);
+        return -1;
+    }
+
+    if (c->data != NULL)
+        kmfree(c->data);
+    c->data = data;
+    c->len = done;
+    c->pos = 0;
+    spinlock_release(&vfs_file_cache_lock);
+    return 0;
+}
+
 int64_t vfs_read(vfs_fd_t fd, uint64_t len, void *buff)
 {
     vfs_node_desc_t *desc = vfs_fd_to_desc(fd, __func__);
     if (!desc || !desc->server)
         return 0;
+
+    if (desc->svc == SVC_FS && desc->server_size >= VFS_FILE_CACHE_MIN
+        && desc->server_fd >= 0) {
+        spinlock_acquire(&vfs_file_cache_lock);
+        vfs_file_cache_t *c = vfs_file_cache_find(desc->server_fd);
+
+        if (c != NULL && c->pos < c->len) {
+            uint64_t n = c->len - c->pos;
+
+            if (n > len)
+                n = len;
+            spinlock_release(&vfs_file_cache_lock);
+            memcpy(buff, c->data + c->pos, n);
+            spinlock_acquire(&vfs_file_cache_lock);
+            c->pos += n;
+            spinlock_release(&vfs_file_cache_lock);
+            return (int64_t) n;
+        }
+        spinlock_release(&vfs_file_cache_lock);
+
+        if (c == NULL && desc->seek_pos == 0
+            && vfs_file_cache_load(desc->server_fd, desc->server_size) == 0) {
+            spinlock_acquire(&vfs_file_cache_lock);
+            c = vfs_file_cache_find(desc->server_fd);
+            if (c != NULL && c->pos < c->len) {
+                uint64_t n = c->len - c->pos;
+
+                if (n > len)
+                    n = len;
+                spinlock_release(&vfs_file_cache_lock);
+                memcpy(buff, c->data + c->pos, n);
+                spinlock_acquire(&vfs_file_cache_lock);
+                c->pos += n;
+                spinlock_release(&vfs_file_cache_lock);
+                return (int64_t) n;
+            }
+            spinlock_release(&vfs_file_cache_lock);
+        }
+    }
+
+    vfs_write_cache_flush(desc->server_fd);
 
     if (desc->svc == SVC_PIPE)
         return vfs_pipe_rw(desc->server_fd, PIPE_READ, len, buff);
@@ -1305,6 +1498,57 @@ int64_t vfs_write(vfs_fd_t fd, uint64_t len, const void *buff)
         return fat32_write_fd(desc->server_fd, len, buff);
     if (desc->svc == SVC_EXT)
         return ext2_write_fd(desc->server_fd, len, buff);
+
+    if (desc->svc == SVC_FS && desc->server_fd >= 0) {
+        spinlock_acquire(&vfs_write_cache_lock);
+        vfs_write_cache_t *c = vfs_write_cache_find(desc->server_fd);
+
+        if (c == NULL) {
+            for (uint32_t i = 0; i < VFS_WRITE_CACHE_SLOTS; i++) {
+                if (!vfs_write_caches[i].used) {
+                    c = &vfs_write_caches[i];
+                    c->used = true;
+                    c->sfd = desc->server_fd;
+                    c->data = kmalloc(VFS_WRITE_CACHE_INIT);
+                    c->cap = (c->data != NULL) ? VFS_WRITE_CACHE_INIT : 0;
+                    c->len = 0;
+                    c->pos = 0;
+                    break;
+                }
+            }
+        }
+
+        if (c != NULL && c->data != NULL
+            && len <= VFS_WRITE_CACHE_MAX - c->pos) {
+            uint64_t need = c->pos + len;
+
+            if (need > c->cap) {
+                uint64_t ncap = c->cap ? c->cap : VFS_WRITE_CACHE_INIT;
+                uint8_t *nd;
+
+                while (ncap < need)
+                    ncap *= 2;
+                nd = kmalloc(ncap);
+                if (nd != NULL) {
+                    if (c->len > 0)
+                        memcpy(nd, c->data, c->len);
+                    kmfree(c->data);
+                    c->data = nd;
+                    c->cap = ncap;
+                }
+            }
+            if (need <= c->cap) {
+                memcpy(c->data + c->pos, buff, len);
+                c->pos += len;
+                if (c->pos > c->len)
+                    c->len = c->pos;
+                spinlock_release(&vfs_write_cache_lock);
+                return (int64_t) len;
+            }
+        }
+        spinlock_release(&vfs_write_cache_lock);
+    }
+
     return vfs_server_write(desc->server_fd, len, buff);
 }
 
@@ -1413,6 +1657,25 @@ int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
         return fat32_seek_fd(desc->server_fd, pos, whence);
     if (desc->svc == SVC_EXT)
         return ext2_seek_fd(desc->server_fd, pos, whence);
+
+    vfs_write_cache_flush(desc->server_fd);
+
+    spinlock_acquire(&vfs_file_cache_lock);
+    vfs_file_cache_t *c = vfs_file_cache_find(desc->server_fd);
+
+    if (c != NULL) {
+        int64_t base = (whence == 0) ? 0
+            : (whence == 1) ? (int64_t) c->pos : (int64_t) c->len;
+        int64_t target = base + (int64_t) pos;
+
+        if (target < 0)
+            target = 0;
+        c->pos = (uint64_t) target;
+        spinlock_release(&vfs_file_cache_lock);
+        return target;
+    }
+    spinlock_release(&vfs_file_cache_lock);
+
     return vfs_server_seek(desc->server_fd, pos, whence);
 }
 
@@ -1562,13 +1825,36 @@ int64_t vfs_load_file(const char *path, uint8_t **out_buf, uint64_t *out_len)
     *out_buf = NULL;
     *out_len = 0;
 
+    char abspath[VFS_MAX_PATH_LEN];
+    const char *use = path;
+
+    /* Resolve a relative exec path against the current working directory. */
+    if (path[0] != '/') {
+        process_t *t = sched_get_current_process();
+        const char *cwd = (t != NULL && t->cwd != NULL) ? t->cwd : "/";
+        uint64_t cl = strlen(cwd);
+        bool slash = (cl == 0 || cwd[cl - 1] != '/');
+
+        if (cl + (slash ? 1 : 0) + strlen(path) + 1 > sizeof(abspath)) {
+            kloge("VFS: load path too long\n");
+            return -1;
+        }
+        memcpy(abspath, cwd, cl);
+        uint64_t off = cl;
+
+        if (slash)
+            abspath[off++] = '/';
+        memcpy(abspath + off, path, strlen(path) + 1);
+        use = abspath;
+    }
+
     /* Read initrd files straight from the image. The VFS server only serves
      * paths the initrd does not carry, such as the ext2 volume. */
-    if (initrd_load(path, out_buf, out_len) == 0)
+    if (initrd_load(use, out_buf, out_len) == 0)
         return 0;
 
     if (router_lookup(SVC_FS) != NULL)
-        return vfs_load_via_server(path, out_buf, out_len);
+        return vfs_load_via_server(use, out_buf, out_len);
 
     return -1;
 }
@@ -1600,6 +1886,10 @@ int64_t vfs_close(vfs_fd_t fd)
         return fat32_close_fd(sfd);
     if (svc == SVC_EXT)
         return ext2_close_fd(sfd);
+    if (svc == SVC_FS) {
+        vfs_write_cache_flush(sfd);
+        vfs_file_cache_drop(sfd);
+    }
 
     return vfs_server_close(svc, sfd);
 }

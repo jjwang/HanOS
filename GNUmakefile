@@ -20,6 +20,9 @@ MUSL_SHARED  = 3rdparty/build/musl-shared/lib/libc.so
 SYSROOT_STAGE = 3rdparty/build/sysroot
 SYSROOT_STAMP = $(SYSROOT_STAGE)/.installed
 NATIVE_BINUTILS = 3rdparty/build/toolchain/native/bin
+CROSS_GCC = 3rdparty/build/toolchain/x86_64-hanos/lib/gcc/x86_64-hanos/10.2.0
+NATIVE_GCC = 3rdparty/build/toolchain/native-gcc/usr
+WITH_NATIVE_GCC ?= 0
 
 ifeq ($(WITH_PORTS),1)
 PORTS_DEP  = $(PORTS_STAMP)
@@ -33,7 +36,7 @@ HDD_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils
+.PHONY: clean all ports clean-ports initrd kernel run run-ports run-hdd run-hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils native-gcc
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -69,6 +72,10 @@ gcc:
 
 native-binutils:
 	scripts/build-native-binutils.sh
+
+native-gcc:
+	scripts/build-native-gcc.sh
+
 
 $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports
@@ -124,20 +131,32 @@ indent:
 initrd: $(MUSL_SHARED) $(SYSROOT_STAMP)
 	mkdir -p initrd initrd/lib
 	cp -rf sysroot/* initrd
-	cp -rf $(SYSROOT_STAGE)/* initrd
+	mkdir -p initrd/usr/include
+	find $(SYSROOT_STAGE)/usr/include -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} initrd/usr/include/ \;
 	cp -f $(MUSL_SHARED) initrd/lib/ld-musl-x86_64.so.1
 	cp -f $(MUSL_SHARED) initrd/lib/libc.so
-	if [ -d $(NATIVE_BINUTILS) ]; then 		mkdir -p initrd/usr/bin; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-* initrd/usr/bin/; 	fi
+	ln -sf ld-musl-x86_64.so.1 initrd/lib/ld64.so.1
+	@if [ "$(WITH_NATIVE_GCC)" = "1" ]; then 		[ -f $(NATIVE_GCC)/bin/gcc ] || { echo "run make native-gcc first" >&2; exit 1; }; 		cp -a $(NATIVE_GCC)/. initrd/usr/; 		cp -f $(NATIVE_GCC)/bin/gcc $(NATIVE_GCC)/bin/g++ $(NATIVE_GCC)/bin/cpp initrd/bin/; 		mkdir -p initrd/usr/local/bin; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/collect2 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/lto1 initrd/usr/local/bin/; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-as initrd/usr/local/bin/as; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-ld initrd/usr/local/bin/ld; 		mkdir -p initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/lib/; 		cp -f $(SYSROOT_STAGE)/usr/lib/libm.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/usr/local/lib/; 		mkdir -p initrd/usr/local/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/usr/local/include/; 		mkdir -p initrd/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/include/; 		rm -f initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/lto1; 	fi
+	mkdir -p initrd/usr/local/bin
+	mkdir -p initrd/lib
+	cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/
 	$(MAKE) -C userspace
 
 # Both images carry the same initrd; build it once so a sequential or
 # parallel make does not race on the archive.
 $(INITRD_TAR): initrd
-	rm -rf initrd/etc initrd/usr initrd/root
+	rm -rf initrd/etc initrd/usr initrd/root initrd/include initrd/usr/local
 	mkdir -p initrd/etc initrd/usr initrd/root
 	cp -rf sysroot/* initrd
-	cp -rf $(SYSROOT_STAGE)/* initrd
-	tar -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib
+	mkdir -p initrd/usr/include
+	find $(SYSROOT_STAGE)/usr/include -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} initrd/usr/include/ \;
+	mkdir -p initrd/usr/local/bin
+	mkdir -p initrd/lib
+	cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/
+	ln -sf ld-musl-x86_64.so.1 initrd/lib/ld64.so.1
+	@if [ "$(WITH_NATIVE_GCC)" = "1" ]; then 		[ -f $(NATIVE_GCC)/bin/gcc ] || { echo "run make native-gcc first" >&2; exit 1; }; 		cp -a $(NATIVE_GCC)/. initrd/usr/; 		cp -f $(NATIVE_GCC)/bin/gcc $(NATIVE_GCC)/bin/g++ $(NATIVE_GCC)/bin/cpp initrd/bin/; 		mkdir -p initrd/usr/local/bin; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/collect2 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/lto1 initrd/usr/local/bin/; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-as initrd/usr/local/bin/as; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-ld initrd/usr/local/bin/ld; 		mkdir -p initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/lib/; 		cp -f $(SYSROOT_STAGE)/usr/lib/libm.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/usr/local/lib/; 		mkdir -p initrd/usr/local/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/usr/local/include/; 		mkdir -p initrd/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/include/; 		rm -f initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/lto1; 	fi
+	mkdir -p initrd/include
+	tar --dereference --hard-dereference -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib include
 
 $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports-hdd
@@ -164,29 +183,8 @@ $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	rm -rf iso_root
 
 $(HDD_IMAGE): limine $(HDD_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
-	rm -f $(HDD_IMAGE) $(HDD_IMAGE).esp
-	rm -rf $(HDD_IMAGE).p2root
-	mkdir -p $(dir $(HDD_IMAGE))
-	dd if=/dev/zero bs=1M count=0 seek=512 of=$(HDD_IMAGE)
-	sgdisk $(HDD_IMAGE) -n 1:2048:+96M -t 1:ef00 -n 2:198656:0 -t 2:8300
-	./limine/limine bios-install $(HDD_IMAGE)
-	dd if=/dev/zero of=$(HDD_IMAGE).esp bs=1M count=96
-	mformat -F -i $(HDD_IMAGE).esp ::
-	mmd -i $(HDD_IMAGE).esp ::/EFI ::/EFI/BOOT
-	mcopy -i $(HDD_IMAGE).esp kernel/hanos.elf limine.conf limine/limine-bios.sys ::/
-	mcopy -i $(HDD_IMAGE).esp $(HDD_INITRD) ::/initrd.tar
-	mcopy -i $(HDD_IMAGE).esp limine/BOOTX64.EFI limine/BOOTIA32.EFI ::/EFI/BOOT
-	dd if=$(HDD_IMAGE).esp of=$(HDD_IMAGE) bs=512 seek=2048 conv=notrunc
-	rm -f $(HDD_IMAGE).esp
-	mkdir -p $(HDD_IMAGE).p2root/bin $(HDD_IMAGE).p2root/assets
-	for app in $(DISK_APPS); do cp -f userspace/$$app $(HDD_IMAGE).p2root/bin/; done
-ifeq ($(WITH_PORTS),1)
-	cp -fL $(PORTS_STAGE)/bin/* $(HDD_IMAGE).p2root/bin/
-endif
-	printf 'HanOS ext2 data partition.\n' > $(HDD_IMAGE).p2root/assets/readme.txt
-	mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
-		-E offset=$$((198656 * 512)) -d $(HDD_IMAGE).p2root $(HDD_IMAGE) 415M
-	rm -rf $(HDD_IMAGE).p2root
+	scripts/build-hdd-image.sh $(HDD_INITRD)
+
 
 clean:
 	rm -rf $(ISO_IMAGE) kernel/boot/stivale2.h kernel/wget-log initrd.tar \

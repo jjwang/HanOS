@@ -61,6 +61,7 @@
 /* Buffer size and where a stat/dirent result is written inside the shared
  * buffer memory object. Inputs (such as a path) go at offset 0. */
 #define VFS_IO_BUF_SIZE     8192
+#define VFS_READ_CHUNK      (4 * 1024 * 1024)
 #define VFS_IO_DATA_OFF     4096
 
 #define VFS_FD_PATH         0x40        /* words[0]=fd; out: path in xfer[1] */

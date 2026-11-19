@@ -1043,6 +1043,7 @@ int32_t sched_execve_inplace(const char *path, const char *argv[],
     t->context = tc->context;
     t->ustack_top = tc->ustack_top;
     t->ustack_limit = tc->ustack_limit;
+    t->brk = tc->brk;
 
     t->fs_base = 0;
     write_msr(MSR_FS_BASE, 0);

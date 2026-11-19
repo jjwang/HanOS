@@ -39,6 +39,13 @@ fi
 cp "$OVERLAY/syscall_arch.h" "$BUILD/arch/x86_64/syscall_arch.h"
 cp "$OVERLAY/__set_thread_area.s" \
    "$BUILD/src/thread/x86_64/__set_thread_area.s"
+# HanOS has no separate vfork; route it through the C fork wrapper.
+cat > "$BUILD/src/process/x86_64/vfork.s" <<'ASM'
+.global vfork
+.type vfork,@function
+vfork:
+    jmp fork
+ASM
 
 cd "$BUILD"
 make distclean >/dev/null 2>&1 || true
