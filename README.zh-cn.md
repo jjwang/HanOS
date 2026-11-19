@@ -37,6 +37,7 @@ make            # 生成 cdrom.iso 与 release/hdd.img
 make run        # 用 QEMU 启动 cdrom.iso（KVM）
 make run-uefi   # 以 UEFI 方式启动（先下载 OVMF）
 make run-hdd    # 启动 release/hdd.img
+make hdd-ports  # 生成带 bash/coreutils 等的 release/hdd.img
 ```
 
 `make run-hdd` 启动磁盘镜像。需要 `mtools` 与 `sgdisk`。
