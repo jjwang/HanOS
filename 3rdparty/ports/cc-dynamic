@@ -1,0 +1,39 @@
+#!/bin/sh
+# Compile or link against the HanOS musl sysroot with dynamic linking.
+# Non-shared links produce a dynamic executable that loads /lib/ld64.so.1.
+# Shared links produce a real shared object: the x86_64-elf driver drops
+# -shared before collect2, so the link passes -Wl,-shared to the linker.
+set -e
+
+PORTS=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(CDPATH= cd -- "$PORTS/../.." && pwd)
+MUSL="$ROOT/3rdparty/build/musl"
+SYS="$ROOT/3rdparty/build/sysroot"
+OVERLAY="$ROOT/3rdparty/musl"
+
+BASE="-mcmodel=small -mno-red-zone -fcommon -O2 -nostdinc"
+INCS="-I$MUSL/arch/x86_64 -I$MUSL/arch/generic -I$MUSL/obj/include -I$MUSL/include"
+
+link=1
+shared=0
+for arg in "$@"; do
+    case "$arg" in
+        -c|-S|-E|-M|-MM) link=0 ;;
+        -shared) shared=1 ;;
+    esac
+done
+
+if [ "$link" -eq 0 ]; then
+    exec x86_64-elf-gcc $BASE "$@" $INCS
+fi
+
+if [ "$shared" -eq 1 ]; then
+    exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib \
+        -Wl,-shared -Wl,-z,noexecstack -L"$SYS/usr/lib" -lc -lgcc
+fi
+
+exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib -no-pie \
+    -Wl,--dynamic-linker=/lib/ld64.so.1 -Wl,-rpath,/data/lib \
+    -Wl,-z,noexecstack \
+    "$SYS/usr/lib/crt1.o" "$SYS/usr/lib/crti.o" \
+    -L"$SYS/usr/lib" -lc -lgcc "$SYS/usr/lib/crtn.o"
