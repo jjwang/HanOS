@@ -108,10 +108,10 @@ run-hdd: $(HDD_IMAGE)
 
 run-hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
+	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
-	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 run-hdd-uefi: ovmf $(HDD_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35 -m 2G -smp 4 -no-reboot -rtc base=localtime -bios ovmf/OVMF.fd -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
