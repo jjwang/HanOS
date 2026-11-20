@@ -14,4 +14,4 @@
 - Map the Delete key to erase the last character.
 - Implement chmod for ext2 and runtime files, so a C++ build marks its output executable.
 - Route `fchmodat` to chmod, so the coreutils `chmod` command changes the mode.
-- Refuse to execute a file without an execute bit; check the mode where the loader opens the file.
+- Refuse to execute a file without an execute bit, and report EACCES; a missing file reports ENOENT.

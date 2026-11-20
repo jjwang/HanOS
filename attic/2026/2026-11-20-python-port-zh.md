@@ -14,4 +14,4 @@
 - Delete 键按退格处理，删除最后一个字符。
 - 为 ext2 与运行时文件实现 chmod。C++ 编译输出带执行位。
 - 把 `fchmodat` 接到 chmod。coreutils 的 `chmod` 命令能修改权限。
-- 拒绝执行没有执行位的文件。加载器在打开文件处检查 mode。
+- 拒绝执行没有执行位的文件，返回 EACCES。文件缺失返回 ENOENT。
