@@ -37,20 +37,35 @@ ROOTFS="$ROOT/release/hdd.p2root"
 SYS="$ROOT/3rdparty/build/sysroot"
 CROSSLIB="$ROOT/3rdparty/build/toolchain/x86_64-hanos/lib/gcc/x86_64-hanos/10.2.0"
 rm -rf "$ROOTFS"
-mkdir -p "$ROOTFS/bin" "$ROOTFS/assets"
-cp -a "$ROOT/3rdparty/build/toolchain/native-gcc/usr/." "$ROOTFS/"
-find "$SYS/usr/include" -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} "$ROOTFS/include/" \;
-cp -f "$ROOT/3rdparty/build/toolchain/native/bin/x86_64-hanos-as" "$ROOTFS/bin/as"
-cp -f "$ROOT/3rdparty/build/toolchain/native/bin/x86_64-hanos-ld" "$ROOTFS/bin/ld"
-mkdir -p "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0"
-cp -f "$ROOT/3rdparty/build/toolchain/native/bin/x86_64-hanos-as" "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0/as"
-cp -f "$ROOT/3rdparty/build/toolchain/native/bin/x86_64-hanos-ld" "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0/ld"
-cp -f "$SYS/usr/lib/libc.a" "$SYS/usr/lib/libm.a" "$SYS/usr/lib/libc.so" "$ROOTFS/lib/"
-cp -f "$SYS/usr/lib/crt1.o" "$SYS/usr/lib/crti.o" "$SYS/usr/lib/crtn.o" "$ROOTFS/lib/"
-cp -f "$SYS/usr/lib/crt1.o" "$ROOTFS/lib/crt0.o"
-cp -f "$CROSSLIB/crtbegin.o" "$CROSSLIB/crtend.o" "$ROOTFS/lib/"
-mkdir -p "$ROOTFS/lib/gcc/x86_64-hanos/10.2.0"
-cp -f "$CROSSLIB/crtbegin.o" "$CROSSLIB/crtend.o" "$ROOTFS/lib/gcc/x86_64-hanos/10.2.0/"
+mkdir -p "$ROOTFS/bin" "$ROOTFS/assets" "$ROOTFS/include" "$ROOTFS/lib"
+NATIVE_GCC="$ROOT/3rdparty/build/toolchain/native-gcc/usr"
+NATIVE_BIN="$ROOT/3rdparty/build/toolchain/native/bin"
+if [ -d "$NATIVE_GCC" ]; then
+    cp -a "$NATIVE_GCC/." "$ROOTFS/"
+fi
+if [ -d "$SYS/usr/include" ]; then
+    find "$SYS/usr/include" -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} "$ROOTFS/include/" \;
+fi
+if [ -f "$NATIVE_BIN/x86_64-hanos-as" ]; then
+    cp -f "$NATIVE_BIN/x86_64-hanos-as" "$ROOTFS/bin/as"
+    mkdir -p "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0"
+    cp -f "$NATIVE_BIN/x86_64-hanos-as" "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0/as"
+fi
+if [ -f "$NATIVE_BIN/x86_64-hanos-ld" ]; then
+    cp -f "$NATIVE_BIN/x86_64-hanos-ld" "$ROOTFS/bin/ld"
+    mkdir -p "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0"
+    cp -f "$NATIVE_BIN/x86_64-hanos-ld" "$ROOTFS/libexec/gcc/x86_64-hanos/10.2.0/ld"
+fi
+if [ -f "$SYS/usr/lib/libc.a" ]; then
+    cp -f "$SYS/usr/lib/libc.a" "$SYS/usr/lib/libm.a" "$SYS/usr/lib/libc.so" "$ROOTFS/lib/"
+    cp -f "$SYS/usr/lib/crt1.o" "$SYS/usr/lib/crti.o" "$SYS/usr/lib/crtn.o" "$ROOTFS/lib/"
+    cp -f "$SYS/usr/lib/crt1.o" "$ROOTFS/lib/crt0.o"
+fi
+if [ -f "$CROSSLIB/crtbegin.o" ]; then
+    cp -f "$CROSSLIB/crtbegin.o" "$CROSSLIB/crtend.o" "$ROOTFS/lib/"
+    mkdir -p "$ROOTFS/lib/gcc/x86_64-hanos/10.2.0"
+    cp -f "$CROSSLIB/crtbegin.o" "$CROSSLIB/crtend.o" "$ROOTFS/lib/gcc/x86_64-hanos/10.2.0/"
+fi
 for app in $(sed -n 's/^DISK_APPS = //p' "$ROOT/GNUmakefile"); do
     cp -f "$ROOT/userspace/$app" "$ROOTFS/bin/"
 done
@@ -60,6 +75,8 @@ fi
 if [ -d "$ROOT/3rdparty/build/ports/root/lib" ]; then
     cp -a "$ROOT/3rdparty/build/ports/root/lib/." "$ROOTFS/lib/"
 fi
+cp -f "$ROOT/scripts/guest-stress.sh" "$ROOTFS/bin/stress"
+chmod 0755 "$ROOTFS/bin/stress"
 printf 'HanOS ext2 data partition.\n' > "$ROOTFS/assets/readme.txt"
 mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
     -E offset=$((EXT2_START * 512)) -d "$ROOTFS" "$IMG" ${EXT2_MB}M

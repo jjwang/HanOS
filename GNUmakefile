@@ -36,7 +36,7 @@ HDD_INITRD = $(INITRD_TAR)
 IMAGE_MODE = .image-noports
 endif
 
-.PHONY: clean all ports clean-ports initrd indent kernel run run-ports run-hdd run-hdd-ports hdd-ports run-uefi run-hdd-uefi sysroot binutils gcc native-binutils native-gcc
+.PHONY: clean all ports clean-ports initrd indent kernel run run-ports run-hdd run-hdd-ports hdd-ports run-uefi run-hdd-uefi stress sysroot binutils gcc native-binutils native-gcc
 
 all: $(ISO_IMAGE) $(HDD_IMAGE)
 
@@ -110,6 +110,11 @@ run-hdd: $(HDD_IMAGE)
 
 run-hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
+
+stress:
+	rm -f $(HDD_IMAGE)
+	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
+	scripts/stress-test.sh $(HDD_IMAGE)
 	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 hdd-ports:
@@ -144,7 +149,7 @@ initrd: $(MUSL_SHARED) $(SYSROOT_STAMP)
 	@if [ "$(WITH_NATIVE_GCC)" = "1" ]; then 		[ -f $(NATIVE_GCC)/bin/gcc ] || { echo "run make native-gcc first" >&2; exit 1; }; 		cp -a $(NATIVE_GCC)/. initrd/usr/; 		cp -f $(NATIVE_GCC)/bin/gcc $(NATIVE_GCC)/bin/g++ $(NATIVE_GCC)/bin/cpp initrd/bin/; 		mkdir -p initrd/usr/local/bin; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/collect2 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/lto1 initrd/usr/local/bin/; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-as initrd/usr/local/bin/as; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-ld initrd/usr/local/bin/ld; 		mkdir -p initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/lib/; 		cp -f $(SYSROOT_STAGE)/usr/lib/libm.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/usr/local/lib/; 		mkdir -p initrd/usr/local/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/usr/local/include/; 		mkdir -p initrd/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/include/; 		rm -f initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/lto1; 	fi
 	mkdir -p initrd/usr/local/bin
 	mkdir -p initrd/lib
-	cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/
+	if [ -f $(NATIVE_GCC)/lib/libstdc++.so.6 ]; then cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; fi
 	$(MAKE) -C userspace
 
 # Both images carry the same initrd; build it once so a sequential or
@@ -157,7 +162,7 @@ $(INITRD_TAR): initrd
 	find $(SYSROOT_STAGE)/usr/include -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} initrd/usr/include/ \;
 	mkdir -p initrd/usr/local/bin
 	mkdir -p initrd/lib
-	cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/
+	if [ -f $(NATIVE_GCC)/lib/libstdc++.so.6 ]; then cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; fi
 	ln -sf ld-musl-x86_64.so.1 initrd/lib/ld64.so.1
 	@if [ "$(WITH_NATIVE_GCC)" = "1" ]; then 		[ -f $(NATIVE_GCC)/bin/gcc ] || { echo "run make native-gcc first" >&2; exit 1; }; 		cp -a $(NATIVE_GCC)/. initrd/usr/; 		cp -f $(NATIVE_GCC)/bin/gcc $(NATIVE_GCC)/bin/g++ $(NATIVE_GCC)/bin/cpp initrd/bin/; 		mkdir -p initrd/usr/local/bin; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/collect2 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/lto1 initrd/usr/local/bin/; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-as initrd/usr/local/bin/as; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-ld initrd/usr/local/bin/ld; 		mkdir -p initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/lib/; 		cp -f $(SYSROOT_STAGE)/usr/lib/libm.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/usr/local/lib/; 		mkdir -p initrd/usr/local/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/usr/local/include/; 		mkdir -p initrd/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/include/; 		rm -f initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/lto1; 	fi
 	mkdir -p initrd/include
@@ -187,7 +192,7 @@ $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
 	truncate -s 512M $(ISO_IMAGE)
 	rm -rf iso_root
 
-$(HDD_IMAGE): limine $(HDD_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
+$(HDD_IMAGE): limine $(HDD_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP) scripts/build-hdd-image.sh scripts/guest-stress.sh
 	scripts/build-hdd-image.sh $(HDD_INITRD)
 
 
