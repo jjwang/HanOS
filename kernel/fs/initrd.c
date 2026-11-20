@@ -25,6 +25,7 @@
 #define USTAR_NAME_OFF      0
 #define USTAR_NAME_LEN      100
 #define USTAR_SIZE_OFF      0x7c
+#define USTAR_MODE_OFF      100
 #define USTAR_SIZE_LEN      12
 #define USTAR_TYPE_OFF      0x9c
 #define USTAR_MAGIC_OFF     257
@@ -99,6 +100,11 @@ int64_t initrd_load(const char *path, uint8_t **out_buf, uint64_t *out_len)
 
         if ((type == USTAR_TYPE_FILE || type == USTAR_TYPE_FILE_OLD)
             && name_matches(ptr + USTAR_NAME_OFF, USTAR_NAME_LEN, path)) {
+            uint32_t fmode = (uint32_t) oct2bin(ptr + USTAR_MODE_OFF, 7);
+
+            if ((fmode & 0111u) == 0)
+                return -1;
+
             uint8_t *buf = NULL;
 
             if (fsize > 0) {

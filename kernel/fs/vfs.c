@@ -1757,9 +1757,12 @@ static int64_t ext2_load_file(const char *rel, uint8_t **out_buf,
     int64_t fd = ext2_open_path(rel, &size, &is_dir, &mode);
 
     (void) is_dir;
-    (void) mode;
     if (fd < 0)
         return -1;
+    if ((mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0) {
+        ext2_close_fd(fd);
+        return -1;
+    }
 
     uint8_t *buf = NULL;
 
@@ -1840,6 +1843,13 @@ static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
     int64_t sfd = (int64_t) rep.words[1];
     uint64_t size = rep.words[2];
     uint8_t *buf = NULL;
+    vfs_stat_t st;
+
+    if (vfs_stat_path("/", path, &st) == 0
+        && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0) {
+        vfs_server_close(SVC_FS, sfd);
+        return -1;
+    }
 
     if (size > 0) {
         buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
