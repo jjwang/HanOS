@@ -10,3 +10,5 @@
 - 构建用 `MACHDEP=hanos`。`sys.platform` 与 `sysconfig` 报告 HanOS。Linux host 三元组保留给 configure 检测。
 - 验证：`python3 -c "print(40+2)"` 输出 `42`。`import math` 加载共享模块。
 - tty 把 Ctrl-D 当作 VEOF。交互解释器读到文件结束就退出。
+- 规范模式只在一行结束时交付输入。退格与按键缓冲保持一致。
+- Delete 键按退格处理，删除最后一个字符。
