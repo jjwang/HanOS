@@ -379,6 +379,9 @@ static void ps2_byte(uint64_t key_ep, uint8_t raw)
                 } else if (repeat_id == idx) {
                     repeat_begin();
                 }
+            } else if (sc == KB_DELETE) {
+                /* The editor is append-only, so Delete erases the last key. */
+                send_char(key_ep, 0x7f);
             }
         } else {
             key_release(idx);
