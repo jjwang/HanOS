@@ -446,6 +446,33 @@ fail:
     return false;
 }
 
+/* Drop the cached image for one open file. A closed fd number is reused for a
+ * different file, and the cache must not answer with the old contents. */
+static void mmap_file_cache_drop(pid_t pid, int64_t fd)
+{
+    for (int32_t i = 0; i < MMAP_FILE_CACHE; i++) {
+        if (mmap_file_cache[i].data != NULL
+            && mmap_file_cache[i].pid == pid && mmap_file_cache[i].fd == fd) {
+            kmfree(mmap_file_cache[i].data);
+            mmap_file_cache[i].data = NULL;
+            mmap_file_cache[i].pid = 0;
+            mmap_file_cache[i].fd = -1;
+        }
+    }
+}
+
+static void mmap_file_cache_drop_pid(pid_t pid)
+{
+    for (int32_t i = 0; i < MMAP_FILE_CACHE; i++) {
+        if (mmap_file_cache[i].data != NULL && mmap_file_cache[i].pid == pid) {
+            kmfree(mmap_file_cache[i].data);
+            mmap_file_cache[i].data = NULL;
+            mmap_file_cache[i].pid = 0;
+            mmap_file_cache[i].fd = -1;
+        }
+    }
+}
+
 uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
                   uint64_t flags, uint64_t fd, uint64_t offset)
 {
@@ -1253,6 +1280,9 @@ int64_t k_close(int64_t fd)
         t->at_dirfd = -1;
 
     klogd("k_close: close fd %ld\n", fd);
+
+    if (t != NULL)
+        mmap_file_cache_drop(t->pid, fd);
 
     if (fd >= 0 && fd < 3) {
         int32_t kind = 0, svc = 0;
@@ -2914,6 +2944,7 @@ static void exit_group_record(process_t * t, int64_t wait_status)
         return;
 
     process_fd_exit_pid((int32_t) leader->pid);
+    mmap_file_cache_drop_pid(leader->pid);
     process_exit_notify_pid((int32_t) leader->pid, wait_status);
     leader->exit_status = wait_status;
     leader->exit_recorded = true;
