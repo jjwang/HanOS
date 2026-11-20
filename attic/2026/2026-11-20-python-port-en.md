@@ -4,5 +4,7 @@
 - Link the interpreter against `libpython3.8.so` and the shared musl libc.
 - Build the extension modules as shared objects. The x86_64-elf driver drops `-shared`, so the ports wrapper passes `-Wl,-shared` to the linker.
 - Fix `getrandom` to return the byte count; the CPython hash seed loops until the buffer fills.
-- Place `libpython3.8.so` in the ports initrd. Keep the stdlib and `lib-dynload` on ext2 under `lib/python3.8`.
-- Verify `python3 -c "print(40+2)"` prints `42`.
+- Skip a DSO without a hash table in the ldso symbol lookup; the vdso carries neither a SysV nor a GNU hash.
+- Drop the kernel mmap file cache when an fd closes or a process exits; a reused fd returned stale file contents.
+- Keep the stdlib and `lib-dynload` on ext2 under `lib/python3.8`.
+- Verify `python3 -c "print(40+2)"` prints `42` and `import math` loads the shared module.
