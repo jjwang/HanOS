@@ -16,3 +16,4 @@
 - Route `fchmodat` to chmod, so the coreutils `chmod` command changes the mode.
 - Refuse to execute a file without an execute bit, and report EACCES; a missing file reports ENOENT.
 - Fill st_blksize and st_blocks for runtime and ext2 files, so ls -l reports a total.
+- Add a free command that reports total, used and free memory from sys_mem_stats.
