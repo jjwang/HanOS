@@ -3226,10 +3226,22 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         return 0;
     }
 
+    /* Report the reason for the failure: a missing execute bit is a
+     * permission error, not a malformed image. */
+    int err = EINVAL;
+    vfs_stat_t st;
+
+    if (vfs_stat_path(cwd, kpath, &st) == 0) {
+        if ((st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0)
+            err = EACCES;
+    } else {
+        err = ENOENT;
+    }
+
     free_exec_argv(kargv);
     free_exec_argv(kenvp);
     kmfree(kpath);
-    cpu_set_errno(EINVAL);
+    cpu_set_errno(err);
     return -1;
 }
 
