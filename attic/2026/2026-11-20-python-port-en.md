@@ -7,4 +7,5 @@
 - Skip a DSO without a hash table in the ldso symbol lookup; the vdso carries neither a SysV nor a GNU hash.
 - Drop the kernel mmap file cache when an fd closes or a process exits; a reused fd returned stale file contents.
 - Keep the stdlib and `lib-dynload` on ext2 under `lib/python3.8`.
+- Build with `MACHDEP=hanos` so `sys.platform` and `sysconfig` report HanOS; the Linux host triple stays for the configure checks.
 - Verify `python3 -c "print(40+2)"` prints `42` and `import math` loads the shared module.

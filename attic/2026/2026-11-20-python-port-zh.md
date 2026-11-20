@@ -7,4 +7,5 @@
 - ldso 符号查找跳过没有哈希表的 DSO。vdso 既无 SysV 也无 GNU 哈希。
 - 关闭 fd 或进程退出时丢弃内核 mmap 文件缓存。复用的 fd 会读到旧文件内容。
 - 标准库与 `lib-dynload` 放在 ext2 的 `lib/python3.8`。
+- 构建用 `MACHDEP=hanos`。`sys.platform` 与 `sysconfig` 报告 HanOS。Linux host 三元组保留给 configure 检测。
 - 验证：`python3 -c "print(40+2)"` 输出 `42`。`import math` 加载共享模块。
