@@ -33,7 +33,13 @@ qemu-system-x86_64 $ACCEL -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
 pid=$!
 
 cleanup() {
-    kill "$pid" 2>/dev/null || true
+    kill -TERM "$pid" 2>/dev/null || true
+    i=0
+    while [ "$i" -lt 50 ] && kill -0 "$pid" 2>/dev/null; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+    kill -KILL "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
     rm -f "$WORK"
 }
