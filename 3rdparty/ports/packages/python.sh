@@ -27,7 +27,12 @@ READELF=x86_64-elf-readelf CONFIG_SITE="$BUILD/python-config.site" \
     ./configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-musl \
     --prefix=/usr --enable-shared --with-ensurepip=no --disable-ipv6
 
-make -j"$NPROC"
+# Report HanOS as the platform. Keep the Linux host triple for the configure
+# feature checks, and override MACHDEP only for the compiled-in platform name
+# and the sysconfig data module.
+rm -f Python/getplatform.o pybuilddir.txt
+rm -f build/lib.*/_sysconfigdata_*.py
+make -j"$NPROC" MACHDEP=hanos
 
 # Stage the interpreter, the shared library and the stdlib. Use real files,
 # not symlinks: the ext2 path does not follow a symlink on exec.
