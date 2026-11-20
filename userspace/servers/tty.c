@@ -207,9 +207,6 @@ static bool read_ready(void)
     if (!tty_canon)
         return kcount > 0;
 
-    if (kcount >= wait_len)
-        return true;
-
     for (uint32_t i = 0; i < kcount; i++)
         if (keys[(ktail + i) % TTY_KEY_MAX] == '\n')
             return true;
@@ -250,6 +247,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     eof_pending = true;
             } else if (wait_reply != 0) {
                 flush_deferred();
+                line_len = 0;
             }
             return;
         }
@@ -257,7 +255,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         /* Canonical mode edits the pending line. Keep the erase key out of
          * the buffer so a shell without readline does not see it. */
         if (tty_canon && (k == '\b' || k == 0x7f)) {
-            if (line_len > 0) {
+            if (line_len > 0 && kcount > 0) {
                 khead = (khead + TTY_KEY_MAX - 1) % TTY_KEY_MAX;
                 kcount--;
                 line_len--;
@@ -273,7 +271,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         /* Ctrl-U erases the pending line. */
         if (tty_canon && k == 0x15) {
-            while (line_len > 0) {
+            while (line_len > 0 && kcount > 0) {
                 khead = (khead + TTY_KEY_MAX - 1) % TTY_KEY_MAX;
                 kcount--;
                 line_len--;
