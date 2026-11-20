@@ -32,7 +32,7 @@
 /* Where the server maps an incoming memory object (path or data). */
 #define VFS_BUF_VADDR       0x20000000
 #define VFS_NAME_MAX        100
-#define VFS_MAX_FDS         16
+#define VFS_FD_INIT         16
 #define VFS_MAX_ENTS        16384
 #define VFS_MAX_DYN         256
 #define VFS_DYN_CAP         (64 * 1024)
@@ -142,7 +142,9 @@ static struct {
     int32_t poll_events;
     uint32_t gen;               /* generation, changes on reuse */
     int32_t special;            /* 0 none, 1 /dev/zero, 2 /dev/null */
-} fds[VFS_MAX_FDS];
+} *fds;
+
+static int32_t fd_cap;
 
 static bootinfo_t bi;
 
@@ -740,7 +742,7 @@ static void fifo_wake_writers(int32_t ent)
 
         if (!w->used || w->ent != ent || !w->is_write)
             continue;
-        if (w->fd < 1 || w->fd > VFS_MAX_FDS || !fds[w->fd - 1].in_use
+        if (w->fd < 1 || w->fd > fd_cap || !fds[w->fd - 1].in_use
             || fds[w->fd - 1].gen != w->gen) {
             if (w->reply != 0) {
                 sys_ipc_msg_t bad;
@@ -863,7 +865,7 @@ static void fifo_poll_wake(int32_t ent)
 {
     vfs_dyn_t *d = &dyns[ent - ent_count];
 
-    for (int32_t i = 0; i < VFS_MAX_FDS; i++) {
+    for (int32_t i = 0; i < fd_cap; i++) {
         if (!fds[i].in_use || !fds[i].poll_key
             || !idx_is_fifo(fds[i].ent) || fds[i].ent != ent)
             continue;
@@ -961,9 +963,46 @@ static uint8_t *map_buf(int64_t memh)
     return (uint8_t *) VFS_BUF_VADDR;
 }
 
+static void fd_table_ensure(int32_t need)
+{
+    if (need <= fd_cap)
+        return;
+
+    int32_t cap = (fd_cap > 0) ? fd_cap : VFS_FD_INIT;
+
+    while (cap < need)
+        cap *= 2;
+
+    void *nf = calloc((size_t) cap, sizeof(*fds));
+
+    if (nf == NULL)
+        return;
+    if (fds != NULL) {
+        memcpy(nf, fds, (size_t) fd_cap * sizeof(*fds));
+        free(fds);
+    }
+    fds = nf;
+    fd_cap = cap;
+}
+
 static int32_t fd_alloc(void)
 {
-    for (int32_t i = 0; i < VFS_MAX_FDS; i++) {
+    if (fd_cap == 0)
+        fd_table_ensure(VFS_FD_INIT);
+
+    for (int32_t i = 0; i < fd_cap; i++) {
+        if (!fds[i].in_use) {
+            memset(&fds[i], 0, sizeof(fds[i]));
+            fds[i].in_use = true;
+            fds[i].refs = 1;
+            fds[i].gen = ++vfs_fd_gen;
+            return i + 1;
+        }
+    }
+
+    fd_table_ensure(fd_cap * 2);
+
+    for (int32_t i = 0; i < fd_cap; i++) {
         if (!fds[i].in_use) {
             memset(&fds[i], 0, sizeof(fds[i]));
             fds[i].in_use = true;
@@ -1419,7 +1458,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int32_t fd = (int32_t) m->words[0];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use
             || !fds[fd - 1].is_dir || fds[fd - 1].dir == NULL || memh == 0) {
             if (memh != 0)
                 sys_handle_close(memh);
@@ -1541,7 +1580,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
 
-        if (buf == NULL || fd <= 0 || fd > VFS_MAX_FDS
+        if (buf == NULL || fd <= 0 || fd > fd_cap
             || !fds[fd - 1].in_use) {
             if (memh != 0)
                 sys_handle_close(memh);
@@ -1727,7 +1766,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t len = m->words[1];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
         } else if (fds[fd - 1].special == 1) {
@@ -1852,7 +1891,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int32_t fd = (int32_t) m->words[0];
         uint64_t size = m->words[1];
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
@@ -1912,7 +1951,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t len = m->words[1];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
         } else if (fds[fd - 1].special != 0) {
@@ -2048,7 +2087,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int32_t fd = (int32_t) m->words[0];
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use
             || !fds[fd - 1].is_dir) {
             if (memh != 0)
                 sys_handle_close(memh);
@@ -2146,7 +2185,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == VFS_CLOSE) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
+        if (fd >= 1 && fd <= fd_cap && fds[fd - 1].in_use) {
             if (fds[fd - 1].refs > 0)
                 fds[fd - 1].refs--;
             if (fds[fd - 1].refs == 0) {
@@ -2181,7 +2220,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == VFS_FD_FORK) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd >= 1 && fd <= VFS_MAX_FDS && fds[fd - 1].in_use) {
+        if (fd >= 1 && fd <= fd_cap && fds[fd - 1].in_use) {
             fds[fd - 1].refs++;
             rep->words[0] = 0;
         } else {
@@ -2195,7 +2234,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int64_t pos = (int64_t) m->words[1];
         int64_t whence = (int64_t) m->words[2];
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use
             || fds[fd - 1].is_dir) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
@@ -2550,7 +2589,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == VFS_POLL) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use) {
             rep->words[0] = (uint64_t) (int64_t) -9;
         } else if (idx_is_fifo(fds[fd - 1].ent)) {
             vfs_dyn_t *d = &dyns[fds[fd - 1].ent - ent_count];
@@ -2571,7 +2610,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == VFS_POLL_REG) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd < 1 || fd > VFS_MAX_FDS || !fds[fd - 1].in_use) {
+        if (fd < 1 || fd > fd_cap || !fds[fd - 1].in_use) {
             rep->words[0] = (uint64_t) (int64_t) -9;
         } else {
             fds[fd - 1].poll_key = (int64_t) m->words[1];
