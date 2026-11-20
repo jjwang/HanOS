@@ -1932,6 +1932,16 @@ uint64_t vfs_tell(vfs_fd_t fd)
     return desc->server_size;
 }
 
+/* Drop any kernel cache for a server fd that a dup or close is about to
+ * replace, so buffered writes reach the server first. */
+void vfs_fd_cache_drop(int32_t svc, int64_t sfd)
+{
+    if (svc == SVC_FS) {
+        vfs_write_cache_flush(sfd);
+        vfs_file_cache_drop(sfd);
+    }
+}
+
 int64_t vfs_close(vfs_fd_t fd)
 {
     int32_t kind = 0, svc = 0;

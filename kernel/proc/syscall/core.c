@@ -3263,6 +3263,16 @@ int64_t k_dup3(int64_t oldfd, int64_t newfd, int64_t flags)
         return -1;
     }
 
+    /* A replaced descriptor may hold buffered server writes; flush them before
+     * the dup drops the server-side description. */
+    if (newfd >= 0) {
+        int32_t ckind = 0, csvc = 0;
+        int64_t csfd = 0;
+
+        if (process_fd_get((int32_t) newfd, &ckind, &csvc, &csfd, NULL, NULL) == 0)
+            vfs_fd_cache_drop(csvc, csfd);
+    }
+
     /* Linux dup3(oldfd, newfd, flags): make newfd refer to oldfd. newfd < 0
      * means the caller wants the lowest free descriptor (dup). */
     int64_t r = process_fd_dup((int32_t) oldfd, (int32_t) newfd);

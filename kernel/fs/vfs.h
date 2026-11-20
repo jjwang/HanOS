@@ -212,6 +212,7 @@ int64_t vfs_readlink_path(const char *cwd, const char *path, char *out,
 vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
                        int32_t *svc);
 int64_t vfs_chmod_path(const char *cwd, const char *path, uint32_t mode);
+void vfs_fd_cache_drop(int32_t svc, int64_t sfd);
 
 /* Register a descriptor owned by the userspace VFS server. */
 vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,

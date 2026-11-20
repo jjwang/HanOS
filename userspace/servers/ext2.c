@@ -35,7 +35,7 @@
 #define EXT2_DATA_MAX       (EXT2_IO_BUF_SIZE - EXT2_IO_DATA_OFF)
 #define EXT2_PART_INDEX     1
 #define EXT2_ROOT_INO       2
-#define EXT2_FD_MAX         128
+#define EXT2_FD_INIT        32
 #define EXT2_MAX_GROUPS     128
 
 static bootinfo_t bi;
@@ -1010,11 +1010,43 @@ typedef struct {
     char path[EXT2_PATH_MAX];   /* path used to open this descriptor */
 } ext2_fd_t;
 
-static ext2_fd_t fdtab[EXT2_FD_MAX];
+static ext2_fd_t *fdtab;
+static int32_t fd_cap;
+
+static void fd_table_ensure(int32_t need)
+{
+    if (need <= fd_cap)
+        return;
+
+    int32_t cap = (fd_cap > 0) ? fd_cap : EXT2_FD_INIT;
+
+    while (cap < need)
+        cap *= 2;
+
+    ext2_fd_t *nf = calloc((size_t) cap, sizeof(*fdtab));
+
+    if (nf == NULL)
+        return;
+    if (fdtab != NULL) {
+        memcpy(nf, fdtab, (size_t) fd_cap * sizeof(*fdtab));
+        free(fdtab);
+    }
+    fdtab = nf;
+    fd_cap = cap;
+}
 
 static int32_t fd_alloc(void)
 {
-    for (int32_t i = 0; i < EXT2_FD_MAX; i++)
+    if (fd_cap == 0)
+        fd_table_ensure(EXT2_FD_INIT);
+
+    for (int32_t i = 0; i < fd_cap; i++)
+        if (!fdtab[i].used)
+            return i;
+
+    fd_table_ensure(fd_cap * 2);
+
+    for (int32_t i = 0; i < fd_cap; i++)
         if (!fdtab[i].used)
             return i;
     return -1;
@@ -1022,7 +1054,7 @@ static int32_t fd_alloc(void)
 
 static bool fd_ok(int32_t fd)
 {
-    return fd >= 0 && fd < EXT2_FD_MAX && fdtab[fd].used;
+    return fd >= 0 && fd < fd_cap && fdtab[fd].used;
 }
 
 static char *read_path_at(const uint8_t * buf, uint64_t * pos)

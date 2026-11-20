@@ -26,7 +26,7 @@
 #include <sysfunc.h>
 
 #define PROC_PID_MAX    4096
-#define PROC_FD_MAX     256
+#define PROC_FD_INIT    32
 #define PROC_FD_BASE    3       /* fds 0..2 are stdin/stdout/stderr */
 
 /* Service ids sent by the kernel; must match kernel/router/router.h. */
@@ -51,6 +51,7 @@ typedef struct {
 } proc_fd_t;
 
 static proc_fd_t *table[PROC_PID_MAX];
+static int32_t fd_cap[PROC_PID_MAX];
 
 /**
  * @brief Parent/child bookkeeping for wait and exit
@@ -172,11 +173,37 @@ static proc_fd_t *fd_table(int32_t pid, bool alloc)
     if (pid < 0 || pid >= PROC_PID_MAX)
         return NULL;
     if (table[pid] == NULL && alloc) {
-        table[pid] = calloc(PROC_FD_MAX, sizeof(proc_fd_t));
+        table[pid] = calloc(PROC_FD_INIT, sizeof(proc_fd_t));
         if (table[pid] == NULL)
             return NULL;
+        fd_cap[pid] = PROC_FD_INIT;
     }
     return table[pid];
+}
+
+static proc_fd_t *fd_table_ensure(int32_t pid, int32_t need)
+{
+    proc_fd_t *t = fd_table(pid, true);
+
+    if (t == NULL)
+        return NULL;
+    if (need <= fd_cap[pid])
+        return t;
+
+    int32_t cap = fd_cap[pid];
+
+    while (cap < need)
+        cap *= 2;
+
+    proc_fd_t *nt = calloc((size_t) cap, sizeof(proc_fd_t));
+
+    if (nt == NULL)
+        return NULL;
+    memcpy(nt, t, (size_t) fd_cap[pid] * sizeof(proc_fd_t));
+    free(t);
+    table[pid] = nt;
+    fd_cap[pid] = cap;
+    return nt;
 }
 
 static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
@@ -186,7 +213,18 @@ static int32_t fd_alloc(int32_t pid, proc_fd_t **out)
     if (t == NULL)
         return -1;
 
-    for (int32_t fd = PROC_FD_BASE; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = PROC_FD_BASE; fd < fd_cap[pid]; fd++) {
+        if (!t[fd].used) {
+            *out = &t[fd];
+            return fd;
+        }
+    }
+
+    t = fd_table_ensure(pid, fd_cap[pid] + 1);
+    if (t == NULL)
+        return -1;
+
+    for (int32_t fd = PROC_FD_BASE; fd < fd_cap[pid]; fd++) {
         if (!t[fd].used) {
             *out = &t[fd];
             return fd;
@@ -200,7 +238,7 @@ static proc_fd_t *fd_get(int32_t pid, int32_t fd)
 {
     proc_fd_t *t = fd_table(pid, false);
 
-    if (t == NULL || fd < 0 || fd >= PROC_FD_MAX)
+    if (t == NULL || fd < 0 || fd >= fd_cap[pid])
         return NULL;
 
     return t[fd].used ? &t[fd] : NULL;
@@ -265,15 +303,16 @@ static void clone_fds(int32_t parent, int32_t child)
         return;
 
     proc_fd_t *src = fd_table(parent, false);
-    proc_fd_t *dst = fd_table(child, true);
+    int32_t pcap = fd_cap[parent];
+    proc_fd_t *dst = fd_table_ensure(child, pcap);
 
     if (src == NULL || dst == NULL)
         return;
-    memcpy(dst, src, PROC_FD_MAX * sizeof(proc_fd_t));
+    memcpy(dst, src, (size_t) pcap * sizeof(proc_fd_t));
 
     /* The child inherits a reference to each server-side open file
      * description, so tell the owning server to add one. */
-    for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = 0; fd < pcap; fd++) {
         proc_fd_t *e = &dst[fd];
 
         if (!e->used || e->kind != PROC_FD_SERVER)
@@ -292,7 +331,7 @@ static void close_cloexec(int32_t pid)
     if (t == NULL)
         return;
 
-    for (int32_t fd = 0; fd < PROC_FD_MAX; fd++) {
+    for (int32_t fd = 0; fd < fd_cap[pid]; fd++) {
         proc_fd_t *e = &t[fd];
 
         if (!e->used || !e->cloexec)
@@ -579,7 +618,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -24;
                     return;
                 }
-            } else if (newfd < PROC_FD_MAX) {
+            } else if (newfd < fd_cap[pid]) {
                 proc_fd_t *t = fd_table(pid, true);
 
                 if (t == NULL) {
@@ -588,8 +627,13 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 dst = &t[newfd];
             } else {
-                rep->words[0] = (uint64_t) (int64_t) -9;
-                return;
+                proc_fd_t *t = fd_table_ensure(pid, newfd + 1);
+
+                if (t == NULL) {
+                    rep->words[0] = (uint64_t) (int64_t) -12;
+                    return;
+                }
+                dst = &t[newfd];
             }
 
             if (newfd == fd) {
@@ -725,7 +769,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             proc_fd_t *t = fd_table(pid, false);
 
             if (t != NULL) {
-                for (int32_t i = 0; i < PROC_FD_MAX; i++) {
+                for (int32_t i = 0; i < fd_cap[pid]; i++) {
                     proc_fd_t *e = &t[i];
 
                     if (!e->used || e->kind != PROC_FD_SERVER)
@@ -734,6 +778,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 }
                 free(t);
                 table[pid] = NULL;
+                fd_cap[pid] = 0;
             }
         }
         rep->words[0] = 0;
