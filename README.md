@@ -72,6 +72,10 @@ include/    wire headers shared by the kernel and userspace
 
 See `3rdparty/musl/README.md` for the musl build.
 
+## Testing
+
+`make stress` builds `release/hdd.img` with the ports and runs the standard stress test. It boots the image, runs `ls`, `free`, `cmp`, Python and a C++ build in the guest, then fails on a guest failure or a kernel or loader error. `scripts/stress-test.sh <image>` runs the same test against an existing image.
+
 ## Programs
 
 Programs live in the initrd and on the ext2 data partition. The shell looks in `/bin` and then `/data/bin`, so a name runs from any directory. The live USB image and `make run-hdd` use the same layout.
