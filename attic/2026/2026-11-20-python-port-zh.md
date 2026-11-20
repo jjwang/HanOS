@@ -15,3 +15,4 @@
 - 为 ext2 与运行时文件实现 chmod。C++ 编译输出带执行位。
 - 把 `fchmodat` 接到 chmod。coreutils 的 `chmod` 命令能修改权限。
 - 拒绝执行没有执行位的文件，返回 EACCES。文件缺失返回 ENOENT。
+- 为运行时文件与 ext2 文件补齐 st_blksize 与 st_blocks。ls -l 能显示 total。

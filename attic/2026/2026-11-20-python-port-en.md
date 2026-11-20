@@ -15,3 +15,4 @@
 - Implement chmod for ext2 and runtime files, so a C++ build marks its output executable.
 - Route `fchmodat` to chmod, so the coreutils `chmod` command changes the mode.
 - Refuse to execute a file without an execute bit, and report EACCES; a missing file reports ENOENT.
+- Fill st_blksize and st_blocks for runtime and ext2 files, so ls -l reports a total.
