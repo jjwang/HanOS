@@ -50,6 +50,9 @@ static bool tty_canon = true;
 /* Length of the line being edited in canonical mode. */
 static uint32_t line_len;
 
+/* A Ctrl-D on an empty line sets a pending EOF for the next read. */
+static bool eof_pending;
+
 static void key_push(uint8_t k)
 {
     if (kcount >= TTY_KEY_MAX)
@@ -180,6 +183,22 @@ static void flush_deferred(void)
     sys_handle_close(reply);
 }
 
+/* Answer the waiting reader with EOF. Do not touch the key buffer. */
+static void flush_deferred_eof(void)
+{
+    sys_ipc_msg_t rr;
+    int64_t reply = wait_reply;
+
+    memset(&rr, 0, sizeof(rr));
+    rr.tag = TTY_READ;
+    rr.words[0] = 0;
+    rr.words[1] = 0;
+
+    wait_reply = 0;
+    sys_ipc_send(reply, &rr);
+    sys_handle_close(reply);
+}
+
 /* A deferred read is answered once the line is complete, so a shell gets a
  * whole command in one reply. A reader that asked for few bytes is answered as
  * soon as that many arrive, which keeps single-byte readers unbuffered. */
@@ -210,12 +229,30 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         tty_echo = m->words[0] != 0;
         tty_canon = m->words[1] != 0;
         line_len = 0;
+        eof_pending = false;
         rep->words[0] = 0;
         return;
     }
 
     if (m->tag == TTY_KEY) {
         uint8_t k = (uint8_t) m->words[0];
+
+        if (k != INPUT_KEY_EOF)
+            eof_pending = false;
+
+        /* Ctrl-D is VEOF. An empty line reads as EOF; a pending line is
+         * delivered without the key. */
+        if (tty_canon && k == INPUT_KEY_EOF) {
+            if (line_len == 0) {
+                if (wait_reply != 0)
+                    flush_deferred_eof();
+                else
+                    eof_pending = true;
+            } else if (wait_reply != 0) {
+                flush_deferred();
+            }
+            return;
+        }
 
         /* Canonical mode edits the pending line. Keep the erase key out of
          * the buffer so a shell without readline does not see it. */
@@ -277,6 +314,12 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint8_t *dst = NULL;
 
         if (n == 0) {
+            if (eof_pending) {
+                eof_pending = false;
+                rep->words[0] = 0;
+                rep->words[1] = 0;
+                return;
+            }
             /* No key yet: keep the request (and its reply endpoint) and answer
              * it when a key arrives. A newer request replaces the old one. */
             if (wait_reply != 0) {
