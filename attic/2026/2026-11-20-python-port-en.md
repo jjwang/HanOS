@@ -12,3 +12,4 @@
 - Treat Ctrl-D as VEOF in the tty so the interactive interpreter exits on end of file.
 - Deliver canonical input only at end of line so backspace stays in sync with the key buffer.
 - Map the Delete key to erase the last character.
+- Implement chmod for ext2 and runtime files, so a C++ build marks its output executable.
