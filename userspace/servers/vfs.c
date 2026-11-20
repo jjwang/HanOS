@@ -83,6 +83,7 @@ typedef struct vfs_dyn {
     uint64_t size;
     uint64_t cap;
     uint32_t mtime;
+    uint32_t mode;
     uint8_t fifo_data[4096];
     uint64_t fifo_head;
     uint64_t fifo_tail;
@@ -538,8 +539,11 @@ static uint32_t idx_mode(int32_t i)
         return 0755;
     if (idx_is_symlink(i))
         return 0777;
-    if (idx_is_dyn(i))
-        return 0644;
+    if (idx_is_dyn(i)) {
+        uint32_t m = dyns[i - ent_count].mode;
+
+        return m ? m : 0644;
+    }
     return (ents[i].mode != 0) ? ents[i].mode : 0644;
 }
 
@@ -617,6 +621,7 @@ static int32_t dyn_create(const char *path)
         return -1;
     }
     d->cap = VFS_DYN_CAP;
+    d->mode = 0644;
     return idx;
 }
 
@@ -2321,6 +2326,53 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         } else {
             rep->words[0] = (uint64_t) (int64_t) -12;
         }
+        free(cwd);
+        free(path);
+        free(abs);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
+        return;
+    }
+
+    if (m->tag == VFS_CHMOD) {
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        uint32_t newmode = (uint32_t) m->words[0] & 0777u;
+        char *cwd = NULL, *path = NULL, *abs = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+
+        if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+            if (abs == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            } else {
+                int32_t e = resolve(abs);
+
+                if (e == -1) {
+                    rep->words[0] = (uint64_t) (int64_t) -2;
+                } else {
+                    if (idx_is_dyn(e))
+                        dyns[e - ent_count].mode = newmode;
+                    else if (e >= 0 && e < ent_count)
+                        ents[e].mode = newmode;
+                    store_save();
+                    rep->words[0] = 0;
+                }
+            }
+        } else {
+            rep->words[0] = (uint64_t) (int64_t) -12;
+        }
+
         free(cwd);
         free(path);
         free(abs);

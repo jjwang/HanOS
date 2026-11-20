@@ -1679,6 +1679,57 @@ int64_t vfs_seek(vfs_fd_t fd, uint64_t pos, int64_t whence)
     return vfs_server_seek(desc->server_fd, pos, whence);
 }
 
+/* Set the permission bits of an existing path. The ext2 mount updates its
+ * inode; other runtime files live in the VFS server. */
+int64_t vfs_chmod_path(const char *cwd, const char *path, uint32_t mode)
+{
+    char relbuf[VFS_MAX_PATH_LEN];
+    char absbuf[VFS_MAX_PATH_LEN];
+    const char *rel;
+
+    if (path[0] != '/') {
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+
+        if (cl + pl + 2 > sizeof(absbuf))
+            return -1;
+        memcpy(absbuf, cwd, cl);
+        if (cl == 0 || absbuf[cl - 1] != '/')
+            absbuf[cl++] = '/';
+        memcpy(absbuf + cl, path, pl + 1);
+        path = absbuf;
+        cwd = "/";
+    }
+
+    rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
+    if (rel != NULL)
+        return ext2_chmod_path(rel, mode);
+
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_CHMOD;
+    req.words[0] = mode;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_FS, &req, &rep) && (int64_t) rep.words[0] == 0)
+        rc = 0;
+
+    memobj_unref(mo);
+    return rc;
+}
+
 vfs_fd_t vfs_open_server_svc(int64_t server_fd, const char *path,
                              vfs_openmode_t mode, uint64_t size, int32_t svc)
 {

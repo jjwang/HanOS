@@ -788,12 +788,26 @@ int64_t k_openat(int64_t dirfd, char *path, int64_t flags, int64_t mode)
     return nfd;
 }
 
-int64_t k_chmod(char *path, int64_t flags)
+int64_t k_chmod(char *path, int64_t mode)
 {
-    /* The kernel has no permission model; keep the call successful. */
-    (void) path;
-    (void) flags;
     cpu_set_errno(0);
+
+    char *kpath = copy_user_path_alloc(path);
+
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+
+    process_t *t = sched_get_current_process();
+    const char *cwd = (t != NULL) ? t->cwd : "/";
+    int64_t rc = vfs_chmod_path(cwd, kpath, (uint32_t) (mode & 07777u));
+
+    kmfree(kpath);
+    if (rc != 0) {
+        cpu_set_errno(ENOENT);
+        return -1;
+    }
     return 0;
 }
 
