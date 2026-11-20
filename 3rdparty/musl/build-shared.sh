@@ -31,6 +31,20 @@ make distclean >/dev/null 2>&1 || true
 cp "$OVERLAY/syscall_arch.h" arch/x86_64/syscall_arch.h
 cp "$OVERLAY/__set_thread_area.s" src/thread/x86_64/__set_thread_area.s
 
+# musl's symbol lookup assumes every object carries a hash table. A DSO with
+# neither a SysV nor a GNU hash must contribute no symbols instead of
+# dereferencing a NULL table.
+python3 - "$BUILD/ldso/dynlink.c" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("\tchar *strings = dso->strings;\n\tfor (i=hashtab[2+h%hashtab[0]];",
+              "\tchar *strings = dso->strings;\n\tif (!hashtab) return 0;\n\tfor (i=hashtab[2+h%hashtab[0]];", 1)
+s = s.replace("\tif (p->hashtab) return p->hashtab[1];\n",
+              "\tif (p->hashtab) return p->hashtab[1];\n\tif (!p->ghashtab) return 0;\n", 1)
+open(p, "w").write(s)
+PY
+
 cat > cc-elf-link.py <<'LINK'
 #!/usr/bin/env python3
 import os
