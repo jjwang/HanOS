@@ -9,3 +9,4 @@
 - 标准库与 `lib-dynload` 放在 ext2 的 `lib/python3.8`。
 - 构建用 `MACHDEP=hanos`。`sys.platform` 与 `sysconfig` 报告 HanOS。Linux host 三元组保留给 configure 检测。
 - 验证：`python3 -c "print(40+2)"` 输出 `42`。`import math` 加载共享模块。
+- tty 把 Ctrl-D 当作 VEOF。交互解释器读到文件结束就退出。

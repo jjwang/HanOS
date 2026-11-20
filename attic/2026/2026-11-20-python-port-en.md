@@ -9,3 +9,4 @@
 - Keep the stdlib and `lib-dynload` on ext2 under `lib/python3.8`.
 - Build with `MACHDEP=hanos` so `sys.platform` and `sysconfig` report HanOS; the Linux host triple stays for the configure checks.
 - Verify `python3 -c "print(40+2)"` prints `42` and `import math` loads the shared module.
+- Treat Ctrl-D as VEOF in the tty so the interactive interpreter exits on end of file.
