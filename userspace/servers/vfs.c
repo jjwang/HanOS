@@ -937,6 +937,9 @@ static void fill_stat(int32_t e, void *out)
         st->st_ino = (uint64_t) dyn_inode_index(e) + 1;
         st->st_size = (int64_t) idx_size(e);
     }
+
+    st->st_blksize = 512;
+    st->st_blocks = (st->st_size + 511) / 512;
 }
 
 /* Is `name` a direct child of directory `dir`? */

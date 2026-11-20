@@ -1704,6 +1704,7 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
             st.st_uid = m.uid;
             st.st_gid = m.gid;
             st.st_size = (off_t) m.size;
+            st.st_blksize = 512;
             st.st_blocks = (blkcnt_t) m.blocks;
             st.st_mtim.tv_sec = m.mtime;
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {

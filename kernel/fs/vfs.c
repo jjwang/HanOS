@@ -356,6 +356,7 @@ static void ext2_meta_to_vfs(const ext2_meta_t * m, vfs_stat_t * out)
     out->st_uid = m->uid;
     out->st_gid = m->gid;
     out->st_size = (off_t) m->size;
+    out->st_blksize = 512;
     out->st_blocks = (blkcnt_t) m->blocks;
     out->st_mtim.tv_sec = m->mtime;
 }
