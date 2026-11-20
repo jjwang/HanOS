@@ -635,8 +635,9 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_FCHDIR, a1, 0, 0, 0, 0, 0);
     case L_chmod:
         return __hanos_raw(H_CHMOD, a1, a2, 0, 0, 0, 0);
-    case L_fchmod:
     case L_fchmodat:
+        return __hanos_raw(H_CHMOD, a2, a3, 0, 0, 0, 0);
+    case L_fchmod:
     case L_chown:
     case L_fchown:
     case L_lchown:
