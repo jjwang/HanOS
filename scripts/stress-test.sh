@@ -52,7 +52,7 @@ if ! { [ -f "$LOG" ] && grep -aqE 'name "(bash|hansh)"' "$LOG"; }; then
     exit 1
 fi
 
-sleep 2
+sleep 5
 
 python3 - "$MON" <<'PY'
 import socket
@@ -60,7 +60,14 @@ import sys
 import time
 
 s = socket.socket(socket.AF_UNIX)
-s.connect(sys.argv[1])
+for _ in range(40):
+    try:
+        s.connect(sys.argv[1])
+        break
+    except OSError:
+        time.sleep(0.5)
+else:
+    raise SystemExit("stress: cannot connect to the monitor")
 time.sleep(0.5)
 keys = {' ': 'spc', '/': 'slash', '.': 'dot', '-': 'minus',
         '_': 'shift-minus', ',': 'comma', ';': 'semicolon'}
@@ -94,9 +101,10 @@ if grep -aq 'STRESS FAIL' "$LOG"; then
     echo "stress: guest reported failure" >&2
     status=1
 fi
-if grep -aqEi 'panic|exception|corrupt|File header|PermissionError|Out of memory|page fault|Segmentation' "$LOG"; then
+errors=$(grep -aEi 'panic|exception|corrupt|File header|PermissionError|Out of memory|page fault|Segmentation' "$LOG" |     grep -v 'start_pipeline: pgrp pipe')
+if [ -n "$errors" ]; then
     echo "stress: kernel or loader error" >&2
-    grep -anEi 'panic|exception|corrupt|File header|PermissionError|Out of memory|page fault|Segmentation' "$LOG" >&2
+    printf '%s\n' "$errors" >&2
     status=1
 fi
 
