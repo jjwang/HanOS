@@ -184,6 +184,8 @@ int vma_clone(struct addrspace *dst_as, const vma_map_t * src,
             kmfree_chunk(buf, __func__, __LINE__);
             goto fail;
         }
+        if (v->end > dst_as->anon_next)
+            dst_as->anon_next = v->end;
     }
 
     return 0;

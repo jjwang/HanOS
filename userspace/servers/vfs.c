@@ -1416,11 +1416,34 @@ static bool store_entry(int32_t i, uint8_t *type, const char **payload,
     return true;
 }
 
-static void store_save(void)
-{
-    if (!store_ready || bi.ext2_ep == 0)
-        return;
+/* Incremental store save. The VFS is the only server answering its clients,
+ * so a whole-store save would block them past the 1 s router timeout. Advance
+ * one bounded unit per idle iteration and return to the main loop between. */
+enum {
+    STORE_JOB_CREATE,
+    STORE_JOB_TRUNC,
+    STORE_JOB_HEADER,
+    STORE_JOB_ENTRIES
+};
 
+typedef struct {
+    bool active;
+    int32_t phase;
+    int64_t fd;
+    int32_t idx;
+    uint32_t count;
+    uint64_t data_off;
+    bool hdr_done;
+} store_job_t;
+
+static store_job_t store_job;
+
+static void store_save_start(void)
+{
+    if (!store_ready || bi.ext2_ep == 0) {
+        store_dirty = false;
+        return;
+    }
     store_dirty = false;
 
     uint32_t count = 0;
@@ -1434,68 +1457,125 @@ static void store_save(void)
             count++;
     }
 
-    int64_t fd = store_ext_create(VFS_STORE_PATH, NULL);
+    store_job.active = true;
+    store_job.phase = STORE_JOB_CREATE;
+    store_job.fd = -1;
+    store_job.idx = 0;
+    store_job.count = count;
+    store_job.data_off = 0;
+    store_job.hdr_done = false;
+}
 
-    if (fd < 0)
+static void store_save_step(void)
+{
+    if (!store_job.active)
         return;
-    store_ext_trunc(fd, 0);
 
-    store_hdr_t h;
-
-    h.magic = VFS_STORE_MAGIC;
-    h.version = VFS_STORE_VERSION;
-    h.count = count;
-    if (store_ext_write(fd, sizeof(h), &h) != (int64_t) sizeof(h)) {
-        store_ext_close(fd);
+    if (store_job.phase == STORE_JOB_CREATE) {
+        store_job.fd = store_ext_create(VFS_STORE_PATH, NULL);
+        if (store_job.fd < 0) {
+            store_job.active = false;
+            return;
+        }
+        store_job.phase = STORE_JOB_TRUNC;
         return;
     }
 
-    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+    if (store_job.phase == STORE_JOB_TRUNC) {
+        store_ext_trunc(store_job.fd, 0);
+        store_job.phase = STORE_JOB_HEADER;
+        return;
+    }
+
+    if (store_job.phase == STORE_JOB_HEADER) {
+        store_hdr_t h;
+
+        h.magic = VFS_STORE_MAGIC;
+        h.version = VFS_STORE_VERSION;
+        h.count = store_job.count;
+        if (store_ext_write(store_job.fd, sizeof(h), &h) != (int64_t) sizeof(h)) {
+            store_ext_close(store_job.fd);
+            store_job.active = false;
+            return;
+        }
+        store_job.phase = STORE_JOB_ENTRIES;
+        return;
+    }
+
+    for (;;) {
+        if (store_job.idx >= VFS_MAX_DYN) {
+            store_ext_close(store_job.fd);
+            store_job.active = false;
+            return;
+        }
+
+        int32_t i = store_job.idx;
         uint8_t type;
         const char *payload;
         uint64_t dlen;
 
-        if (!store_entry(i, &type, &payload, &dlen))
+        if (!store_entry(i, &type, &payload, &dlen)) {
+            store_job.idx++;
+            store_job.hdr_done = false;
+            store_job.data_off = 0;
             continue;
-
-        uint64_t nlen = strlen(dyns[i].name);
-
-        if (nlen > VFS_NAME_MAX)
-            nlen = VFS_NAME_MAX;
-
-        uint8_t hdr[16 + VFS_NAME_MAX + 1];
-        uint64_t off = 0;
-
-        hdr[off++] = type;
-        hdr[off++] = (uint8_t) nlen;
-        hdr[off++] = 0;
-        hdr[off++] = 0;
-        store_put_u32(hdr, &off, sizeof(hdr), (uint32_t) dlen);
-        store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mtime);
-        store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mode);
-        memcpy(hdr + off, dyns[i].name, nlen);
-        off += nlen;
-
-        if (store_ext_write(fd, off, hdr) != (int64_t) off)
-            break;
-
-        uint64_t done = 0;
-
-        while (done < dlen && payload != NULL) {
-            uint64_t n = dlen - done;
-
-            if (n > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
-                n = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
-            int64_t w = store_ext_write(fd, n, payload + done);
-
-            if (w <= 0)
-                break;
-            done += (uint64_t) w;
         }
-        if (done != dlen)
-            break;
+
+        if (!store_job.hdr_done) {
+            uint64_t nlen = strlen(dyns[i].name);
+
+            if (nlen > VFS_NAME_MAX)
+                nlen = VFS_NAME_MAX;
+
+            uint8_t hdr[16 + VFS_NAME_MAX + 1];
+            uint64_t off = 0;
+
+            hdr[off++] = type;
+            hdr[off++] = (uint8_t) nlen;
+            hdr[off++] = 0;
+            hdr[off++] = 0;
+            store_put_u32(hdr, &off, sizeof(hdr), (uint32_t) dlen);
+            store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mtime);
+            store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mode);
+            memcpy(hdr + off, dyns[i].name, nlen);
+            off += nlen;
+
+            if (store_ext_write(store_job.fd, off, hdr) != (int64_t) off) {
+                store_ext_close(store_job.fd);
+                store_job.active = false;
+                return;
+            }
+            store_job.hdr_done = true;
+            store_job.data_off = 0;
+            if (payload != NULL && dlen != 0)
+                return;         /* one header per idle iteration */
+            store_job.idx++;
+            store_job.hdr_done = false;
+            continue;
+        }
+
+        if (store_job.data_off >= dlen) {
+            store_job.idx++;
+            store_job.hdr_done = false;
+            store_job.data_off = 0;
+            continue;
+        }
+
+        uint64_t n = dlen - store_job.data_off;
+
+        if (n > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+            n = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+        int64_t w =
+            store_ext_write(store_job.fd, n, payload + store_job.data_off);
+
+        if (w <= 0) {
+            store_ext_close(store_job.fd);
+            store_job.active = false;
+            return;
+        }
+        store_job.data_off += (uint64_t) w;
+        return;                 /* one data chunk per idle iteration */
     }
-    store_ext_close(fd);
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
@@ -2341,7 +2421,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
                     dyn_unlink(&dyns[e - ent_count]);
-                    store_save();
+                    store_dirty = true;
                     rep->words[0] = 0;
                 } else {
                     ents[e].deleted = true;
@@ -3025,8 +3105,10 @@ int32_t main(void)
         sys_ipc_msg_t m;
 
         if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0) {
-            if (store_dirty)
-                store_save();
+            if (!store_job.active && store_dirty)
+                store_save_start();
+            if (store_job.active)
+                store_save_step();
             continue;
         }
 

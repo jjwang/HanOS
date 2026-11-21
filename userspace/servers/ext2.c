@@ -650,6 +650,30 @@ static uint64_t file_write(uint8_t *inode, uint32_t ino, uint64_t off,
             return pos - off;
 
         if (boff == 0 && chunk == blk_size) {
+            /* Merge the following physically contiguous full blocks into one
+             * block-server request: one AHCI command instead of one per block. */
+            uint32_t run = 1;
+            uint64_t rpos = pos + blk_size;
+
+            while (rpos < end && end - rpos >= blk_size) {
+                uint32_t nblk;
+
+                if (bmap_alloc(inode, (uint32_t) (rpos / blk_size), &nblk) != 0)
+                    break;
+                if (nblk != pblk + run)
+                    break;
+                run++;
+                rpos += blk_size;
+                if (run * (blk_size / SEC) > 250)
+                    break;
+            }
+            if (run > 1) {
+                blk_write(part_lba + pblk * (blk_size / SEC),
+                          (uint8_t) (run * (blk_size / SEC)),
+                          src + (pos - off));
+                pos = rpos;
+                continue;
+            }
             write_block(pblk, src + (pos - off));
         } else {
             if (read_block(pblk, blk) != 0)

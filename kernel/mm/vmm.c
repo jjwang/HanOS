@@ -380,6 +380,7 @@ addrspace_t *create_addrspace(void)
     for (uint64_t i = 256; i < 512; i++)
         as->PML4[i] = kaddrspace.PML4[i];
 
+    as->anon_next = MMAP_ANON_BASE;
     as->initialized = true;
     as->refs = 1;
     klogd("VMM: creating address space 0x%016lx finished\n", as);

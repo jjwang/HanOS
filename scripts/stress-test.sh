@@ -82,8 +82,8 @@ for ch in '/data/bin/bash /data/bin/stress':
     if ch.isupper():
         key = 'shift-' + ch.lower()
     s.sendall(('sendkey %s\n' % key).encode())
-    time.sleep(0.16)
-time.sleep(0.3)
+    time.sleep(0.22)
+time.sleep(0.4)
 s.sendall(b'sendkey ret\n')
 time.sleep(0.5)
 s.close()

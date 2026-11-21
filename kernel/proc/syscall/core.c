@@ -54,8 +54,6 @@
 #include <srv/process_srv.h>
 #include <srv/net_srv.h>
 
-#define MMAP_ANON_BASE      0x80000000000
-
 extern int64_t syscall_handler();
 int32_t k_getclock(void *_ignored, int64_t which, vfs_timespec_t * out);
 typedef int64_t(*syscall_ptr_t) (void);
@@ -524,7 +522,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     }
 
     /* Drop any previous mapping over the fixed range. */
-    if (ptr != (uint64_t) NULL)
+    if ((flags & MAP_FIXED) && ptr != (uint64_t) NULL)
         vma_remove_range(t->addrspace, &t->addrspace->vmas, ptr,
                          ptr + np * PAGE_SIZE);
 
@@ -552,8 +550,14 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
         }
     }
 
-    if (!(flags & MAP_FIXED)) {
-        ptr = phys_ptr + MMAP_ANON_BASE;
+    if (flags & MAP_FIXED) {
+        /* Keep the requested address. */
+    } else {
+        /* The virtual address must not derive from the physical address:
+         * two chunks a multiple of the page-table span apart would share a
+         * slot and overwrite each other. Advance a per-space cursor. */
+        ptr = as->anon_next;
+        as->anon_next += np * PAGE_SIZE;
     }
 
     vmm_map(as, ptr, phys_ptr, NUM_PAGES(length), pf);

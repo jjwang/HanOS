@@ -110,6 +110,7 @@ void pmm_register_buddy_allocator(void);
 #define VMM_FLAGS_USERMODE      (VMM_FLAGS_DEFAULT | VMM_FLAG_USER)
 
 #define PAGE_TABLE_ENTRIES      512
+#define MMAP_ANON_BASE          0x80000000000ULL
 
 /**
  * @brief Virtual address space: top-level page table, mappings and lock
@@ -119,6 +120,7 @@ typedef struct addrspace {
     vec_struct(uint64_t) page_tables;   /* physical bases of owned tables */
     vec_struct(mem_map_t) owned_list;   /* kernel buffers, never user mapped */
     vma_map_t vmas;                      /* user mappings */
+    uint64_t anon_next;                  /* next free anonymous vaddr */
     uint32_t refs;
     spinlock_t lock;
     bool initialized;
