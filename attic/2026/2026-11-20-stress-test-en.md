@@ -10,3 +10,4 @@
 - The runtime store is written from the idle loop, so runtime files persist without stalling the server.
 - The store carries the file mode; chmod changes survive a reboot.
 - The store save streams each entry; the read cap is 1 MiB. Large files are limited by the ext2 write throughput.
+- The mmap retry backs off between attempts, so the first pipe after boot succeeds.
