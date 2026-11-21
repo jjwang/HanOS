@@ -19,24 +19,20 @@ int main(void)
         hash[0] = '\0';
 
     if (hash[0] != '\0') {
-        char *old = getpass("Current password: ");
+        char old[256];
 
-        if (old == NULL || !pw_verify(hash, old)) {
+        pw_read_password("Current password: ", old, sizeof(old));
+        if (!pw_verify(hash, old)) {
             printf("passwd: authentication failed\n");
             return 1;
         }
     }
 
-    char *a = getpass("New password: ");
-    char first[256] = "";
+    char first[256];
+    char second[256];
 
-    if (a != NULL)
-        snprintf(first, sizeof(first), "%s", a);
-    char *b = getpass("Retype new password: ");
-    char second[256] = "";
-
-    if (b != NULL)
-        snprintf(second, sizeof(second), "%s", b);
+    pw_read_password("New password: ", first, sizeof(first));
+    pw_read_password("Retype new password: ", second, sizeof(second));
     if (first[0] == '\0') {
         printf("passwd: empty password rejected\n");
         return 1;

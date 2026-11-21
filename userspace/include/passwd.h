@@ -26,4 +26,6 @@ void pw_hash_new(const char *password, char *out, size_t out_len);
 /* Verify a password against a stored "$5$..." hash. */
 bool pw_verify(const char *stored, const char *password);
 
+void pw_read_password(const char *prompt, char *buf, size_t len);
+
 #endif

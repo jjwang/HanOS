@@ -65,6 +65,8 @@ typedef struct {
     bool deleted;               /* removed at runtime (initrd is read-only) */
     int64_t mtime;
     uint32_t mode;              /* permission bits from the ustar header */
+    uint32_t uid;
+    uint32_t gid;
 } vfs_ent_t;
 
 /**
@@ -84,6 +86,8 @@ typedef struct vfs_dyn {
     uint64_t cap;
     uint32_t mtime;
     uint32_t mode;
+    uint32_t uid;
+    uint32_t gid;
     uint8_t fifo_data[4096];
     uint64_t fifo_head;
     uint64_t fifo_tail;
@@ -549,6 +553,24 @@ static uint32_t idx_mode(int32_t i)
     return (ents[i].mode != 0) ? ents[i].mode : 0644;
 }
 
+static uint32_t idx_uid(int32_t i)
+{
+    if (idx_is_dyn(i))
+        return dyns[i - ent_count].uid;
+    if (i == ROOT_INDEX)
+        return 0;
+    return ents[i].uid;
+}
+
+static uint32_t idx_gid(int32_t i)
+{
+    if (idx_is_dyn(i))
+        return dyns[i - ent_count].gid;
+    if (i == ROOT_INDEX)
+        return 0;
+    return ents[i].gid;
+}
+
 static const char *idx_name(int32_t i)
 {
     if (idx_is_dyn(i))
@@ -911,6 +933,8 @@ static void fill_stat(int32_t e, void *out)
     memset(st, 0, sizeof(*st));
     st->st_nlink = 1;
     st->st_mtim.tv_sec = idx_mtime(e);
+    st->st_uid = idx_uid(e);
+    st->st_gid = idx_gid(e);
 
     if (idx_is_dyn(e)) {
         vfs_dyn_t *d = dyn_file(&dyns[e - ent_count]);
@@ -1041,7 +1065,7 @@ static char *buf_read_str(const uint8_t *buf, uint64_t buflen, uint64_t * pos)
 #define VFS_STORE_BUF       EXT2_IO_BUF_SIZE
 #define VFS_STORE_MAX       (1024 * 1024)
 #define VFS_STORE_MAGIC     0x3153465648ULL     /* "HVFS1" */
-#define VFS_STORE_VERSION   2
+#define VFS_STORE_VERSION   3
 
 typedef struct[[gnu::packed]] {
     uint64_t magic;
@@ -1274,7 +1298,8 @@ static void store_load(void)
 
     store_hdr_t *h = (store_hdr_t *) buf;
 
-    if (h->magic != VFS_STORE_MAGIC || h->version != VFS_STORE_VERSION) {
+    if (h->magic != VFS_STORE_MAGIC || h->version < 2
+        || h->version > VFS_STORE_VERSION) {
         free(buf);
         return;
     }
@@ -1293,6 +1318,14 @@ static void store_load(void)
         off += 4;
         uint32_t mode = store_get_u32(buf + off);
         off += 4;
+        uint32_t uid = 0;
+        uint32_t gid = 0;
+        if (h->version >= 3) {
+            uid = store_get_u32(buf + off);
+            off += 4;
+            gid = store_get_u32(buf + off);
+            off += 4;
+        }
         if (off + nlen > size || off + nlen + dlen > size)
             break;
 
@@ -1370,6 +1403,10 @@ static void store_load(void)
             dyns[idx - ent_count].mtime = mtime;
             if (mode != 0)
                 dyns[idx - ent_count].mode = mode;
+            if (h->version >= 3) {
+                dyns[idx - ent_count].uid = uid;
+                dyns[idx - ent_count].gid = gid;
+            }
         }
     }
     free(buf);
@@ -1527,7 +1564,7 @@ static void store_save_step(void)
             if (nlen > VFS_NAME_MAX)
                 nlen = VFS_NAME_MAX;
 
-            uint8_t hdr[16 + VFS_NAME_MAX + 1];
+            uint8_t hdr[24 + VFS_NAME_MAX + 1];
             uint64_t off = 0;
 
             hdr[off++] = type;
@@ -1537,6 +1574,8 @@ static void store_save_step(void)
             store_put_u32(hdr, &off, sizeof(hdr), (uint32_t) dlen);
             store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mtime);
             store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mode);
+            store_put_u32(hdr, &off, sizeof(hdr), dyns[i].uid);
+            store_put_u32(hdr, &off, sizeof(hdr), dyns[i].gid);
             memcpy(hdr + off, dyns[i].name, nlen);
             off += nlen;
 
@@ -2500,8 +2539,50 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == VFS_CHOWN) {
-        /* ext2-backed paths go straight to the ext2 server from the kernel. */
-        rep->words[0] = 0;
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;
+        uint64_t pos = 0;
+        uint32_t nuid = (uint32_t) m->words[0];
+        uint32_t ngid = (uint32_t) m->words[1];
+        char *cwd = NULL, *path = NULL, *abs = NULL;
+
+        if (buf == NULL) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+        cwd = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        path = buf_read_str(buf, VFS_IO_DATA_OFF, &pos);
+        if (cwd != NULL && path != NULL) {
+            abs = join_path(cwd, path);
+            if (abs != NULL) {
+                int32_t e = resolve(abs);
+
+                if (e == -1) {
+                    rep->words[0] = (uint64_t) (int64_t) -2;
+                } else if (e == ROOT_INDEX) {
+                    rep->words[0] = 0;
+                } else {
+                    if (idx_is_dyn(e)) {
+                        dyns[e - ent_count].uid = nuid;
+                        dyns[e - ent_count].gid = ngid;
+                    } else {
+                        ents[e].uid = nuid;
+                        ents[e].gid = ngid;
+                    }
+                    store_mark_dirty();
+                    rep->words[0] = 0;
+                }
+            } else {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+            }
+        }
+        free(cwd);
+        free(path);
+        free(abs);
+        sys_mem_unmap(memh, VFS_BUF_VADDR);
+        sys_handle_close(memh);
         return;
     }
 

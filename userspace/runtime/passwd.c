@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/random.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include <passwd.h>
 #include <sha256.h>
@@ -229,4 +231,28 @@ bool pw_verify(const char *stored, const char *password)
     memcpy(combo + sl, password, pl);
     sha256_hex(combo, sl + pl, digest);
     return strcmp(hex, digest) == 0;
+}
+
+void pw_read_password(const char *prompt, char *buf, size_t len)
+{
+    struct termios old, raw;
+    ssize_t n;
+
+    if (len == 0)
+        return;
+    write(1, prompt, strlen(prompt));
+    if (tcgetattr(0, &old) == 0) {
+        raw = old;
+        raw.c_lflag &= ~ECHO;
+        tcsetattr(0, TCSANOW, &raw);
+    }
+    n = read(0, buf, len - 1);
+    if (n < 0)
+        n = 0;
+    if (n > 0 && buf[n - 1] == '\n')
+        n--;
+    buf[n] = '\0';
+    if (tcgetattr(0, &raw) == 0)
+        tcsetattr(0, TCSANOW, &raw);
+    write(1, "\n", 1);
 }

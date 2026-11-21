@@ -11,8 +11,8 @@
 
 static void read_name(char *buf, size_t size)
 {
-    printf("HanOS login: ");
-    fflush(stdout);
+    write(1, "HanOS login:", 12);
+    write(1, " ", 1);
     if (fgets(buf, (int) size, stdin) != NULL) {
         char *nl = strchr(buf, '\n');
 
@@ -54,16 +54,11 @@ int main(void)
     if (hash[0] == '\0') {
         /* First login for this user: force a password. */
         printf("Password not set for %s. Set it now.\n", user);
-        char *a = getpass("New password: ");
-        char first[256] = "";
+        char first[256];
+        char second[256];
 
-        if (a != NULL)
-            snprintf(first, sizeof(first), "%s", a);
-        char *b = getpass("Retype new password: ");
-        char second[256] = "";
-
-        if (b != NULL)
-            snprintf(second, sizeof(second), "%s", b);
+        pw_read_password("New password: ", first, sizeof(first));
+        pw_read_password("Retype new password: ", second, sizeof(second));
         if (first[0] == '\0') {
             printf("login: empty password rejected\n");
             return 1;
@@ -84,9 +79,10 @@ int main(void)
         int tries;
 
         for (tries = 0; tries < 3; tries++) {
-            char *p = getpass("Password: ");
+            char p[256];
 
-            if (p != NULL && pw_verify(hash, p))
+            pw_read_password("Password: ", p, sizeof(p));
+            if (pw_verify(hash, p))
                 break;
             printf("Login incorrect\n");
         }
