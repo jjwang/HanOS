@@ -5,3 +5,5 @@
 - The guest runs `ls`, `free`, `cmp`, Python and a C++ build. The host fails on a guest failure or a kernel or loader error.
 - Guard the native toolchain copies so the base image builds without the self-host toolchain.
 - The VFS, ext2, process, pipe and end tables now grow on demand; the test exposed a stalled VFS open path, fixed.
+- Flush the VFS write cache when a dup replaces a descriptor and drop the synchronous store save from the open path; redirections and compiler temp files now work.
+- The ports image passes the stress test.
