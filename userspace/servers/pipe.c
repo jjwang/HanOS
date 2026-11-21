@@ -28,8 +28,8 @@
 
 #define PIPE_BUF_ADDR   0x20000000
 #define PIPE_BUF_SIZE   4096
-#define PIPE_INIT       16
-#define PIPE_END_INIT   32
+#define PIPE_INIT       4
+#define PIPE_END_INIT   8
 #define PIPE_WAIT_MAX   32
 
 /**

@@ -249,10 +249,17 @@ void sys_panic(const char *message)
 
 void *sys_malloc(int32_t size)
 {
-    void *ret;
-    int32_t errno;
-    SYSCALL6(SYSCALL_MMAP, 0, size, 0, MAP_ANONYMOUS, 0, 0);
-    return ret;
+    void *ret = NULL;
+    int32_t errno = 0;
+
+    /* The first anonymous mapping in a fresh server can fail before the
+     * allocator settles; retry before reporting an out-of-memory. */
+    for (int32_t i = 0; i < 3; i++) {
+        SYSCALL6(SYSCALL_MMAP, 0, size, 0, MAP_ANONYMOUS, 0, 0);
+        if (ret != NULL && (uintptr_t) ret < (uintptr_t) -4095)
+            return ret;
+    }
+    return NULL;
 }
 
 int32_t sys_munmap(void *addr, uint64_t size)
