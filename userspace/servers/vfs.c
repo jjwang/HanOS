@@ -1050,6 +1050,12 @@ typedef struct[[gnu::packed]] {
 } store_hdr_t;
 
 static bool store_ready;
+static bool store_dirty;
+
+static void store_mark_dirty(void)
+{
+    store_dirty = true;
+}
 
 static bool store_put_u32(uint8_t *p, uint64_t *off, uint64_t cap, uint32_t v)
 {
@@ -1357,6 +1363,8 @@ static void store_save(void)
 {
     if (!store_ready || bi.ext2_ep == 0)
         return;
+
+    store_dirty = false;
 
     uint8_t *buf = malloc(VFS_STORE_MAX);
     if (buf == NULL)
@@ -1936,7 +1944,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         d->size = size;
         if (d->name != NULL && strncmp(d->name, "/tmp/", 5) != 0)
-            store_save();
+            store_mark_dirty();
         rep->words[0] = 0;
         rep->words[1] = size;
         return;
@@ -2069,7 +2077,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 d->size = fds[fd - 1].off;
             if (n > 0 && d->name != NULL
                 && strncmp(d->name, "/tmp/", 5) != 0)
-                store_save();
+                store_mark_dirty();
             rep->words[0] = 0;
             rep->words[1] = n;
         }
@@ -2294,7 +2302,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
                     dyn_unlink(&dyns[e - ent_count]);
-                    store_save();
+                    store_mark_dirty();
                     rep->words[0] = 0;
                 } else {
                     ents[e].deleted = true;
@@ -2356,7 +2364,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                         d->used = false;
                         free(d->name);
                         d->name = NULL;
-                        store_save();
+                        store_mark_dirty();
                         rep->words[0] = 0;
                     }
                 }
@@ -2403,7 +2411,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                         dyns[e - ent_count].mode = newmode;
                     else if (e >= 0 && e < ent_count)
                         ents[e].mode = newmode;
-                    store_save();
+                    store_mark_dirty();
                     rep->words[0] = 0;
                 }
             }
@@ -2452,7 +2460,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 else if (dyn_create_dir(norm) < 0)
                     rep->words[0] = (uint64_t) (int64_t) -28;       /* -ENOSPC */
                 else {
-                    store_save();
+                    store_mark_dirty();
                     rep->words[0] = 0;
                 }
             }
@@ -2505,7 +2513,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 else if (dyn_create_symlink(norm, target) < 0)
                     rep->words[0] = (uint64_t) (int64_t) -28;
                 else {
-                    store_save();
+                    store_mark_dirty();
                     rep->words[0] = 0;
                 }
             }
@@ -2564,7 +2572,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                 else if (dyn_create_fifo(norm) < 0)
                     rep->words[0] = (uint64_t) (int64_t) -28;
                 else {
-                    store_save();
+                    store_mark_dirty();
                     rep->words[0] = 0;
                 }
             }
@@ -2758,7 +2766,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
                         alias->link = home;
                         home->links++;
-                        store_save();
+                        store_mark_dirty();
                         rep->words[0] = 0;
                     }
                 }
@@ -2861,7 +2869,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     free(d->name);
                     d->name = strdup(norm);
                     if (d->name != NULL)
-                        store_save();
+                        store_mark_dirty();
                     rep->words[0] = (d->name != NULL) ? 0
                         : (uint64_t) (int64_t) -12;
                 }
@@ -2977,8 +2985,11 @@ int32_t main(void)
     for (;;) {
         sys_ipc_msg_t m;
 
-        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0)
+        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0) {
+            if (store_dirty)
+                store_save();
             continue;
+        }
 
         sys_ipc_msg_t rep;
 
