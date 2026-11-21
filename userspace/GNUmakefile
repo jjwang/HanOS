@@ -78,7 +78,7 @@ ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 HONOS_RT  := $(RUNTIME_OBJS)
 
-CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mem servers/misc servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/gcc bin/g++ bin/c++ bin/login bin/passwd
+CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mm servers/misc servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/mem bin/gcc bin/g++ bin/c++ bin/login bin/passwd
 
 # The console server links libvterm, so it builds through its own rule.
 CONSOLE   := servers/console

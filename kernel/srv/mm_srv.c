@@ -5,7 +5,7 @@
  @details
  @verbatim
 
-  Creates the service endpoint, spawns /bin/mem and registers it with the
+  Creates the service endpoint, spawns /bin/mm and registers it with the
   router as SVC_MM. The allocator stays in the kernel; the server only answers
   meminfo.
 
@@ -59,7 +59,7 @@ bool mm_server_start(void)
     if (mm_ep == NULL)
         return false;
 
-    const char *argv[] = { "mem", NULL };
+    const char *argv[] = { "mm", NULL };
 
     mm_spawner = sched_get_pid();
     sched_set_spawn_hook(mm_spawn_attach);
@@ -70,7 +70,7 @@ bool mm_server_start(void)
         return false;
 
     router_register(SVC_MM, mm_ep, tc->pid);
-    svc_monitor_set(SVC_MM, mm_server_start, "mem");
+    svc_monitor_set(SVC_MM, mm_server_start, "mm");
     mm_active = true;
     klogi("mm: server started and registered as SVC_MM\n");
     return true;
