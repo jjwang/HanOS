@@ -75,6 +75,7 @@ static uint32_t rows;
 static uint32_t term_x;         /* top-left pixel of the terminal grid */
 static uint32_t term_y;
 static bool console_desktop;
+static bool gen9;             /* Skylake Gen9 software-alpha sprite */
 static uint64_t status_last_sec;
 
 static VTerm *vt;
@@ -475,7 +476,7 @@ static void render_cell(uint32_t row, uint32_t col)
     if (cell.attrs.conceal) {
         f = b;
     }
-    if (console_desktop) {
+    if (console_desktop && gen9) {
         f = premul(f, 0xFF);
         b = premul(b, BG_ALPHA);
     } else {
@@ -621,11 +622,11 @@ static void draw_status(void)
     snprintf(buf, sizeof(buf), "HanOS %s  %02d:%02d:%02d  rain:gpu",
              u.release, h, m, s);
 
-    uint32_t bg = console_desktop ? premul(STATUS_BG, STATUS_ALPHA)
+    uint32_t bg = (console_desktop && gen9) ? premul(STATUS_BG, STATUS_ALPHA)
         : (STATUS_BG | 0xFF000000u);
-    uint32_t line = console_desktop ? premul(STATUS_LINE, 0xFF)
+    uint32_t line = (console_desktop && gen9) ? premul(STATUS_LINE, 0xFF)
         : (STATUS_LINE | 0xFF000000u);
-    uint32_t fg = console_desktop ? premul(STATUS_FG, 0xFF)
+    uint32_t fg = (console_desktop && gen9) ? premul(STATUS_FG, 0xFF)
         : (STATUS_FG | 0xFF000000u);
 
     for (uint32_t y = 0; y < STATUS_H; y++) {
@@ -723,6 +724,7 @@ int32_t main(void)
         fb_pitch = bi.fb_pitch;
         console_desktop = bi.desktop != 0;
     }
+    gen9 = bi.gpu_gen9 != 0;
 
     /* The terminal grid fills the middle four fifths; the margins show the
      * background. */
