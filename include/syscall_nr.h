@@ -38,7 +38,11 @@
 #define SYSCALL_SCHED_YIELD     24
 #define SYSCALL_NANOSLEEP       35
 #define SYSCALL_GETPID          39
+#define SYSCALL_CHOWN           92
+#define SYSCALL_FCHOWN          93
+#define SYSCALL_LCHOWN          94
 #define SYSCALL_UMASK           95
+#define SYSCALL_FCHOWNAT        260
 #define SYSCALL_GETUID          102
 #define SYSCALL_GETGID          104
 #define SYSCALL_SETUID          105

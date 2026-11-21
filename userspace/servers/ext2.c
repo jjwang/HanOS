@@ -1140,7 +1140,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         || m->tag == EXT2_UNLINK || m->tag == EXT2_WRITE
         || m->tag == EXT2_LINK || m->tag == EXT2_MKFIFO
         || m->tag == EXT2_STATFS || m->tag == EXT2_FD_PATH
-        || m->tag == EXT2_CHMOD) {
+        || m->tag == EXT2_CHMOD || m->tag == EXT2_CHOWN) {
         memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         if (memh == 0 || sys_mem_map(memh, EXT2_REQ_ADDR, 3) != 0) {
             if (memh != 0)
@@ -1491,6 +1491,38 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             uint32_t newmode = (uint32_t) m->words[1] & 0777u;
 
             wr16(inode, (uint16_t) (type | newmode));
+            struct timespec ts = { 0, 0 };
+
+            clock_gettime(CLOCK_REALTIME, &ts);
+            wr32(inode + 12, (uint32_t) ts.tv_sec);
+            inode_write(ino, inode);
+            path_cache_clear();
+            rep->words[0] = 0;
+            break;
+        }
+
+    case EXT2_CHOWN:{
+            char *path = read_path(buf);
+
+            if (path == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -12;
+                break;
+            }
+            uint32_t ino = path_resolve(path);
+
+            free(path);
+            if (ino == 0) {
+                rep->words[0] = (uint64_t) (int64_t) -2;
+                break;
+            }
+            uint8_t inode[256];
+
+            if (inode_read(ino, inode) != 0) {
+                rep->words[0] = (uint64_t) (int64_t) -5;
+                break;
+            }
+            wr16(inode + 2, (uint16_t) ((uint32_t) m->words[1] & 0xffffu));
+            wr16(inode + 24, (uint16_t) ((uint32_t) m->words[2] & 0xffffu));
             struct timespec ts = { 0, 0 };
 
             clock_gettime(CLOCK_REALTIME, &ts);

@@ -74,6 +74,7 @@
 #define VFS_POLL            0x4B        /* words[0]=fd; out: words[1]=readable,
                                            words[2]=writable */
 #define VFS_CHMOD           0x4D        /* words[0]=mode; in: cwd+path */
+#define VFS_CHOWN           0x4E        /* words[0]=uid, words[1]=gid; in: cwd+path */
 #define VFS_POLL_REG        0x4C        /* words[0]=fd, words[1]=key,
                                            words[2]=events */
 #define VFS_PING            0x3F        /* reply: words[0] = VFS_PONG */
@@ -222,6 +223,7 @@ typedef struct {
 #define EXT2_LINK           0x8d        /* in: oldpath\0newpath\0 */
 #define EXT2_MKFIFO         0x8f        /* in: path */
 #define EXT2_CHMOD          0x90        /* in: path, words[1]=mode */
+#define EXT2_CHOWN          0x91        /* in: path, words[1]=uid, words[2]=gid */
 #define EXT2_STATFS         0x8e        /* in: path; out: words[1]=bsize,
                                            words[2]=blocks, words[3]=bfree,
                                            words[4]=files, words[5]=ffree */

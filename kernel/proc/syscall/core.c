@@ -815,6 +815,40 @@ int64_t k_chmod(char *path, int64_t mode)
     return 0;
 }
 
+int64_t k_chown(char *path, int64_t uid, int64_t gid)
+{
+    cpu_set_errno(0);
+
+    process_t *t = sched_get_current_process();
+    if (t == NULL || t->uid != 0) {
+        cpu_set_errno(EPERM);
+        return -1;
+    }
+
+    char *kpath = copy_user_path_alloc(path);
+    if (kpath == NULL) {
+        cpu_set_errno(EFAULT);
+        return -1;
+    }
+    const char *cwd = t->cwd;
+    int64_t rc = vfs_chown_path(cwd, kpath, (uint32_t) uid, (uint32_t) gid);
+
+    kmfree(kpath);
+    if (rc != 0) {
+        cpu_set_errno(ENOENT);
+        return -1;
+    }
+    return 0;
+}
+
+int64_t k_fchownat(int64_t dirfd, char *path, int64_t uid, int64_t gid,
+                   int64_t flags)
+{
+    (void) dirfd;
+    (void) flags;
+    return k_chown(path, uid, gid);
+}
+
 int64_t k_unlink(char *path)
 {
     cpu_set_errno(0);
@@ -4102,6 +4136,9 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MEM_STATS] = (syscall_ptr_t) k_mem_stats,
     [SYSCALL_RUNCMD] = (syscall_ptr_t) k_runcmd,
     [SYSCALL_CHMOD] = (syscall_ptr_t) k_chmod,
+    [SYSCALL_CHOWN] = (syscall_ptr_t) k_chown,
+    [SYSCALL_LCHOWN] = (syscall_ptr_t) k_chown,
+    [SYSCALL_FCHOWNAT] = (syscall_ptr_t) k_fchownat,
     [SYSCALL_GETUID] = (syscall_ptr_t) k_getuid,
     [SYSCALL_GETGID] = (syscall_ptr_t) k_getgid,
     [SYSCALL_GETEUID] = (syscall_ptr_t) k_geteuid,

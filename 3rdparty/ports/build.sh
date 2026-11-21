@@ -7,13 +7,23 @@ set -e
 
 packages=${*:-bash coreutils grep sed tar make m4 gawk gzip patch diffutils python}
 
-rm -f "$BUILD/.installed"
-rm -rf "$STAGE"
 mkdir -p "$STAGE/bin" "$SRC"
 
+# Rebuild a package only when its script or a shared input changed. The stage
+# directory is kept so unchanged packages stay in place.
 for pkg in $packages; do
+    script="$PORTS/packages/$pkg.sh"
+    stamp="$BUILD/.pkg-$pkg"
+
+    if [ -f "$stamp" ] && [ "$stamp" -nt "$script" ] \
+        && [ "$stamp" -nt "$PORTS/cc" ] && [ "$stamp" -nt "$PORTS/cc-dynamic" ] \
+        && [ "$stamp" -nt "$PORTS/common.sh" ]; then
+        echo "== $pkg (up to date) =="
+        continue
+    fi
     echo "== $pkg =="
-    "$PORTS/packages/$pkg.sh"
+    "$script"
+    touch "$stamp"
 done
 
 touch "$BUILD/.installed"

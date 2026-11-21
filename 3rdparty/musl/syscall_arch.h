@@ -25,6 +25,8 @@
 #define H_SET_FS     0x401
 #define H_IOCTL      16
 #define H_GETPID     39
+#define H_CHOWN      92
+#define H_FCHOWNAT   260
 #define H_UMASK      95
 #define H_GETUID     102
 #define H_GETGID     104
@@ -642,15 +644,19 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_fchmodat:
         return __hanos_raw(H_CHMOD, a2, a3, 0, 0, 0, 0);
     case L_fchmod:
-    case L_chown:
-    case L_fchown:
-    case L_lchown:
-    case L_fchownat:
     case L_utime:
     case L_utimes:
     case L_futimesat:
     case L_utimensat:
-        /* No permission model and no stored timestamps; accept the change. */
+        /* No stored timestamps; accept the change. */
+        return 0;
+    case L_chown:
+    case L_lchown:
+        return __hanos_raw(H_CHOWN, a1, a2, a3, 0, 0, 0);
+    case L_fchownat:
+        return __hanos_raw(H_FCHOWNAT, a1, a2, a3, a4, a5, 0);
+    case L_fchown:
+        /* Only the fd-based call is left; the path form is unsupported. */
         return 0;
     case L_getrusage:
         return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);

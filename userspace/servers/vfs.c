@@ -2499,6 +2499,12 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == VFS_CHOWN) {
+        /* ext2-backed paths go straight to the ext2 server from the kernel. */
+        rep->words[0] = 0;
+        return;
+    }
+
     if (m->tag == VFS_CHMOD) {
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         uint8_t *buf = (memh != 0) ? map_buf(memh) : NULL;

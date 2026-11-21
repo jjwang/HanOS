@@ -889,11 +889,37 @@ vfs_fd_t vfs_open_path(const char *cwd, const char *path, int32_t flags,
         bool is_dir = false;
         uint32_t mode = 0;
         int64_t efd = ext2_open_path(rel, &size, &is_dir, &mode);
+        bool created = false;
 
-        if (efd < 0 && (flags & O_CREAT))
+        if (efd < 0 && (flags & O_CREAT)) {
             efd = ext2_create_path(rel, &size);
+            created = efd >= 0;
+        }
         if (efd < 0)
             return VFS_INVALID_FD;
+
+        process_t *cp = sched_get_current_process();
+
+        /* Apply the create mask, then enforce the permission bits for anyone
+         * other than root. */
+        if (created && cp != NULL)
+            ext2_chmod_path(rel, 0666u & ~cp->umask);
+        if (cp != NULL && cp->uid != 0) {
+            ext2_meta_t m;
+
+            if (ext2_stat_path(rel, &m) == 0) {
+                uint32_t acc = (uint32_t) (flags & 3);
+                uint32_t want = (acc == 0) ? 4u : (acc == 1) ? 2u : 6u;
+                uint32_t bits = (m.uid == cp->uid) ? ((m.mode >> 6) & 7u)
+                    : (m.gid == cp->gid) ? ((m.mode >> 3) & 7u)
+                    : (m.mode & 7u);
+
+                if ((want & bits) != want) {
+                    ext2_close_fd(efd);
+                    return VFS_INVALID_FD;
+                }
+            }
+        }
         if ((mode & 0xF000) == 0x1000) {
             ext2_close_fd(efd);
             return vfs_open_fifo_vfs(cwd, path, flags, svc);
@@ -1720,6 +1746,57 @@ int64_t vfs_chmod_path(const char *cwd, const char *path, uint32_t mode)
     memset(&req, 0, sizeof(req));
     req.tag = VFS_CHMOD;
     req.words[0] = mode;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_FS, &req, &rep) && (int64_t) rep.words[0] == 0)
+        rc = 0;
+
+    memobj_unref(mo);
+    return rc;
+}
+
+int64_t vfs_chown_path(const char *cwd, const char *path, uint32_t uid,
+                      uint32_t gid)
+{
+    char relbuf[VFS_MAX_PATH_LEN];
+    char absbuf[VFS_MAX_PATH_LEN];
+    const char *rel;
+
+    if (path[0] != '/') {
+        uint64_t cl = strlen(cwd);
+        uint64_t pl = strlen(path);
+
+        if (cl + pl + 2 > sizeof(absbuf))
+            return -1;
+        memcpy(absbuf, cwd, cl);
+        if (cl == 0 || absbuf[cl - 1] != '/')
+            absbuf[cl++] = '/';
+        memcpy(absbuf + cl, path, pl + 1);
+        path = absbuf;
+        cwd = "/";
+    }
+
+    rel = vfs_ext_rel(cwd, path, relbuf, sizeof(relbuf));
+    if (rel != NULL)
+        return ext2_chown_path(rel, uid, gid);
+
+    handle_t mh;
+    memobj_t *mo = memobj_alloc_handle(VFS_IO_BUF_SIZE, &mh);
+
+    if (mo == NULL)
+        return -1;
+
+    memobj_pack_cwd_path(mo, cwd, path);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = VFS_CHOWN;
+    req.words[0] = uid;
+    req.words[1] = gid;
     req.xfer[0] = mh;
     req.xfer_count = 1;
 

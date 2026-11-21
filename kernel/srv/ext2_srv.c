@@ -179,6 +179,36 @@ int64_t ext2_chmod_path(const char *path, uint32_t mode)
     return rc;
 }
 
+int64_t ext2_chown_path(const char *path, uint32_t uid, uint32_t gid)
+{
+    if (!ext2_active)
+        return -1;
+
+    handle_t h;
+    memobj_t *mo = memobj_alloc_handle(EXT2_IO_BUF_SIZE, &h);
+    if (mo == NULL)
+        return -1;
+
+    strncpy((char *) PHYS_TO_VIRT(memobj_page(mo, 0)), path, 255);
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = EXT2_CHOWN;
+    req.words[1] = uid;
+    req.words[2] = gid;
+    req.xfer[0] = h;
+    req.xfer_count = 1;
+
+    int64_t rc = -1;
+    if (router_forward(SVC_EXT, &req, &rep) && (int64_t) rep.words[0] == 0)
+        rc = 0;
+
+    memobj_unref(mo);
+    return rc;
+}
+
 int64_t ext2_mkfifo_path(const char *path)
 {
     return ext2_path_call(EXT2_MKFIFO, path, NULL, NULL, NULL);
