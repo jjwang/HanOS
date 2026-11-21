@@ -59,6 +59,24 @@ make native-gcc
 
 CI 不安装交叉工具链。它在 Ubuntu 24.04 上把 `x86_64-elf-gcc` 定义为 `gcc -fno-pie`，用宿主编译器构建。
 
+## Ports 与 Python
+
+可选 Linux 包依赖 `x86_64-elf` 交叉工具链与 musl sysroot。`make ports` 构建默认集合（`bash coreutils grep sed tar make m4 gawk gzip patch diffutils python`），并重生成两个镜像。`make hdd-ports` 只重生成 `release/hdd.img`。包暂存在 `3rdparty/build/ports/root`，再复制到 ext2 数据分区。普通 `make` 不包含这些包。
+
+先构建 sysroot，再构建包：
+
+```
+make sysroot                     # musl 头文件、静态与共享 libc、crt
+make ports                       # 默认集合，两个镜像
+3rdparty/ports/build.sh python   # 或默认集合中的任意子集
+```
+
+`3rdparty/ports/build.sh <name...>` 逐个拉取并构建 `3rdparty/ports/packages/<name>.sh`。构建用 `3rdparty/ports/cc`，即 musl sysroot 包装器。源码、构建树与暂存目录位于 `3rdparty/build/ports`。`make clean-ports` 删除该目录。
+
+Python 包构建 CPython 3.8.18。解释器动态链接 `libpython3.8.so` 与共享 musl libc。共享库放到 `/lib`。标准库与扩展放到 ext2 分区的 `/lib/python3.8`。客户机把 `sys.platform` 报告为 `hanos`。
+
+`make run-ports` 启动带 ports 的 `cdrom.iso`。`make run-hdd-ports` 启动带 ports 的 `release/hdd.img`。
+
 ## 目录结构
 
 ```

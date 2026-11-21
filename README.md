@@ -61,6 +61,36 @@ toolchain, the ports and the games on the ext2 data partition.
 
 The CI does not install a cross toolchain. It defines `x86_64-elf-gcc` as `gcc -fno-pie` on Ubuntu 24.04 and builds with the host compiler.
 
+## Ports and Python
+
+The optional Linux packages build against the `x86_64-elf` cross toolchain and
+the musl sysroot. `make ports` builds the default set (`bash coreutils grep sed
+tar make m4 gawk gzip patch diffutils python`) and regenerates both images.
+`make hdd-ports` regenerates only `release/hdd.img`. The packages are staged
+under `3rdparty/build/ports/root` and copied to the ext2 data partition. A plain
+`make` never includes them.
+
+Build the sysroot first, then the packages:
+
+```
+make sysroot                 # musl headers, static and shared libc, crt objects
+make ports                   # all default packages, both images
+3rdparty/ports/build.sh python   # or any subset of the default packages
+```
+
+`3rdparty/ports/build.sh <name...>` fetches and builds each
+`3rdparty/ports/packages/<name>.sh` against `3rdparty/ports/cc`, the musl
+sysroot wrapper. Sources, build trees and the stage live under
+`3rdparty/build/ports`. `make clean-ports` removes that tree.
+
+The Python package builds CPython 3.8.18. The interpreter links dynamically
+against `libpython3.8.so` and the shared musl libc. The shared library goes to
+`/lib`; the standard library and the extensions go to `/lib/python3.8` on the
+ext2 partition. The guest reports `sys.platform` as `hanos`.
+
+`make run-ports` boots `cdrom.iso` with the ports. `make run-hdd-ports` boots
+`release/hdd.img` with them.
+
 ## Layout
 
 ```
