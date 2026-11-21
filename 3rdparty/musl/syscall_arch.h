@@ -656,8 +656,7 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
     case L_fchownat:
         return __hanos_raw(H_FCHOWNAT, a1, a2, a3, a4, a5, 0);
     case L_fchown:
-        /* Only the fd-based call is left; the path form is unsupported. */
-        return 0;
+        return __hanos_raw(H_FCHOWNAT, a1, 0, a2, a3, 0x1000, 0);
     case L_getrusage:
         return __hanos_raw(H_GETRUSAGE, a1, a2, 0, 0, 0, 0);
     case L_getrlimit:

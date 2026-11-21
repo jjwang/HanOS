@@ -844,8 +844,30 @@ int64_t k_chown(char *path, int64_t uid, int64_t gid)
 int64_t k_fchownat(int64_t dirfd, char *path, int64_t uid, int64_t gid,
                    int64_t flags)
 {
-    (void) dirfd;
-    (void) flags;
+    if ((flags & 0x1000) && (path == NULL || *path == '\0')) {
+        /* AT_EMPTY_PATH: act on the fd's path. Only the ext2 fd carries one. */
+        process_t *t = sched_get_current_process();
+
+        if (t == NULL || t->uid != 0) {
+            cpu_set_errno(EPERM);
+            return -1;
+        }
+        int32_t kind = 0;
+        int32_t svc = 0;
+        int64_t sfd = 0;
+
+        if (process_fd_get((int32_t) dirfd, &kind, &svc, &sfd, NULL, NULL) != 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        char fpath[VFS_MAX_PATH_LEN];
+
+        if (ext2_fd_path(sfd, fpath, sizeof(fpath)) < 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        return k_chown(fpath, uid, gid);
+    }
     return k_chown(path, uid, gid);
 }
 
