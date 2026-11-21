@@ -1041,7 +1041,7 @@ static char *buf_read_str(const uint8_t *buf, uint64_t buflen, uint64_t * pos)
 #define VFS_STORE_BUF       EXT2_IO_BUF_SIZE
 #define VFS_STORE_MAX       (256 * 1024)
 #define VFS_STORE_MAGIC     0x3153465648ULL     /* "HVFS1" */
-#define VFS_STORE_VERSION   1
+#define VFS_STORE_VERSION   2
 
 typedef struct[[gnu::packed]] {
     uint64_t magic;
@@ -1282,7 +1282,7 @@ static void store_load(void)
     uint64_t off = sizeof(*h);
 
     for (uint32_t i = 0; i < h->count && i < VFS_MAX_DYN; i++) {
-        if (off + 12 > size)
+        if (off + 16 > size)
             break;
         uint8_t type = buf[off++];
         uint8_t nlen = buf[off++];
@@ -1290,6 +1290,8 @@ static void store_load(void)
         uint32_t dlen = store_get_u32(buf + off);
         off += 4;
         uint32_t mtime = store_get_u32(buf + off);
+        off += 4;
+        uint32_t mode = store_get_u32(buf + off);
         off += 4;
         if (off + nlen > size || off + nlen + dlen > size)
             break;
@@ -1353,8 +1355,11 @@ static void store_load(void)
                 d->size = n;
             }
         }
-        if (idx >= 0)
+        if (idx >= 0) {
             dyns[idx - ent_count].mtime = mtime;
+            if (mode != 0)
+                dyns[idx - ent_count].mode = mode;
+        }
     }
     free(buf);
 }
@@ -1412,9 +1417,9 @@ static void store_save(void)
 
         uint64_t nlen = strlen(dyns[i].name);
 
-        if (nlen > VFS_NAME_MAX + 1 || off + 12 + nlen > VFS_STORE_MAX)
+        if (nlen > VFS_NAME_MAX + 1 || off + 16 + nlen > VFS_STORE_MAX)
             break;
-        if (off + 12 + nlen + dlen > VFS_STORE_MAX)
+        if (off + 16 + nlen + dlen > VFS_STORE_MAX)
             break;
 
         buf[off++] = type;
@@ -1423,6 +1428,7 @@ static void store_save(void)
         buf[off++] = 0;
         store_put_u32(buf, &off, VFS_STORE_MAX, (uint32_t) dlen);
         store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mtime);
+        store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mode);
         memcpy(buf + off, dyns[i].name, nlen);
         off += nlen;
         if (dlen > 0 && payload != NULL)
@@ -2302,7 +2308,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                     rep->words[0] = (uint64_t) (int64_t) -2;    /* -ENOENT */
                 } else if (idx_is_dyn(e)) {
                     dyn_unlink(&dyns[e - ent_count]);
-                    store_mark_dirty();
+                    store_save();
                     rep->words[0] = 0;
                 } else {
                     ents[e].deleted = true;
