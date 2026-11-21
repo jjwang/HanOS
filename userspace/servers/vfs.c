@@ -1039,7 +1039,7 @@ static char *buf_read_str(const uint8_t *buf, uint64_t buflen, uint64_t * pos)
 #define VFS_STORE_PATH      "/.vfs-store"
 #define VFS_STORE_ADDR      0x22000000
 #define VFS_STORE_BUF       EXT2_IO_BUF_SIZE
-#define VFS_STORE_MAX       (256 * 1024)
+#define VFS_STORE_MAX       (1024 * 1024)
 #define VFS_STORE_MAGIC     0x3153465648ULL     /* "HVFS1" */
 #define VFS_STORE_VERSION   2
 
@@ -1142,7 +1142,7 @@ static int64_t store_ext_call(uint64_t tag, uint64_t w0, uint64_t w1,
     int64_t rc = -1;
 
     if (sys_ipc_send((int64_t) bi.ext2_ep, &m) == 0
-        && sys_ipc_recv_timeout(reply, out, 2000) == 0
+        && sys_ipc_recv_timeout(reply, out, 10000) == 0
         && (int64_t) out->words[0] >= 0) {
         rc = 0;
         if (rdst != NULL && out->words[1] > 0) {
@@ -1349,6 +1349,17 @@ static void store_load(void)
             idx = dyn_create(name);
             if (idx >= 0) {
                 vfs_dyn_t *d = &dyns[idx - ent_count];
+
+                if (dlen > d->cap) {
+                    uint8_t *nb = sys_malloc((int32_t) dlen);
+
+                    if (nb != NULL) {
+                        if (d->data != NULL)
+                            sys_munmap(d->data, d->cap);
+                        d->data = nb;
+                        d->cap = dlen;
+                    }
+                }
                 uint64_t n = (dlen < d->cap) ? dlen : d->cap;
 
                 memcpy(d->data, data, n);
@@ -1364,6 +1375,47 @@ static void store_load(void)
     free(buf);
 }
 
+static bool store_entry(int32_t i, uint8_t *type, const char **payload,
+                        uint64_t *dlen)
+{
+    vfs_dyn_t *d = &dyns[i];
+
+    if (!d->used || d->name == NULL)
+        return false;
+    if (d->is_fifo
+        || strcmp(d->name, "tmp") == 0
+        || strncmp(d->name, "tmp/", 4) == 0
+        || strcmp(d->name, "dev") == 0
+        || strncmp(d->name, "dev/", 4) == 0)
+        return false;
+
+    vfs_dyn_t *home = dyn_file(d);
+
+    if (d->link != NULL) {
+        if (home->name == NULL || strncmp(home->name, "/tmp/", 5) == 0)
+            return false;
+        *type = 3;
+        *payload = home->name;
+        *dlen = strlen(home->name);
+        return true;
+    }
+
+    uint8_t t = d->is_dir ? 1 : (d->is_symlink ? 2 : 0);
+
+    *type = t;
+    if (t == 2) {
+        *payload = d->target;
+        *dlen = (d->target != NULL) ? strlen(d->target) : 0;
+    } else if (t == 0) {
+        *payload = (const char *) d->data;
+        *dlen = d->size;
+    } else {
+        *payload = NULL;
+        *dlen = 0;
+    }
+    return true;
+}
+
 static void store_save(void)
 {
     if (!store_ready || bi.ext2_ep == 0)
@@ -1371,98 +1423,79 @@ static void store_save(void)
 
     store_dirty = false;
 
-    uint8_t *buf = malloc(VFS_STORE_MAX);
-    if (buf == NULL)
-        return;
-
-    store_hdr_t *h = (store_hdr_t *) buf;
-    uint64_t off = sizeof(*h);
     uint32_t count = 0;
 
-    h->magic = VFS_STORE_MAGIC;
-    h->version = VFS_STORE_VERSION;
-
     for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
-        if (!dyns[i].used || dyns[i].name == NULL)
-            continue;
-        if (dyns[i].is_fifo
-            || strcmp(dyns[i].name, "tmp") == 0
-            || strncmp(dyns[i].name, "tmp/", 4) == 0
-            || strcmp(dyns[i].name, "dev") == 0
-            || strncmp(dyns[i].name, "dev/", 4) == 0)
-            continue;
-
-        vfs_dyn_t *home = dyn_file(&dyns[i]);
         uint8_t type;
-        const char *payload = NULL;
-        uint64_t dlen = 0;
+        const char *payload;
+        uint64_t dlen;
 
-        if (dyns[i].link != NULL) {
-            if (home->name == NULL
-                || strncmp(home->name, "/tmp/", 5) == 0)
-                continue;
-            type = 3;
-            payload = home->name;
-            dlen = strlen(payload);
-        } else {
-            type = dyns[i].is_dir ? 1 : (dyns[i].is_symlink ? 2 : 0);
-            if (type == 2) {
-                payload = dyns[i].target;
-                dlen = (payload != NULL) ? strlen(payload) : 0;
-            } else if (type == 0) {
-                payload = dyns[i].data;
-                dlen = dyns[i].size;
-            }
-        }
-
-        uint64_t nlen = strlen(dyns[i].name);
-
-        if (nlen > VFS_NAME_MAX + 1 || off + 16 + nlen > VFS_STORE_MAX)
-            break;
-        if (off + 16 + nlen + dlen > VFS_STORE_MAX)
-            break;
-
-        buf[off++] = type;
-        buf[off++] = (uint8_t) nlen;
-        buf[off++] = 0;
-        buf[off++] = 0;
-        store_put_u32(buf, &off, VFS_STORE_MAX, (uint32_t) dlen);
-        store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mtime);
-        store_put_u32(buf, &off, VFS_STORE_MAX, dyns[i].mode);
-        memcpy(buf + off, dyns[i].name, nlen);
-        off += nlen;
-        if (dlen > 0 && payload != NULL)
-            memcpy(buf + off, payload, dlen);
-        off += dlen;
-        count++;
+        if (store_entry(i, &type, &payload, &dlen))
+            count++;
     }
-
-    h->count = count;
 
     int64_t fd = store_ext_create(VFS_STORE_PATH, NULL);
 
-    if (fd < 0) {
-        free(buf);
+    if (fd < 0)
+        return;
+    store_ext_trunc(fd, 0);
+
+    store_hdr_t h;
+
+    h.magic = VFS_STORE_MAGIC;
+    h.version = VFS_STORE_VERSION;
+    h.count = count;
+    if (store_ext_write(fd, sizeof(h), &h) != (int64_t) sizeof(h)) {
+        store_ext_close(fd);
         return;
     }
-    store_ext_trunc(fd, 0);
-    uint64_t done = 0;
 
-    while (done < off) {
-        uint64_t n = off - done;
+    for (int32_t i = 0; i < VFS_MAX_DYN; i++) {
+        uint8_t type;
+        const char *payload;
+        uint64_t dlen;
 
-        if (n > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
-            n = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
-        int64_t w = store_ext_write(fd, n, buf + done);
+        if (!store_entry(i, &type, &payload, &dlen))
+            continue;
 
-        if (w <= 0)
+        uint64_t nlen = strlen(dyns[i].name);
+
+        if (nlen > VFS_NAME_MAX)
+            nlen = VFS_NAME_MAX;
+
+        uint8_t hdr[16 + VFS_NAME_MAX + 1];
+        uint64_t off = 0;
+
+        hdr[off++] = type;
+        hdr[off++] = (uint8_t) nlen;
+        hdr[off++] = 0;
+        hdr[off++] = 0;
+        store_put_u32(hdr, &off, sizeof(hdr), (uint32_t) dlen);
+        store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mtime);
+        store_put_u32(hdr, &off, sizeof(hdr), dyns[i].mode);
+        memcpy(hdr + off, dyns[i].name, nlen);
+        off += nlen;
+
+        if (store_ext_write(fd, off, hdr) != (int64_t) off)
             break;
-        done += (uint64_t) w;
-        if ((uint64_t) w < n)
+
+        uint64_t done = 0;
+
+        while (done < dlen && payload != NULL) {
+            uint64_t n = dlen - done;
+
+            if (n > VFS_STORE_BUF - EXT2_IO_DATA_OFF)
+                n = VFS_STORE_BUF - EXT2_IO_DATA_OFF;
+            int64_t w = store_ext_write(fd, n, payload + done);
+
+            if (w <= 0)
+                break;
+            done += (uint64_t) w;
+        }
+        if (done != dlen)
             break;
     }
     store_ext_close(fd);
-    free(buf);
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
