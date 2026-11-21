@@ -19,6 +19,7 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <bootinfo.h>
 #include <protocol.h>
@@ -27,8 +28,8 @@
 
 #define PIPE_BUF_ADDR   0x20000000
 #define PIPE_BUF_SIZE   4096
-#define PIPE_MAX        64
-#define PIPE_END_MAX    128
+#define PIPE_INIT       16
+#define PIPE_END_INIT   32
 #define PIPE_WAIT_MAX   32
 
 /**
@@ -54,8 +55,10 @@ typedef struct {
     uint32_t refs;              /* forks sharing this end */
 } end_t;
 
-static pipe_t pipes[PIPE_MAX];
-static end_t ends[PIPE_END_MAX];
+static pipe_t *pipes;
+static int32_t pipe_cap;
+static end_t *ends;
+static int32_t end_cap;
 static bootinfo_t bi;
 
 /**
@@ -103,7 +106,7 @@ static void pipe_wake_pollers(int32_t pi)
             continue;
 
         fd = poll_waits[i].fd;
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used) {
             poll_waits[i].used = false;
             continue;
         }
@@ -127,9 +130,47 @@ static void pipe_wake_pollers(int32_t pi)
     }
 }
 
+static void end_table_ensure(int32_t need)
+{
+    if (need <= end_cap)
+        return;
+
+    int32_t cap = (end_cap > 0) ? end_cap : PIPE_END_INIT;
+
+    while (cap < need)
+        cap *= 2;
+
+    end_t *ne = sys_malloc(cap * (int32_t) sizeof(*ends));
+
+    if (ne == NULL)
+        return;
+    memset(ne, 0, (size_t) cap * sizeof(*ends));
+    if (ends != NULL) {
+        memcpy(ne, ends, (size_t) end_cap * sizeof(*ends));
+        sys_munmap(ends, (uint64_t) end_cap * sizeof(*ends));
+    }
+    ends = ne;
+    end_cap = cap;
+}
+
 static int32_t end_alloc(int32_t pipe_idx, bool is_write)
 {
-    for (int32_t i = 0; i < PIPE_END_MAX; i++) {
+    if (end_cap == 0)
+        end_table_ensure(PIPE_END_INIT);
+
+    for (int32_t i = 0; i < end_cap; i++) {
+        if (ends[i].used)
+            continue;
+        ends[i].used = true;
+        ends[i].pipe = pipe_idx;
+        ends[i].is_write = is_write;
+        ends[i].refs = 1;
+        return i + 1;
+    }
+
+    end_table_ensure(end_cap * 2);
+
+    for (int32_t i = 0; i < end_cap; i++) {
         if (ends[i].used)
             continue;
         ends[i].used = true;
@@ -143,7 +184,17 @@ static int32_t end_alloc(int32_t pipe_idx, bool is_write)
 
 static int32_t pipe_create(int32_t *rfd, int32_t *wfd)
 {
-    for (int32_t p = 0; p < PIPE_MAX; p++) {
+    if (pipe_cap == 0) {
+        pipe_cap = PIPE_INIT;
+        pipes = sys_malloc(pipe_cap * (int32_t) sizeof(*pipes));
+        if (pipes == NULL) {
+            pipe_cap = 0;
+            return -1;
+        }
+        memset(pipes, 0, (size_t) pipe_cap * sizeof(*pipes));
+    }
+
+    for (int32_t p = 0; p < pipe_cap; p++) {
         if (pipes[p].used)
             continue;
 
@@ -161,6 +212,38 @@ static int32_t pipe_create(int32_t *rfd, int32_t *wfd)
             return -1;
         }
 
+        pipes[p].r_refs = 1;
+        pipes[p].w_refs = 1;
+        *rfd = r;
+        *wfd = w;
+        return 0;
+    }
+
+    int32_t oldcap = pipe_cap;
+    int32_t cap = oldcap * 2;
+    pipe_t *np = sys_malloc(cap * (int32_t) sizeof(*np));
+
+    if (np == NULL)
+        return -1;
+    memset(np, 0, (size_t) cap * sizeof(*np));
+    memcpy(np, pipes, (size_t) oldcap * sizeof(*np));
+    sys_munmap(pipes, (uint64_t) oldcap * sizeof(*np));
+    pipes = np;
+    pipe_cap = cap;
+
+    for (int32_t p = oldcap; p < pipe_cap; p++) {
+        pipes[p].used = true;
+        int32_t r = end_alloc(p, false);
+        int32_t w = end_alloc(p, true);
+
+        if (r <= 0 || w <= 0) {
+            if (r > 0)
+                ends[r - 1].used = false;
+            if (w > 0)
+                ends[w - 1].used = false;
+            pipes[p].used = false;
+            return -1;
+        }
         pipes[p].r_refs = 1;
         pipes[p].w_refs = 1;
         *rfd = r;
@@ -350,7 +433,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == PIPE_CLOSE) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
@@ -365,7 +448,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == VFS_FD_FORK) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;
             return;
         }
@@ -377,7 +460,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     if (m->tag == PIPE_POLL) {
         int32_t fd = (int32_t) m->words[0];
 
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
@@ -395,7 +478,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t key = m->words[1];
         int32_t events = (int32_t) m->words[2];
 
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used) {
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used) {
             rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
             return;
         }
@@ -424,7 +507,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
         bool inline_data = (memh == 0);
 
-        if (fd < 1 || fd > PIPE_END_MAX || !ends[fd - 1].used
+        if (fd < 1 || fd > end_cap || !ends[fd - 1].used
             || ends[fd - 1].is_write != is_write
             || (inline_data && len > PIPE_INLINE_MAX)) {
             if (memh != 0)
