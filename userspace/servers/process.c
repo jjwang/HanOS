@@ -173,9 +173,10 @@ static proc_fd_t *fd_table(int32_t pid, bool alloc)
     if (pid < 0 || pid >= PROC_PID_MAX)
         return NULL;
     if (table[pid] == NULL && alloc) {
-        table[pid] = calloc(PROC_FD_INIT, sizeof(proc_fd_t));
+        table[pid] = sys_malloc(PROC_FD_INIT * (int32_t) sizeof(proc_fd_t));
         if (table[pid] == NULL)
             return NULL;
+        memset(table[pid], 0, (size_t) PROC_FD_INIT * sizeof(proc_fd_t));
         fd_cap[pid] = PROC_FD_INIT;
     }
     return table[pid];
@@ -195,12 +196,13 @@ static proc_fd_t *fd_table_ensure(int32_t pid, int32_t need)
     while (cap < need)
         cap *= 2;
 
-    proc_fd_t *nt = calloc((size_t) cap, sizeof(proc_fd_t));
+    proc_fd_t *nt = sys_malloc(cap * (int32_t) sizeof(proc_fd_t));
 
     if (nt == NULL)
         return NULL;
+    memset(nt, 0, (size_t) cap * sizeof(proc_fd_t));
     memcpy(nt, t, (size_t) fd_cap[pid] * sizeof(proc_fd_t));
-    free(t);
+    sys_munmap(t, (uint64_t) fd_cap[pid] * sizeof(proc_fd_t));
     table[pid] = nt;
     fd_cap[pid] = cap;
     return nt;
@@ -776,7 +778,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
                         continue;
                     fd_close_one(e);
                 }
-                free(t);
+                sys_munmap(t, (uint64_t) fd_cap[pid] * sizeof(proc_fd_t));
                 table[pid] = NULL;
                 fd_cap[pid] = 0;
             }
