@@ -15,8 +15,7 @@ a package only when its script, the compiler wrappers or `common.sh` are newer.
 The stage directory is preserved, so unchanged packages stay staged. A full run
 skips finished packages instead of rebuilding bash, readline and the rest.
 
-## Remaining
+## Verification
 
-- `fchown` (fd-based) is not wired; only the path forms are.
-- A second interactive login with the stored password remains to be checked
-  with a real keyboard.
+Two boots of one image: the first sets the password, the second logs in with
+it and starts the shell. `fchown` routes through `fchownat`/`AT_EMPTY_PATH`.
