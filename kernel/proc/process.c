@@ -118,6 +118,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
     process_t *nproc = kmalloc(sizeof(process_t));
     memset(nproc, 0, sizeof(process_t));
 
+    nproc->umask = 022;
     nproc->pid = new_pid;
     nproc->tgid = new_pid;
     nproc->forked = false;

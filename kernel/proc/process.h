@@ -231,6 +231,9 @@ typedef struct process {
     pid_t pid;
     pid_t ppid;
     pid_t tgid;                 /* thread group id; equals pid for a leader */
+    uint32_t uid;               /* effective user id; 0 is root */
+    uint32_t gid;               /* effective group id; 0 is root */
+    uint32_t umask;             /* mode bits cleared on create */
     bool is_thread;
     int32_t *clear_child_tid;   /* CLONE_CHILD_CLEARTID target */
     pid_t fork_retval;          /* set by do_context_switch for fork */

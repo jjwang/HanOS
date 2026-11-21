@@ -1796,6 +1796,75 @@ int64_t k_getpid()
     return -1;
 }
 
+int64_t k_getuid(void)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+    return (t != NULL) ? (int64_t) t->uid : 0;
+}
+
+int64_t k_getgid(void)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+    return (t != NULL) ? (int64_t) t->gid : 0;
+}
+
+int64_t k_geteuid(void)
+{
+    return k_getuid();
+}
+
+int64_t k_getegid(void)
+{
+    return k_getgid();
+}
+
+int64_t k_setuid(int64_t uid)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (t->uid != 0 && (uint32_t) uid != t->uid) {
+        cpu_set_errno(EPERM);
+        return -1;
+    }
+    t->uid = (uint32_t) uid;
+    return 0;
+}
+
+int64_t k_setgid(int64_t gid)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    if (t->gid != 0 && (uint32_t) gid != t->gid) {
+        cpu_set_errno(EPERM);
+        return -1;
+    }
+    t->gid = (uint32_t) gid;
+    return 0;
+}
+
+int64_t k_umask(int64_t mask)
+{
+    process_t *t = sched_get_current_process();
+    cpu_set_errno(0);
+    if (t == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+    uint32_t old = t->umask;
+    t->umask = (uint32_t) mask & 0777u;
+    return (int64_t) old;
+}
+
 int64_t k_chdir(char *dir)
 {
     process_t *t = sched_get_current_process();
@@ -4033,6 +4102,13 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_MEM_STATS] = (syscall_ptr_t) k_mem_stats,
     [SYSCALL_RUNCMD] = (syscall_ptr_t) k_runcmd,
     [SYSCALL_CHMOD] = (syscall_ptr_t) k_chmod,
+    [SYSCALL_GETUID] = (syscall_ptr_t) k_getuid,
+    [SYSCALL_GETGID] = (syscall_ptr_t) k_getgid,
+    [SYSCALL_GETEUID] = (syscall_ptr_t) k_geteuid,
+    [SYSCALL_GETEGID] = (syscall_ptr_t) k_getegid,
+    [SYSCALL_SETUID] = (syscall_ptr_t) k_setuid,
+    [SYSCALL_SETGID] = (syscall_ptr_t) k_setgid,
+    [SYSCALL_UMASK] = (syscall_ptr_t) k_umask,
     [SYSCALL_FUTEX_WAIT] = (syscall_ptr_t) k_futex_wait,
     [SYSCALL_FUTEX_WAKE] = (syscall_ptr_t) k_futex_wake,
     [SYSCALL_EP_CREATE] = (syscall_ptr_t) k_ep_create,

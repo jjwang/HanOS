@@ -573,6 +573,16 @@ int main(void)
         }
     }
 
+    printf("uid=%d gid=%d euid=%d egid=%d\n",
+           (int) getuid(), (int) getgid(), (int) geteuid(), (int) getegid());
+    {
+        int old = (int) umask(077);
+        int now = (int) umask(022);
+        printf("umask old=%03o now=%03o\n", old, now);
+    }
+    printf("setuid(1000) ret=%d uid=%d\n", (int) setuid(1000), (int) getuid());
+    printf("setuid(0) ret=%d uid=%d\n", (int) setuid(0), (int) getuid());
+
     printf("mustest: done\n");
     return 0;
 }

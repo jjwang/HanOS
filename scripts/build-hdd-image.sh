@@ -37,7 +37,7 @@ ROOTFS="$ROOT/release/hdd.p2root"
 SYS="$ROOT/3rdparty/build/sysroot"
 CROSSLIB="$ROOT/3rdparty/build/toolchain/x86_64-hanos/lib/gcc/x86_64-hanos/10.2.0"
 rm -rf "$ROOTFS"
-mkdir -p "$ROOTFS/bin" "$ROOTFS/assets" "$ROOTFS/include" "$ROOTFS/lib"
+mkdir -p "$ROOTFS/bin" "$ROOTFS/assets" "$ROOTFS/include" "$ROOTFS/lib" "$ROOTFS/etc"
 NATIVE_GCC="$ROOT/3rdparty/build/toolchain/native-gcc/usr"
 NATIVE_BIN="$ROOT/3rdparty/build/toolchain/native/bin"
 if [ -d "$NATIVE_GCC" ]; then
@@ -78,6 +78,7 @@ fi
 cp -f "$ROOT/scripts/guest-stress.sh" "$ROOTFS/bin/stress"
 chmod 0755 "$ROOTFS/bin/stress"
 printf 'HanOS ext2 data partition.\n' > "$ROOTFS/assets/readme.txt"
+printf 'root::0:0:99999:7:::\nkite::1000:1000:99999:7:::\n' > "$ROOTFS/etc/shadow"
 mke2fs -t ext2 -q -F -O ^dir_index,^resize_inode \
     -E offset=$((EXT2_START * 512)) -d "$ROOTFS" "$IMG" ${EXT2_MB}M
 rm -rf "$ROOTFS"

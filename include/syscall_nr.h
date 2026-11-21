@@ -38,6 +38,13 @@
 #define SYSCALL_SCHED_YIELD     24
 #define SYSCALL_NANOSLEEP       35
 #define SYSCALL_GETPID          39
+#define SYSCALL_UMASK           95
+#define SYSCALL_GETUID          102
+#define SYSCALL_GETGID          104
+#define SYSCALL_SETUID          105
+#define SYSCALL_SETGID          106
+#define SYSCALL_GETEUID         107
+#define SYSCALL_GETEGID         108
 #define SYSCALL_SOCKET          41
 #define SYSCALL_CONNECT         42
 #define SYSCALL_ACCEPT          43

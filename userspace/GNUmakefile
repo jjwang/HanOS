@@ -69,7 +69,7 @@ H_FILES   := $(shell find ./ -type f,l -name '*.h')
 C_OBJS    := $(C_FILES:.c=.o)
 C_DEPS    := $(C_FILES:.c=.d)
 
-RUNTIME_FILES := runtime/sysfunc.c runtime/keycode.c runtime/block.c
+RUNTIME_FILES := runtime/sysfunc.c runtime/keycode.c runtime/block.c runtime/sha256.c runtime/passwd.c
 RUNTIME_OBJS  := $(patsubst %.c, %.u.o, ${RUNTIME_FILES})
 RUNTIME_DEPS  := $(patsubst %.c, %.u.d, ${RUNTIME_FILES})
 
@@ -78,7 +78,7 @@ ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 HONOS_RT  := $(RUNTIME_OBJS)
 
-CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mem servers/misc servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/gcc bin/g++ bin/c++
+CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mem servers/misc servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/gcc bin/g++ bin/c++ bin/login bin/passwd
 
 # The console server links libvterm, so it builds through its own rule.
 CONSOLE   := servers/console

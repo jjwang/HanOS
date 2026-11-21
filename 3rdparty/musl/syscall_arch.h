@@ -25,6 +25,13 @@
 #define H_SET_FS     0x401
 #define H_IOCTL      16
 #define H_GETPID     39
+#define H_UMASK      95
+#define H_GETUID     102
+#define H_GETGID     104
+#define H_SETUID     105
+#define H_SETGID     106
+#define H_GETEUID    107
+#define H_GETEGID    108
 #define H_CLONE      56
 #define H_FORK       57
 #define H_EXECVE     59
@@ -577,14 +584,17 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_GETPPID, 0, 0, 0, 0, 0, 0);
     case L_getuid:
     case L_geteuid:
+        return __hanos_raw(H_GETUID, 0, 0, 0, 0, 0, 0);
     case L_getgid:
     case L_getegid:
+        return __hanos_raw(H_GETGID, 0, 0, 0, 0, 0, 0);
     case L_setuid:
-    case L_setgid:
     case L_setresuid:
+        return __hanos_raw(H_SETUID, a1, 0, 0, 0, 0, 0);
+    case L_setgid:
     case L_setresgid:
+        return __hanos_raw(H_SETGID, a1, 0, 0, 0, 0, 0);
     case L_setgroups:
-        /* HanOS has a single root identity. */
         return 0;
     case L_getgroups:
         /* The caller passes a size in a1 and a buffer in a2. */
@@ -613,14 +623,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return (a1 > 0) ? a1 : __hanos_raw(H_GETPID, 0, 0, 0, 0, 0, 0);
     case L_setpgid:
         return 0;
-    case L_umask:{
-            static long mask = 022;
-            long old = mask;
-
-            if (a1 >= 0)
-                mask = a1;
-            return old;
-        }
+    case L_umask:
+        return __hanos_raw(H_UMASK, a1, 0, 0, 0, 0, 0);
     case L_chdir:
         return __hanos_raw(H_CHDIR, a1, 0, 0, 0, 0, 0);
     case L_rmdir:

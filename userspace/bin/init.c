@@ -66,8 +66,8 @@ static const char *shell_path(const char **name)
         return "/bin/bash";
     }
 
-    *name = "hansh";
-    return "/bin/hansh";
+    *name = "login";
+    return "/bin/login";
 }
 
 int32_t main(void)
