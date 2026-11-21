@@ -46,6 +46,9 @@ rm -rf "$PYLIB/test" "$PYLIB/idlelib" "$PYLIB/tkinter" "$PYLIB/turtledemo" \
     "$PYLIB/unittest/test"
 cp -f build/lib.*/_sysconfigdata_*.py "$PYLIB/"
 cp -f build/lib.linux-x86_64-3.8/*.so "$PYLIB/lib-dynload/"
+
+# Precompile the stdlib so imports load bytecode instead of parsing .py.
+PYTHONHOME="$STAGE" ./python -m compileall -b -q "$PYLIB" >/dev/null 2>&1 || true
 cp -f libpython3.8.so.1.0 "$STAGE/lib/"
 cp -f python "$STAGE/bin/python3.8"
 cp -f python "$STAGE/bin/python3"
