@@ -8,3 +8,4 @@
 - Flush the VFS write cache when a dup replaces a descriptor and drop the synchronous store save from the open path; redirections and compiler temp files now work.
 - The ports image passes the stress test.
 - The runtime store is written from the idle loop, so runtime files persist without stalling the server.
+- The store carries the file mode; chmod changes survive a reboot.
