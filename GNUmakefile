@@ -115,7 +115,6 @@ stress:
 	rm -f $(HDD_IMAGE)
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
 	scripts/stress-test.sh $(HDD_IMAGE)
-	qemu-system-x86_64 -enable-kvm -cpu host -serial stdio -M q35,smm=off -m 2G -smp 4 -no-reboot -rtc base=localtime -drive id=handisk,if=none,format=raw,file=$(HDD_IMAGE) -device ide-hd,drive=handisk,bus=ide.0
 
 hdd-ports:
 	$(MAKE) $(HDD_IMAGE) WITH_PORTS=1
