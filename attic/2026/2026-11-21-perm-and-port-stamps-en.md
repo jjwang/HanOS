@@ -17,7 +17,6 @@ skips finished packages instead of rebuilding bash, readline and the rest.
 
 ## Remaining
 
-- The initrd VFS namespace accepts `chown` without storing owners; only ext2
-  files carry persistent ownership.
-- The login prompt is not flushed to the serial; an interactive keyboard test
-  remains.
+- `fchown` (fd-based) is not wired; only the path forms are.
+- A second interactive login with the stored password remains to be checked
+  with a real keyboard.
