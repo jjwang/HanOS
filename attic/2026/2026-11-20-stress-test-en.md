@@ -9,3 +9,4 @@
 - The ports image passes the stress test.
 - The runtime store is written from the idle loop, so runtime files persist without stalling the server.
 - The store carries the file mode; chmod changes survive a reboot.
+- The store buffer stays at 256 KiB; larger runtime files are not persisted. A streaming save is the follow-up.
