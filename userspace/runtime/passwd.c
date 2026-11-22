@@ -235,16 +235,19 @@ bool pw_verify(const char *stored, const char *password)
 
 void pw_read_password(const char *prompt, char *buf, size_t len)
 {
-    struct termios old, raw;
+    struct termios old;
     ssize_t n;
+    int restore = 0;
 
     if (len == 0)
         return;
     write(1, prompt, strlen(prompt));
     if (tcgetattr(0, &old) == 0) {
-        raw = old;
+        struct termios raw = old;
+
         raw.c_lflag &= ~ECHO;
         tcsetattr(0, TCSANOW, &raw);
+        restore = 1;
     }
     n = read(0, buf, len - 1);
     if (n < 0)
@@ -252,7 +255,7 @@ void pw_read_password(const char *prompt, char *buf, size_t len)
     if (n > 0 && buf[n - 1] == '\n')
         n--;
     buf[n] = '\0';
-    if (tcgetattr(0, &raw) == 0)
-        tcsetattr(0, TCSANOW, &raw);
+    if (restore)
+        tcsetattr(0, TCSANOW, &old);
     write(1, "\n", 1);
 }

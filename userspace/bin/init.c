@@ -46,26 +46,18 @@ static const char *shell_path(const char **name)
     }
 
     /* A ports image carries /etc/ports-image in the initrd. Wait for the
-     * requested bash until the data partition is mounted; do not fall back. */
+     * requested bash until the data partition is mounted, so login can find
+     * it. */
     if (shell_file("/etc/ports-image")) {
         for (;;) {
-            if (shell_file("/bin/bash")) {
-                *name = "bash";
-                return "/bin/bash";
-            }
-            if (shell_file("/data/bin/bash")) {
-                *name = "bash";
-                return "/data/bin/bash";
-            }
+            if (shell_file("/bin/bash") || shell_file("/data/bin/bash"))
+                break;
             nanosleep(&delay, NULL);
         }
     }
 
-    if (shell_file("/bin/bash")) {
-        *name = "bash";
-        return "/bin/bash";
-    }
-
+    /* Run login in every case so the password flow and the uid/gid drop apply
+     * before the shell. login selects the shell. */
     *name = "login";
     return "/bin/login";
 }
