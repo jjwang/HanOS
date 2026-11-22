@@ -2224,7 +2224,7 @@ int64_t k_pipe(int32_t * fd, uint32_t flags)
         memset(&req, 0, sizeof(req));
         req.tag = PIPE_CREATE;
 
-        if (!router_forward(SVC_PIPE, &req, &rep)
+        if (!router_forward_timeout(SVC_PIPE, &req, &rep, 5000)
             || (int64_t) rep.words[0] < 0) {
             cpu_set_errno(ENOMEM);
             return -1;
