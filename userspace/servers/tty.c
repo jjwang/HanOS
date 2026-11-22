@@ -159,6 +159,14 @@ static void flush_deferred(void)
     uint64_t n = (wait_len < kcount) ? wait_len : kcount;
     uint8_t tmp[TTY_INLINE_MAX];
 
+    if (tty_canon) {
+        for (uint64_t i = 0; i < n; i++)
+            if (keys[(ktail + i) % TTY_KEY_MAX] == '\n') {
+                n = i + 1;
+                break;
+            }
+    }
+
     if (n > TTY_INLINE_MAX)
         n = TTY_INLINE_MAX;
 
@@ -310,6 +318,17 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         uint64_t n = (len < kcount) ? len : kcount;
         uint8_t tmp[TTY_INLINE_MAX];
         uint8_t *dst = NULL;
+
+        /* Canonical mode returns one line per read, up to and including the
+         * newline. Without this a large read drains several buffered lines,
+         * which breaks a reader that mixes stdio and raw reads (login). */
+        if (tty_canon) {
+            for (uint64_t i = 0; i < n; i++)
+                if (keys[(ktail + i) % TTY_KEY_MAX] == '\n') {
+                    n = i + 1;
+                    break;
+                }
+        }
 
         if (n == 0) {
             if (eof_pending) {
