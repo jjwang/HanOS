@@ -90,7 +90,7 @@ $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 		esac; \
 		cp -fL $$app initrd-ports/bin/; \
 	done
-	tar -cpf $@ -C initrd-ports bin assets etc usr root data lib
+	tar -cpf $@ -C initrd-ports bin assets etc usr root data lib sbin
 	rm -rf initrd-ports
 
 # Option for hyper-threading: -smp 4,sockets=1,cores=2
@@ -174,7 +174,7 @@ $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	tar -xpf $(INITRD_TAR) -C initrd-ports-hdd
 	mkdir -p initrd-ports-hdd/etc
 	touch initrd-ports-hdd/etc/ports-image
-	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data lib
+	tar -cpf $@ -C initrd-ports-hdd bin assets etc usr root data lib sbin
 	rm -rf initrd-ports-hdd
 
 $(ISO_IMAGE): limine $(ISO_INITRD) kernel $(IMAGE_MODE) $(PORTS_DEP)
