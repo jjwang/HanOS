@@ -48,12 +48,12 @@ cleanup() {
 
 i=0
 while [ "$i" -lt "$WAIT_BOOT" ]; do
-    [ -f "$LOG" ] && grep -aqE 'name "(bash|hansh)"' "$LOG" && break
+    [ -f "$LOG" ] && grep -aqE 'name "(bash|hansh)"|HanOS login' "$LOG" && break
     sleep 1
     i=$((i + 1))
 done
 
-if ! { [ -f "$LOG" ] && grep -aqE 'name "(bash|hansh)"' "$LOG"; }; then
+if ! { [ -f "$LOG" ] && grep -aqE 'name "(bash|hansh)"|HanOS login' "$LOG"; }; then
     echo "stress: shell did not start" >&2
     cleanup
     tail -30 "$LOG" 2>/dev/null >&2

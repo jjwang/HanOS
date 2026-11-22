@@ -155,7 +155,7 @@ initrd: $(MUSL_SHARED) $(SYSROOT_STAMP)
 # Both images carry the same initrd; build it once so a sequential or
 # parallel make does not race on the archive.
 $(INITRD_TAR): initrd
-	rm -rf initrd/etc initrd/usr initrd/root initrd/include initrd/usr/local initrd/sbin
+	rm -rf initrd/etc initrd/usr initrd/root initrd/include initrd/usr/local
 	mkdir -p initrd/etc initrd/usr initrd/root initrd/sbin
 	cp -rf sysroot/* initrd
 	mkdir -p initrd/usr/include
