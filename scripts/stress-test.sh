@@ -7,6 +7,7 @@ set -u
 IMG=${1:-release/hdd.img}
 LOG=${2:-/tmp/hanos-stress.log}
 MON=${3:-/tmp/hanos-stress.mon}
+QMP=${4:-/tmp/hanos-stress.qmp}
 WAIT_BOOT=${WAIT_BOOT:-120}
 WAIT_TEST=${WAIT_TEST:-600}
 
@@ -20,7 +21,7 @@ else
     SMP=2
 fi
 
-rm -f "$LOG" "$MON"
+rm -f "$LOG" "$MON" "$QMP"
 WORK=$(mktemp)
 cp "$IMG" "$WORK"
 
@@ -29,7 +30,8 @@ qemu-system-x86_64 $ACCEL -cpu "$CPU" -M q35,smm=off -m 2G -smp "$SMP" \
     -drive id=handisk,if=none,format=raw,file="$WORK" \
     -device ide-hd,drive=handisk,bus=ide.0 \
     -display none -serial "file:$LOG" \
-    -monitor "unix:$MON,server,nowait" >/dev/null 2>&1 &
+    -monitor "unix:$MON,server,nowait" \
+    -qmp "unix:$QMP,server,nowait" >/dev/null 2>&1 &
 pid=$!
 
 cleanup() {
@@ -60,32 +62,59 @@ fi
 
 sleep 5
 
-python3 - "$MON" <<'PY'
+python3 - "$QMP" "/data/bin/bash /data/bin/stress" <<'PY'
+import json
 import socket
 import sys
 import time
 
+path = sys.argv[1]
+text = sys.argv[2]
+
 s = socket.socket(socket.AF_UNIX)
 for _ in range(40):
     try:
-        s.connect(sys.argv[1])
+        s.connect(path)
         break
     except OSError:
         time.sleep(0.5)
 else:
-    raise SystemExit("stress: cannot connect to the monitor")
-time.sleep(0.5)
-keys = {' ': 'spc', '/': 'slash', '.': 'dot', '-': 'minus',
-        '_': 'shift-minus', ',': 'comma', ';': 'semicolon'}
-for ch in '/data/bin/bash /data/bin/stress':
-    key = keys.get(ch, ch)
-    if ch.isupper():
-        key = 'shift-' + ch.lower()
-    s.sendall(('sendkey %s\n' % key).encode())
-    time.sleep(0.22)
+    raise SystemExit("stress: cannot connect to the QMP socket")
+
+buf = b""
+
+
+def cmd(obj):
+    global buf
+    s.sendall((json.dumps(obj) + "\n").encode())
+    while b"\n" not in buf:
+        data = s.recv(4096)
+        if not data:
+            raise SystemExit("stress: QMP closed")
+        buf += data
+    line, buf = buf.split(b"\n", 1)
+    return json.loads(line)
+
+
+cmd({"execute": "qmp_capabilities"})
+
+codes = {' ': 'spc', '/': 'slash', '.': 'dot', '-': 'minus',
+         '_': 'shift-minus', ',': 'comma', ';': 'semicolon', '\n': 'ret'}
+
+
+def press(qcode):
+    for down in (True, False):
+        cmd({"execute": "input-send-event", "arguments": {"events": [
+            {"type": "key", "data": {"down": down,
+             "key": {"type": "qcode", "data": qcode}}}]}})
+        time.sleep(0.05)
+
+
+for ch in text:
+    press(codes.get(ch, ch))
+    time.sleep(0.12)
+press("ret")
 time.sleep(0.4)
-s.sendall(b'sendkey ret\n')
-time.sleep(0.5)
 s.close()
 PY
 
