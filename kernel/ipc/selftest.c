@@ -39,7 +39,7 @@ static addrspace_t *test_addrspace(void)
         return NULL;
 
     memset(as, 0, sizeof(*as));
-    as->PML4 = kmalloc_chunk(PAGE_SIZE * 8, __func__, __LINE__);
+    as->PML4 = kmalloc_pages(PAGE_SIZE * 8, __func__, __LINE__);
     if (as->PML4 == NULL) {
         kmfree(as);
         return NULL;
@@ -59,7 +59,7 @@ static void test_addrspace_free(addrspace_t * as)
         pmm_free(vec_at(&as->page_tables, i), 8, __func__, __LINE__);
     vec_erase_all(&as->page_tables);
 
-    kmfree_chunk((void *) as->PML4, __func__, __LINE__);
+    kmfree_pages((void *) as->PML4, __func__, __LINE__);
     kmfree(as);
 }
 

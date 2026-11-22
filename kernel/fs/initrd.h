@@ -25,6 +25,6 @@ void initrd_init(void *address, uint64_t size);
 /* Address and length of the boot initrd, for the VFS server. */
 void initrd_get(void **address, uint64_t *size);
 
-/* Read a file from the initrd into a freshly kmalloc_chunk()'d buffer. The
+/* Read a file from the initrd into a freshly kmalloc_pages()'d buffer. The
  * path may be absolute or relative. Returns 0 on success. */
 int64_t initrd_load(const char *path, uint8_t **out_buf, uint64_t *out_len);

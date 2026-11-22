@@ -108,7 +108,7 @@ int64_t initrd_load(const char *path, uint8_t **out_buf, uint64_t *out_len)
             uint8_t *buf = NULL;
 
             if (fsize > 0) {
-                buf = (uint8_t *) kmalloc_chunk(fsize, __func__, __LINE__);
+                buf = (uint8_t *) kmalloc_pages(fsize, __func__, __LINE__);
                 if (buf == NULL)
                     return -1;
                 if (ptr + USTAR_BLOCK + fsize > end) {

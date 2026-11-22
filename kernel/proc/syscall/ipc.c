@@ -563,7 +563,7 @@ int64_t k_proc_map(int64_t pid, uint64_t vaddr, int64_t memh, int64_t prot)
 
     for (uint64_t i = 0; i < np; i++) {
         uint64_t dst =
-            VIRT_TO_PHYS(kmalloc_chunk(PAGE_SIZE, __func__, __LINE__));
+            VIRT_TO_PHYS(kmalloc_pages(PAGE_SIZE, __func__, __LINE__));
         if (dst == 0) {
             cpu_set_errno(ENOMEM);
             return -1;

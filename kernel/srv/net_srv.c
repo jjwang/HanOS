@@ -82,7 +82,7 @@ static bool net_grant_nic(process_t * tc, bootinfo_t * bi)
     bi->net_mmio_size = bar.size;
 
     /* Contiguous DMA memory the server programs into the NIC rings. */
-    void *dma = kmalloc_chunk(NET_DMA_SIZE, __func__, __LINE__);
+    void *dma = kmalloc_pages(NET_DMA_SIZE, __func__, __LINE__);
 
     if (dma != NULL) {
         uint64_t dma_phys = VIRT_TO_PHYS((uint64_t) dma);

@@ -125,7 +125,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     }
 
     phdr =
-        kmalloc_chunk(hdr.phnum * sizeof(elf_phdr_t), __func__, __LINE__);
+        kmalloc_pages(hdr.phnum * sizeof(elf_phdr_t), __func__, __LINE__);
     if (!phdr)
         goto err_exit;
     memcpy(phdr, elf_buff + hdr.phoff, hdr.phnum * sizeof(elf_phdr_t));
@@ -138,7 +138,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     addrspace_owned_add(process->addrspace, &m);
 
     phaddr =
-        (uint64_t *) kmalloc_chunk(hdr.phnum * sizeof(uint64_t), __func__,
+        (uint64_t *) kmalloc_pages(hdr.phnum * sizeof(uint64_t), __func__,
                                    __LINE__);
     if (phaddr == NULL)
         goto err_exit;
@@ -215,7 +215,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
             DIV_ROUNDUP(misalign + phdr[i].memsz, PAGE_SIZE);
 
         uint64_t addr =
-            VIRT_TO_PHYS(kmalloc_chunk
+            VIRT_TO_PHYS(kmalloc_pages
                          (page_count * PAGE_SIZE, __func__, __LINE__));
         if (!addr) {
             kpanic("ELF(%s): cannot alloc %ld bytes memory",
@@ -270,7 +270,7 @@ int64_t elf_load(process_t * process, const char *path_name, uint64_t * entry,
     }
 
     shdr =
-        kmalloc_chunk(hdr.shnum * sizeof(elf_shdr_t), __func__, __LINE__);
+        kmalloc_pages(hdr.shnum * sizeof(elf_shdr_t), __func__, __LINE__);
     if (!shdr)
         goto err_exit;
 

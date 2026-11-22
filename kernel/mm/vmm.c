@@ -363,7 +363,7 @@ addrspace_t *create_addrspace(void)
 
     memset(as, 0, sizeof(addrspace_t));
 
-    as->PML4 = kmalloc_chunk(PAGE_SIZE * 8, __func__, __LINE__);
+    as->PML4 = kmalloc_pages(PAGE_SIZE * 8, __func__, __LINE__);
     if (!as->PML4) {
         kmfree(as);
         return NULL;

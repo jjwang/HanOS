@@ -527,7 +527,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
                          ptr + np * PAGE_SIZE);
 
     uint64_t phys_ptr =
-        VIRT_TO_PHYS(kmalloc_chunk(np * PAGE_SIZE, __func__, __LINE__));
+        VIRT_TO_PHYS(kmalloc_pages(np * PAGE_SIZE, __func__, __LINE__));
 
     if (!anonymous) {
         uint8_t *dst = (uint8_t *) PHYS_TO_VIRT(phys_ptr);
@@ -537,7 +537,7 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
 
         if (owner == NULL
             || !mmap_file_load(owner->pid, (int64_t) fd, &file, &file_len)) {
-                kmfree_chunk((void *) PHYS_TO_VIRT(phys_ptr), __func__, __LINE__);
+                kmfree_pages((void *) PHYS_TO_VIRT(phys_ptr), __func__, __LINE__);
             cpu_set_errno(EIO);
             goto err_exit;
         }
@@ -608,7 +608,7 @@ int64_t k_brk(uint64_t addr)
     }
 
     uint64_t np = (new_end - old) / PAGE_SIZE;
-    void *buf = kmalloc_chunk(np * PAGE_SIZE, __func__, __LINE__);
+    void *buf = kmalloc_pages(np * PAGE_SIZE, __func__, __LINE__);
 
     if (buf == NULL) {
         cpu_set_errno(ENOMEM);
@@ -3215,7 +3215,7 @@ static int32_t exec_via_server(process_t * t, const char *kpath,
     uint8_t *buf = kmalloc(total);
 
     if (buf == NULL) {
-        kmfree_chunk(elf, __func__, __LINE__);
+        kmfree_pages(elf, __func__, __LINE__);
         return -1;
     }
 
@@ -3250,7 +3250,7 @@ static int32_t exec_via_server(process_t * t, const char *kpath,
         p += n;
     }
     memcpy(buf + off_elf, elf, elf_len);
-    kmfree_chunk(elf, __func__, __LINE__);
+    kmfree_pages(elf, __func__, __LINE__);
 
     handle_t bh = 0;
 

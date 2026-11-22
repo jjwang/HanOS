@@ -1845,7 +1845,7 @@ static int64_t ext2_load_file(const char *rel, uint8_t **out_buf,
     uint8_t *buf = NULL;
 
     if (size > 0) {
-        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
+        buf = (uint8_t *) kmalloc_pages(size, __func__, __LINE__);
         if (buf == NULL) {
             ext2_close_fd(fd);
             return -1;
@@ -1930,7 +1930,7 @@ static int64_t vfs_load_via_server(const char *path, uint8_t **out_buf,
     }
 
     if (size > 0) {
-        buf = (uint8_t *) kmalloc_chunk(size, __func__, __LINE__);
+        buf = (uint8_t *) kmalloc_pages(size, __func__, __LINE__);
         if (buf == NULL) {
             vfs_server_close(SVC_FS, sfd);
             return -1;

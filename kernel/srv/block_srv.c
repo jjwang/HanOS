@@ -87,7 +87,7 @@ static void block_spawn_attach(process_t * tc)
     }
 
     /* Contiguous DMA region for the command list, FIS, tables and data. */
-    void *dma = kmalloc_chunk(BLOCK_DMA_SIZE, __func__, __LINE__);
+    void *dma = kmalloc_pages(BLOCK_DMA_SIZE, __func__, __LINE__);
 
     if (dma != NULL) {
         uint64_t dma_phys = VIRT_TO_PHYS((uint64_t) dma);

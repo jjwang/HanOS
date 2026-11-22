@@ -121,7 +121,7 @@ void vma_remove_range(struct addrspace *as, vma_map_t * map, uint64_t start,
             uint64_t np = (v->end - v->start) / VMA_PAGE_SIZE;
 
             vmm_unmap(as, v->start, np);
-            kmfree_chunk((void *) PHYS_TO_VIRT(v->paddr), __func__, __LINE__);
+            kmfree_pages((void *) PHYS_TO_VIRT(v->paddr), __func__, __LINE__);
             vma_memmove(&map->tab[i], &map->tab[i + 1],
                     (map->len - i - 1) * sizeof(vma_t));
             map->len--;
@@ -149,7 +149,7 @@ void vma_destroy(struct addrspace *as, vma_map_t * map)
         vma_t *v = &map->tab[i];
 
         vmm_unmap(as, v->start, (v->end - v->start) / VMA_PAGE_SIZE);
-        kmfree_chunk((void *) PHYS_TO_VIRT(v->paddr), __func__, __LINE__);
+        kmfree_pages((void *) PHYS_TO_VIRT(v->paddr), __func__, __LINE__);
     }
 
     if (map->tab != NULL)
@@ -170,7 +170,7 @@ int vma_clone(struct addrspace *dst_as, const vma_map_t * src,
         if (np == 0)
             continue;
 
-        buf = kmalloc_chunk(np * VMA_PAGE_SIZE, __func__, __LINE__);
+        buf = kmalloc_pages(np * VMA_PAGE_SIZE, __func__, __LINE__);
         if (buf == NULL)
             goto fail;
 
@@ -181,7 +181,7 @@ int vma_clone(struct addrspace *dst_as, const vma_map_t * src,
         vmm_map(dst_as, v->start, paddr, np, v->flags);
 
         if (vma_add(dst, v->start, v->end, paddr, v->flags) != 0) {
-            kmfree_chunk(buf, __func__, __LINE__);
+            kmfree_pages(buf, __func__, __LINE__);
             goto fail;
         }
         if (v->end > dst_as->anon_next)
@@ -205,7 +205,7 @@ void addrspace_owned_destroy(addrspace_t * as)
     for (uint32_t i = 0; i < vec_length(&as->owned_list); i++) {
         mem_map_t m = vec_at(&as->owned_list, i);
 
-        kmfree_chunk((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
+        kmfree_pages((void *) PHYS_TO_VIRT(m.paddr), __func__, __LINE__);
     }
     vec_erase_all(&as->owned_list);
 }
@@ -218,7 +218,7 @@ int addrspace_owned_clone(addrspace_t * dst, addrspace_t * src)
 
         if (m.np == 0)
             continue;
-        buf = kmalloc_chunk(m.np * PAGE_SIZE, __func__, __LINE__);
+        buf = kmalloc_pages(m.np * PAGE_SIZE, __func__, __LINE__);
         if (buf == NULL)
             return -1;
         memcpy(buf, (void *) PHYS_TO_VIRT(m.paddr), m.np * PAGE_SIZE);

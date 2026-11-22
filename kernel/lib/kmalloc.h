@@ -32,16 +32,16 @@ typedef struct {
 
 extern uint64_t kmalloc_checkno;
 
-void *kmalloc_core(uint64_t size, const char *func, uint64_t line);
-void kmfree_core(void *addr, const char *func, uint64_t line);
-void *kmrealloc_core(void *addr, uint64_t newsize, const char *func,
+void *kmalloc_impl(uint64_t size, const char *func, uint64_t line);
+void kmfree_impl(void *addr, const char *func, uint64_t line);
+void *kmrealloc_impl(void *addr, uint64_t newsize, const char *func,
                      uint64_t line);
 
-void *kmalloc_chunk(uint64_t size, const char *func, uint64_t line);
-void kmfree_chunk(void *addr, const char *func, uint64_t line);
-void *kmrealloc_chunk(void *addr, uint64_t newsize, const char *func,
+void *kmalloc_pages(uint64_t size, const char *func, uint64_t line);
+void kmfree_pages(void *addr, const char *func, uint64_t line);
+void *kmrealloc_pages(void *addr, uint64_t newsize, const char *func,
                       uint64_t line);
 
-#define kmalloc(x)          kmalloc_core(x, __func__, __LINE__)
-#define kmfree(x)           kmfree_core(x, __func__, __LINE__)
-#define kmrealloc(x, y)     kmrealloc_core(x, y, __func__, __LINE__)
+#define kmalloc(x)          kmalloc_impl(x, __func__, __LINE__)
+#define kmfree(x)           kmfree_impl(x, __func__, __LINE__)
+#define kmrealloc(x, y)     kmrealloc_impl(x, y, __func__, __LINE__)

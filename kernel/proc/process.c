@@ -134,12 +134,12 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         as = create_addrspace();
 
         nproc->kstack_limit =
-            (void *) kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+            (void *) kmalloc_pages(STACK_SIZE, __func__, __LINE__);
         nproc->kstack_top = (void *)((uint8_t *) nproc->kstack_limit + STACK_SIZE);
         *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
         nproc->ustack_limit = (void *)
-            VIRT_TO_PHYS(kmalloc_chunk(STACK_SIZE, __func__, __LINE__));
+            VIRT_TO_PHYS(kmalloc_pages(STACK_SIZE, __func__, __LINE__));
         nproc->ustack_top = (void *)((uint8_t *) nproc->ustack_limit + STACK_SIZE);
 
         klogi("PROC: %s process id %ld (0x%016lx) kstack 0x%016lx ustack 0x%016lx\n",
@@ -175,7 +175,7 @@ process_t *process_make(const char *name, void (*entry)(pid_t),
         nproc_regs->ss = DEFAULT_UMODE_DATA;
     } else {
         nproc->kstack_limit =
-            kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+            kmalloc_pages(STACK_SIZE, __func__, __LINE__);
         nproc->kstack_top = (void *)((uint8_t *) nproc->kstack_limit + STACK_SIZE);
         *(uint64_t *) nproc->kstack_limit = STACK_CANARY;
 
@@ -278,7 +278,7 @@ process_t *process_fork(process_t * tp)
     tc->status = PROC_READY;
     process_table_add(tc);
 
-    tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+    tc->kstack_limit = kmalloc_pages(STACK_SIZE, __func__, __LINE__);
     memcpy(tc->kstack_limit, tp->kstack_limit, STACK_SIZE);
 
     uint64_t offset = 0;
@@ -360,7 +360,7 @@ process_t *process_clone(process_t * tp, uint64_t flags, uint64_t stack,
     handle_table_init(&tc->handles);
     tc->bootinfo = NULL;
 
-    tc->kstack_limit = kmalloc_chunk(STACK_SIZE, __func__, __LINE__);
+    tc->kstack_limit = kmalloc_pages(STACK_SIZE, __func__, __LINE__);
     tc->kstack_top = (void *)((uint8_t *) tc->kstack_limit + STACK_SIZE);
     *(uint64_t *) tc->kstack_limit = STACK_CANARY;
 
@@ -408,7 +408,7 @@ void process_free_addrspace(addrspace_t * as)
     }
     vec_erase_all(&as->page_tables);
 
-    kmfree_chunk((void *) as->PML4, __func__, __LINE__);
+    kmfree_pages((void *) as->PML4, __func__, __LINE__);
     kmfree((void *) as);
 }
 
@@ -420,7 +420,7 @@ void process_free(process_t * t)
 
     process_table_remove(t);
 
-    kmfree_chunk((void *) t->kstack_limit, __func__, __LINE__);
+    kmfree_pages((void *) t->kstack_limit, __func__, __LINE__);
 
     /* Threads share the address space. Free it and its mappings only after the
      * last thread leaves. */

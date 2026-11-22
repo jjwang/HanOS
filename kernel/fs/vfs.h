@@ -223,7 +223,7 @@ vfs_fd_t vfs_open_server(int64_t server_fd, const char *path,
 vfs_fd_t vfs_open_server_svc(int64_t server_fd, const char *path,
                              vfs_openmode_t mode, uint64_t size, int32_t svc);
 
-/* Read a whole file into a freshly kmalloc_chunk()'d kernel buffer without
+/* Read a whole file into a freshly kmalloc_pages()'d kernel buffer without
  * touching the process fd table. Used by the ELF loader, which falls back to
  * the initrd image while the userspace servers are still coming up. Returns 0
  * on success. */
