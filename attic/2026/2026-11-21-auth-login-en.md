@@ -25,9 +25,7 @@ the current user's password. `init` starts `/bin/login` instead of the shell.
 
 ## Verification
 
-The login reaches `pw_lookup` in QEMU. Scripted keystroke injection through the
-QEMU monitor corrupts the username, so an interactive keyboard test remains.
-
-## Remaining
-
-- `chown`/`fchownat` and `open` mode checks; apply `umask` to file creation.
+Two boots succeed end to end. QMP `input-send-event` drives the prompts without
+dropping repeated characters; the first boot sets the password and the second
+logs in to the shell. `chown`/`fchownat`, the open-mode check and the umask are
+covered in the permission note.

@@ -14,8 +14,4 @@
 
 ## 验证
 
-QEMU 中登录走到 `pw_lookup`。QEMU monitor 的脚本按键会打乱用户名，仍需真实键盘交互测试。
-
-## 待办
-
-- `chown`/`fchownat`、`open` 模式位检查；创建文件时应用 `umask`。
+同一镜像两次启动均成功。QMP `input-send-event` 驱动提示，不丢重复字符；首次设置密码，第二次登录进入 shell。`chown`/`fchownat`、open 模式检查、umask 见权限那份记录。

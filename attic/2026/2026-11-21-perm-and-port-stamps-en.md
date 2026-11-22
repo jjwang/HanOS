@@ -19,3 +19,6 @@ skips finished packages instead of rebuilding bash, readline and the rest.
 
 Two boots of one image: the first sets the password, the second logs in with
 it and starts the shell. `fchown` routes through `fchownat`/`AT_EMPTY_PATH`.
+The VFS stores and reloads entry uid/gid (store version 3), so initrd chown
+persists; the login prompt is written to the serial and passwords read from
+stdin.

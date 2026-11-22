@@ -8,7 +8,6 @@
 
 `3rdparty/ports/build.sh` 为每个包保留一个 stamp（`.pkg-<name>`）。包的脚本、编译器包装器或 `common.sh` 更新时才重建。暂存目录保留，未变的包留在原处。整轮构建跳过已完成的包，不再重编 bash、readline 等。
 
-## 待办
+## 验证
 
-- initrd 的 VFS 命名空间接受 `chown` 但不保存属主；只有 ext2 文件持久保存属主。
-- 登录提示未刷到串口；仍需真实键盘交互测试。
+同一镜像两次启动：首次设密码，第二次用密码登录进入 shell。initrd 的 VFS 条目与 store 第 3 版保存 uid/gid，chown 可持久化。登录提示用 write 输出到串口，密码从 stdin 读取。
