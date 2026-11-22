@@ -62,7 +62,12 @@ fi
 
 sleep 5
 
-python3 - "$QMP" "/data/bin/bash /data/bin/stress" <<'PY'
+# The shell is behind /bin/login now: log in as root, set the first-boot
+# password, then run the guest script.
+python3 - "$QMP" "root
+hanos
+hanos
+/data/bin/bash /data/bin/stress" <<'PY'
 import json
 import socket
 import sys
