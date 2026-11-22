@@ -31,3 +31,6 @@ void gpu_cursor_move(int32_t dx, int32_t dy);
 
 /* Endpoint the console server uses to request its display surface. */
 endpoint_t *gpu_srv_endpoint(void);
+
+/* True when the attached display is Gen9 (Skylake). */
+bool gpu_srv_gen9(void);

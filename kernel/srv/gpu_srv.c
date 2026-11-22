@@ -208,6 +208,11 @@ endpoint_t *gpu_srv_endpoint(void)
     return gpu_ep;
 }
 
+bool gpu_srv_gen9(void)
+{
+    return gfx_boot_is_gen9(gpu_device.device_id);
+}
+
 void gpu_cursor_move(int32_t dx, int32_t dy)
 {
     if (!gpu_active || gpu_ep == NULL)

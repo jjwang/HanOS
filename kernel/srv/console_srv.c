@@ -99,6 +99,7 @@ static void console_spawn_attach(process_t * tc)
     bi->fb_pitch = fb->pitch;
     bi->fb_size = console_fb_size;
     bi->desktop = 0;
+    bi->gpu_gen9 = gpu_srv_gen9() ? 1 : 0;
     bi->fgcolor = DEFAULT_FGCOLOR;
     bi->bgcolor = DEFAULT_BGCOLOR;
     tc->bootinfo = bi;
