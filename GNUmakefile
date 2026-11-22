@@ -155,8 +155,8 @@ initrd: $(MUSL_SHARED) $(SYSROOT_STAMP)
 # Both images carry the same initrd; build it once so a sequential or
 # parallel make does not race on the archive.
 $(INITRD_TAR): initrd
-	rm -rf initrd/etc initrd/usr initrd/root initrd/include initrd/usr/local
-	mkdir -p initrd/etc initrd/usr initrd/root
+	rm -rf initrd/etc initrd/usr initrd/root initrd/include initrd/usr/local initrd/sbin
+	mkdir -p initrd/etc initrd/usr initrd/root initrd/sbin
 	cp -rf sysroot/* initrd
 	mkdir -p initrd/usr/include
 	find $(SYSROOT_STAGE)/usr/include -mindepth 1 -maxdepth 1 ! -name c++ -exec cp -a {} initrd/usr/include/ \;
@@ -166,7 +166,7 @@ $(INITRD_TAR): initrd
 	ln -sf ld-musl-x86_64.so.1 initrd/lib/ld64.so.1
 	@if [ "$(WITH_NATIVE_GCC)" = "1" ]; then 		[ -f $(NATIVE_GCC)/bin/gcc ] || { echo "run make native-gcc first" >&2; exit 1; }; 		cp -a $(NATIVE_GCC)/. initrd/usr/; 		cp -f $(NATIVE_GCC)/bin/gcc $(NATIVE_GCC)/bin/g++ $(NATIVE_GCC)/bin/cpp initrd/bin/; 		mkdir -p initrd/usr/local/bin; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/collect2 initrd/usr/local/bin/; 		cp -f $(NATIVE_GCC)/libexec/gcc/x86_64-hanos/10.2.0/lto1 initrd/usr/local/bin/; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-as initrd/usr/local/bin/as; 		cp -f $(NATIVE_BINUTILS)/x86_64-hanos-ld initrd/usr/local/bin/ld; 		mkdir -p initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/gcc/x86_64-hanos/10.2.0/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/usr/local/lib/; 		cp -f $(CROSS_GCC)/crtbegin.o $(CROSS_GCC)/crtend.o initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/gcc/x86_64-hanos/10.2.0/libgcc.a initrd/lib/; 		cp -f $(SYSROOT_STAGE)/usr/lib/libm.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.a initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so initrd/usr/local/lib/; 		cp -f $(NATIVE_GCC)/lib/libstdc++.so.6 initrd/usr/local/lib/; 		mkdir -p initrd/usr/local/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/usr/local/include/; 		mkdir -p initrd/include; 		cp -a $(NATIVE_GCC)/include/c++ initrd/include/; 		rm -f initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1 initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/cc1plus initrd/usr/libexec/gcc/x86_64-hanos/10.2.0/lto1; 	fi
 	mkdir -p initrd/include
-	tar --dereference --hard-dereference -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib include
+	tar --dereference --hard-dereference -cvpf $(INITRD_TAR) -C $(TARGET_ROOT) bin assets etc usr root data lib include sbin
 
 $(PORTS_HDD_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	rm -rf initrd-ports-hdd

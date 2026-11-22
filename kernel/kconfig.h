@@ -30,19 +30,19 @@
 /* Memory allocator selection */
 #define USE_BUDDY_ALLOCATOR     true    /* true: buddy, false: bitmap */
 
-#define DEFAULT_INPUT_SVR       "/bin/input"
-#define DEFAULT_GPU_SVR         "/bin/gpu"
-#define DEFAULT_CONSOLE_SVR     "/bin/console"
-#define DEFAULT_BLOCK_SVR       "/bin/block"
-#define DEFAULT_VFS_SVR         "/bin/vfs"
-#define DEFAULT_PIPE_SVR        "/bin/pipe"
-#define DEFAULT_TTY_SVR         "/bin/tty"
-#define DEFAULT_FAT32_SVR       "/bin/fat32"
-#define DEFAULT_EXT2_SVR        "/bin/ext2"
-#define DEFAULT_PROC_SVR        "/bin/process"
-#define DEFAULT_NET_SVR         "/bin/net"
-#define DEFAULT_MISC_SVR        "/bin/misc"
-#define DEFAULT_MM_SVR          "/bin/mm"
+#define DEFAULT_INPUT_SVR       "/sbin/input"
+#define DEFAULT_GPU_SVR         "/sbin/gpu"
+#define DEFAULT_CONSOLE_SVR     "/sbin/console"
+#define DEFAULT_BLOCK_SVR       "/sbin/block"
+#define DEFAULT_VFS_SVR         "/sbin/vfs"
+#define DEFAULT_PIPE_SVR        "/sbin/pipe"
+#define DEFAULT_TTY_SVR         "/sbin/tty"
+#define DEFAULT_FAT32_SVR       "/sbin/fat32"
+#define DEFAULT_EXT2_SVR        "/sbin/ext2"
+#define DEFAULT_PROC_SVR        "/sbin/process"
+#define DEFAULT_NET_SVR         "/sbin/net"
+#define DEFAULT_MISC_SVR        "/sbin/misc"
+#define DEFAULT_MM_SVR          "/sbin/mm"
 
 #define DEFAULT_TZ_SEC_SHIFT    (8 * 60 * 60)
 

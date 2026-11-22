@@ -78,7 +78,9 @@ ASM_OBJS  := $(ASM_FILES:.asm=.o)
 
 HONOS_RT  := $(RUNTIME_OBJS)
 
-CELF      := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mm servers/misc servers/pipe servers/process servers/tty servers/vfs bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/mem bin/df bin/gcc bin/g++ bin/c++ bin/login bin/passwd
+SERVERS   := servers/block servers/fat32 servers/ext2 servers/input servers/net servers/mm servers/misc servers/pipe servers/process servers/tty servers/vfs
+BINS      := bin/cat bin/echo bin/hansh bin/help bin/init bin/ls bin/pwd bin/rm bin/wc bin/edit bin/free bin/mem bin/df bin/gcc bin/g++ bin/c++ bin/login bin/passwd
+CELF      := $(SERVERS) $(BINS)
 
 # The console server links libvterm, so it builds through its own rule.
 CONSOLE   := servers/console
@@ -92,8 +94,9 @@ DISK_APPS := games/tetris games/2048 games/snake
 .PHONY: clean all musl
 
 all: $(MUSL_LIB)/libc.a $(C_OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(CELF) $(CONSOLE) $(GPU) $(DISK_APPS)
-	mkdir -p ../initrd/bin
-	cp $(CELF) $(CONSOLE) $(GPU) ../initrd/bin
+	mkdir -p ../initrd/bin ../initrd/sbin
+	cp $(BINS) ../initrd/bin
+	cp $(SERVERS) $(CONSOLE) $(GPU) ../initrd/sbin
 
 musl: $(MUSL_LIB)/libc.a
 
@@ -212,4 +215,4 @@ $(DISK_APPS): %: %.o games/common.o $(HONOS_RT) _help.o font.o $(MUSL_CRT1)
 clean:
 	rm -f $(C_OBJS) $(C_DEPS) $(RUNTIME_OBJS) $(RUNTIME_DEPS) $(ASM_OBJS) $(CELF) $(CONSOLE) $(GPU) $(DISK_APPS) $(VTERM_OBJS) sh.sym
 	rm -f $(VTERM_BUILD)/src/encoding/uk.inc $(VTERM_BUILD)/src/encoding/DECdrawing.inc
-	rm -rf ../initrd/bin/* _help.c _help.o
+	rm -rf ../initrd/bin/* ../initrd/sbin/* _help.c _help.o
