@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    smp_base.s
+ @brief   Embed the application-processor trampoline blob for SMP startup.
+
+ **-----------------------------------------------------------------------------
+ */
 .global smp_trampoline_blob_start
 .global smp_trampoline_blob_end
 

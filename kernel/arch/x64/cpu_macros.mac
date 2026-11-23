@@ -1,3 +1,5 @@
+; @file cpu_macros.mac
+; @brief NASM macros that save and restore the full register set.
 %ifndef CPU_MACROS_MAC
 %define CPU_MACROS_MAC
 

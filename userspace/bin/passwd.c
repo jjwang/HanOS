@@ -1,4 +1,10 @@
-/* Change the current user's password in the shadow file. */
+/**-----------------------------------------------------------------------------
+
+ @file    passwd.c
+ @brief   Change the current user's password in the shadow file.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

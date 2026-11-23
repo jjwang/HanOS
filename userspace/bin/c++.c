@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    c++.c
+ @brief   Forward c++ to the /data/bin toolchain with default link flags.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdlib.h>
 #include <unistd.h>
 

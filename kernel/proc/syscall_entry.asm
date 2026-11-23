@@ -1,3 +1,5 @@
+; @file syscall_entry.asm
+; @brief Userspace syscall entry stub that marshals arguments and runs syscall.
 global syscall_entry
 
 ;

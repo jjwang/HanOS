@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------------
 
- @file    gfx_reg.h
+ @file    gpu_reg.h
  @brief   Graphics device register definitions
  @details
  @verbatim

@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    exitgrouptest.c
+ @brief   Check that exit() ends the process group from a worker thread.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>

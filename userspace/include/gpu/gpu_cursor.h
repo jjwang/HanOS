@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gpu_cursor.h
+ @brief   Hardware cursor interface of the userspace GPU server.
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>

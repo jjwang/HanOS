@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    bootfont.s
+ @brief   Embed the normal and bold PSF fonts used by the boot console.
+
+ **-----------------------------------------------------------------------------
+ */
 .section .rodata
 .global boot_font_norm
 .type boot_font_norm, @object

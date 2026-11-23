@@ -1,4 +1,10 @@
-/* Password hashing and the ext2 shadow file for the login helper. */
+/**-----------------------------------------------------------------------------
+
+ @file    passwd.c
+ @brief   Password hashing and shadow file access for the login helpers.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>

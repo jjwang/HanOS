@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    passwd.h
+ @brief   Password, shadow and prompt helpers shared by login and passwd.
+
+ **-----------------------------------------------------------------------------
+ */
 #ifndef HANOS_PASSWD_H
 #define HANOS_PASSWD_H
 

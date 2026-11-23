@@ -10,8 +10,6 @@
   printing log messages at various levels, and managing log buffers.
 
  @endverbatim
- @todo    Separate kprintf() from klog; keeping them together can deadlock
-          when several lockers log at the same time.
 
  **-----------------------------------------------------------------------------
  */

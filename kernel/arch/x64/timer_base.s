@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    timer_base.s
+ @brief   Local APIC timer interrupt stub that sends EOI and returns.
+
+ **-----------------------------------------------------------------------------
+ */
 .extern apic_send_eoi
 
 .global apic_timer_handler

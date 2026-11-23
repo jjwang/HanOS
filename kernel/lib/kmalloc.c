@@ -8,7 +8,6 @@
   Kernel memory allocation function includes malloc, free and realloc.
 
  @endverbatim
- @todo    Memory allocation should be improved for better efficiency.
 
  **-----------------------------------------------------------------------------
  */

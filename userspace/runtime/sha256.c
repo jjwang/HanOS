@@ -1,4 +1,10 @@
-/* Self-contained SHA-256 for the login password hash. */
+/**-----------------------------------------------------------------------------
+
+ @file    sha256.c
+ @brief   Self-contained SHA-256 implementation for password hashes.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <sha256.h>
 
 static const uint32_t K[64] = {

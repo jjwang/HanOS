@@ -1,4 +1,10 @@
-/* Print the kernel memory statistics (alias of free). */
+/**-----------------------------------------------------------------------------
+
+ @file    mem.c
+ @brief   Print kernel memory totals, used and free.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 #include <stdio.h>
 #include <sysfunc.h>

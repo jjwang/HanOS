@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gpu_log.h
+ @brief   Logging and PIT delay helpers for the userspace GPU server.
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdint.h>

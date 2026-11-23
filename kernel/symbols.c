@@ -3,6 +3,13 @@
  * DO NOT EDIT
  */
 
+/**-----------------------------------------------------------------------------
+
+ @file    symbols.c
+ @brief   Weak fallback kernel symbol table replaced by generated data at link time.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <symbols.h>
 
 [[gnu::weak]]

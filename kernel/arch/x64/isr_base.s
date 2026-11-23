@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    isr_base.s
+ @brief   Exception and IRQ entry stubs that save state and call the C handler.
+
+ **-----------------------------------------------------------------------------
+ */
 /* -----------------------------------------------------------------------------
  * x86-64 SMP-Compatible Exception/IRQ Handlers (Userspace + Kernelspace)
  * Highlights:

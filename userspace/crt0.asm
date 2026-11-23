@@ -1,3 +1,5 @@
+; @file crt0.asm
+; @brief User process entry stub that calls main and exits.
 global _start
 
 extern main

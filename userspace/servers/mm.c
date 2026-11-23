@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------------
 
- @file    mem.c
+ @file    mm.c
  @brief   Userspace MM server
 
  @details

@@ -3,7 +3,7 @@
  @file    gpu_cursor.c
  @brief   Hardware cursor surface for the userspace GPU server
 
- @endverbatim
+ **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
 #include <stdint.h>

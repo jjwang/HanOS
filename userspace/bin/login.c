@@ -1,6 +1,10 @@
-/* Console login: authenticate against /etc/passwd and the shadow file, drop
- * to the user's uid/gid, then start the shell. A user with no stored hash is
- * forced to set one on the first login. */
+/**-----------------------------------------------------------------------------
+
+ @file    login.c
+ @brief   Authenticate a console user and start the shell.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

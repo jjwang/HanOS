@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------------
+
+ @file    gpu_types.h
+ @brief   GPU identity, GTT and buffer types shared by the display drivers.
+
+ **-----------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <stdbool.h>

@@ -1,3 +1,5 @@
+; @file syscall_handler.asm
+; @brief Kernel syscall handler that runs on the per-CPU kernel stack.
 %include "arch/x64/cpu_macros.mac"
 
 global syscall_handler

@@ -1,4 +1,10 @@
-/* Print the ext2 data partition disk usage (the mount at /data). */
+/**-----------------------------------------------------------------------------
+
+ @file    df.c
+ @brief   Print disk usage of the /data ext2 mount.
+
+ **-----------------------------------------------------------------------------
+ */
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/statfs.h>

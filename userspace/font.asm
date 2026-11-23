@@ -1,3 +1,5 @@
+; @file font.asm
+; @brief Embed the normal and bold PSF fonts used by the terminal.
 section .rodata
 global term_font_norm
 global term_font_bold

@@ -1,3 +1,5 @@
+; @file sched_base.asm
+; @brief Low-level context switch entry and exit for the scheduler.
 %include "arch/x64/cpu_macros.mac"
 
 global enter_context_switch
