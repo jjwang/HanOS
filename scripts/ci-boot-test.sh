@@ -21,7 +21,7 @@ rm -f "$LOG" "$DBG"
 
 echo "ISO: $ISO ($(wc -c <"$ISO") bytes)"
 echo "initrd.tar: $(wc -c <initrd.tar 2>/dev/null || echo 0) bytes"
-tar -tf initrd.tar | grep -qx bin/hansh || {
+tar -tf initrd.tar 2>/dev/null | grep -x 'bin/hansh' >/dev/null || {
     echo "initrd.tar is missing bin/hansh" >&2
     exit 1
 }
