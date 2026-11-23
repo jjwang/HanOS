@@ -54,12 +54,15 @@ static const char *shell_path(const char **name)
                 break;
             nanosleep(&delay, NULL);
         }
+        /* The ports image carries a shadow store, so authenticate first and
+         * let login pick the shell. */
+        *name = "login";
+        return "/bin/login";
     }
 
-    /* Run login in every case so the password flow and the uid/gid drop apply
-     * before the shell. login selects the shell. */
-    *name = "login";
-    return "/bin/login";
+    /* A plain image has no shadow store; start the shell directly. */
+    *name = "hansh";
+    return "/bin/hansh";
 }
 
 int32_t main(void)
