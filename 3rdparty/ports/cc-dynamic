@@ -16,12 +16,26 @@ INCS="-I$MUSL/arch/x86_64 -I$MUSL/arch/generic -I$MUSL/obj/include -I$MUSL/inclu
 
 link=1
 shared=0
-for arg in "$@"; do
+reentrant=0
+count=$#
+index=0
+while [ "$index" -lt "$count" ]; do
+    arg=$1
+    shift
+    case "$arg" in
+        -pthread) reentrant=1 ;;
+        *)        set -- "$@" "$arg" ;;
+    esac
     case "$arg" in
         -c|-S|-E|-M|-MM) link=0 ;;
-        -shared) shared=1 ;;
+        -shared)         shared=1 ;;
     esac
+    index=$((index + 1))
 done
+# The bare-metal driver rejects -pthread; musl includes pthread in libc.
+if [ "$reentrant" -eq 1 ]; then
+    BASE="$BASE -D_REENTRANT"
+fi
 
 if [ "$link" -eq 0 ]; then
     exec x86_64-elf-gcc $BASE "$@" $INCS
@@ -29,7 +43,8 @@ fi
 
 if [ "$shared" -eq 1 ]; then
     exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib \
-        -Wl,-shared -Wl,-z,noexecstack -L"$SYS/usr/lib"
+        -Wl,-shared -Wl,-z,noexecstack -Wl,-rpath,/data/lib \
+        -L"$SYS/usr/lib" -lc
 fi
 
 exec x86_64-elf-gcc $BASE "$@" $INCS -nostdlib -no-pie \
