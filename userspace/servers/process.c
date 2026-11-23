@@ -432,6 +432,8 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
     char name[64];
     uint64_t argc, envc, phdr_vaddr = 0;
     int32_t pid = -1;
+    bool entry_ok = false;
+    bool ready = false;
 
     if (sys_mem_map(bufh, PROC_EXEC_ELF_ADDR, EXEC_PROT_READ) != 0)
         return -1;
@@ -489,6 +491,11 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
         if (ph->type != EXEC_PT_LOAD || ph->memsz == 0)
             continue;
 
+        /* The entry must fall inside a loaded image; otherwise a truncated or
+         * corrupt ELF would start the process at RIP 0. */
+        if (eh->entry >= ph->vaddr && eh->entry < ph->vaddr + ph->memsz)
+            entry_ok = true;
+
         uint64_t misalign = ph->vaddr & 0xfff;
         uint64_t vaddr = ph->vaddr & ~(uint64_t) 0xfff;
         uint64_t np = (misalign + ph->memsz + 0xfff) / 0x1000;
@@ -513,6 +520,9 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
         }
         sys_handle_close(mh);
     }
+
+    if (!entry_ok)
+        goto out;
 
     {
         int64_t mh = sys_mem_alloc(PROC_EXEC_STK_SIZE);
@@ -541,10 +551,11 @@ static int32_t exec_load(int64_t caller, int64_t bufh)
     clone_fds(caller, pid);
     close_cloexec(pid);
     sys_proc_start(pid);
+    ready = true;
 
   out:
     sys_mem_unmap(bufh, PROC_EXEC_ELF_ADDR);
-    return pid;
+    return ready ? pid : -1;
 }
 
 static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)

@@ -3270,7 +3270,7 @@ static int32_t exec_via_server(process_t * t, const char *kpath,
     req.xfer[0] = bh;
     req.xfer_count = 1;
 
-    if (!router_forward(SVC_PROC, &req, &rep)) {
+    if (!router_forward_timeout(SVC_PROC, &req, &rep, 15000)) {
         kloge("k_execve: router_forward(SVC_PROC) failed\n");
         return -1;
     }
@@ -3331,18 +3331,27 @@ int64_t k_execve(const char *path, const char *argv[], const char *envp[])
         }
     }
 
-    /* The process server parses and maps the image. Fall back to the in-kernel
-     * loader when the server is not registered. */
-    if (t != NULL && router_lookup(SVC_PROC) != NULL
-        && exec_via_server(t, kpath, kargv_p, kenvp_p, cwd) == 0) {
-        klogi("k_execve: server ran \"%s\", exit process %ld\n", kpath, t->pid);
+    /* The process server owns process creation. When it is registered, do not
+     * fall back to the in-kernel loader on failure: that would create a second
+     * process for one exec while the server may have already spawned one. */
+    if (t != NULL && router_lookup(SVC_PROC) != NULL) {
+        if (exec_via_server(t, kpath, kargv_p, kenvp_p, cwd) == 0) {
+            klogi("k_execve: server ran \"%s\", exit process %ld\n", kpath,
+                  t->pid);
+            free_exec_argv(kargv);
+            free_exec_argv(kenvp);
+            process_fd_exit((int32_t) t->pid);
+            process_exit_notify(0);
+            sched_exit(0);
+            cpu_set_errno(0);
+            return 0;
+        }
+
         free_exec_argv(kargv);
         free_exec_argv(kenvp);
-        process_fd_exit((int32_t) t->pid);
-        process_exit_notify(0);
-        sched_exit(0);
-        cpu_set_errno(0);
-        return 0;
+        kmfree(kpath);
+        cpu_set_errno(ENOEXEC);
+        return -1;
     }
 
     if (sched_execve(kpath, kargv_p, kenvp_p, cwd) != NULL) {
