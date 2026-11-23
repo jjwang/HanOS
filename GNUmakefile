@@ -8,7 +8,7 @@ DISK_APPS = games/tetris games/2048 games/snake
 # Optional Linux packages. `make ports` builds them and regenerates both
 # images; a plain `make` never includes them.
 WITH_PORTS   ?= 0
-PORTS_PACKAGES = bash coreutils grep sed tar make m4 gawk gzip patch diffutils python
+PORTS_PACKAGES = bash coreutils grep sed tar make m4 gawk gzip patch diffutils python libffi expat wayland
 PORTS_BUILD  = 3rdparty/build/ports
 PORTS_STAGE  = $(PORTS_BUILD)/root
 PORTS_STAMP  = $(PORTS_BUILD)/.installed

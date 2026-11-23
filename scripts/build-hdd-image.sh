@@ -76,6 +76,14 @@ fi
 if [ -d "$ROOT/3rdparty/build/ports/root/lib" ]; then
     cp -a "$ROOT/3rdparty/build/ports/root/lib/." "$ROOTFS/lib/"
 fi
+if [ -d "$ROOT/3rdparty/build/ports/root/include" ]; then
+    mkdir -p "$ROOTFS/include"
+    cp -a "$ROOT/3rdparty/build/ports/root/include/." "$ROOTFS/include/"
+fi
+if [ -d "$ROOT/3rdparty/build/ports/root/share" ]; then
+    mkdir -p "$ROOTFS/usr/share"
+    cp -a "$ROOT/3rdparty/build/ports/root/share/." "$ROOTFS/usr/share/"
+fi
 cp -f "$ROOT/scripts/guest-stress.sh" "$ROOTFS/bin/stress"
 chmod 0755 "$ROOTFS/bin/stress"
 printf 'HanOS ext2 data partition.\n' > "$ROOTFS/assets/readme.txt"
