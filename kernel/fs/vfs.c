@@ -1254,6 +1254,7 @@ void vfs_server_ref_fd(int32_t svc, int64_t sfd)
 #define VFS_WRITE_CACHE_INIT (64 * 1024)
 #define VFS_WRITE_CACHE_SLOTS 4
 
+/** @brief Buffered writes for one server file descriptor. */
 typedef struct {
     bool used;
     int64_t sfd;
@@ -1312,6 +1313,7 @@ static void vfs_write_cache_flush(int64_t sfd)
 #define VFS_FILE_CACHE_MIN  (1024 * 1024)
 #define VFS_FILE_CACHE_SLOTS 8
 
+/** @brief A large initrd file cached whole in the kernel. */
 typedef struct {
     bool used;
     int64_t sfd;

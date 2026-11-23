@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/** @brief Intel GPU identity, BARs and GTT window used by the display driver. */
 typedef struct {
     uint32_t id;
     uint16_t device_id;
@@ -19,6 +20,7 @@ typedef struct {
     uint32_t aperture_size;
 } gfx_pci_t;
 
+/** @brief Global GTT: the PTE array, its size and the mappable window. */
 typedef struct {
     uint32_t stolen_mem_size;
     uint32_t gtt_mem_size;
@@ -31,6 +33,7 @@ typedef struct {
     volatile uint64_t *entries;
 } gfx_gtt_t;
 
+/** @brief A GTT-backed buffer the driver maps on the CPU and the GPU scans. */
 typedef struct {
     volatile uint8_t *cpu_addr;
     volatile uint64_t gfx_addr;
@@ -40,12 +43,14 @@ typedef struct {
     int64_t mem_handle;
 } gfx_object_t;
 
+/** @brief An allocator range: base, top and the next free offset. */
 typedef struct {
     uint64_t base;
     uint64_t top;
     uint64_t current;
 } gfx_mem_range_t;
 
+/** @brief GPU memory ranges for VRAM, shared and private allocations. */
 typedef struct {
     gfx_mem_range_t vram;
     gfx_mem_range_t shared;
@@ -55,6 +60,7 @@ typedef struct {
     volatile uint8_t *gfx_mem_next;
 } gfx_mem_manager_t;
 
+/** @brief A scan-out surface: its object, geometry, stride and pixel format. */
 typedef struct {
     gfx_object_t obj;
     uint32_t width;

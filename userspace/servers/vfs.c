@@ -106,6 +106,7 @@ static int64_t root_mtime;      /* newest initrd entry, used for the root */
 static vfs_dyn_t dyns[VFS_MAX_DYN];
 static uint32_t vfs_fd_gen;
 
+/** @brief A deferred FIFO read or write waiting for the other end. */
 typedef struct {
     bool used;
     bool is_write;
@@ -121,6 +122,7 @@ typedef struct {
 #define VFS_FIFO_WAITS 8
 static fifo_wait_t fifo_waits[VFS_FIFO_WAITS];
 
+/** @brief A deferred FIFO open waiting for the peer end. */
 typedef struct {
     bool used;
     int32_t ent;
@@ -1463,6 +1465,7 @@ enum {
     STORE_JOB_ENTRIES
 };
 
+/** @brief State of the incremental VFS store save. */
 typedef struct {
     bool active;
     int32_t phase;

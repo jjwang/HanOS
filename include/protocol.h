@@ -141,6 +141,7 @@
  * meminfo from a read-only stats primitive. */
 #define MM_MEMINFO          0xB0        /* out: words[1]=total, words[2]=free */
 
+/** @brief Memory totals returned by the MM server. */
 typedef struct {
     uint64_t total;             /* bytes */
     uint64_t free;              /* bytes */

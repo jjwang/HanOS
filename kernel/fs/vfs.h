@@ -197,6 +197,7 @@ int64_t vfs_symlink_path(const char *cwd, const char *target, const char *path);
 int64_t vfs_rename_path(const char *cwd, const char *oldp, const char *newp);
 int64_t vfs_link_path(const char *oldp, const char *newp);
 
+/** @brief Filesystem statistics returned by statfs. */
 typedef struct {
     uint64_t bsize;
     uint64_t blocks;

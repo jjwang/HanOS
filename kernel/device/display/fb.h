@@ -35,7 +35,7 @@
 #define DEFAULT_FGCOLOR     COLOR_GREY
 #define DEFAULT_BGCOLOR     COLOR_BLACK
 
-/* PSF1 bitmap font header followed by its glyph data. */
+/** @brief PSF1 bitmap font header followed by its glyph data. */
 typedef struct {
     uint8_t magic[2];
     uint8_t mode;

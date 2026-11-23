@@ -211,6 +211,7 @@ static void fill_cell(uint32_t col, uint32_t row, uint32_t color)
 #define RAIN_COL_MAX    512
 #define RAIN_TICK_MS    33
 
+/** @brief State of one matrix-rain column. */
 typedef struct {
     int32_t head;               /* head row; -1 while waiting */
     int32_t len;                /* tail length in rows */

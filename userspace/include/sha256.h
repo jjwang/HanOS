@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/** @brief SHA-256 hashing state. */
 typedef struct {
     uint32_t h[8];
     uint64_t len;

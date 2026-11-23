@@ -1031,6 +1031,7 @@ int64_t k_symlinkat(const char *target, int32_t newdirfd, const char *linkpath)
     return 0;
 }
 
+/** @brief Filesystem statistics as the kernel returns them to userspace. */
 typedef struct {
     uint64_t f_type;
     uint64_t f_bsize;
