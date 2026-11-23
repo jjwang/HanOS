@@ -14,6 +14,7 @@ EXT2_MB=445
 ESP_START=915456
 ESP_MB=64
 
+mkdir -p "$ROOT/release"
 rm -f "$IMG" "$FAT"
 truncate -s 512M "$IMG"
 sgdisk -Z "$IMG" >/dev/null 2>&1 || true
