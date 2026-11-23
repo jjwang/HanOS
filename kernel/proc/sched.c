@@ -281,9 +281,30 @@ void do_context_switch(void *stack, int64_t mode)
 
     spinlock_release(&(run_queue_lock[cpu_id]));
 
-    exit_context_switch(next->context, (next->addrspace == NULL)
-                        ? VIRT_TO_PHYS((uint64_t) kaddrspace.PML4)
-                        : VIRT_TO_PHYS((uint64_t) next->addrspace->PML4));
+    uint64_t next_cr3 = (next->addrspace == NULL)
+        ? VIRT_TO_PHYS((uint64_t) kaddrspace.PML4)
+        : VIRT_TO_PHYS((uint64_t) next->addrspace->PML4);
+    uint64_t cur_cr3;
+
+    read_cr("cr3", &cur_cr3);
+
+    /* A dead address space's PML4 physical page is reused for a new one, so
+     * the two processes carry the same CR3 value. Loading CR3 with an unchanged
+     * value need not invalidate the TLB, which left the new process reading a
+     * dead process's stale mapping (faults at the anon and brk base addresses).
+     * Flush explicitly when the value does not change. */
+    if ((cur_cr3 & ~0xfffULL) == (next_cr3 & ~0xfffULL)) {
+        uint64_t cr4;
+
+        read_cr("cr4", &cr4);
+        /* Toggling CR4.PGE invalidates the whole TLB (globals included). Write
+         * the flipped value then the original so the toggle is real in either
+         * PGE state. */
+        write_cr("cr4", cr4 ^ (1ULL << 7));
+        write_cr("cr4", cr4);
+    }
+
+    exit_context_switch(next->context, next_cr3);
 }
 
 pid_t sched_get_pid()
