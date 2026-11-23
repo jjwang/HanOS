@@ -3191,29 +3191,31 @@ int32_t main(void)
     for (;;) {
         sys_ipc_msg_t m;
 
-        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) != 0) {
-            if (!store_job.active && store_dirty)
-                store_save_start();
-            if (store_job.active)
-                store_save_step();
-            continue;
+        if (sys_ipc_recv_timeout((int64_t) bi.service_ep, &m, 1000) == 0) {
+            sys_ipc_msg_t rep;
+
+            memset(&rep, 0, sizeof(rep));
+            rep.tag = m.tag;
+            defer_reply = false;
+            handle(&m, &rep);
+
+            if (!defer_reply) {
+                int64_t reply = (int64_t) m.xfer[0];
+
+                if (reply != 0) {
+                    sys_ipc_send(reply, &rep);
+                    sys_handle_close(reply);
+                }
+            }
         }
 
-        sys_ipc_msg_t rep;
-
-        memset(&rep, 0, sizeof(rep));
-        rep.tag = m.tag;
-        defer_reply = false;
-        handle(&m, &rep);
-        if (defer_reply)
-            continue;
-
-        int64_t reply = (int64_t) m.xfer[0];
-
-        if (reply != 0) {
-            sys_ipc_send(reply, &rep);
-            sys_handle_close(reply);
-        }
+        /* Advance the store save on every loop pass, not only when idle: under
+         * continuous file traffic the one-step-per-1s-idle design never
+         * finished, so writes such as the shadow file were lost on reboot. */
+        if (!store_job.active && store_dirty)
+            store_save_start();
+        if (store_job.active)
+            store_save_step();
     }
 
     return 0;
