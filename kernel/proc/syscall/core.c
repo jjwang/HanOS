@@ -1927,6 +1927,12 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
         } else if (desc->svc == SVC_NET) {
             st.st_mode = S_IFSOCK | 0600;
             st.st_nlink = 1;
+        } else if (desc->svc == SVC_MEMFD) {
+            memfd_obj_t *mf = memfd_get(desc->server_fd);
+
+            st.st_mode = S_IFREG | 0600;
+            st.st_nlink = 1;
+            st.st_size = (off_t) (mf != NULL ? mf->size : 0);
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;
