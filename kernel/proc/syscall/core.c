@@ -2850,22 +2850,19 @@ int64_t k_poll(void *fds, uint64_t nfds, int32_t timeout)
         void *key = want_tty ? tty_server_poll_key()
             : (t != NULL ? (void *) &t->poll_key : NULL);
 
-        if (key != NULL)
-            sched_wait_key_begin(key);
-
+        /* Register first: poll_register and poll_check may block on IPC, and
+         * the IPC reply wait reuses the process wake key. Arm the poll key
+         * only after them so the server's wake still matches it. */
         poll_register(fds, nfds, key);
 
-        /* Re-check after arming; a change in the window is caught here. */
         bool again = false;
 
         ready = poll_check(fds, nfds, &again);
-        if (ready > 0) {
-            if (key != NULL)
-                sched_wait_key_cancel();
+        if (ready > 0)
             return ready;
-        }
 
         if (key != NULL) {
+            sched_wait_key_begin(key);
             if (timeout < 0)
                 sched_wait_key_commit_infinite();
             else
@@ -4277,15 +4274,16 @@ int64_t k_epoll_wait(int32_t epfd, void *uevents, int32_t maxevents,
             continue;
         }
 
-        sched_wait_key_begin(key);
+        /* Register before arming: registration blocks on IPC, whose reply
+         * wait reuses the process wake key. */
         for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
             if (eo->items[i].fd != 0)
                 poll_register_one(eo->items[i].fd - 1, key,
                                   (int32_t) eo->items[i].events);
         }
 
-        /* Re-check after arming; data that arrived in the window is caught
-         * here instead of being missed until the timeout. */
+        /* Re-check after registering; data that arrived in the window is
+         * caught here instead of being missed until the timeout. */
         bool any = false;
 
         for (int32_t i = 0; i < EPOLL_FD_MAX; i++) {
@@ -4294,11 +4292,10 @@ int64_t k_epoll_wait(int32_t epfd, void *uevents, int32_t maxevents,
                                    (int16_t) eo->items[i].events, NULL))
                 any = true;
         }
-        if (any) {
-            sched_wait_key_cancel();
+        if (any)
             continue;
-        }
 
+        sched_wait_key_begin(key);
         if (rem < 0)
             sched_wait_key_commit_infinite();
         else
