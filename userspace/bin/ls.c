@@ -61,6 +61,21 @@ static int32_t entry_color_for(const char *fullpath, uint8_t type)
 {
     if (!use_color)
         return 0;
+
+    /* Some filesystems return DT_UNKNOWN from readdir; stat the entry so a
+     * directory or an executable still gets a colour. */
+    if (type == DT_UNKNOWN) {
+        struct stat st;
+
+        if (lstat(fullpath, &st) == 0) {
+            if (S_ISDIR(st.st_mode))
+                type = DT_DIR;
+            else if (S_ISLNK(st.st_mode))
+                type = DT_LNK;
+            else
+                type = DT_REG;
+        }
+    }
     if (type == DT_DIR)
         return 34;              /* blue */
     if (type == DT_LNK)
