@@ -27,6 +27,10 @@
 #include <protocol.h>
 #include <srv/net_srv.h>
 #include <lib/kmalloc.h>
+#include <stdbool.h>
+#include <router/router.h>
+#include <srv/process_srv.h>
+#include <proc/syscall/syscall_internal.h>
 
 /* Linux msghdr and iovec, filled from userspace. */
 typedef struct {
@@ -243,6 +247,131 @@ int64_t k_connect_unix(int64_t sock, void *usaddr, uint64_t len)
     return 0;
 }
 
+
+/* SCM_RIGHTS over unix sockets. A bundle is the fd list of one sendmsg; a
+ * recvmsg delivers the oldest bundle queued for its socket. The queue is keyed
+ * by the network server's socket slot, which both ends of a pair share. */
+#define SOL_SOCKET_K    1
+#define SCM_RIGHTS_K    1
+#define CMSG_HDR_K      16
+#define CMSG_ALIGN_K(x) (((x) + 7) & ~(uint64_t) 7)
+#define ANC_MAX         64
+#define ANC_BUNDLES     16
+#define ANC_FDS         4
+
+typedef struct {
+    int32_t svc;
+    int64_t id;
+} anc_fd_t;
+
+typedef struct {
+    uint8_t n;
+    anc_fd_t f[ANC_FDS];
+} anc_bundle_t;
+
+typedef struct {
+    uint64_t len;
+    int32_t level;
+    int32_t type;
+} k_cmsghdr_t;
+
+static anc_bundle_t anc_q[ANC_MAX][ANC_BUNDLES];
+static uint8_t anc_head[ANC_MAX], anc_tail[ANC_MAX], anc_count[ANC_MAX];
+
+static bool anc_is_kobj(int32_t svc)
+{
+    return svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD
+        || svc == SVC_MEMFD;
+}
+
+static int anc_push(int32_t target, const anc_bundle_t *b)
+{
+    if (target <= 0 || target >= ANC_MAX || b->n == 0)
+        return -1;
+    if (anc_count[target] >= ANC_BUNDLES)
+        return -1;
+    anc_q[target][anc_tail[target]] = *b;
+    anc_tail[target] = (uint8_t) ((anc_tail[target] + 1) % ANC_BUNDLES);
+    anc_count[target]++;
+    return 0;
+}
+
+static int anc_pop(int32_t target, anc_bundle_t *b)
+{
+    if (target <= 0 || target >= ANC_MAX || anc_count[target] == 0)
+        return -1;
+    *b = anc_q[target][anc_head[target]];
+    anc_head[target] = (uint8_t) ((anc_head[target] + 1) % ANC_BUNDLES);
+    anc_count[target]--;
+    return 0;
+}
+
+static void anc_undo(int32_t target)
+{
+    if (target <= 0 || target >= ANC_MAX || anc_count[target] == 0)
+        return;
+    anc_tail[target] = (uint8_t) ((anc_tail[target] + ANC_BUNDLES - 1)
+                                  % ANC_BUNDLES);
+    anc_count[target]--;
+}
+
+/* Parse SCM_RIGHTS fds from a user control buffer and take a kernel reference
+ * to each kernel-object descriptor. Returns the bundle count. */
+static uint8_t cmsg_collect_fds(const uint8_t * ctrl, uint64_t clen,
+                                anc_bundle_t * b)
+{
+    uint64_t off = 0;
+
+    b->n = 0;
+    while (off + CMSG_HDR_K <= clen && b->n < ANC_FDS) {
+        const k_cmsghdr_t *c = (const k_cmsghdr_t *) (ctrl + off);
+        uint64_t len = c->len;
+
+        if (len < CMSG_HDR_K || off + len > clen)
+            break;
+        if (c->level == SOL_SOCKET_K && c->type == SCM_RIGHTS_K) {
+            uint64_t nd = (len - CMSG_HDR_K) / 4;
+            const uint8_t *d = ctrl + off + CMSG_HDR_K;
+
+            for (uint64_t i = 0; i < nd && b->n < ANC_FDS; i++) {
+                int32_t fd;
+                int32_t kind = 0, svc = 0;
+                int64_t sfd = 0;
+
+                memcpy(&fd, d + i * 4, sizeof(fd));
+                if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) == 0
+                    && anc_is_kobj(svc) && k_kobj_ref(svc, sfd) == 0) {
+                    b->f[b->n].svc = svc;
+                    b->f[b->n].id = sfd;
+                    b->n++;
+                }
+            }
+        }
+        off += CMSG_ALIGN_K(len);
+    }
+    return b->n;
+}
+
+static void anc_unref_bundle(const anc_bundle_t * b)
+{
+    for (uint8_t i = 0; i < b->n; i++)
+        k_kobj_unref(b->f[i].svc, b->f[i].id);
+}
+
+/* Write an SCM_RIGHTS cmsg. Returns the aligned byte length. */
+static uint64_t cmsg_fill(uint8_t * ctrl, const int32_t * fds, uint8_t n)
+{
+    uint64_t len = CMSG_HDR_K + (uint64_t) n * 4;
+    k_cmsghdr_t *c = (k_cmsghdr_t *) ctrl;
+
+    memset(ctrl, 0, CMSG_ALIGN_K(len));
+    c->len = len;
+    c->level = SOL_SOCKET_K;
+    c->type = SCM_RIGHTS_K;
+    memcpy(ctrl + CMSG_HDR_K, fds, (uint64_t) n * 4);
+    return CMSG_ALIGN_K(len);
+}
+
 int64_t k_sendmsg(int64_t sock, void *umsg, int64_t flags)
 {
     k_msghdr_t mh;
@@ -287,10 +416,43 @@ int64_t k_sendmsg(int64_t sock, void *umsg, int64_t flags)
         off += n;
     }
 
+    anc_bundle_t anc;
+    int32_t anc_target = 0;
+
+    anc.n = 0;
+    if (mh.msg_control != NULL && mh.msg_controllen > 0) {
+        uint8_t ctrl[256];
+        uint64_t clen = mh.msg_controllen;
+
+        if (clen > sizeof(ctrl))
+            clen = sizeof(ctrl);
+        if (copy_from_user(ctrl, mh.msg_control, clen) != 0) {
+            kmfree(buf);
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        cmsg_collect_fds(ctrl, clen, &anc);
+        if (anc.n > 0) {
+            int32_t peer = 0;
+
+            if (net_peer((int32_t) sock, &peer) == 0
+                && anc_push(peer, &anc) == 0) {
+                anc_target = peer;
+            } else {
+                anc_unref_bundle(&anc);
+                anc.n = 0;
+            }
+        }
+    }
+
     int64_t r = net_sendto((int32_t) sock, 0, 0, buf, off);
 
     kmfree(buf);
     if (r < 0) {
+        if (anc_target > 0) {
+            anc_undo(anc_target);
+            anc_unref_bundle(&anc);
+        }
         cpu_set_errno(EIO);
         return -1;
     }
@@ -364,7 +526,43 @@ int64_t k_recvmsg(int64_t sock, void *umsg, int64_t flags)
     }
 
     mh.msg_flags = 0;
+
+    uint64_t ucontrol = mh.msg_controllen;
+    int32_t self = 0;
+    anc_bundle_t anc;
+    int pop = -1;
+
+    if (n > 0 && net_self((int32_t) sock, &self) == 0)
+        pop = anc_pop(self, &anc);
+
     mh.msg_controllen = 0;
+    if (pop == 0) {
+        int32_t fds[ANC_FDS];
+        uint8_t nf = 0;
+
+        for (uint8_t i = 0; i < anc.n; i++) {
+            int64_t nfd = k_kobj_install(anc.f[i].svc, anc.f[i].id);
+
+            if (nfd >= 0)
+                fds[nf++] = (int32_t) nfd;
+            else
+                k_kobj_unref(anc.f[i].svc, anc.f[i].id);
+        }
+
+        if (nf > 0) {
+            uint8_t cbuf[64];
+            uint64_t need = cmsg_fill(cbuf, fds, nf);
+
+            if (mh.msg_control != NULL && ucontrol >= need
+                && copy_to_user(mh.msg_control, cbuf, need) == 0) {
+                mh.msg_controllen = need;
+            } else {
+                for (uint8_t i = 0; i < nf; i++)
+                    k_close(fds[i]);
+            }
+        }
+    }
+
     (void) copy_to_user(umsg, &mh, sizeof(mh));
 
     kmfree(buf);

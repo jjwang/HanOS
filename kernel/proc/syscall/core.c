@@ -3720,6 +3720,11 @@ static int64_t kobj_register(int32_t svc, int64_t id)
     return vfs_open_server_svc(id, "", VFS_MODE_READWRITE, 0, svc);
 }
 
+int64_t k_kobj_install(int32_t svc, int64_t id)
+{
+    return kobj_register(svc, id);
+}
+
 static int64_t k_signalfd4(int64_t fd, const void *umask, uint64_t sizemask,
                            int32_t flags)
 {

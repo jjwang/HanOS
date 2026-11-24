@@ -277,6 +277,7 @@ typedef struct {
                                            xfer[1]=path memory object */
 #define NET_CONNECT_UNIX    0xA1        /* words[0]=sock, words[1]=path len;
                                            xfer[1]=path memory object */
+#define NET_PEER            0xA2        /* words[0]=sock; out words[1]=peer sock */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

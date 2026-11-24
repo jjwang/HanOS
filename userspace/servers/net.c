@@ -1845,8 +1845,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
             if (&socks[i] != s && socks[i].used && socks[i].unix_stream
                 && socks[i].bound && strcmp(socks[i].upath, path) == 0) {
-                rep->words[0] = (uint64_t) (int64_t) -98;       /* -EADDRINUSE */
-                return;
+                /* A dead owner leaves the path bound; reclaim it so a restart
+                 * can bind the same name again. */
+                sock_free(&socks[i]);
             }
         }
         memcpy(s->upath, path, (size_t) len + 1);
@@ -2092,6 +2093,18 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         rep->words[0] = 0;
         rep->words[1] = s->peer_ip;
         rep->words[2] = s->peer_port;
+        return;
+    }
+
+    if (m->tag == NET_PEER) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+
+        if (s == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -9;    /* -EBADF */
+            return;
+        }
+        rep->words[0] = 0;
+        rep->words[1] = (uint64_t) s->peer;
         return;
     }
 

@@ -294,6 +294,37 @@ int64_t net_connect_unix(int32_t fd, const char *path, uint64_t len)
     return net_path_msg(fd, NET_CONNECT_UNIX, path, len);
 }
 
+int64_t net_peer(int32_t fd, int32_t *peer)
+{
+    ipc_msg_t req;
+    ipc_msg_t rep;
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = NET_PEER;
+    req.words[0] = (uint64_t) sock;
+
+    if (!router_forward(SVC_NET, &req, &rep))
+        return -1;
+    if ((int64_t) rep.words[0] < 0)
+        return -1;
+    *peer = (int32_t) rep.words[1];
+    return 0;
+}
+
+int64_t net_self(int32_t fd, int32_t *self)
+{
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+    *self = sock;
+    return 0;
+}
+
 static int64_t net_name(int32_t fd, uint64_t tag, uint32_t *ip,
                         uint16_t *port)
 {
