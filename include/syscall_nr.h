@@ -165,6 +165,10 @@
 
 #define SYSCALL_KOBJ_REF        0x461
 #define SYSCALL_KOBJ_UNREF      0x462
+#define SYSCALL_BIND_UNIX       0x463
+#define SYSCALL_CONNECT_UNIX    0x464
+#define SYSCALL_SENDMSG         0x465
+#define SYSCALL_RECVMSG         0x466
 
 #define SYSCALL_RESOLVE         0x470
 #define SYSCALL_POLL_WAKE       0x471

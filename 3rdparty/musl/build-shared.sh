@@ -29,6 +29,12 @@ cp -a "$SRC"/. "$BUILD"/
 cd "$BUILD"
 make distclean >/dev/null 2>&1 || true
 cp "$OVERLAY/syscall_arch.h" arch/x86_64/syscall_arch.h
+# The cancellation-point socket calls issue a raw syscall that bypasses the
+# HanOS number mapping in syscall_arch.h. Route these network calls through
+# the mapped path instead.
+for f in connect accept accept4 sendto recvfrom sendmsg recvmsg; do
+    sed -i 's/socketcall_cp(/socketcall(/' "src/network/$f.c"
+done
 cp "$OVERLAY/__set_thread_area.s" src/thread/x86_64/__set_thread_area.s
 
 # musl's symbol lookup assumes every object carries a hash table. A DSO with

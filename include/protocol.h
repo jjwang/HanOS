@@ -238,6 +238,7 @@ typedef struct {
  * the reply endpoint is xfer[0]. A recvfrom with no data is held and answered
  * when a datagram arrives. */
 #define AF_INET             2
+#define AF_UNIX             1
 #define SOCK_STREAM         1
 #define SOCK_DGRAM          2
 #define SOCK_NONBLOCK       0x800
@@ -272,6 +273,10 @@ typedef struct {
                                            words[1..]; out words[1]=ipv4 */
 #define NET_POLL_WAIT       0x9F        /* words[0]=sock, words[1]=wake key,
                                            words[2]=events */
+#define NET_BIND_UNIX       0xA0        /* words[0]=sock, words[1]=path len;
+                                           xfer[1]=path memory object */
+#define NET_CONNECT_UNIX    0xA1        /* words[0]=sock, words[1]=path len;
+                                           xfer[1]=path memory object */
 
 /* Every VFS request carries the reply endpoint handle in xfer[0] (moved by the
  * kernel's service_forward); the server replies on it and closes it. */

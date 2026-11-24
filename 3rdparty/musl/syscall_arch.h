@@ -58,6 +58,10 @@
 #define H_SHUTDOWN   48
 #define H_BIND       49
 #define H_LISTEN     50
+#define H_BIND_UNIX  0x463
+#define H_CONNECT_UNIX 0x464
+#define H_SENDMSG    0x465
+#define H_RECVMSG    0x466
 #define H_GETSOCKNAME 51
 #define H_GETPEERNAME 52
 #define H_SETSOCKOPT 54
@@ -202,6 +206,8 @@
 #define L_dup3        292
 #define L_fcntl       72
 #define L_socket      41
+#define L_sendmsg     46
+#define L_recvmsg     47
 #define L_connect     42
 #define L_accept      43
 #define L_sendto      44
@@ -875,10 +881,16 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_PSELECT6, a1, a2, a3, a4, a5, a6);
     case L_socket:
         return __hanos_raw(H_SOCKET, a1, a2, a3, 0, 0, 0);
+    case L_sendmsg:
+        return __hanos_raw(H_SENDMSG, a1, a2, a3, 0, 0, 0);
+    case L_recvmsg:
+        return __hanos_raw(H_RECVMSG, a1, a2, a3, 0, 0, 0);
     case L_bind:{
             uint32_t ip;
             uint16_t port;
 
+            if (a2 != 0 && ((const unsigned short *) a2)[0] == 1)      /* AF_UNIX */
+                return __hanos_raw(H_BIND_UNIX, a1, a2, a3, 0, 0, 0);
             if (__hanos_sockaddr_get((const void *) a2, a3, &ip, &port) != 0)
                 return -97;     /* -EAFNOSUPPORT */
             return __hanos_raw(H_BIND, a1, ip, port, 0, 0, 0);
@@ -887,6 +899,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
             uint32_t ip;
             uint16_t port;
 
+            if (a2 != 0 && ((const unsigned short *) a2)[0] == 1)      /* AF_UNIX */
+                return __hanos_raw(H_CONNECT_UNIX, a1, a2, a3, 0, 0, 0);
             if (__hanos_sockaddr_get((const void *) a2, a3, &ip, &port) != 0)
                 return -97;
             return __hanos_raw(H_CONNECT, a1, ip, port, 0, 0, 0);

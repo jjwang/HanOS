@@ -37,6 +37,12 @@ if [ ! -f "$BUILD/src/stdio/printf.c" ]; then
 fi
 
 cp "$OVERLAY/syscall_arch.h" "$BUILD/arch/x86_64/syscall_arch.h"
+# The cancellation-point socket calls issue a raw syscall that bypasses the
+# HanOS number mapping in syscall_arch.h. Route these network calls through
+# the mapped path instead.
+for f in connect accept accept4 sendto recvfrom sendmsg recvmsg; do
+    sed -i 's/socketcall_cp(/socketcall(/' "$BUILD/src/network/$f.c"
+done
 cp "$OVERLAY/__set_thread_area.s" \
    "$BUILD/src/thread/x86_64/__set_thread_area.s"
 # HanOS has no separate vfork; route it through the C fork wrapper.

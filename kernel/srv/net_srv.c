@@ -245,6 +245,55 @@ int64_t net_bind(int32_t fd, uint32_t ip, uint16_t port)
     return (int64_t) rep.words[0];
 }
 
+/* Forward a unix socket path to the server in a memory object. */
+static int64_t net_path_msg(int32_t fd, uint64_t tag, const char *path,
+                            uint64_t len)
+{
+    int32_t sock = 0;
+
+    if (net_sockfd(fd, &sock) != 0)
+        return -1;
+    if (len > 107)
+        len = 107;
+
+    handle_t mh = 0;
+    memobj_t *mo = memobj_alloc_handle(len + 1, &mh);
+
+    if (mo == NULL)
+        return -1;
+    memobj_copy_in(mo, path, len, 0);
+    ((char *) PHYS_TO_VIRT(memobj_page(mo, 0)))[len] = '\0';
+
+    ipc_msg_t req;
+    ipc_msg_t rep;
+
+    memset(&req, 0, sizeof(req));
+    req.tag = tag;
+    req.words[0] = (uint64_t) sock;
+    req.words[1] = len;
+    req.xfer[0] = mh;
+    req.xfer_count = 1;
+
+    bool ok = (tag == NET_CONNECT_UNIX)
+        ? router_forward_timeout(SVC_NET, &req, &rep, 30000)
+        : router_forward(SVC_NET, &req, &rep);
+
+    memobj_unref(mo);
+    if (!ok)
+        return -1;
+    return (int64_t) rep.words[0];
+}
+
+int64_t net_bind_unix(int32_t fd, const char *path, uint64_t len)
+{
+    return net_path_msg(fd, NET_BIND_UNIX, path, len);
+}
+
+int64_t net_connect_unix(int32_t fd, const char *path, uint64_t len)
+{
+    return net_path_msg(fd, NET_CONNECT_UNIX, path, len);
+}
+
 static int64_t net_name(int32_t fd, uint64_t tag, uint32_t *ip,
                         uint16_t *port)
 {

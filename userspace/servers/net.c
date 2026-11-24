@@ -111,6 +111,11 @@ typedef struct {
     bool listening;
     int32_t accept_pending;         /* completed connection fd, or 0 */
     int64_t acc_wait_reply;     /* deferred accept reply endpoint */
+    /* AF_UNIX stream state. */
+    bool unix_stream;
+    char upath[108];
+    int32_t peer;               /* peer socket fd, 0 when none */
+    bool peer_closed;
 } net_sock_t;
 
 static net_sock_t socks[NET_MAX_SOCKS];
@@ -146,8 +151,12 @@ static void net_wake_pollers(void)
         s = &socks[idx - 1];
         readable = (s->count > 0)
             || (s->accept_pending > 0)
-            || (s->stream && s->got_fin);
-        writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
+            || (s->stream && s->got_fin)
+            || (s->unix_stream && s->peer_closed);
+        if (s->unix_stream)
+            writable = (s->peer > 0) || s->listening;
+        else
+            writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
 
         if ((readable && (poll_waits[i].events & POLLIN_BIT))
             || (writable && (poll_waits[i].events & POLLOUT_BIT))) {
@@ -966,12 +975,17 @@ static void sock_push(net_sock_t * s, const uint8_t * data, uint32_t len,
 /* Answer a held recvfrom if the queue has data. */
 static void sock_flush(net_sock_t * s)
 {
-    if (s->wait_reply == 0 || s->count == 0)
+    if (s->wait_reply == 0)
+        return;
+
+    bool eof = (s->count == 0) && s->unix_stream && s->peer_closed;
+
+    if (s->count == 0 && !eof)
         return;
 
     uint32_t n = 0;
 
-    if (sys_mem_map(s->wait_memh, NET_BUF_ADDR, 3) == 0) {
+    if (s->count > 0 && sys_mem_map(s->wait_memh, NET_BUF_ADDR, 3) == 0) {
         n = sock_pop(s, (uint8_t *) (uint64_t) NET_BUF_ADDR, s->wait_len);
         sys_mem_unmap(s->wait_memh, NET_BUF_ADDR);
     }
@@ -1784,9 +1798,11 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     if (m->tag == NET_SOCKET) {
         uint64_t type = m->words[1] & ~(uint64_t) SOCK_NONBLOCK;
+        bool unix_stream = (m->words[0] == AF_UNIX);
 
-        if (m->words[0] != AF_INET
-            || (type != SOCK_DGRAM && type != SOCK_STREAM)) {
+        if ((!unix_stream && m->words[0] != AF_INET)
+            || (type != SOCK_DGRAM && type != SOCK_STREAM)
+            || (unix_stream && type != SOCK_STREAM)) {
             rep->words[0] = (uint64_t) (int64_t) -97;   /* -EAFNOSUPPORT */
             return;
         }
@@ -1797,9 +1813,122 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
         socks[fd - 1].stream = (type == SOCK_STREAM);
+        socks[fd - 1].unix_stream = unix_stream;
         socks[fd - 1].nonblock = (m->words[1] & SOCK_NONBLOCK) != 0;
         rep->words[0] = 0;
         rep->words[1] = (uint64_t) fd;
+        return;
+    }
+
+    if (m->tag == NET_BIND_UNIX) {
+        net_sock_t *s = sock_get((int32_t) m->words[0]);
+        uint32_t len = (uint32_t) m->words[1];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        char path[108];
+
+        if (s == NULL || memh == 0 || len > 107) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -22;   /* -EINVAL */
+            return;
+        }
+        if (sys_mem_map(memh, NET_BUF_ADDR, 1) != 0) {
+            sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+        memcpy(path, (const void *) (uint64_t) NET_BUF_ADDR, len);
+        path[len] = '\0';
+        sys_mem_unmap(memh, NET_BUF_ADDR);
+        sys_handle_close(memh);
+
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+            if (&socks[i] != s && socks[i].used && socks[i].unix_stream
+                && socks[i].bound && strcmp(socks[i].upath, path) == 0) {
+                rep->words[0] = (uint64_t) (int64_t) -98;       /* -EADDRINUSE */
+                return;
+            }
+        }
+        memcpy(s->upath, path, (size_t) len + 1);
+        s->unix_stream = true;
+        s->bound = true;
+        rep->words[0] = 0;
+        return;
+    }
+
+    if (m->tag == NET_CONNECT_UNIX) {
+        net_sock_t *c = sock_get((int32_t) m->words[0]);
+        uint32_t len = (uint32_t) m->words[1];
+        int64_t memh = (m->xfer_count >= 2) ? (int64_t) m->xfer[1] : 0;
+        char path[108];
+
+        if (c == NULL || memh == 0 || len > 107) {
+            if (memh != 0)
+                sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -22;
+            return;
+        }
+        if (sys_mem_map(memh, NET_BUF_ADDR, 1) != 0) {
+            sys_handle_close(memh);
+            rep->words[0] = (uint64_t) (int64_t) -5;
+            return;
+        }
+        memcpy(path, (const void *) (uint64_t) NET_BUF_ADDR, len);
+        path[len] = '\0';
+        sys_mem_unmap(memh, NET_BUF_ADDR);
+        sys_handle_close(memh);
+
+        net_sock_t *ls = NULL;
+
+        for (int32_t i = 0; i < NET_MAX_SOCKS; i++) {
+            if (socks[i].used && socks[i].unix_stream && socks[i].listening
+                && strcmp(socks[i].upath, path) == 0) {
+                ls = &socks[i];
+                break;
+            }
+        }
+        if (ls == NULL) {
+            rep->words[0] = (uint64_t) (int64_t) -111;  /* -ECONNREFUSED */
+            return;
+        }
+        if (ls->accept_pending > 0) {
+            rep->words[0] = (uint64_t) (int64_t) -11;   /* -EAGAIN */
+            return;
+        }
+        int32_t sfd = sock_alloc();
+
+        if (sfd <= 0) {
+            rep->words[0] = (uint64_t) (int64_t) -24;
+            return;
+        }
+        net_sock_t *sv = &socks[sfd - 1];
+
+        sv->unix_stream = true;
+        sv->stream = true;
+        sv->bound = true;
+        sv->nonblock = c->nonblock;
+        sv->peer = (int32_t) m->words[0];
+
+        c->unix_stream = true;
+        c->stream = true;
+        c->bound = true;
+        c->peer = sfd;
+
+        ls->accept_pending = sfd;
+        if (ls->acc_wait_reply != 0) {
+            sys_ipc_msg_t ar;
+
+            memset(&ar, 0, sizeof(ar));
+            ar.tag = NET_ACCEPT;
+            ar.words[0] = 0;
+            ar.words[1] = (uint64_t) sfd;
+            sys_ipc_send(ls->acc_wait_reply, &ar);
+            sys_handle_close(ls->acc_wait_reply);
+            ls->acc_wait_reply = 0;
+            ls->accept_pending = 0;
+        }
+        net_wake_pollers();
+        rep->words[0] = 0;
         return;
     }
 
@@ -1976,8 +2105,14 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         bool readable = (s->count > 0)
             || (s->accept_pending > 0)
-            || (s->stream && s->got_fin);
-        bool writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
+            || (s->stream && s->got_fin)
+            || (s->unix_stream && s->peer_closed);
+        bool writable;
+
+        if (s->unix_stream)
+            writable = (s->peer > 0) || s->listening;
+        else
+            writable = s->stream ? (s->tstate == TCP_ESTABLISHED) : true;
 
         rep->words[0] = 0;
         rep->words[1] = readable ? 1 : 0;
@@ -2036,6 +2171,21 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         }
         sys_handle_close(memh);
 
+        if (s->unix_stream) {
+            net_sock_t *p = (s->peer > 0) ? sock_get(s->peer) : NULL;
+
+            if (p == NULL) {
+                rep->words[0] = (uint64_t) (int64_t) -32;       /* -EPIPE */
+                return;
+            }
+            sock_push(p, pkt, len, 0, 0);
+            sock_flush(p);
+            net_wake_pollers();
+            rep->words[0] = 0;
+            rep->words[1] = (uint64_t) len;
+            return;
+        }
+
         if (s->stream) {
             int32_t n = tcp_send(s, pkt, len);
 
@@ -2077,7 +2227,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
             return;
         }
 
-        if (s->count == 0 && s->stream && s->got_fin) {
+        if (s->count == 0
+            && ((s->stream && s->got_fin)
+                || (s->unix_stream && s->peer_closed))) {
             /* Peer closed and the queue drained: report EOF at once. */
             sys_handle_close(memh);
             rep->words[0] = 0;
@@ -2133,6 +2285,21 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
         if (s == NULL) {
             rep->words[0] = (uint64_t) (int64_t) -9;
+            return;
+        }
+        if (s->unix_stream) {
+            if (s->peer > 0) {
+                net_sock_t *p = sock_get(s->peer);
+
+                if (p != NULL) {
+                    p->peer_closed = true;
+                    p->peer = 0;
+                    sock_flush(p);
+                }
+            }
+            sock_free(s);
+            net_wake_pollers();
+            rep->words[0] = 0;
             return;
         }
         if (s->stream && (s->tstate == TCP_ESTABLISHED
