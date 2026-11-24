@@ -1569,6 +1569,18 @@ int64_t k_read(int64_t fd, void *buf, uint64_t count)
                 cpu_set_errno(EBADF);
                 return -1;
             }
+            if (svc == SVC_NET) {
+                uint32_t ip = 0;
+                uint16_t port = 0;
+                int64_t n = net_recvfrom((int32_t) fd, buf, count, &ip,
+                                         &port);
+
+                if (n < 0) {
+                    cpu_set_errno((n == -1) ? EIO : (int32_t) - n);
+                    return -1;
+                }
+                return n;
+            }
         }
 
         int64_t len = vfs_read(fd, count, buf);
@@ -1622,6 +1634,15 @@ int64_t k_write(int64_t fd, const void *buf, uint64_t count)
         if (svc == SVC_EPOLL) {
             cpu_set_errno(EBADF);
             return -1;
+        }
+        if (svc == SVC_NET) {
+            int64_t n = net_sendto((int32_t) fd, 0, 0, buf, count);
+
+            if (n < 0) {
+                cpu_set_errno(EIO);
+                return -1;
+            }
+            return n;
         }
     }
 
