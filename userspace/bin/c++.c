@@ -5,6 +5,9 @@
 
  **-----------------------------------------------------------------------------
  */
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -20,5 +23,7 @@ int main(int argc, char **argv)
     setenv("COMPILER_PATH", "/data/bin", 1);
     setenv("PATH", "/data/bin:/bin:/usr/bin", 1);
     execv(target, nv);
+    fprintf(stderr, "%s: cannot exec %s: %s\n", argv[0], target,
+            strerror(errno));
     return 127;
 }
