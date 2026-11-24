@@ -471,6 +471,21 @@ int64_t k_recvmsg(int64_t sock, void *umsg, int64_t flags)
         return -1;
     }
 
+    /* Honour MSG_DONTWAIT: the caller (libwayland) expects EAGAIN, not a
+     * blocking read, when the socket has no data. */
+    if ((flags & 0x40) != 0) {
+        int32_t rd = 0, wr = 0;
+
+        if (net_poll((int32_t) sock, &rd, &wr) != 0) {
+            cpu_set_errno(EBADF);
+            return -1;
+        }
+        if (!rd) {
+            cpu_set_errno(EAGAIN);
+            return -1;
+        }
+    }
+
     uint64_t cap = 0;
 
     for (uint64_t i = 0; i < mh.msg_iovlen; i++) {
@@ -682,6 +697,37 @@ int64_t k_getsockopt(int32_t sock, int32_t level, int32_t optname,
     }
 
     uint64_t value = 0;
+
+    /* No per-connection credential tracking yet; report a zero peer so
+     * libwayland's wl_client_create accepts the connection. */
+    if (level == 1 && optname == 17 /* SO_PEERCRED */ ) {
+        struct {
+            int32_t pid;
+            uint32_t uid;
+            uint32_t gid;
+        } cred = { 0, 0, 0 };
+        uint32_t clen = 0;
+
+        if (copy_from_user(&clen, optlen, sizeof(clen)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        if (clen < sizeof(cred)) {
+            cpu_set_errno(EINVAL);
+            return -1;
+        }
+        if (copy_to_user(optval, &cred, sizeof(cred)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        clen = sizeof(cred);
+        if (copy_to_user(optlen, &clen, sizeof(clen)) != 0) {
+            cpu_set_errno(EFAULT);
+            return -1;
+        }
+        return 0;
+    }
+
     int64_t r = net_getsockopt(sock, level, optname, &value);
 
     if (r < 0) {
