@@ -1924,6 +1924,9 @@ int64_t k_fstat(int64_t fd, int64_t statbuf)
             st.st_blksize = 512;
             st.st_blocks = (blkcnt_t) m.blocks;
             st.st_mtim.tv_sec = m.mtime;
+        } else if (desc->svc == SVC_NET) {
+            st.st_mode = S_IFSOCK | 0600;
+            st.st_nlink = 1;
         } else if (vfs_server_fstat(desc->server_fd, &st) < 0) {
             cpu_set_errno(ENOENT);
             return -1;

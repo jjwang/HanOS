@@ -1797,7 +1797,7 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
     }
 
     if (m->tag == NET_SOCKET) {
-        uint64_t type = m->words[1] & ~(uint64_t) SOCK_NONBLOCK;
+        uint64_t type = m->words[1] & ~(uint64_t) (SOCK_NONBLOCK | 0x80000UL);
         bool unix_stream = (m->words[0] == AF_UNIX);
 
         if ((!unix_stream && m->words[0] != AF_INET)
