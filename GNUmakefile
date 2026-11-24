@@ -84,7 +84,7 @@ $(PORTS_INITRD): $(INITRD_TAR) $(PORTS_STAMP)
 	touch initrd-ports/etc/ports-image
 	for app in $(PORTS_STAGE)/bin/*; do \
 		case $$(basename $$app) in \
-			block|console|ext2|fat32|init|input|mem|misc|net|pipe|process|tty|vfs) \
+			block|console|ext2|fat32|init|input|ls|mem|misc|net|pipe|process|tty|vfs) \
 				continue ;; \
 			python|python3|python3.8) \
 				continue ;; \
