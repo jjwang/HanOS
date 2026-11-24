@@ -39,6 +39,7 @@ typedef enum {
     SVC_EVENT,                  /* kernel eventfd objects */
     SVC_EPOLL,                  /* kernel epoll objects */
     SVC_SIGNALFD,               /* kernel signalfd objects */
+    SVC_MEMFD,                  /* kernel memfd objects */
     SVC_COUNT
 } service_id_t;
 

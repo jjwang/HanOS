@@ -90,6 +90,7 @@
 #define H_RT_SIGRETURN 15
 #define H_EVENTFD2   290
 #define H_EPOLL_CREATE1 291
+#define H_MEMFD_CREATE  319
 #define H_EPOLL_CTL  233
 #define H_EPOLL_WAIT 232
 #define H_EPOLL_PWAIT 281
@@ -185,6 +186,7 @@
 #define L_epoll_pwait 281
 #define L_epoll_create 213
 #define L_epoll_create1 291
+#define L_memfd_create 319
 #define L_eventfd     284
 #define L_eventfd2    290
 #define L_readlinkat  267
@@ -559,6 +561,8 @@ static __inline long __hanos_syscall6(long n, long a1, long a2, long a3,
         return __hanos_raw(H_EVENTFD2, a1, 0, 0, 0, 0, 0);
     case L_eventfd2:
         return __hanos_raw(H_EVENTFD2, a1, a2, 0, 0, 0, 0);
+    case L_memfd_create:
+        return __hanos_raw(H_MEMFD_CREATE, a1, a2, 0, 0, 0, 0);
     case L_epoll_create:
         return __hanos_raw(H_EPOLL_CREATE1, 0, 0, 0, 0, 0, 0);
     case L_epoll_create1:

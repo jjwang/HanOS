@@ -111,6 +111,7 @@
 #define SYSCALL_EPOLL_PWAIT     281
 #define SYSCALL_EVENTFD2        290
 #define SYSCALL_EPOLL_CREATE1   291
+#define SYSCALL_MEMFD_CREATE    319
 #define SYSCALL_SIGNALFD4       289
 #define SYSCALL_DUP3            292
 #define SYSCALL_PRLIMIT64       302
@@ -161,6 +162,9 @@
 #define SYSCALL_PROC_START      0x453
 
 #define SYSCALL_SOCKET_CLOSE    0x460
+
+#define SYSCALL_KOBJ_REF        0x461
+#define SYSCALL_KOBJ_UNREF      0x462
 
 #define SYSCALL_RESOLVE         0x470
 #define SYSCALL_POLL_WAKE       0x471

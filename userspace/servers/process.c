@@ -35,6 +35,10 @@
 #define SVC_TTY_ID      6
 #define SVC_FAT_ID      7
 #define SVC_EXT_ID      8
+#define SVC_EVENT_ID    10
+#define SVC_EPOLL_ID    11
+#define SVC_SIGNALFD_ID 12
+#define SVC_MEMFD_ID    13
 
 /**
  * @brief One descriptor in a process's file-descriptor table
@@ -116,8 +120,19 @@ static uint64_t ref_tag_for_svc(int32_t svc)
     return 0;
 }
 
+static bool svc_is_kobj(int32_t svc)
+{
+    return svc == SVC_EVENT_ID || svc == SVC_EPOLL_ID
+        || svc == SVC_SIGNALFD_ID || svc == SVC_MEMFD_ID;
+}
+
 static void fd_close_one(proc_fd_t * e)
 {
+    if (svc_is_kobj(e->svc)) {
+        sys_kobj_unref(e->svc, e->server_fd);
+        return;
+    }
+
     uint64_t ep = ep_for_svc(e->svc);
     uint64_t tag = close_tag_for_svc(e->svc);
 
@@ -134,6 +149,11 @@ static void fd_close_one(proc_fd_t * e)
 
 static void fd_ref_one(proc_fd_t * e)
 {
+    if (svc_is_kobj(e->svc)) {
+        sys_kobj_ref(e->svc, e->server_fd);
+        return;
+    }
+
     uint64_t ep = ep_for_svc(e->svc);
     uint64_t tag = ref_tag_for_svc(e->svc);
 

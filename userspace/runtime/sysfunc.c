@@ -440,6 +440,20 @@ int64_t sys_ioport_access(int32_t op, int32_t port, int32_t width, int32_t value
     return ret;
 }
 
+int64_t sys_kobj_ref(int32_t svc, int64_t id)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_KOBJ_REF, svc, id);
+    return ret;
+}
+
+int64_t sys_kobj_unref(int32_t svc, int64_t id)
+{
+    int64_t ret, errno;
+    SYSCALL2(SYSCALL_KOBJ_UNREF, svc, id);
+    return ret;
+}
+
 int32_t sys_bootinfo(bootinfo_t * bi)
 {
     int64_t ret, errno;

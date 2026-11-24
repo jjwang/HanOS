@@ -66,6 +66,7 @@ typedef int64_t(*syscall_ptr_t) (void);
 /** @brief One eventfd object */
 typedef struct {
     bool used;
+    int32_t refs;
     uint64_t counter;
     bool semaphore;
     void *wait_key;             /* poll wake key */
@@ -79,6 +80,7 @@ static eventfd_obj_t eventfds[EVENTFD_MAX];
 /** @brief One signalfd object */
 typedef struct {
     bool used;
+    int32_t refs;
     uint64_t mask;              /* signals the descriptor reports */
 } signalfd_obj_t;
 
@@ -127,11 +129,32 @@ typedef struct {
 /** @brief One epoll object */
 typedef struct {
     bool used;
+    int32_t refs;
     int32_t count;
     epoll_item_t items[EPOLL_FD_MAX];
 } epoll_obj_t;
 
 static epoll_obj_t epolls[EPOLL_MAX];
+
+#define MEMFD_MAX           64
+
+/** @brief One memfd object: a shareable page set with a size */
+typedef struct {
+    bool used;
+    int32_t refs;
+    memobj_t *mo;
+    uint64_t size;
+} memfd_obj_t;
+
+static memfd_obj_t memfds[MEMFD_MAX];
+
+static memfd_obj_t *memfd_get(int64_t id)
+{
+    if (id < 1 || id > MEMFD_MAX || !memfds[id - 1].used)
+        return NULL;
+    return &memfds[id - 1];
+}
+
 static uint32_t kobj_lock;
 
 static void kobj_lock_acquire(void)
@@ -143,6 +166,86 @@ static void kobj_lock_acquire(void)
 static void kobj_lock_release(void)
 {
     __atomic_store_n(&kobj_lock, 0, __ATOMIC_RELEASE);
+}
+
+/* A kernel object (eventfd/epoll/signalfd) is shared by every fd that refers
+ * to it. Fork and dup add a reference; close, exec and exit drop one. The slot
+ * is freed when the last reference goes away. */
+static int32_t *kobj_refs(int32_t svc, int64_t id)
+{
+    int64_t slot = id - 1;
+
+    if (id < 1)
+        return NULL;
+    switch (svc) {
+    case SVC_EVENT:
+        if (slot < EVENTFD_MAX && eventfds[slot].used)
+            return &eventfds[slot].refs;
+        break;
+    case SVC_EPOLL:
+        if (slot < EPOLL_MAX && epolls[slot].used)
+            return &epolls[slot].refs;
+        break;
+    case SVC_SIGNALFD:
+        if (slot < SIGNALFD_MAX && signal_fds[slot].used)
+            return &signal_fds[slot].refs;
+        break;
+    case SVC_MEMFD:
+        if (slot < MEMFD_MAX && memfds[slot].used)
+            return &memfds[slot].refs;
+        break;
+    }
+    return NULL;
+}
+
+static void kobj_free_slot(int32_t svc, int64_t id)
+{
+    int64_t slot = id - 1;
+
+    switch (svc) {
+    case SVC_EVENT:
+        eventfds[slot].used = false;
+        break;
+    case SVC_EPOLL:
+        epolls[slot].used = false;
+        break;
+    case SVC_SIGNALFD:
+        signal_fds[slot].used = false;
+        break;
+    case SVC_MEMFD:
+        if (memfds[slot].mo != NULL) {
+            memobj_unref(memfds[slot].mo);
+            memfds[slot].mo = NULL;
+        }
+        memfds[slot].used = false;
+        break;
+    }
+}
+
+int64_t k_kobj_ref(int64_t svc, int64_t id)
+{
+    kobj_lock_acquire();
+    int32_t *refs = kobj_refs((int32_t) svc, id);
+
+    if (refs != NULL)
+        (*refs)++;
+    kobj_lock_release();
+    return refs != NULL ? 0 : -1;
+}
+
+int64_t k_kobj_unref(int64_t svc, int64_t id)
+{
+    kobj_lock_acquire();
+    int32_t *refs = kobj_refs((int32_t) svc, id);
+    int64_t ret = -1;
+
+    if (refs != NULL) {
+        ret = 0;
+        if (--(*refs) <= 0)
+            kobj_free_slot((int32_t) svc, id);
+    }
+    kobj_lock_release();
+    return ret;
 }
 
 static int64_t eventfd_read(int64_t id, void *buf, uint64_t count);
@@ -491,15 +594,16 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
     }
 
     bool anonymous = (flags & MAP_ANONYMOUS) != 0;
+    int32_t fsvc = 0;
+    int64_t fsfd = 0;
 
     if (!anonymous) {
         process_t *owner = sched_get_current_process();
-        int32_t kind = 0, svc = 0;
-        int64_t sfd = 0;
+        int32_t kind = 0;
 
         if (owner == NULL
-            || process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) != 0
-            || svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD) {
+            || process_fd_get((int32_t) fd, &kind, &fsvc, &fsfd, NULL, NULL) != 0
+            || fsvc == SVC_EVENT || fsvc == SVC_EPOLL || fsvc == SVC_SIGNALFD) {
             cpu_set_errno(EBADF);
             goto err_exit;
         }
@@ -509,6 +613,43 @@ uint64_t k_vm_map(uint64_t * hint, uint64_t length, uint64_t prot,
         cpu_set_errno(EINVAL);
         kpanic("k_vm_map: address space manager does not exist\n");
         goto err_exit;
+    }
+
+    /* A memfd maps the shared page set itself, not a private copy of a file. */
+    if (!anonymous && fsvc == SVC_MEMFD) {
+        memfd_obj_t *mf = memfd_get(fsfd);
+
+        if (mf == NULL || mf->mo == NULL) {
+            cpu_set_errno(EINVAL);
+            goto err_exit;
+        }
+
+        uint64_t osize = memobj_size(mf->mo);
+        uint64_t mnp = NUM_PAGES(osize);
+        uint64_t mptr = (uint64_t) hint;
+
+        if ((flags & MAP_FIXED) && mptr < PAGE_SIZE) {
+            cpu_set_errno(EINVAL);
+            goto err_exit;
+        }
+        if (flags & MAP_FIXED) {
+            if (mptr != (uint64_t) NULL)
+                vma_remove_range(t->addrspace, &t->addrspace->vmas, mptr,
+                                 mptr + mnp * PAGE_SIZE);
+        } else {
+            mptr = as->anon_next;
+            as->anon_next += mnp * PAGE_SIZE;
+        }
+
+        if (memobj_map(mf->mo, as, mptr, (uint32_t) prot) != 0) {
+            cpu_set_errno(EINVAL);
+            goto err_exit;
+        }
+        /* The VMA records the first page. A fork copies a private mapping, not
+         * this shared one, so a child that needs sharing maps the fd again. */
+        (void) vma_add(&t->addrspace->vmas, mptr, mptr + mnp * PAGE_SIZE,
+                       memobj_page(mf->mo, 0), VMM_FLAGS_USERMODE);
+        return mptr;
     }
 
     uint64_t pf = VMM_FLAGS_USERMODE;
@@ -1379,16 +1520,10 @@ int64_t k_close(int64_t fd)
     int64_t sfd = 0;
 
     if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0
-        && (svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD)) {
+        && (svc == SVC_EVENT || svc == SVC_EPOLL || svc == SVC_SIGNALFD
+            || svc == SVC_MEMFD)) {
         process_fd_close((int32_t) fd, NULL, NULL, NULL);
-        kobj_lock_acquire();
-        if (svc == SVC_EVENT)
-            eventfds[sfd - 1].used = false;
-        else if (svc == SVC_EPOLL)
-            epolls[sfd - 1].used = false;
-        else
-            signal_fds[sfd - 1].used = false;
-        kobj_lock_release();
+        k_kobj_unref(svc, sfd);
         return 0;
     }
 
@@ -2308,12 +2443,79 @@ int64_t k_truncate(char *path, int64_t len)
     return 0;
 }
 
+static int64_t memfd_truncate(int64_t id, uint64_t len)
+{
+    memfd_obj_t *mf = memfd_get(id);
+
+    if (mf == NULL) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    len = (len + PAGE_SIZE - 1) & ~(uint64_t) (PAGE_SIZE - 1);
+
+    if (len == 0) {
+        if (mf->mo != NULL) {
+            memobj_unref(mf->mo);
+            mf->mo = NULL;
+        }
+        mf->size = 0;
+        cpu_set_errno(0);
+        return 0;
+    }
+
+    if (mf->mo != NULL && memobj_size(mf->mo) == len) {
+        mf->size = len;
+        cpu_set_errno(0);
+        return 0;
+    }
+
+    memobj_t *nw = memobj_create(len);
+
+    if (nw == NULL) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+
+    if (mf->mo != NULL) {
+        uint64_t old = memobj_size(mf->mo);
+        uint64_t n = old < len ? old : len;
+        uint8_t *tmp = kmalloc(PAGE_SIZE);
+
+        if (tmp == NULL) {
+            memobj_unref(nw);
+            cpu_set_errno(ENOMEM);
+            return -1;
+        }
+        for (uint64_t off = 0; off < n; off += PAGE_SIZE) {
+            uint64_t chunk = (n - off < PAGE_SIZE) ? n - off : PAGE_SIZE;
+
+            memobj_copy_out(mf->mo, tmp, chunk, off);
+            memobj_copy_in(nw, tmp, chunk, off);
+        }
+        kmfree(tmp);
+        memobj_unref(mf->mo);
+    }
+
+    mf->mo = nw;
+    mf->size = len;
+    cpu_set_errno(0);
+    return 0;
+}
+
 int64_t k_ftruncate(int64_t fd, int64_t len)
 {
     if (len < 0) {
         cpu_set_errno(EINVAL);
         return -1;
     }
+
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    if (process_fd_get((int32_t) fd, &kind, &svc, &sfd, NULL, NULL) == 0
+        && svc == SVC_MEMFD)
+        return memfd_truncate(sfd, (uint64_t) len);
 
     int64_t r = vfs_truncate((vfs_fd_t) fd, (uint64_t) len);
 
@@ -3544,6 +3746,7 @@ static int64_t k_signalfd4(int64_t fd, const void *umask, uint64_t sizemask,
         for (int32_t i = 0; i < SIGNALFD_MAX; i++) {
             if (!signal_fds[i].used) {
                 signal_fds[i].used = true;
+                signal_fds[i].refs = 1;
                 signal_fds[i].mask = mask;
                 slot = i;
                 break;
@@ -3708,6 +3911,7 @@ int64_t k_eventfd2(uint32_t initval, int32_t flags)
     for (int32_t i = 0; i < EVENTFD_MAX; i++) {
         if (!eventfds[i].used) {
             eventfds[i].used = true;
+            eventfds[i].refs = 1;
             eventfds[i].counter = initval;
             eventfds[i].semaphore = (flags & EFD_SEMAPHORE) != 0;
             slot = i;
@@ -3726,6 +3930,44 @@ int64_t k_eventfd2(uint32_t initval, int32_t flags)
     if (fd < 0) {
         kobj_lock_acquire();
         eventfds[slot].used = false;
+        kobj_lock_release();
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+    return fd;
+}
+
+int64_t k_memfd_create(const char *name, uint64_t flags)
+{
+    int32_t slot = -1;
+
+    (void) name;
+    (void) flags;
+    cpu_set_errno(0);
+
+    kobj_lock_acquire();
+    for (int32_t i = 0; i < MEMFD_MAX; i++) {
+        if (!memfds[i].used) {
+            memfds[i].used = true;
+            memfds[i].refs = 1;
+            memfds[i].mo = NULL;
+            memfds[i].size = 0;
+            slot = i;
+            break;
+        }
+    }
+    kobj_lock_release();
+
+    if (slot < 0) {
+        cpu_set_errno(EMFILE);
+        return -1;
+    }
+
+    int64_t fd = kobj_register(SVC_MEMFD, slot + 1);
+
+    if (fd < 0) {
+        kobj_lock_acquire();
+        memfds[slot].used = false;
         kobj_lock_release();
         cpu_set_errno(EMFILE);
         return -1;
@@ -3830,6 +4072,7 @@ int64_t k_epoll_create1(int32_t flags)
         if (!epolls[i].used) {
             memset(&epolls[i], 0, sizeof(epolls[i]));
             epolls[i].used = true;
+            epolls[i].refs = 1;
             slot = i;
             break;
         }
@@ -4154,6 +4397,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_DUP3] = (syscall_ptr_t) k_dup3,
     [SYSCALL_PRLIMIT64] = (syscall_ptr_t) k_prlimit64,
     [SYSCALL_EVENTFD2] = (syscall_ptr_t) k_eventfd2,
+    [SYSCALL_MEMFD_CREATE] = (syscall_ptr_t) k_memfd_create,
     [SYSCALL_EPOLL_CREATE1] = (syscall_ptr_t) k_epoll_create1,
     [SYSCALL_EPOLL_CTL] = (syscall_ptr_t) k_epoll_ctl,
     [SYSCALL_EPOLL_WAIT] = (syscall_ptr_t) k_epoll_wait,
@@ -4202,6 +4446,8 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_PROC_SET_ENTRY] = (syscall_ptr_t) k_proc_set_entry,
     [SYSCALL_PROC_START] = (syscall_ptr_t) k_proc_start,
     [SYSCALL_SOCKET_CLOSE] = (syscall_ptr_t) k_socket_close,
+    [SYSCALL_KOBJ_REF] = (syscall_ptr_t) k_kobj_ref,
+    [SYSCALL_KOBJ_UNREF] = (syscall_ptr_t) k_kobj_unref,
     [SYSCALL_MEM_PHYS] = (syscall_ptr_t) k_mem_phys,
     [SYSCALL_USB_BLOCK_INFO] = (syscall_ptr_t) k_usb_block_info,
     [SYSCALL_USB_BLOCK_READ] = (syscall_ptr_t) k_usb_block_read,

@@ -99,6 +99,8 @@ int32_t sys_irq_ack(int64_t irq_handle);
 int32_t sys_handle_close(int64_t handle);
 int64_t sys_handle_dup(int64_t handle);
 int64_t sys_ioport_access(int32_t op, int32_t port, int32_t width, int32_t value);
+int64_t sys_kobj_ref(int32_t svc, int64_t id);
+int64_t sys_kobj_unref(int32_t svc, int64_t id);
 int32_t sys_bootinfo(bootinfo_t *bi);
 
 /* Sector I/O through the block server. */
