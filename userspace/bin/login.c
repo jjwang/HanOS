@@ -74,11 +74,10 @@ int main(void)
         char nh[256];
 
         pw_hash_new(first, nh, sizeof(nh));
-        if (!pw_shadow_set(user, nh)) {
-            printf("login: cannot write %s\n", PW_SHADOW_PATH);
-            return 1;
-        }
-        printf("login: password set\n");
+        if (!pw_shadow_set(user, nh))
+            printf("login: cannot save the password to %s\n", PW_SHADOW_PATH);
+        else
+            printf("login: password set\n");
     } else {
         int tries;
 
