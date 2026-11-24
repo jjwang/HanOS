@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -75,7 +76,8 @@ int main(void)
 
         pw_hash_new(first, nh, sizeof(nh));
         if (!pw_shadow_set(user, nh))
-            printf("login: cannot save the password to %s\n", PW_SHADOW_PATH);
+            printf("login: cannot save the password to %s (errno %d)\n",
+                   PW_SHADOW_PATH, errno);
         else
             printf("login: password set\n");
     } else {
