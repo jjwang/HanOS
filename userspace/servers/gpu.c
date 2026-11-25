@@ -63,6 +63,13 @@ static bool desktop_active;
 static gfx_fb_t desktop_tex;
 static gfx_fb_t desktop_sprite;
 
+/* Last surface the compositor asked to present. It is re-stamped onto the
+ * console sprite every frame so the terminal redraw does not erase it. */
+#define WINDOW_MAX 512
+static gfx_fb_t window_sprite;
+static bool window_active;
+static int32_t window_x, window_y, window_w, window_h;
+
 static uint32_t desktop_period;
 static uint32_t desktop_scroll;
 static uint32_t desktop_last_frame;
@@ -577,33 +584,62 @@ static void gpu_console_reply(sys_ipc_msg_t *m, sys_ipc_msg_t *rep)
 
 
 #define GPU_PRESENT_VADDR  0x90000000UL
+
+/* Restamp the remembered surface over the console sprite. The terminal writes
+ * the same surface on every output burst, so this runs once per frame. */
+static void gpu_window_compose(void)
+{
+    if (!window_active || !desktop_active || window_sprite.mem_handle <= 0)
+        return;
+
+    uint8_t *dst = (uint8_t *) desktop_sprite.obj.cpu_addr;
+    const uint8_t *src = (const uint8_t *) window_sprite.obj.cpu_addr;
+    uint64_t dstride = desktop_sprite.stride;
+    uint64_t sstride = window_sprite.stride;
+    int32_t cw = window_w, ch = window_h;
+
+    if ((uint32_t) (window_x + cw) > desktop_sprite.width)
+        cw = (int32_t) desktop_sprite.width - window_x;
+    if ((uint32_t) (window_y + ch) > desktop_sprite.height)
+        ch = (int32_t) desktop_sprite.height - window_y;
+    if (cw <= 0 || ch <= 0)
+        return;
+    for (int32_t r = 0; r < ch; r++)
+        memcpy(dst + (uint64_t) (window_y + r) * dstride
+               + (uint64_t) window_x * 4, src + (uint64_t) r * sstride,
+               (uint64_t) cw * 4);
+    gpu_flush(dst + (uint64_t) window_y * dstride, (uint64_t) ch * dstride);
+}
+
 static void gpu_present_blit(int64_t memh, int32_t x, int32_t y, int32_t w,
                              int32_t h)
 {
     if (!desktop_active || w <= 0 || h <= 0 || x < 0 || y < 0)
         return;
+    if (window_sprite.mem_handle <= 0
+        && !gpu_fb_alloc(WINDOW_MAX, WINDOW_MAX, &window_sprite))
+        return;
     if (sys_mem_map(memh, GPU_PRESENT_VADDR, 3) != 0) {
         kloge("gpu: present map failed\n");
         return;
     }
-    uint8_t *src = (uint8_t *) GPU_PRESENT_VADDR;
-    uint8_t *dst = (uint8_t *) desktop_sprite.obj.cpu_addr;
-    uint64_t sstride = desktop_sprite.stride;
-    int32_t cw = w, ch = h;
+    const uint8_t *src = (const uint8_t *) GPU_PRESENT_VADDR;
+    uint8_t *dst = (uint8_t *) window_sprite.obj.cpu_addr;
+    int32_t cw = w > WINDOW_MAX ? WINDOW_MAX : w;
+    int32_t ch = h > WINDOW_MAX ? WINDOW_MAX : h;
 
-    if ((uint32_t) (x + cw) > desktop_sprite.width)
-        cw = (int32_t) desktop_sprite.width - x;
-    if ((uint32_t) (y + ch) > desktop_sprite.height)
-        ch = (int32_t) desktop_sprite.height - y;
-    if (cw <= 0 || ch <= 0) {
-        sys_mem_unmap(memh, GPU_PRESENT_VADDR);
-        return;
-    }
     for (int32_t r = 0; r < ch; r++)
-        memcpy(dst + (uint64_t) (y + r) * sstride + (uint64_t) x * 4,
+        memcpy(dst + (uint64_t) r * window_sprite.stride,
                src + (uint64_t) r * (uint64_t) w * 4, (uint64_t) cw * 4);
-    gpu_flush(dst + (uint64_t) y * sstride, (uint64_t) ch * sstride);
+    gpu_flush(dst, (uint64_t) ch * window_sprite.stride);
     sys_mem_unmap(memh, GPU_PRESENT_VADDR);
+
+    window_x = x;
+    window_y = y;
+    window_w = cw;
+    window_h = ch;
+    window_active = true;
+    gpu_window_compose();
     klogi("gpu: present %dx%d at %d,%d\n", cw, ch, x, y);
 }
 
@@ -684,5 +720,6 @@ int main(void)
         if (sys_ipc_recv_timeout((int64_t)bi.service_ep, &m, 8) == 0)
             gpu_serve(&m);
         gpu_desktop_tick();
+        gpu_window_compose();
     }
 }
