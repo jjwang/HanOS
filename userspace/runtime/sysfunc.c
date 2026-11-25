@@ -454,6 +454,13 @@ int64_t sys_kobj_unref(int32_t svc, int64_t id)
     return ret;
 }
 
+int32_t sys_display_present(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    int64_t ret, errno;
+    SYSCALL5(SYSCALL_DISPLAY_PRESENT, fd, x, y, w, h);
+    return (int32_t) ret;
+}
+
 int32_t sys_bootinfo(bootinfo_t * bi)
 {
     int64_t ret, errno;

@@ -34,6 +34,8 @@
 #include <mm/uaccess.h>
 #include <device/usb/xhci.h>
 #include <mm/memobj.h>
+#include <device/display/fb.h>
+#include <srv/gpu_srv.h>
 #include <mm/ipc_buf.h>
 #include <ipc/object.h>
 #include <misc.h>
@@ -4309,6 +4311,78 @@ int64_t k_epoll_wait(int32_t epfd, void *uevents, int32_t maxevents,
     }
 }
 
+
+/* Present a memfd canvas to the display. With an Intel display the request
+ * would go to the GPU server; with none, blit into the firmware framebuffer. */
+int64_t k_display_present(int32_t fd, int64_t x, int64_t y, int64_t w,
+                          int64_t h)
+{
+    int32_t kind = 0, svc = 0;
+    int64_t sfd = 0;
+
+    (void) kind;
+    cpu_set_errno(0);
+
+    if (process_fd_get(fd, &kind, &svc, &sfd, NULL, NULL) != 0
+        || svc != SVC_MEMFD) {
+        cpu_set_errno(EBADF);
+        return -1;
+    }
+
+    memfd_obj_t *mf = memfd_get(sfd);
+
+    if (mf == NULL || mf->mo == NULL || x < 0 || y < 0 || w <= 0 || h <= 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    if (gpu_server_active()) {
+        /* The GPU server owns scanout; layer compositing is not wired yet. */
+        klogi("display: gpu present pending %ldx%ld\n", w, h);
+        return 0;
+    }
+
+    fb_info_t *fb = fb_get();
+
+    if (fb == NULL || fb->addr == NULL) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    uint64_t fw = fb->width, fh = fb->height;
+    uint64_t src_stride = (uint64_t) w * 4;
+
+    if ((uint64_t) x + (uint64_t) w > fw)
+        w = (int64_t) fw - x;
+    if ((uint64_t) y + (uint64_t) h > fh)
+        h = (int64_t) fh - y;
+    if (w <= 0 || h <= 0) {
+        cpu_set_errno(EINVAL);
+        return -1;
+    }
+
+    uint8_t *base = fb->addr;
+    uint32_t src_first = 0;
+
+    (void) memobj_copy_out(mf->mo, &src_first, sizeof(src_first), 0);
+
+    for (int64_t r = 0; r < h; r++) {
+        uint8_t *dst = base + (uint64_t) (y + r) * fb->pitch
+            + (uint64_t) x * 4;
+
+        memobj_copy_out(mf->mo, dst, (uint64_t) w * 4,
+                        (uint64_t) r * src_stride);
+    }
+    fb_refresh(fb);
+
+    uint32_t fb_first = *(uint32_t *) (base + (uint64_t) y * fb->pitch
+                                       + (uint64_t) x * 4);
+
+    klogi("display: present %ldx%ld at %ld,%ld src 0x%08x fb 0x%08x\n",
+          w, h, x, y, src_first, fb_first);
+    return 0;
+}
+
 int64_t k_epoll_pwait(int32_t epfd, void *uevents, int32_t maxevents,
                       int32_t timeout, const void *sigmask)
 {
@@ -4437,6 +4511,7 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
     [SYSCALL_RESOLVE] = (syscall_ptr_t) k_resolve,
     [SYSCALL_POLL_WAKE] = (syscall_ptr_t) k_poll_wake,
+    [SYSCALL_DISPLAY_PRESENT] = (syscall_ptr_t) k_display_present,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,

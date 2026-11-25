@@ -172,6 +172,7 @@
 
 #define SYSCALL_RESOLVE         0x470
 #define SYSCALL_POLL_WAKE       0x471
+#define SYSCALL_DISPLAY_PRESENT 0x468
 
 /* Size of syscall_funcs, used by the entry stub for the bounds check. */
 #define SYSCALL_TABLE_SIZE      0x480
