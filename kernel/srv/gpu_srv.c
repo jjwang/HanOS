@@ -27,6 +27,8 @@
 #include <device/display/gfx.h>
 #include <device/display/fb.h>
 #include <ipc/ipc.h>
+#include <mm/memobj.h>
+#include <ipc/object.h>
 #include <lib/kmalloc.h>
 #include <lib/klog.h>
 #include <lib/vector.h>
@@ -211,6 +213,30 @@ endpoint_t *gpu_srv_endpoint(void)
 bool gpu_srv_gen9(void)
 {
     return gfx_boot_is_gen9(gpu_device.device_id);
+}
+
+
+void gpu_srv_present(memobj_t * mo, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    if (!gpu_active || gpu_ep == NULL || mo == NULL)
+        return;
+
+    kernel_object_t *objs[1];
+    uint32_t rights[1];
+    ipc_msg_t m;
+
+    memset(&m, 0, sizeof(m));
+    m.tag = GPU_PRESENT;
+    m.words[0] = (uint64_t) (int64_t) x;
+    m.words[1] = (uint64_t) (int64_t) y;
+    m.words[2] = (uint64_t) (int64_t) w;
+    m.words[3] = (uint64_t) (int64_t) h;
+
+    objs[0] = memobj_object(mo);
+    rights[0] = HANDLE_RIGHT_READ | HANDLE_RIGHT_MAP;
+    object_ref(objs[0]);
+    ipc_send_objs(gpu_ep, &m, objs, rights, 1);
+    object_unref(objs[0]);
 }
 
 void gpu_cursor_move(int32_t dx, int32_t dy)

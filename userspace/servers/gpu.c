@@ -575,6 +575,38 @@ static void gpu_console_reply(sys_ipc_msg_t *m, sys_ipc_msg_t *rep)
     }
 }
 
+
+#define GPU_PRESENT_VADDR  0x90000000UL
+static void gpu_present_blit(int64_t memh, int32_t x, int32_t y, int32_t w,
+                             int32_t h)
+{
+    if (!desktop_active || w <= 0 || h <= 0 || x < 0 || y < 0)
+        return;
+    if (sys_mem_map(memh, GPU_PRESENT_VADDR, 3) != 0) {
+        kloge("gpu: present map failed\n");
+        return;
+    }
+    uint8_t *src = (uint8_t *) GPU_PRESENT_VADDR;
+    uint8_t *dst = (uint8_t *) desktop_sprite.obj.cpu_addr;
+    uint64_t sstride = desktop_sprite.stride;
+    int32_t cw = w, ch = h;
+
+    if ((uint32_t) (x + cw) > desktop_sprite.width)
+        cw = (int32_t) desktop_sprite.width - x;
+    if ((uint32_t) (y + ch) > desktop_sprite.height)
+        ch = (int32_t) desktop_sprite.height - y;
+    if (cw <= 0 || ch <= 0) {
+        sys_mem_unmap(memh, GPU_PRESENT_VADDR);
+        return;
+    }
+    for (int32_t r = 0; r < ch; r++)
+        memcpy(dst + (uint64_t) (y + r) * sstride + (uint64_t) x * 4,
+               src + (uint64_t) r * (uint64_t) w * 4, (uint64_t) cw * 4);
+    gpu_flush(dst + (uint64_t) y * sstride, (uint64_t) ch * sstride);
+    sys_mem_unmap(memh, GPU_PRESENT_VADDR);
+    klogi("gpu: present %dx%d at %d,%d\n", cw, ch, x, y);
+}
+
 static void gpu_serve(sys_ipc_msg_t *m)
 {
     sys_ipc_msg_t rep;
@@ -582,6 +614,14 @@ static void gpu_serve(sys_ipc_msg_t *m)
     memset(&rep, 0, sizeof(rep));
     rep.tag = m->tag;
 
+    if (m->tag == GPU_PRESENT) {
+        gpu_present_blit((int64_t) m->xfer[0], (int32_t) m->words[0],
+                         (int32_t) m->words[1], (int32_t) m->words[2],
+                         (int32_t) m->words[3]);
+        if (m->xfer[0] != 0)
+            sys_handle_close((int64_t) m->xfer[0]);
+        return;
+    }
     if (m->tag == GPU_CURSOR_MOVE) {
         skl_cursor_move((int32_t)(int64_t)m->words[0],
                         (int32_t)(int64_t)m->words[1]);

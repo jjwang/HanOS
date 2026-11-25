@@ -136,6 +136,7 @@
  * words[0..1] and need no reply. */
 #define GPU_CONSOLE_SURFACE 0xC0
 #define GPU_CURSOR_MOVE     0xC1
+#define GPU_PRESENT         0xC2   /* words[0..3]=x,y,w,h; xfer memobj ARGB */
 
 /* MM server (SVC_MM). The allocator stays in the kernel; the server answers
  * meminfo from a read-only stats primitive. */

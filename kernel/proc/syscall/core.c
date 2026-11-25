@@ -4337,8 +4337,8 @@ int64_t k_display_present(int32_t fd, int64_t x, int64_t y, int64_t w,
     }
 
     if (gpu_server_active()) {
-        /* The GPU server owns scanout; layer compositing is not wired yet. */
-        klogi("display: gpu present pending %ldx%ld\n", w, h);
+        gpu_srv_present(mf->mo, (int32_t) x, (int32_t) y, (int32_t) w,
+                        (int32_t) h);
         return 0;
     }
 

@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include <ipc/ipc.h>
+#include <mm/memobj.h>
 
 /* Spawn the GPU server when a supported Intel display device exists.
  * Returns false when the device is absent or the server cannot start. */
@@ -34,3 +35,7 @@ endpoint_t *gpu_srv_endpoint(void);
 
 /* True when the attached display is Gen9 (Skylake). */
 bool gpu_srv_gen9(void);
+
+/* Composite an ARGB canvas into the scanned display surface. */
+void gpu_srv_present(memobj_t * mo, int32_t x, int32_t y, int32_t w,
+                     int32_t h);
