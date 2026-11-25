@@ -10,6 +10,8 @@
 #include <wayland-server.h>
 #include <sysfunc.h>
 #include <sys/mman.h>
+#include <time.h>
+#include <protocol.h>
 
 struct surface { struct wl_resource *buffer; };
 
@@ -105,10 +107,72 @@ static void bind_compositor(struct wl_client *c, void *data, uint32_t ver, uint3
     wl_resource_set_implementation(r, &comp_impl, NULL, NULL);
 }
 
+
+static struct wl_resource *g_keyboard;
+static int64_t g_tty_ep = -1, g_notify_ep = -1;
+static uint32_t g_key_serial;
+
+static void kb_release(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
+static const struct wl_keyboard_interface keyboard_impl = { kb_release };
+
+static uint32_t now_ms(void)
+{
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t) (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+static int ascii_evdev(uint8_t ch)
+{
+    if (ch >= 'a' && ch <= 'z') return 30 + (ch - 'a');
+    if (ch >= 'A' && ch <= 'Z') return 30 + (ch - 'A');
+    if (ch >= '1' && ch <= '9') return 2 + (ch - '1');
+    if (ch == '0') return 11;
+    switch (ch) { case ' ': return 57; case '\n': case '\r': return 28;
+        case '\b': case 0x7f: return 14; case '\t': return 15; }
+    return 0;
+}
+static void kb_send_key(uint8_t ch)
+{
+    int code = ascii_evdev(ch);
+    if (g_keyboard == NULL || code <= 0) return;
+    uint32_t t = now_ms();
+    wl_keyboard_send_key(g_keyboard, ++g_key_serial, t, (uint32_t) code,
+                         WL_KEYBOARD_KEY_STATE_PRESSED);
+    wl_keyboard_send_key(g_keyboard, ++g_key_serial, t, (uint32_t) code,
+                         WL_KEYBOARD_KEY_STATE_RELEASED);
+}
+static void subscribe_keys(void)
+{
+    g_tty_ep = sys_service_endpoint(6);
+    if (g_tty_ep < 0) return;
+    g_notify_ep = sys_ep_create();
+    if (g_notify_ep < 0) return;
+    int64_t sh = sys_handle_dup(g_notify_ep);
+    if (sh < 0) return;
+    sys_ipc_msg_t m; memset(&m, 0, sizeof(m));
+    m.tag = TTY_KEY_SUBSCRIBE; m.xfer[0] = (uint64_t) sh; m.xfer_count = 1;
+    int r = sys_ipc_send(g_tty_ep, &m);
+    printf("compositor: seat tty_ep=%d notify_ep=%d sub=%d\n",
+           (int) g_tty_ep, (int) g_notify_ep, r);
+    fflush(stdout);
+}
+
 static void seat_get_pointer(struct wl_client *c, struct wl_resource *r, uint32_t id)
 { (void)r; struct wl_resource *res = wl_resource_create(c, &wl_pointer_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
 static void seat_get_keyboard(struct wl_client *c, struct wl_resource *r, uint32_t id)
-{ (void)r; struct wl_resource *res = wl_resource_create(c, &wl_keyboard_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
+{
+    struct wl_resource *res = wl_resource_create(c, &wl_keyboard_interface,
+                                                 wl_resource_get_version(r), id);
+    if (res == NULL) return;
+    wl_resource_set_implementation(res, &keyboard_impl, NULL, NULL);
+    g_keyboard = res;
+    int fd = memfd_create("keymap", 0);
+    if (fd >= 0 && ftruncate(fd, 1) == 0) {
+        /* No shared xkb data in the guest; clients fall back to raw codes. */
+        wl_keyboard_send_keymap(res, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, fd, 1);
+    }
+    if (fd >= 0) close(fd);
+    wl_keyboard_send_repeat_info(res, 25, 400);
+}
 static void seat_get_touch(struct wl_client *c, struct wl_resource *r, uint32_t id)
 { (void)r; struct wl_resource *res = wl_resource_create(c, &wl_touch_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
 static void seat_release(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
@@ -118,7 +182,7 @@ static void bind_seat(struct wl_client *c, void *data, uint32_t ver, uint32_t id
     (void)data;
     struct wl_resource *r = wl_resource_create(c, &wl_seat_interface, ver, id);
     wl_resource_set_implementation(r, &seat_impl, NULL, NULL);
-    wl_seat_send_capabilities(r, 0);
+    wl_seat_send_capabilities(r, WL_SEAT_CAPABILITY_KEYBOARD);
 }
 
 static void out_release(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
@@ -159,7 +223,15 @@ int main(void)
     }
     if (wl_display_add_socket_fd(wd, sfd) != 0) { printf("compositor: add_socket FAIL\n"); return 1; }
     printf("compositor: ready\n"); fflush(stdout);
+    subscribe_keys();
     for (;;) {
+        if (g_notify_ep >= 0) {
+            sys_ipc_msg_t km;
+            while (sys_ipc_recv_timeout(g_notify_ep, &km, 0) == 0) {
+                if (km.tag == TTY_KEY)
+                    kb_send_key((uint8_t) km.words[0]);
+            }
+        }
         wl_display_flush_clients(wd);
         wl_event_loop_dispatch(wl_display_get_event_loop(wd), 50);
     }
