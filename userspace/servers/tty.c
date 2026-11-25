@@ -31,6 +31,7 @@
 #define OUT_MAX         (128 * 1024)
 
 static uint8_t keys[TTY_KEY_MAX];
+static int64_t key_sub = -1;      /* endpoint notified of every key */
 static uint32_t khead;
 static uint32_t ktail;
 static uint32_t kcount;
@@ -239,8 +240,23 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
         return;
     }
 
+    if (m->tag == TTY_KEY_SUBSCRIBE) {
+        key_sub = (int64_t) m->xfer[0];
+        rep->words[0] = 0;
+        return;
+    }
+
     if (m->tag == TTY_KEY) {
         uint8_t k = (uint8_t) m->words[0];
+
+        if (key_sub >= 0) {
+            sys_ipc_msg_t nm;
+
+            memset(&nm, 0, sizeof(nm));
+            nm.tag = TTY_KEY;
+            nm.words[0] = k;
+            sys_ipc_send(key_sub, &nm);
+        }
 
         if (k != INPUT_KEY_EOF)
             eof_pending = false;

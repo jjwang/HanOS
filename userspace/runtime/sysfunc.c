@@ -461,6 +461,13 @@ int32_t sys_display_present(int32_t fd, int32_t x, int32_t y, int32_t w, int32_t
     return (int32_t) ret;
 }
 
+int64_t sys_service_endpoint(int32_t svc)
+{
+    int64_t ret, errno;
+    SYSCALL1(SYSCALL_SERVICE_ENDPOINT, svc);
+    return ret;
+}
+
 int32_t sys_bootinfo(bootinfo_t * bi)
 {
     int64_t ret, errno;

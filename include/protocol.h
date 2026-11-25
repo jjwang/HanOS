@@ -172,6 +172,7 @@ typedef struct {
 #define TTY_KEY             0x62        /* kernel relay: words[0]=key byte */
 #define TTY_POLL            0x63        /* out: words[1]=pending key count */
 #define TTY_SETMODE         0x64        /* words[0]=echo, words[1]=canonical */
+#define TTY_KEY_SUBSCRIBE   0x65        /* xfer: subscriber endpoint */
 #define TTY_EAGAIN          (-11)
 
 /* FAT32 server (a block-server client). File descriptors are server state:

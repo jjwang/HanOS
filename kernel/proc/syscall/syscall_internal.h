@@ -38,6 +38,7 @@ int64_t k_accept(int64_t sock);
 int64_t k_close(int64_t fd);
 int64_t k_display_present(int32_t fd, int64_t x, int64_t y,
                          int64_t w, int64_t h);
+int64_t k_service_endpoint(int64_t svc);
 int64_t k_kobj_ref(int64_t svc, int64_t id);
 int64_t k_kobj_unref(int64_t svc, int64_t id);
 int64_t k_kobj_install(int32_t svc, int64_t id);

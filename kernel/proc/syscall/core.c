@@ -4419,6 +4419,31 @@ int64_t k_resolve(const char *name, uint32_t * uip)
     return 0;
 }
 
+
+/* Give the caller a handle to a router service endpoint, so a late-started
+ * program can reach services that are only passed to in-tree servers. */
+int64_t k_service_endpoint(int64_t svc)
+{
+    cpu_set_errno(0);
+
+    endpoint_t *ep = router_lookup((service_id_t) svc);
+    process_t *cur = sched_get_current_process();
+
+    if (ep == NULL || cur == NULL) {
+        cpu_set_errno(ENOENT);
+        return -1;
+    }
+
+    handle_t h = handle_alloc(&cur->handles, endpoint_object(ep),
+                              HANDLE_RIGHT_SEND);
+
+    if (h == HANDLE_INVALID) {
+        cpu_set_errno(ENOMEM);
+        return -1;
+    }
+    return (int64_t) h;
+}
+
 syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_READ] = (syscall_ptr_t) k_read,
     [SYSCALL_WRITE] = (syscall_ptr_t) k_write,
@@ -4511,7 +4536,9 @@ syscall_ptr_t syscall_funcs[SYSCALL_TABLE_SIZE] = {
     [SYSCALL_EPOLL_PWAIT] = (syscall_ptr_t) k_epoll_pwait,
     [SYSCALL_RESOLVE] = (syscall_ptr_t) k_resolve,
     [SYSCALL_POLL_WAKE] = (syscall_ptr_t) k_poll_wake,
+
     [SYSCALL_DISPLAY_PRESENT] = (syscall_ptr_t) k_display_present,
+    [SYSCALL_SERVICE_ENDPOINT] = (syscall_ptr_t) k_service_endpoint,
     [SYSCALL_GETRANDOM] = (syscall_ptr_t) k_getentropy,
     [SYSCALL_DEBUGLOG] = (syscall_ptr_t) k_debug_log,
     [SYSCALL_SET_FS_BASE] = (syscall_ptr_t) k_set_fs_base,
