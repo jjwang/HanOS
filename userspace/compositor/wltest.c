@@ -22,7 +22,9 @@ static void kb_keymap(void *d, struct wl_keyboard *k, uint32_t fmt, int32_t fd,
 static void kb_enter(void *d, struct wl_keyboard *k, uint32_t s,
                      struct wl_surface *sf, struct wl_array *keys)
 {
-    (void) d; (void) k; (void) s; (void) sf; (void) keys;
+    (void) d; (void) k; (void) sf; (void) keys;
+    printf("wltest: keyboard enter serial=%u\n", s);
+    fflush(stdout);
 }
 static void kb_leave(void *d, struct wl_keyboard *k, uint32_t s,
                      struct wl_surface *sf)
@@ -39,7 +41,9 @@ static void kb_key(void *d, struct wl_keyboard *k, uint32_t s, uint32_t t,
 static void kb_mod(void *d, struct wl_keyboard *k, uint32_t s, uint32_t a,
                    uint32_t b, uint32_t c, uint32_t g)
 {
-    (void) d; (void) k; (void) s; (void) a; (void) b; (void) c; (void) g;
+    (void) d; (void) k;
+    printf("wltest: modifiers serial=%u %u/%u/%u/%u\n", s, a, b, c, g);
+    fflush(stdout);
 }
 static void kb_rep(void *d, struct wl_keyboard *k, int32_t rate, int32_t delay)
 {
@@ -63,7 +67,9 @@ static void seat_caps(void *d, struct wl_seat *s, uint32_t caps)
 }
 static void seat_name(void *d, struct wl_seat *s, const char *n)
 {
-    (void) d; (void) s; (void) n;
+    (void) d; (void) s;
+    printf("wltest: seat name %s\n", n);
+    fflush(stdout);
 }
 static const struct wl_seat_listener sl = { seat_caps, seat_name };
 
@@ -84,11 +90,27 @@ static void rm(void *d, struct wl_registry *r, uint32_t n)
 }
 static const struct wl_registry_listener rl = { g, rm };
 
+static void buf_rel(void *d, struct wl_buffer *b)
+{
+    (void) d; (void) b;
+    printf("wltest: buffer released\n");
+    fflush(stdout);
+}
+static const struct wl_buffer_listener bl = { buf_rel };
+
+static void cb_done(void *d, struct wl_callback *cb, uint32_t t)
+{
+    (void) d; (void) cb;
+    printf("wltest: frame done t=%u\n", t);
+    fflush(stdout);
+}
+static const struct wl_callback_listener cbl = { cb_done };
+
 int main(void)
 {
     setenv("XDG_RUNTIME_DIR", "/data", 1);
     struct wl_display *d = NULL;
-    for (int i = 0; i < 50 && d == NULL; i++) {
+    for (int i = 0; i < 100 && d == NULL; i++) {
         d = wl_display_connect("/data/wl0");
         if (d == NULL)
             usleep(100 * 1000);
@@ -126,7 +148,10 @@ int main(void)
     struct wl_shm_pool *pool = wl_shm_create_pool(shm, fd, size);
     struct wl_buffer *buf = wl_shm_pool_create_buffer(pool, 0, w, h, stride,
                                                       WL_SHM_FORMAT_ARGB8888);
+    wl_buffer_add_listener(buf, &bl, NULL);
     struct wl_surface *sf = wl_compositor_create_surface(comp);
+    struct wl_callback *fc = wl_surface_frame(sf);
+    wl_callback_add_listener(fc, &cbl, NULL);
     wl_surface_attach(sf, buf, 0, 0);
     wl_surface_damage_buffer(sf, 0, 0, w, h);
     wl_surface_commit(sf);

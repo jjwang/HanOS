@@ -151,10 +151,12 @@ if ! grep -aq 'wltest: keymap' "$LOG"; then
     echo "wl: no keymap event" >&2
     status=1
 fi
-if ! grep -aq 'wltest: key ' "$LOG"; then
-    echo "wl: no key event" >&2
-    status=1
-fi
+for ev in 'wltest: buffer released' 'wltest: frame done' 'wltest: seat name' 'wltest: keyboard enter' 'wltest: key '; do
+    if ! grep -aq "$ev" "$LOG"; then
+        echo "wl: missing $ev" >&2
+        status=1
+    fi
+done
 if grep -aq 'wltest: connect FAIL\|wltest: globals FAIL\|wltest: roundtrip FAIL' "$LOG"; then
     echo "wl: guest reported failure" >&2
     status=1
