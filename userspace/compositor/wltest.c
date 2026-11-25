@@ -87,27 +87,42 @@ static const struct wl_registry_listener rl = { g, rm };
 int main(void)
 {
     setenv("XDG_RUNTIME_DIR", "/data", 1);
-    struct wl_display *d = wl_display_connect("/data/wl0");
+    struct wl_display *d = NULL;
+    for (int i = 0; i < 50 && d == NULL; i++) {
+        d = wl_display_connect("/data/wl0");
+        if (d == NULL)
+            usleep(100 * 1000);
+    }
     if (d == NULL) {
         printf("wltest: connect FAIL\n");
         return 1;
     }
     struct wl_registry *reg = wl_display_get_registry(d);
     wl_registry_add_listener(reg, &rl, NULL);
-    if (wl_display_roundtrip(d) < 0 || comp == NULL || shm == NULL
-        || seat == NULL) {
+    for (int i = 0; i < 20; i++) {
+        if (wl_display_roundtrip(d) < 0)
+            break;
+        if (comp != NULL && shm != NULL && seat != NULL)
+            break;
+        usleep(100 * 1000);
+    }
+    if (comp == NULL || shm == NULL || seat == NULL) {
         printf("wltest: globals FAIL c=%p s=%p seat=%p\n",
                (void *) comp, (void *) shm, (void *) seat);
         return 1;
     }
     wl_seat_add_listener(seat, &sl, NULL);
 
-    int w = 64, h = 64, stride = w * 4, size = stride * h;
+    int w = 160, h = 120, stride = w * 4, size = stride * h;
     int fd = memfd_create("surf", 0);
     ftruncate(fd, size);
     uint32_t *px = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    for (int i = 0; i < w * h; i++)
-        px[i] = 0xABABABAB;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int border = (x < 4 || y < 4 || x >= w - 4 || y >= h - 4);
+            px[y * w + x] = border ? 0xFFE03030 : 0xFF5070C0;
+        }
+    }
     struct wl_shm_pool *pool = wl_shm_create_pool(shm, fd, size);
     struct wl_buffer *buf = wl_shm_pool_create_buffer(pool, 0, w, h, stride,
                                                       WL_SHM_FORMAT_ARGB8888);
