@@ -10,3 +10,8 @@ SRC="$ROOT/userspace/compositor"
     -lwayland-server -lffi -o "$STAGE/bin/compositor"
 "$STRIP" --strip-unneeded "$STAGE/bin/compositor"
 echo "compositor: $STAGE/bin/compositor"
+
+"$PORTS/cc-dynamic" -I"$STAGE/include" -L"$STAGE/lib" \
+    "$SRC/wltest.c" -lwayland-client -lffi -o "$STAGE/bin/wltest"
+"$STRIP" --strip-unneeded "$STAGE/bin/wltest"
+echo "wltest: $STAGE/bin/wltest"
