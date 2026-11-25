@@ -242,6 +242,9 @@ static void handle(sys_ipc_msg_t * m, sys_ipc_msg_t * rep)
 
     if (m->tag == TTY_KEY_SUBSCRIBE) {
         key_sub = (int64_t) m->xfer[0];
+        /* Keep the subscriber endpoint; the main loop must not close it as a
+         * reply handle. */
+        m->xfer[0] = 0;
         rep->words[0] = 0;
         return;
     }
