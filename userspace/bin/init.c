@@ -23,6 +23,8 @@
 
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sysfunc.h>
 
@@ -81,7 +83,17 @@ int32_t main(void)
         }
         if (shell_file("/data/bin/compositor") && sys_fork() == 0) {
             char *av[2] = { "/data/bin/compositor", NULL };
+            int lfd = open("/data/compositor.log",
+                           O_WRONLY | O_CREAT | O_APPEND, 0644);
 
+            /* Keep the console and login prompt clean; compositor messages
+             * go to its log file. */
+            if (lfd >= 0) {
+                dup2(lfd, 1);
+                dup2(lfd, 2);
+                if (lfd > 2)
+                    close(lfd);
+            }
             sys_exec("/data/bin/compositor", av);
             sys_exit(1);
         }
