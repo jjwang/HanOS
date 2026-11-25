@@ -5,7 +5,7 @@ set -e
 
 . "$(dirname "$0")/common.sh"
 
-packages=${*:-bash coreutils grep sed tar make m4 gawk gzip patch diffutils python libffi expat wayland}
+packages=${*:-bash coreutils grep sed tar make m4 gawk gzip patch diffutils python libffi expat wayland compositor}
 
 mkdir -p "$STAGE/bin" "$SRC"
 

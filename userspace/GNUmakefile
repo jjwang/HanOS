@@ -64,7 +64,7 @@ STRIP := x86_64-elf-strip
 
 LIB_FILES :=
 
-C_FILES   := $(shell find ./ -type f,l -name '*.c' ! -name '_help.c' ! -path './runtime/*')
+C_FILES   := $(shell find ./ -type f,l -name '*.c' ! -name '_help.c' ! -path './runtime/*' ! -path './compositor/*')
 H_FILES   := $(shell find ./ -type f,l -name '*.h')
 C_OBJS    := $(C_FILES:.c=.o)
 C_DEPS    := $(C_FILES:.c=.d)

@@ -1,0 +1,167 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <wayland-server-core.h>
+#include <wayland-server.h>
+#include <sysfunc.h>
+#include <sys/mman.h>
+
+struct surface { struct wl_resource *buffer; };
+
+static int canvas_fd = -1;
+static uint32_t *canvas;
+static int canvas_w, canvas_h;
+
+static void s_destroy(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
+static void s_attach(struct wl_client *c, struct wl_resource *r, struct wl_resource *buf, int32_t x, int32_t y)
+{ (void)c;(void)x;(void)y; struct surface *s = wl_resource_get_user_data(r); s->buffer = buf; }
+static void s_damage(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y, int32_t w, int32_t h)
+{ (void)c;(void)r;(void)x;(void)y;(void)w;(void)h; }
+static void s_frame(struct wl_client *c, struct wl_resource *r, uint32_t cb)
+{ (void)c;(void)r;(void)cb; }
+static void s_set_region(struct wl_client *c, struct wl_resource *r, struct wl_resource *reg)
+{ (void)c;(void)r;(void)reg; }
+static void s_commit(struct wl_client *c, struct wl_resource *r)
+{
+    (void)c;
+    struct surface *s = wl_resource_get_user_data(r);
+    if (s->buffer == NULL) return;
+    struct wl_shm_buffer *b = wl_shm_buffer_get(s->buffer);
+    if (b == NULL) { printf("compositor: non-shm buffer\n"); return; }
+    int w = (int) wl_shm_buffer_get_width(b);
+    int h = (int) wl_shm_buffer_get_height(b);
+    int stride = (int) wl_shm_buffer_get_stride(b);
+    int fmt = (int) wl_shm_buffer_get_format(b);
+    (void) fmt;
+    wl_shm_buffer_begin_access(b);
+    uint8_t *data = wl_shm_buffer_get_data(b);
+    if (data != NULL) {
+        if (canvas == NULL || w != canvas_w || h != canvas_h) {
+            if (canvas != NULL) munmap(canvas, (size_t) canvas_w * canvas_h * 4);
+            if (canvas_fd >= 0) close(canvas_fd);
+            canvas_fd = memfd_create("canvas", 0);
+            if (canvas_fd >= 0 && ftruncate(canvas_fd, (size_t) w * h * 4) == 0)
+                canvas = mmap(0, (size_t) w * h * 4, PROT_READ | PROT_WRITE,
+                              MAP_SHARED, canvas_fd, 0);
+            else
+                canvas = NULL;
+            canvas_w = w;
+            canvas_h = h;
+        }
+        if (canvas != NULL && canvas != MAP_FAILED) {
+            for (int y = 0; y < h; y++)
+                memcpy((uint8_t *) canvas + (size_t) y * w * 4,
+                       data + (size_t) y * stride, (size_t) w * 4);
+            int rc = sys_display_present(canvas_fd, 50, 50, w, h);
+            printf("compositor: present %dx%d rc %d first 0x%08x\n",
+                   w, h, rc, ((uint32_t *) canvas)[0]);
+            fflush(stdout);
+        }
+    }
+    wl_shm_buffer_end_access(b);
+}
+static void s_transform(struct wl_client *c, struct wl_resource *r, int32_t t) { (void)c;(void)r;(void)t; }
+static void s_scale(struct wl_client *c, struct wl_resource *r, int32_t s) { (void)c;(void)r;(void)s; }
+static void s_damage_buffer(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y, int32_t w, int32_t h)
+{ (void)c;(void)r;(void)x;(void)y;(void)w;(void)h; }
+static void s_offset(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y) { (void)c;(void)r;(void)x;(void)y; }
+
+static const struct wl_surface_interface surface_impl = {
+    s_destroy, s_attach, s_damage, s_frame, s_set_region, s_set_region,
+    s_commit, s_transform, s_scale, s_damage_buffer, s_offset
+};
+
+static void surface_free(struct wl_resource *r) { free(wl_resource_get_user_data(r)); }
+
+static void comp_create_surface(struct wl_client *c, struct wl_resource *r, uint32_t id)
+{
+    (void)r;
+    struct surface *s = calloc(1, sizeof(*s));
+    struct wl_resource *res = wl_resource_create(c, &wl_surface_interface,
+                                                 wl_resource_get_version(r), id);
+    wl_resource_set_implementation(res, &surface_impl, s, surface_free);
+}
+static void region_destroy(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
+static void region_add(struct wl_client *c, struct wl_resource *r, int32_t x, int32_t y, int32_t w, int32_t h)
+{ (void)c;(void)r;(void)x;(void)y;(void)w;(void)h; }
+static const struct wl_region_interface region_impl = { region_destroy, region_add, region_add };
+static void comp_create_region(struct wl_client *c, struct wl_resource *r, uint32_t id)
+{
+    (void)r;
+    struct wl_resource *res = wl_resource_create(c, &wl_region_interface, 1, id);
+    wl_resource_set_implementation(res, &region_impl, NULL, NULL);
+}
+static const struct wl_compositor_interface comp_impl = { comp_create_surface, comp_create_region };
+
+static void bind_compositor(struct wl_client *c, void *data, uint32_t ver, uint32_t id)
+{
+    (void)data;
+    struct wl_resource *r = wl_resource_create(c, &wl_compositor_interface, ver, id);
+    wl_resource_set_implementation(r, &comp_impl, NULL, NULL);
+}
+
+static void seat_get_pointer(struct wl_client *c, struct wl_resource *r, uint32_t id)
+{ (void)r; struct wl_resource *res = wl_resource_create(c, &wl_pointer_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
+static void seat_get_keyboard(struct wl_client *c, struct wl_resource *r, uint32_t id)
+{ (void)r; struct wl_resource *res = wl_resource_create(c, &wl_keyboard_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
+static void seat_get_touch(struct wl_client *c, struct wl_resource *r, uint32_t id)
+{ (void)r; struct wl_resource *res = wl_resource_create(c, &wl_touch_interface, 1, id); wl_resource_set_implementation(res, NULL, NULL, NULL); }
+static void seat_release(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
+static const struct wl_seat_interface seat_impl = { seat_get_pointer, seat_get_keyboard, seat_get_touch, seat_release };
+static void bind_seat(struct wl_client *c, void *data, uint32_t ver, uint32_t id)
+{
+    (void)data;
+    struct wl_resource *r = wl_resource_create(c, &wl_seat_interface, ver, id);
+    wl_resource_set_implementation(r, &seat_impl, NULL, NULL);
+    wl_seat_send_capabilities(r, 0);
+}
+
+static void out_release(struct wl_client *c, struct wl_resource *r) { (void)c; wl_resource_destroy(r); }
+static const struct wl_output_interface output_impl = { out_release };
+static void bind_output(struct wl_client *c, void *data, uint32_t ver, uint32_t id)
+{
+    (void)data;
+    struct wl_resource *r = wl_resource_create(c, &wl_output_interface, ver, id);
+    wl_resource_set_implementation(r, &output_impl, NULL, NULL);
+    wl_output_send_geometry(r, 0, 0, 320, 200, WL_OUTPUT_SUBPIXEL_UNKNOWN,
+                            "HanOS", "fb", WL_OUTPUT_TRANSFORM_NORMAL);
+    wl_output_send_mode(r, WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED,
+                        800, 600, 60000);
+    if (ver >= 2) wl_output_send_scale(r, 1);
+    if (ver >= 4) wl_output_send_name(r, "WL-1");
+    if (ver >= 4) wl_output_send_description(r, "HanOS framebuffer");
+    wl_output_send_done(r);
+}
+
+int main(void)
+{
+    setenv("XDG_RUNTIME_DIR", "/data", 1);
+    struct wl_display *wd = wl_display_create();
+    if (wd == NULL) { printf("compositor: create FAIL\n"); return 1; }
+    wl_display_init_shm(wd);
+    if (!wl_global_create(wd, &wl_compositor_interface, 4, NULL, bind_compositor)
+        || !wl_global_create(wd, &wl_output_interface, 4, NULL, bind_output)
+        || !wl_global_create(wd, &wl_seat_interface, 7, NULL, bind_seat)) {
+        printf("compositor: global FAIL\n"); return 1;
+    }
+    int sfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    struct sockaddr_un sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
+    strcpy(sa.sun_path, "/data/wl0");
+    if (sfd < 0 || bind(sfd, (struct sockaddr *)&sa, sizeof(sa)) != 0 || listen(sfd, 128) != 0) {
+        printf("compositor: bind FAIL\n"); return 1;
+    }
+    if (wl_display_add_socket_fd(wd, sfd) != 0) { printf("compositor: add_socket FAIL\n"); return 1; }
+    printf("compositor: ready\n"); fflush(stdout);
+    for (;;) {
+        wl_display_flush_clients(wd);
+        wl_event_loop_dispatch(wl_display_get_event_loop(wd), 50);
+    }
+    return 0;
+}

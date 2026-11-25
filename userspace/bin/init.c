@@ -69,6 +69,24 @@ int32_t main(void)
 {
     int32_t pid, wpid;
 
+    /* On a ports image, start the Wayland compositor once the data partition
+     * (and its shared libraries) is mounted. It runs in the background. */
+    if (shell_file("/etc/ports-image")) {
+        struct timespec delay = { 0, 10 * 1000 * 1000 };
+
+        for (int i = 0; i < 600; i++) {
+            if (shell_file("/data/bin/compositor"))
+                break;
+            nanosleep(&delay, NULL);
+        }
+        if (shell_file("/data/bin/compositor") && sys_fork() == 0) {
+            char *av[2] = { "/data/bin/compositor", NULL };
+
+            sys_exec("/data/bin/compositor", av);
+            sys_exit(1);
+        }
+    }
+
     /* Loop to start shell program */
     for (;;) {
         const char *name;
