@@ -1,0 +1,11 @@
+var searchData=
+[
+  ['display_5fbacktrace_0',['display_backtrace',['../d2/daf/panic_8c.html#ae5ebf16515d3787c11dc9818e4a408a2',1,'display_backtrace():&#160;panic.c'],['../df/d1f/panic_8h.html#ae5ebf16515d3787c11dc9818e4a408a2',1,'display_backtrace():&#160;panic.c']]],
+  ['display_5fmode_5ffrom_5fedid_1',['display_mode_from_edid',['../d1/de2/display__mode_8c.html#a589f558a8213f56390bf7cf7df256def',1,'display_mode_from_edid(const edid_info_t *edid, display_mode_t *mode):&#160;display_mode.c'],['../d8/d04/display__mode_8h.html#a589f558a8213f56390bf7cf7df256def',1,'display_mode_from_edid(const edid_info_t *edid, display_mode_t *mode):&#160;display_mode.c']]],
+  ['display_5fmode_5ffrom_5ffb_2',['display_mode_from_fb',['../d1/de2/display__mode_8c.html#a8327b66e98d47f4279fab3cf66bd2b74',1,'display_mode_from_fb(display_mode_t *mode, uint32_t width, uint32_t height, uint32_t pitch):&#160;display_mode.c'],['../d8/d04/display__mode_8h.html#a8327b66e98d47f4279fab3cf66bd2b74',1,'display_mode_from_fb(display_mode_t *mode, uint32_t width, uint32_t height, uint32_t pitch):&#160;display_mode.c']]],
+  ['display_5fmode_5fget_5fboot_3',['display_mode_get_boot',['../d1/de2/display__mode_8c.html#a245ae9fcdaa8dad555b992db8baa0fcf',1,'display_mode_get_boot(void):&#160;display_mode.c'],['../d8/d04/display__mode_8h.html#a245ae9fcdaa8dad555b992db8baa0fcf',1,'display_mode_get_boot(void):&#160;display_mode.c']]],
+  ['display_5fmode_5flog_4',['display_mode_log',['../d1/de2/display__mode_8c.html#aa74d73c056635e9f5531c90a4ecad3f0',1,'display_mode_log(const display_mode_t *mode):&#160;display_mode.c'],['../d8/d04/display__mode_8h.html#aa74d73c056635e9f5531c90a4ecad3f0',1,'display_mode_log(const display_mode_t *mode):&#160;display_mode.c']]],
+  ['do_5fcontext_5fswitch_5',['do_context_switch',['../db/dbe/sched_8c.html#a43c86aa487f16826eca9829b2045687a',1,'sched.c']]],
+  ['done_6',['done',['../d5/d27/kmain_8c.html#aa73ac3671283e172d82ef8ebed3ebd46',1,'kmain.c']]],
+  ['dump_5fbacktrace_7',['dump_backtrace',['../d2/daf/panic_8c.html#a61a0b9bb164cceb878d8d1f476f16aed',1,'dump_backtrace():&#160;panic.c'],['../df/d1f/panic_8h.html#a61a0b9bb164cceb878d8d1f476f16aed',1,'dump_backtrace():&#160;panic.c']]]
+];

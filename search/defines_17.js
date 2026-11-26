@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['x86_5feflags_5fac_0',['X86_EFLAGS_AC',['../de/ddf/syscall_8h.html#a39d20652ab0cb22a3693013d2fcf1757',1,'syscall.h']]],
+  ['x86_5feflags_5faf_1',['X86_EFLAGS_AF',['../de/ddf/syscall_8h.html#a98259e888194dd5e5264205c6d830b03',1,'syscall.h']]],
+  ['x86_5feflags_5fcf_2',['X86_EFLAGS_CF',['../de/ddf/syscall_8h.html#ac81c609ce0eb164ae139b71f4da8b5f5',1,'syscall.h']]],
+  ['x86_5feflags_5fdf_3',['X86_EFLAGS_DF',['../de/ddf/syscall_8h.html#a031369ca948abe3fc24c8746cbd1fa12',1,'syscall.h']]],
+  ['x86_5feflags_5fid_4',['X86_EFLAGS_ID',['../de/ddf/syscall_8h.html#a15ca3939de4b4f21670acba7f7f46151',1,'syscall.h']]],
+  ['x86_5feflags_5fif_5',['X86_EFLAGS_IF',['../de/ddf/syscall_8h.html#ad69b3572ef9dee9eaef3cf9e057dc496',1,'syscall.h']]],
+  ['x86_5feflags_5fiopl_6',['X86_EFLAGS_IOPL',['../de/ddf/syscall_8h.html#ab2a0502e75925b18669f361fb38394fe',1,'syscall.h']]],
+  ['x86_5feflags_5fnt_7',['X86_EFLAGS_NT',['../de/ddf/syscall_8h.html#aed1e6171ac36652f622da137d1d9e674',1,'syscall.h']]],
+  ['x86_5feflags_5fof_8',['X86_EFLAGS_OF',['../de/ddf/syscall_8h.html#a69a289d512b3ab18a66c80f6df996b24',1,'syscall.h']]],
+  ['x86_5feflags_5fpf_9',['X86_EFLAGS_PF',['../de/ddf/syscall_8h.html#abfaaa9a3ead6f99a171d1d9e0802eb12',1,'syscall.h']]],
+  ['x86_5feflags_5frf_10',['X86_EFLAGS_RF',['../de/ddf/syscall_8h.html#ac948330a4010f0a8ef9feb2c45fb9068',1,'syscall.h']]],
+  ['x86_5feflags_5fsf_11',['X86_EFLAGS_SF',['../de/ddf/syscall_8h.html#abf41a5e76ca7b0c1804f235f5735c758',1,'syscall.h']]],
+  ['x86_5feflags_5ftf_12',['X86_EFLAGS_TF',['../de/ddf/syscall_8h.html#ade02c441bd317b43d55798a4c4884d57',1,'syscall.h']]],
+  ['x86_5feflags_5fvif_13',['X86_EFLAGS_VIF',['../de/ddf/syscall_8h.html#a395199f852d18b0d181f3c7b76958844',1,'syscall.h']]],
+  ['x86_5feflags_5fvip_14',['X86_EFLAGS_VIP',['../de/ddf/syscall_8h.html#a7adb02ce3e90d2036c7f2e76f0d94e1c',1,'syscall.h']]],
+  ['x86_5feflags_5fvm_15',['X86_EFLAGS_VM',['../de/ddf/syscall_8h.html#af0525875c17da45559aa9f604c986bd0',1,'syscall.h']]],
+  ['x86_5feflags_5fzf_16',['X86_EFLAGS_ZF',['../de/ddf/syscall_8h.html#abe9b9048dc1b062c508fb73e1b6902d5',1,'syscall.h']]],
+  ['x_5fok_17',['X_OK',['../de/ddf/syscall_8h.html#a5e995ef7690698b62bf016b14fbc45ca',1,'syscall.h']]],
+  ['xhci_5ftimeout_5fms_18',['XHCI_TIMEOUT_MS',['../d0/d15/xhci_8c.html#ae45bab80ee7534c4af18a53a8f503fb9',1,'xhci.c']]],
+  ['xhci_5fusb2pr_19',['XHCI_USB2PR',['../d0/d15/xhci_8c.html#a66d97429f0acebec356fd77feef377aa',1,'xhci.c']]],
+  ['xhci_5fusb2pr_5fhcsel_20',['XHCI_USB2PR_HCSEL',['../d0/d15/xhci_8c.html#ab174fc272b37c3bb5e45f0974886ab17',1,'xhci.c']]],
+  ['xhci_5fusb2prm_21',['XHCI_USB2PRM',['../d0/d15/xhci_8c.html#aeab23ec6b34e4d90f5047b350dbedda7',1,'xhci.c']]]
+];

@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['store_5fjob_5fcreate_0',['STORE_JOB_CREATE',['../d1/d3b/userspace_2servers_2vfs_8c.html#a66c7d7a0425060df3837066f5e7e6e06a037aef37a84b7c8c6a4874eb4c8bd24b',1,'vfs.c']]],
+  ['store_5fjob_5fentries_1',['STORE_JOB_ENTRIES',['../d1/d3b/userspace_2servers_2vfs_8c.html#a66c7d7a0425060df3837066f5e7e6e06a4361190191a5281a5a645c40f20281fc',1,'vfs.c']]],
+  ['store_5fjob_5fheader_2',['STORE_JOB_HEADER',['../d1/d3b/userspace_2servers_2vfs_8c.html#a66c7d7a0425060df3837066f5e7e6e06a9de3b4e0f19799e6bbb7b85754e61201',1,'vfs.c']]],
+  ['store_5fjob_5ftrunc_3',['STORE_JOB_TRUNC',['../d1/d3b/userspace_2servers_2vfs_8c.html#a66c7d7a0425060df3837066f5e7e6e06a1f160235c7d952911bf0f26a1d599bc8',1,'vfs.c']]],
+  ['svc_5fcount_4',['SVC_COUNT',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a3a1ac6801beedfc0ed83c923564ae5c9',1,'router.h']]],
+  ['svc_5fepoll_5',['SVC_EPOLL',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a20273b219282f5da3ec9584fd52ae030',1,'router.h']]],
+  ['svc_5fevent_6',['SVC_EVENT',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3af709988d4f168fa61689380f61c8f2d8',1,'router.h']]],
+  ['svc_5fext_7',['SVC_EXT',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a6c0b825638cc6cb819ea458d02319e06',1,'router.h']]],
+  ['svc_5ffat_8',['SVC_FAT',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a7b57444302ec0e9cfb787dc0375436c0',1,'router.h']]],
+  ['svc_5ffs_9',['SVC_FS',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a0a9d58dae7a769b1a44edb3861ac54a0',1,'router.h']]],
+  ['svc_5fgpu_10',['SVC_GPU',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a0f0beabb59614a634b0053e01d2a48ea',1,'router.h']]],
+  ['svc_5fmemfd_11',['SVC_MEMFD',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3aa5d393afc3b50b05c1c3957fac9a7328',1,'router.h']]],
+  ['svc_5fmisc_12',['SVC_MISC',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a8f1b76d0f2eaee1dfa1b6059bdbe5f8e',1,'router.h']]],
+  ['svc_5fmm_13',['SVC_MM',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a29f0cfc8848ecc2506e8051ab90f9557',1,'router.h']]],
+  ['svc_5fnet_14',['SVC_NET',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a8ba425275b9cd9cd04b2518d7f12751e',1,'router.h']]],
+  ['svc_5fpipe_15',['SVC_PIPE',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a32f7b3edea095a35add03cb32edc7d2a',1,'router.h']]],
+  ['svc_5fproc_16',['SVC_PROC',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3afc6f59e65a3f15a6251ee6d11b32b419',1,'router.h']]],
+  ['svc_5fsignalfd_17',['SVC_SIGNALFD',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a7f57df9150bf1d3e53e9521d384f5c27',1,'router.h']]],
+  ['svc_5ftty_18',['SVC_TTY',['../da/db7/router_8h.html#a4c48cd22c9787f3a81d5726add3115f3a20db010bbfca479719f951c0ccc22618',1,'router.h']]]
+];
