@@ -573,6 +573,8 @@ static void gpu_console_reply(sys_ipc_msg_t *m, sys_ipc_msg_t *rep)
             rep->words[4] = desktop_active ? 1 : 0;
             rep->xfer[0] = (uint64_t)dup;
             rep->xfer_count = 1;
+            klogi("gpu: console surface desktop=%d %ux%u stride %u\n",
+                  (int)desktop_active, src->width, src->height, src->stride);
         }
     }
 

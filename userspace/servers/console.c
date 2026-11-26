@@ -16,6 +16,7 @@
  **-----------------------------------------------------------------------------
  */
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdint.h>
 
 #include <bootinfo.h>
@@ -655,62 +656,90 @@ static void status_tick(void)
 
 /* Ask the GPU server for the surface to draw. It returns a memory object with
  * the console sprite (desktop) or the primary scan-out (fallback). */
-static bool gpu_console_surface(const bootinfo_t *bi)
+static void clog(const char *fmt, ...)
 {
-    if (bi->gpu_ep == 0)
-        return false;
+    char b[192];
+    va_list ap;
+    int n;
 
-    int64_t rep = sys_ep_create();
-
-    if (rep < 0)
-        return false;
-
-    int64_t rep_send = sys_handle_dup(rep);
-
-    if (rep_send < 0) {
-        sys_handle_close(rep);
-        return false;
-    }
-
-    sys_ipc_msg_t m;
-
-    memset(&m, 0, sizeof(m));
-    m.tag = GPU_CONSOLE_SURFACE;
-    m.xfer[0] = (uint64_t)rep_send;
-    m.xfer_count = 1;
-
-    if (sys_ipc_send((int64_t)bi->gpu_ep, &m) != 0) {
-        sys_handle_close(rep);
-        return false;
-    }
-
-    sys_ipc_msg_t r;
-
-    memset(&r, 0, sizeof(r));
-    if (sys_ipc_recv_timeout(rep, &r, 2000) != 0
-        || (int64_t)r.words[0] != 0 || r.xfer_count < 1) {
-        sys_handle_close(rep);
-        return false;
-    }
-
-    int64_t memh = (int64_t)r.xfer[0];
-
-    if (sys_mem_map(memh, CONSOLE_SURFACE_ADDR, PROT_READ | PROT_WRITE | PROT_WC) != 0) {
-        sys_handle_close(memh);
-        sys_handle_close(rep);
-        return false;
-    }
-
-    fbio = (uint8_t *)CONSOLE_SURFACE_ADDR;
-    fb_w = (uint32_t)r.words[1];
-    fb_h = (uint32_t)r.words[2];
-    fb_pitch = (uint32_t)r.words[3];
-    console_desktop = r.words[4] != 0;
-    sys_handle_close(rep);
-    return true;
+    va_start(ap, fmt);
+    n = vsnprintf(b, sizeof(b), fmt, ap);
+    va_end(ap);
+    if (n > 0)
+        sys_libc_log(b);
 }
 
-int32_t main(void)
+static bool gpu_console_surface(const bootinfo_t *bi)
+{
+    /* The display server can crash and get restarted, which registers a new
+     * endpoint and clears the old one. Re-resolve the service every attempt
+     * and keep asking until the GPU hands over the console sprite. */
+    for (int attempt = 0; attempt < 12; attempt++) {
+        int64_t ep = sys_service_endpoint(9);
+
+        if (ep <= 0)
+            ep = (int64_t) bi->gpu_ep;
+        if (ep > 0) {
+            int64_t rep = sys_ep_create();
+
+            if (rep < 0)
+                return false;
+            int64_t rep_send = sys_handle_dup(rep);
+
+            if (rep_send < 0) {
+                sys_handle_close(rep);
+                return false;
+            }
+
+            sys_ipc_msg_t m;
+
+            memset(&m, 0, sizeof(m));
+            m.tag = GPU_CONSOLE_SURFACE;
+            m.xfer[0] = (uint64_t)rep_send;
+            m.xfer_count = 1;
+
+            if (sys_ipc_send(ep, &m) != 0) {
+                clog("console: surface send failed\n");
+                sys_handle_close(rep);
+            } else {
+                sys_ipc_msg_t r;
+                int32_t rc = sys_ipc_recv_timeout(rep, &r, 1500);
+
+                if (rc == 0 && (int64_t)r.words[0] == 0
+                    && r.xfer_count >= 1) {
+                    int64_t memh = (int64_t)r.xfer[0];
+
+                    if (sys_mem_map(memh, CONSOLE_SURFACE_ADDR,
+                                    PROT_READ | PROT_WRITE | PROT_WC) == 0) {
+                        fbio = (uint8_t *)CONSOLE_SURFACE_ADDR;
+                        fb_w = (uint32_t)r.words[1];
+                        fb_h = (uint32_t)r.words[2];
+                        fb_pitch = (uint32_t)r.words[3];
+                        console_desktop = r.words[4] != 0;
+                        clog("console: surface ok desktop=%d %ux%u after %d\n",
+                             (int)console_desktop, (unsigned)fb_w,
+                             (unsigned)fb_h, attempt);
+                        sys_handle_close(rep);
+                        return true;
+                    }
+                    clog("console: surface map failed\n");
+                    sys_handle_close(memh);
+                    sys_handle_close(rep);
+                } else {
+                    clog("console: surface wait %d rc=%d\n", attempt, (int)rc);
+                    sys_handle_close(rep);
+                }
+            }
+        }
+        {
+            struct timespec ts = { 0, 250 * 1000 * 1000 };
+
+            nanosleep(&ts, NULL);
+        }
+    }
+    clog("console: surface gave up\n");
+    return false;
+}int32_t main(void)
 {
     bootinfo_t bi;
 
@@ -726,6 +755,9 @@ int32_t main(void)
         console_desktop = bi.desktop != 0;
     }
     gen9 = bi.gpu_gen9 != 0;
+    clog("console: gen9=%d desktop=%d %ux%u pitch=%u\n", (int)gen9,
+         (int)console_desktop, (unsigned)fb_w, (unsigned)fb_h,
+         (unsigned)fb_pitch);
 
     /* The terminal grid fills the middle four fifths; the margins show the
      * background. */

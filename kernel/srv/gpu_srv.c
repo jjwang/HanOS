@@ -163,8 +163,14 @@ static void gpu_spawn_attach(process_t *tc)
 
 bool gpu_server_start(void)
 {
-    if (gpu_active)
+    /* Return early only while the server is both marked up and still routed.
+     * Once the owner exits the router clears SVC_GPU, so this path must
+     * create a fresh endpoint and respawn instead of leaving the service
+     * unregistered. */
+    if (gpu_active && router_lookup(SVC_GPU) != NULL)
         return true;
+
+    gpu_active = false;
 
     if (!gfx_boot_device(&gpu_device)) {
         klogi("gpu: no supported Intel display device\n");
